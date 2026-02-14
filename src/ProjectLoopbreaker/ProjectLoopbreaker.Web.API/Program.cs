@@ -27,16 +27,26 @@ builder.Services.AddCors(options =>
         if (builder.Environment.IsDevelopment() || builder.Environment.EnvironmentName == "Demo")
         {
             // Development/Demo: Allow localhost on common frontend ports
-            policy.WithOrigins(
-                      "http://localhost:3000",    // React default
-                      "https://localhost:3000",   // React HTTPS
-                      "http://localhost:5173",    // Vite default
-                      "https://localhost:5173",   // Vite HTTPS
-                      "http://localhost:5174",    // Vite alternate port
-                      "https://localhost:5174",   // Vite alternate port HTTPS
-                      "http://localhost:4200",    // Angular default
-                      "https://localhost:4200"    // Angular HTTPS
-                  )
+            var devOrigins = new List<string>
+            {
+                "http://localhost:3000",    // React default
+                "https://localhost:3000",   // React HTTPS
+                "http://localhost:5173",    // Vite default
+                "https://localhost:5173",   // Vite HTTPS
+                "http://localhost:5174",    // Vite alternate port
+                "https://localhost:5174",   // Vite alternate port HTTPS
+                "http://localhost:4200",    // Angular default
+                "https://localhost:4200"    // Angular HTTPS
+            };
+
+            // In Demo environment, also allow the deployed demo frontend URL
+            var frontendUrl = Environment.GetEnvironmentVariable("FRONTEND_URL");
+            if (!string.IsNullOrEmpty(frontendUrl))
+            {
+                devOrigins.Add(frontendUrl);
+            }
+
+            policy.WithOrigins(devOrigins.ToArray())
                   .AllowAnyHeader()
                   .AllowAnyMethod()
                   .AllowCredentials();  // Required for HttpOnly cookies (JWT refresh tokens)
