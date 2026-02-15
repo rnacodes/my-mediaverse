@@ -46,6 +46,14 @@ builder.Services.AddCors(options =>
                 devOrigins.Add(frontendUrl);
             }
 
+            // Allow production frontend to make cross-origin requests to demo API
+            // (needed for the DemoUnlockPage admin panel on the production site)
+            var additionalOrigins = Environment.GetEnvironmentVariable("ADDITIONAL_CORS_ORIGINS");
+            if (!string.IsNullOrEmpty(additionalOrigins))
+            {
+                devOrigins.AddRange(additionalOrigins.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+            }
+
             policy.WithOrigins(devOrigins.ToArray())
                   .AllowAnyHeader()
                   .AllowAnyMethod()

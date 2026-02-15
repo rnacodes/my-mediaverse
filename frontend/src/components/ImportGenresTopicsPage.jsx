@@ -26,7 +26,7 @@ function ImportGenresTopicsPage() {
 
     const handleFileUpload = (event) => {
         const uploadedFile = event.target.files[0];
-        if (uploadedFile && uploadedFile.type === 'text/csv') {
+        if (uploadedFile && uploadedFile.name.toLowerCase().endsWith('.csv')) {
             setFile(uploadedFile);
             setImportResults(null);
         } else {
