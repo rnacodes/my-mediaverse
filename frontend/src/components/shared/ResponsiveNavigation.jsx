@@ -111,7 +111,6 @@ const ResponsiveNavigation = () => {
   const navigationItems = [
     { text: 'Home', path: '/', icon: <Home /> },
     { text: 'Search', path: '/search', icon: <Search /> },
-    { text: 'Search by Vibe', path: '/search-by-vibe', icon: <AutoAwesome /> },
     { text: 'Topics and Genres', path: '/search-by-topic-genre', icon: <Category /> },
     { text: 'Mixlists', path: '/search?searchMode=mixlists', icon: <QueueMusic /> }
   ];
@@ -120,16 +119,13 @@ const ResponsiveNavigation = () => {
     { text: 'Articles', path: '/search?mediaType=Article', icon: <Article /> },
     { text: 'Books', path: '/search?mediaType=Book', icon: <Book /> },
     { text: 'Channels', path: '/search?mediaType=Channel', icon: <YouTube /> },
-    { text: 'Documents', path: '/search?mediaType=Document', icon: <Description /> },
     { text: 'Highlights', path: '/search?mediaType=Highlight', icon: <FormatQuote /> },
     { text: 'Movies', path: '/search?mediaType=Movie', icon: <Movie /> },
-    { text: 'Music', path: '/search?mediaType=Music', icon: <MusicNote /> },
     { text: 'Notes', path: '/notes', icon: <NoteIcon /> },
     { text: 'Playlists', path: '/search?mediaType=Playlist', icon: <VideoLibrary /> },
     { text: 'Podcasts', path: '/search?mediaType=Podcast', icon: <Podcasts /> },
     { text: 'TV Shows', path: '/search?mediaType=TVShow', icon: <Tv /> },
     { text: 'Videos', path: '/search?mediaType=Video', icon: <VideoLibrary /> },
-    { text: 'Video Games', path: '/search?mediaType=VideoGame', icon: <SportsEsports /> },
     { text: 'Websites', path: '/search?mediaType=Website', icon: <Language /> }
   ];
 

@@ -76,13 +76,13 @@ namespace ProjectLoopbreaker.IntegrationTests.Controllers
         }
 
         [Fact]
-        public async Task UnlockDemoWriteAccess_WithNoCode_InNonDemoEnvironment_ReturnsNotFound()
+        public async Task UnlockDemoWriteAccess_WithNoCode_InNonDemoEnvironment_ReturnsBadRequest()
         {
             // Act
             var response = await _client.GetAsync("/api/demo/unlock");
 
-            // Assert - Returns NotFound because environment check happens before code validation
-            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+            // Assert - Returns BadRequest because model binding rejects missing required 'code' parameter
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
         #endregion

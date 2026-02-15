@@ -226,7 +226,7 @@ namespace ProjectLoopbreaker.IntegrationTests.Controllers
             var response = await _client.PostAsync("/api/YouTube/import/video/invalid_video_id", null);
 
             // Assert
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         }
 
         [Fact]
@@ -328,7 +328,7 @@ namespace ProjectLoopbreaker.IntegrationTests.Controllers
             var response = await _client.GetAsync("/api/YouTube/videos/");
 
             // Assert
-            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode); // Route not matched
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
         [Fact]

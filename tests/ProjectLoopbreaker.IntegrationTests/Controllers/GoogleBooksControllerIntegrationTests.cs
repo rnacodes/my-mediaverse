@@ -143,7 +143,8 @@ namespace ProjectLoopbreaker.IntegrationTests.Controllers
                 var content = await response.Content.ReadAsStringAsync();
                 var bookResponse = JsonSerializer.Deserialize<BookResponseDto>(content, new JsonSerializerOptions
                 {
-                    PropertyNameCaseInsensitive = true
+                    PropertyNameCaseInsensitive = true,
+                    Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
                 });
 
                 Assert.NotNull(bookResponse);

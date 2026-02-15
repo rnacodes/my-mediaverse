@@ -217,7 +217,8 @@ namespace ProjectLoopbreaker.Web.API.Controllers
             try
             {
                 var book = await _bookService.UpdateBookAsync(id, dto);
-                return NoContent();
+                var response = await _bookMappingService.MapToResponseDtoAsync(book);
+                return Ok(response);
             }
             catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
             {

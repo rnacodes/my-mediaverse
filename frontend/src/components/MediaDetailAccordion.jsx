@@ -1610,7 +1610,6 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
         )}
         </AccordionDetails>
       </Accordion>
-    </Card>
 
       {/* Channel Selection Dialog */}
       <Dialog
@@ -1648,6 +1647,7 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
           )}
         </DialogContent>
       </Dialog>
+    </Card>
   );
 }
 

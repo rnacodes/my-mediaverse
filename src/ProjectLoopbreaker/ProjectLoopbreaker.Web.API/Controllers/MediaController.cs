@@ -240,12 +240,12 @@ namespace ProjectLoopbreaker.Web.API.Controllers
             }
         }
 
-        private async Task<Podcast> CreatePodcastAsync(CreateMediaItemDto dto)
+        private async Task<PodcastSeries> CreatePodcastAsync(CreateMediaItemDto dto)
         {
-            var podcast = new Podcast
+            var podcast = new PodcastSeries
             {
                 Title = dto.Title,
-                MediaType = dto.MediaType,
+                MediaType = MediaType.Podcast,
                 Link = dto.Link,
                 Notes = dto.Notes,
                 Status = dto.Status,
@@ -255,8 +255,7 @@ namespace ProjectLoopbreaker.Web.API.Controllers
                 OwnershipStatus = dto.OwnershipStatus,
                 Description = dto.Description,
                 RelatedNotes = dto.RelatedNotes,
-                Thumbnail = dto.Thumbnail,
-                PodcastType = PodcastType.Series // Default to Series for now
+                Thumbnail = dto.Thumbnail
             };
 
             // Use helper methods to add Topics and Genres with proper change tracking

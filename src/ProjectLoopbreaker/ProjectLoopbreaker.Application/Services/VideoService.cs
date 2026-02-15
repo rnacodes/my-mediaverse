@@ -228,47 +228,63 @@ namespace ProjectLoopbreaker.Application.Services
                 video.LengthInSeconds = dto.LengthInSeconds;
                 video.ExternalId = dto.ExternalId;
 
-                // Update Topics
+                // Clear existing topics and genres and save immediately to avoid FK conflicts
                 video.Topics.Clear();
+                video.Genres.Clear();
+                _context.ClearChangeTracker();
+                _context.Update(video);
+                await _context.SaveChangesAsync();
+
+                // Add new Topics
                 if (dto.Topics?.Length > 0)
                 {
                     foreach (var topicName in dto.Topics.Where(t => !string.IsNullOrWhiteSpace(t)))
                     {
                         var normalizedTopicName = topicName.Trim().ToLowerInvariant();
-                        var existingTopic = await _context.Topics.FirstOrDefaultAsync(t => t.Name == normalizedTopicName);
-                        if (existingTopic != null)
+                        var topic = await _context.Topics
+                            .AsNoTracking()
+                            .FirstOrDefaultAsync(t => t.Name == normalizedTopicName);
+
+                        if (topic == null)
                         {
-                            video.Topics.Add(existingTopic);
+                            topic = new Topic { Name = normalizedTopicName };
+                            _context.Add(topic);
+                            await _context.SaveChangesAsync();
                         }
-                        else
+
+                        var trackedTopic = await _context.Topics.FirstOrDefaultAsync(t => t.Id == topic.Id);
+                        if (trackedTopic != null && !video.Topics.Any(t => t.Id == trackedTopic.Id))
                         {
-                            video.Topics.Add(new Topic { Name = normalizedTopicName });
+                            video.Topics.Add(trackedTopic);
                         }
                     }
                 }
 
-                // Update Genres
-                video.Genres.Clear();
+                // Add new Genres
                 if (dto.Genres?.Length > 0)
                 {
                     foreach (var genreName in dto.Genres.Where(g => !string.IsNullOrWhiteSpace(g)))
                     {
                         var normalizedGenreName = genreName.Trim().ToLowerInvariant();
-                        var existingGenre = await _context.Genres.FirstOrDefaultAsync(g => g.Name == normalizedGenreName);
-                        if (existingGenre != null)
+                        var genre = await _context.Genres
+                            .AsNoTracking()
+                            .FirstOrDefaultAsync(g => g.Name == normalizedGenreName);
+
+                        if (genre == null)
                         {
-                            video.Genres.Add(existingGenre);
+                            genre = new Genre { Name = normalizedGenreName };
+                            _context.Add(genre);
+                            await _context.SaveChangesAsync();
                         }
-                        else
+
+                        var trackedGenre = await _context.Genres.FirstOrDefaultAsync(g => g.Id == genre.Id);
+                        if (trackedGenre != null && !video.Genres.Any(g => g.Id == trackedGenre.Id))
                         {
-                            video.Genres.Add(new Genre { Name = normalizedGenreName });
+                            video.Genres.Add(trackedGenre);
                         }
                     }
                 }
 
-                // Clear change tracker and explicitly update the entity since it was retrieved with AsNoTracking
-                _context.ClearChangeTracker();
-                _context.Update(video);
                 await _context.SaveChangesAsync();
 
                 // Re-index in Typesense after successful update

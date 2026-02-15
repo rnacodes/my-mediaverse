@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
@@ -17,11 +18,20 @@ namespace ProjectLoopbreaker.IntegrationTests.Controllers
     {
         private readonly WebApplicationFactory _factory;
         private readonly HttpClient _client;
+        private readonly JsonSerializerOptions _jsonOptions;
 
         public TmdbControllerIntegrationTests(WebApplicationFactory factory)
         {
             _factory = factory;
             _client = _factory.CreateClient();
+            _jsonOptions = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                Converters = { new JsonStringEnumConverter() },
+                ReferenceHandler = ReferenceHandler.IgnoreCycles,
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+            };
         }
 
         #region Search Endpoint Tests
@@ -142,7 +152,7 @@ namespace ProjectLoopbreaker.IntegrationTests.Controllers
 
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.Created);
-            var movie = await response.Content.ReadFromJsonAsync<Movie>();
+            var movie = await response.Content.ReadFromJsonAsync<Movie>(_jsonOptions);
             movie.Should().NotBeNull();
             movie!.Title.Should().Be("Inception");
             movie.ReleaseYear.Should().Be(2010);
@@ -180,7 +190,7 @@ namespace ProjectLoopbreaker.IntegrationTests.Controllers
 
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.Created);
-            var tvShow = await response.Content.ReadFromJsonAsync<TvShow>();
+            var tvShow = await response.Content.ReadFromJsonAsync<TvShow>(_jsonOptions);
             tvShow.Should().NotBeNull();
             tvShow!.Title.Should().Be("Game of Thrones");
             tvShow.FirstAirYear.Should().Be(2011);

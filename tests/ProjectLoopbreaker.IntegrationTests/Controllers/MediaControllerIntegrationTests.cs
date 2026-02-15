@@ -226,12 +226,12 @@ namespace ProjectLoopbreaker.IntegrationTests.Controllers
         #region POST Tests - Unsupported Types
 
         [Fact]
-        public async Task CreateMediaItem_WithUnsupportedType_ShouldReturnError()
+        public async Task CreateMediaItem_WithMovieType_ShouldReturnCreated()
         {
-            // Arrange - Try to create a Movie through Media controller (should use Movie controller)
+            // Arrange - Movies can be created through the Media controller
             var createDto = new CreateMediaItemDto
             {
-                Title = "Unsupported Media Type",
+                Title = "Test Movie via Media Controller",
                 MediaType = MediaType.Movie,
                 Status = Status.Uncharted
             };
@@ -246,8 +246,12 @@ namespace ProjectLoopbreaker.IntegrationTests.Controllers
             var response = await _client.PostAsync("/api/media", content);
 
             // Assert
-            // Should return 500 with NotSupportedException message
-            Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+            var responseContent = await response.Content.ReadAsStringAsync();
+            var createdMedia = JsonSerializer.Deserialize<MediaItemResponseDto>(responseContent, _jsonOptions);
+            Assert.NotNull(createdMedia);
+            Assert.Equal(MediaType.Movie, createdMedia.MediaType);
         }
 
         #endregion

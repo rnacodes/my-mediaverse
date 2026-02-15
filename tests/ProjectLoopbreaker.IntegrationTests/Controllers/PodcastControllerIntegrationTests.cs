@@ -29,32 +29,13 @@ namespace ProjectLoopbreaker.IntegrationTests.Controllers
             {
                 PropertyNameCaseInsensitive = true,
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                // Add JsonStringEnumConverter to match API's expectation of string enums
                 Converters = { new JsonStringEnumConverter() },
                 ReferenceHandler = ReferenceHandler.IgnoreCycles,
                 DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
             };
         }
 
-        [Fact]
-        public async Task GetAllPodcasts_ShouldReturnOk()
-        {
-            // Act
-            var response = await _client.GetAsync("/api/podcast");
-
-            // Assert
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
-            var content = await response.Content.ReadAsStringAsync();
-            
-            // DEBUG: Print the actual JSON response
-            Console.WriteLine("=== RAW API RESPONSE ===");
-            Console.WriteLine(content);
-            Console.WriteLine("=== END RAW RESPONSE ===");
-            
-            var podcasts = JsonSerializer.Deserialize<List<PodcastResponseDto>>(content, _jsonOptions);
-            Assert.NotNull(podcasts);
-        }
+        #region GET Tests
 
         [Fact]
         public async Task GetPodcastSeries_ShouldReturnOk()
@@ -64,10 +45,24 @@ namespace ProjectLoopbreaker.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var content = await response.Content.ReadAsStringAsync();
-            var series = JsonSerializer.Deserialize<List<object>>(content, _jsonOptions);
+            var series = JsonSerializer.Deserialize<List<PodcastSeriesResponseDto>>(content, _jsonOptions);
             Assert.NotNull(series);
+        }
+
+        [Fact]
+        public async Task GetAllPodcastEpisodes_ShouldReturnOk()
+        {
+            // Act
+            var response = await _client.GetAsync("/api/podcast/episodes");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+            var content = await response.Content.ReadAsStringAsync();
+            var episodes = JsonSerializer.Deserialize<List<PodcastEpisodeResponseDto>>(content, _jsonOptions);
+            Assert.NotNull(episodes);
         }
 
         [Fact]
@@ -78,9 +73,9 @@ namespace ProjectLoopbreaker.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var content = await response.Content.ReadAsStringAsync();
-            var results = JsonSerializer.Deserialize<List<object>>(content, _jsonOptions);
+            var results = JsonSerializer.Deserialize<List<PodcastSeriesResponseDto>>(content, _jsonOptions);
             Assert.NotNull(results);
         }
 
@@ -95,73 +90,123 @@ namespace ProjectLoopbreaker.IntegrationTests.Controllers
         }
 
         [Fact]
-        public async Task CreatePodcast_WithValidData_ShouldReturnCreated()
+        public async Task GetPodcastSeries_WithValidId_ShouldReturnOk()
+        {
+            // Arrange - Create a series first
+            var createDto = new CreatePodcastSeriesDto
+            {
+                Title = "Test Podcast Series for Get",
+                Publisher = "Test Publisher",
+                Status = Status.Uncharted
+            };
+
+            var json = JsonSerializer.Serialize(createDto, _jsonOptions);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            var createResponse = await _client.PostAsync("/api/podcast/series", content);
+
+            Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+            var createResponseContent = await createResponse.Content.ReadAsStringAsync();
+            var createdSeries = JsonSerializer.Deserialize<PodcastSeriesResponseDto>(createResponseContent, _jsonOptions);
+
+            // Act
+            var response = await _client.GetAsync($"/api/podcast/series/{createdSeries.Id}");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+            var responseContent = await response.Content.ReadAsStringAsync();
+            var retrievedSeries = JsonSerializer.Deserialize<PodcastSeriesResponseDto>(responseContent, _jsonOptions);
+            Assert.NotNull(retrievedSeries);
+            Assert.Equal(createdSeries.Id, retrievedSeries.Id);
+            Assert.Equal("Test Podcast Series for Get", retrievedSeries.Title);
+        }
+
+        [Fact]
+        public async Task GetPodcastSeries_WithInvalidId_ShouldReturnNotFound()
         {
             // Arrange
-            var createDto = new CreatePodcastDto
+            var invalidId = Guid.NewGuid();
+
+            // Act
+            var response = await _client.GetAsync($"/api/podcast/series/{invalidId}");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
+
+        #endregion
+
+        #region POST Tests - Series
+
+        [Fact]
+        public async Task CreatePodcastSeries_WithValidData_ShouldReturnCreated()
+        {
+            // Arrange
+            var createDto = new CreatePodcastSeriesDto
             {
-                Title = "Integration Test Podcast",
-                PodcastType = PodcastType.Series,
+                Title = "Integration Test Podcast Series",
                 Publisher = "Test Publisher",
                 Status = Status.Uncharted,
-                Description = "A test podcast for integration testing"
+                Description = "A test podcast series for integration testing"
             };
 
             var json = JsonSerializer.Serialize(createDto, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             // Act
-            var response = await _client.PostAsync("/api/podcast", content);
+            var response = await _client.PostAsync("/api/podcast/series", content);
 
             // Assert
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-            
+
             var responseContent = await response.Content.ReadAsStringAsync();
-            var createdPodcast = JsonSerializer.Deserialize<PodcastResponseDto>(responseContent, _jsonOptions);
-            Assert.NotNull(createdPodcast);
-            Assert.Equal("Integration Test Podcast", createdPodcast.Title);
-            Assert.Equal(PodcastType.Series, createdPodcast.PodcastType);
+            var createdSeries = JsonSerializer.Deserialize<PodcastSeriesResponseDto>(responseContent, _jsonOptions);
+            Assert.NotNull(createdSeries);
+            Assert.Equal("Integration Test Podcast Series", createdSeries.Title);
+            Assert.Equal("Series", createdSeries.PodcastType);
         }
 
         [Fact]
-        public async Task CreatePodcast_WithNullData_ShouldReturnBadRequest()
+        public async Task CreatePodcastSeries_WithNullData_ShouldReturnBadRequest()
         {
             // Arrange
             var content = new StringContent("null", Encoding.UTF8, "application/json");
 
             // Act
-            var response = await _client.PostAsync("/api/podcast", content);
+            var response = await _client.PostAsync("/api/podcast/series", content);
 
             // Assert
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
+        #endregion
+
+        #region POST Tests - Episodes
+
         [Fact]
         public async Task CreatePodcastEpisode_WithValidData_ShouldReturnCreated()
         {
             // Arrange - First create a series
-            var seriesDto = new CreatePodcastDto
+            var seriesDto = new CreatePodcastSeriesDto
             {
                 Title = "Parent Series for Episode Test",
-                PodcastType = PodcastType.Series,
                 Publisher = "Test Publisher",
                 Status = Status.Uncharted
             };
 
             var seriesJson = JsonSerializer.Serialize(seriesDto, _jsonOptions);
             var seriesContent = new StringContent(seriesJson, Encoding.UTF8, "application/json");
-            var seriesResponse = await _client.PostAsync("/api/podcast", seriesContent);
-            
+            var seriesResponse = await _client.PostAsync("/api/podcast/series", seriesContent);
+
             Assert.Equal(HttpStatusCode.Created, seriesResponse.StatusCode);
             var seriesResponseContent = await seriesResponse.Content.ReadAsStringAsync();
-            var createdSeries = JsonSerializer.Deserialize<PodcastResponseDto>(seriesResponseContent, _jsonOptions);
+            var createdSeries = JsonSerializer.Deserialize<PodcastSeriesResponseDto>(seriesResponseContent, _jsonOptions);
 
             // Now create an episode
-            var episodeDto = new CreatePodcastDto
+            var episodeDto = new CreatePodcastEpisodeDto
             {
                 Title = "Integration Test Episode",
-                PodcastType = PodcastType.Series, // This should be overridden to Episode
-                ParentPodcastId = createdSeries.Id,
+                SeriesId = createdSeries.Id,
                 Status = Status.Uncharted,
                 Description = "A test episode for integration testing"
             };
@@ -170,143 +215,101 @@ namespace ProjectLoopbreaker.IntegrationTests.Controllers
             var episodeContent = new StringContent(episodeJson, Encoding.UTF8, "application/json");
 
             // Act
-            var response = await _client.PostAsync("/api/podcast/episode", episodeContent);
+            var response = await _client.PostAsync("/api/podcast/episodes", episodeContent);
 
             // Assert
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-            
+
             var responseContent = await response.Content.ReadAsStringAsync();
-            var createdEpisode = JsonSerializer.Deserialize<PodcastResponseDto>(responseContent, _jsonOptions);
+            var createdEpisode = JsonSerializer.Deserialize<PodcastEpisodeResponseDto>(responseContent, _jsonOptions);
             Assert.NotNull(createdEpisode);
             Assert.Equal("Integration Test Episode", createdEpisode.Title);
-            Assert.Equal(PodcastType.Episode, createdEpisode.PodcastType);
-            Assert.Equal(createdSeries.Id, createdEpisode.ParentPodcastId);
-        }
-
-        [Fact]
-        public async Task GetPodcast_WithValidId_ShouldReturnOk()
-        {
-            // Arrange - Create a podcast first
-            var createDto = new CreatePodcastDto
-            {
-                Title = "Test Podcast for Get",
-                PodcastType = PodcastType.Series,
-                Status = Status.Uncharted
-            };
-
-            var json = JsonSerializer.Serialize(createDto, _jsonOptions);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-            var createResponse = await _client.PostAsync("/api/podcast", content);
-            
-            var createResponseContent = await createResponse.Content.ReadAsStringAsync();
-            var createdPodcast = JsonSerializer.Deserialize<Podcast>(createResponseContent, _jsonOptions);
-
-            // Act
-            var response = await _client.GetAsync($"/api/podcast/{createdPodcast.Id}");
-
-            // Assert
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
-            var responseContent = await response.Content.ReadAsStringAsync();
-            var retrievedPodcast = JsonSerializer.Deserialize<PodcastResponseDto>(responseContent, _jsonOptions);
-            Assert.NotNull(retrievedPodcast);
-            Assert.Equal(createdPodcast.Id, retrievedPodcast.Id);
-            Assert.Equal("Test Podcast for Get", retrievedPodcast.Title);
-        }
-
-        [Fact]
-        public async Task GetPodcast_WithInvalidId_ShouldReturnNotFound()
-        {
-            // Arrange
-            var invalidId = Guid.NewGuid();
-
-            // Act
-            var response = await _client.GetAsync($"/api/podcast/{invalidId}");
-
-            // Assert
-            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+            Assert.Equal(createdSeries.Id, createdEpisode.SeriesId);
         }
 
         [Fact]
         public async Task GetEpisodesBySeriesId_WithValidSeriesId_ShouldReturnOk()
         {
             // Arrange - Create a series and episode
-            var seriesDto = new CreatePodcastDto
+            var seriesDto = new CreatePodcastSeriesDto
             {
                 Title = "Series for Episodes Test",
-                PodcastType = PodcastType.Series,
                 Status = Status.Uncharted
             };
 
             var seriesJson = JsonSerializer.Serialize(seriesDto, _jsonOptions);
             var seriesContent = new StringContent(seriesJson, Encoding.UTF8, "application/json");
-            var seriesResponse = await _client.PostAsync("/api/podcast", seriesContent);
-            
-            var seriesResponseContent = await seriesResponse.Content.ReadAsStringAsync();
-            var createdSeries = JsonSerializer.Deserialize<PodcastResponseDto>(seriesResponseContent, _jsonOptions);
+            var seriesResponse = await _client.PostAsync("/api/podcast/series", seriesContent);
 
-            var episodeDto = new CreatePodcastDto
+            Assert.Equal(HttpStatusCode.Created, seriesResponse.StatusCode);
+            var seriesResponseContent = await seriesResponse.Content.ReadAsStringAsync();
+            var createdSeries = JsonSerializer.Deserialize<PodcastSeriesResponseDto>(seriesResponseContent, _jsonOptions);
+
+            var episodeDto = new CreatePodcastEpisodeDto
             {
                 Title = "Episode for Series Test",
-                PodcastType = PodcastType.Episode,
-                ParentPodcastId = createdSeries.Id,
+                SeriesId = createdSeries.Id,
                 Status = Status.Uncharted
             };
 
             var episodeJson = JsonSerializer.Serialize(episodeDto, _jsonOptions);
             var episodeContent = new StringContent(episodeJson, Encoding.UTF8, "application/json");
-            await _client.PostAsync("/api/podcast/episode", episodeContent);
+            await _client.PostAsync("/api/podcast/episodes", episodeContent);
 
             // Act
             var response = await _client.GetAsync($"/api/podcast/series/{createdSeries.Id}/episodes");
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var responseContent = await response.Content.ReadAsStringAsync();
-            var episodes = JsonSerializer.Deserialize<List<PodcastResponseDto>>(responseContent, _jsonOptions);
+            var episodes = JsonSerializer.Deserialize<List<PodcastEpisodeResponseDto>>(responseContent, _jsonOptions);
             Assert.NotNull(episodes);
             Assert.Single(episodes);
             Assert.Equal("Episode for Series Test", episodes[0].Title);
         }
 
+        #endregion
+
+        #region DELETE Tests
+
         [Fact]
-        public async Task DeletePodcast_WithValidId_ShouldReturnNoContent()
+        public async Task DeletePodcastSeries_WithValidId_ShouldReturnNoContent()
         {
-            // Arrange - Create a podcast first
-            var createDto = new CreatePodcastDto
+            // Arrange - Create a series first
+            var createDto = new CreatePodcastSeriesDto
             {
-                Title = "Test Podcast for Delete",
-                PodcastType = PodcastType.Series,
+                Title = "Test Podcast Series for Delete",
                 Status = Status.Uncharted
             };
 
             var json = JsonSerializer.Serialize(createDto, _jsonOptions);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
-            var createResponse = await _client.PostAsync("/api/podcast", content);
-            
+            var createResponse = await _client.PostAsync("/api/podcast/series", content);
+
+            Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
             var createResponseContent = await createResponse.Content.ReadAsStringAsync();
-            var createdPodcast = JsonSerializer.Deserialize<Podcast>(createResponseContent, _jsonOptions);
+            var createdSeries = JsonSerializer.Deserialize<PodcastSeriesResponseDto>(createResponseContent, _jsonOptions);
 
             // Act
-            var response = await _client.DeleteAsync($"/api/podcast/{createdPodcast.Id}");
+            var response = await _client.DeleteAsync($"/api/podcast/series/{createdSeries.Id}");
 
             // Assert
             Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
 
             // Verify it's actually deleted
-            var getResponse = await _client.GetAsync($"/api/podcast/{createdPodcast.Id}");
+            var getResponse = await _client.GetAsync($"/api/podcast/series/{createdSeries.Id}");
             Assert.Equal(HttpStatusCode.NotFound, getResponse.StatusCode);
         }
 
         [Fact]
-        public async Task DeletePodcast_WithInvalidId_ShouldReturnNotFound()
+        public async Task DeletePodcastSeries_WithInvalidId_ShouldReturnNotFound()
         {
             // Arrange
             var invalidId = Guid.NewGuid();
 
             // Act
-            var response = await _client.DeleteAsync($"/api/podcast/{invalidId}");
+            var response = await _client.DeleteAsync($"/api/podcast/series/{invalidId}");
 
             // Assert
             Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
@@ -316,66 +319,70 @@ namespace ProjectLoopbreaker.IntegrationTests.Controllers
         public async Task DeletePodcastSeries_ShouldDeleteSeriesAndEpisodes()
         {
             // Arrange - Create a series with episodes
-            var seriesDto = new CreatePodcastDto
+            var seriesDto = new CreatePodcastSeriesDto
             {
                 Title = "Series to Delete with Episodes",
-                PodcastType = PodcastType.Series,
                 Status = Status.Uncharted
             };
 
             var seriesJson = JsonSerializer.Serialize(seriesDto, _jsonOptions);
             var seriesContent = new StringContent(seriesJson, Encoding.UTF8, "application/json");
-            var seriesResponse = await _client.PostAsync("/api/podcast", seriesContent);
-            
+            var seriesResponse = await _client.PostAsync("/api/podcast/series", seriesContent);
+
+            Assert.Equal(HttpStatusCode.Created, seriesResponse.StatusCode);
             var seriesResponseContent = await seriesResponse.Content.ReadAsStringAsync();
-            var createdSeries = JsonSerializer.Deserialize<PodcastResponseDto>(seriesResponseContent, _jsonOptions);
+            var createdSeries = JsonSerializer.Deserialize<PodcastSeriesResponseDto>(seriesResponseContent, _jsonOptions);
 
             // Create episodes
-            var episode1Dto = new CreatePodcastDto
+            var episode1Dto = new CreatePodcastEpisodeDto
             {
                 Title = "Episode 1 to Delete",
-                PodcastType = PodcastType.Episode,
-                ParentPodcastId = createdSeries.Id,
+                SeriesId = createdSeries.Id,
                 Status = Status.Uncharted
             };
 
-            var episode2Dto = new CreatePodcastDto
+            var episode2Dto = new CreatePodcastEpisodeDto
             {
                 Title = "Episode 2 to Delete",
-                PodcastType = PodcastType.Episode,
-                ParentPodcastId = createdSeries.Id,
+                SeriesId = createdSeries.Id,
                 Status = Status.Uncharted
             };
 
             var episode1Json = JsonSerializer.Serialize(episode1Dto, _jsonOptions);
             var episode1Content = new StringContent(episode1Json, Encoding.UTF8, "application/json");
-            var episode1Response = await _client.PostAsync("/api/podcast/episode", episode1Content);
+            var episode1Response = await _client.PostAsync("/api/podcast/episodes", episode1Content);
+            Assert.Equal(HttpStatusCode.Created, episode1Response.StatusCode);
             var episode1ResponseContent = await episode1Response.Content.ReadAsStringAsync();
-            var createdEpisode1 = JsonSerializer.Deserialize<PodcastResponseDto>(episode1ResponseContent, _jsonOptions);
+            var createdEpisode1 = JsonSerializer.Deserialize<PodcastEpisodeResponseDto>(episode1ResponseContent, _jsonOptions);
 
             var episode2Json = JsonSerializer.Serialize(episode2Dto, _jsonOptions);
             var episode2Content = new StringContent(episode2Json, Encoding.UTF8, "application/json");
-            var episode2Response = await _client.PostAsync("/api/podcast/episode", episode2Content);
+            var episode2Response = await _client.PostAsync("/api/podcast/episodes", episode2Content);
+            Assert.Equal(HttpStatusCode.Created, episode2Response.StatusCode);
             var episode2ResponseContent = await episode2Response.Content.ReadAsStringAsync();
-            var createdEpisode2 = JsonSerializer.Deserialize<PodcastResponseDto>(episode2ResponseContent, _jsonOptions);
+            var createdEpisode2 = JsonSerializer.Deserialize<PodcastEpisodeResponseDto>(episode2ResponseContent, _jsonOptions);
 
             // Act - Delete the series
-            var deleteResponse = await _client.DeleteAsync($"/api/podcast/{createdSeries.Id}");
+            var deleteResponse = await _client.DeleteAsync($"/api/podcast/series/{createdSeries.Id}");
 
             // Assert
             Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
 
             // Verify series is deleted
-            var getSeriesResponse = await _client.GetAsync($"/api/podcast/{createdSeries.Id}");
+            var getSeriesResponse = await _client.GetAsync($"/api/podcast/series/{createdSeries.Id}");
             Assert.Equal(HttpStatusCode.NotFound, getSeriesResponse.StatusCode);
 
             // Verify episodes are also deleted
-            var getEpisode1Response = await _client.GetAsync($"/api/podcast/{createdEpisode1.Id}");
+            var getEpisode1Response = await _client.GetAsync($"/api/podcast/episodes/{createdEpisode1.Id}");
             Assert.Equal(HttpStatusCode.NotFound, getEpisode1Response.StatusCode);
 
-            var getEpisode2Response = await _client.GetAsync($"/api/podcast/{createdEpisode2.Id}");
+            var getEpisode2Response = await _client.GetAsync($"/api/podcast/episodes/{createdEpisode2.Id}");
             Assert.Equal(HttpStatusCode.NotFound, getEpisode2Response.StatusCode);
         }
+
+        #endregion
+
+        #region Import Tests
 
         [Fact]
         public async Task ImportPodcastByName_WithEmptyName_ShouldReturnBadRequest()
@@ -386,29 +393,12 @@ namespace ProjectLoopbreaker.IntegrationTests.Controllers
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             // Act
-            var response = await _client.PostAsync("/api/podcast/from-api/by-name", content);
+            var response = await _client.PostAsync("/api/podcast/series/from-api/by-name", content);
 
             // Assert
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
-        // Note: Import tests that require actual API calls are commented out
-        // as they would require valid API keys and external dependencies
-        
-        /*
-        [Fact]
-        public async Task ImportPodcastFromApi_WithValidId_ShouldReturnCreated()
-        {
-            // This test would require a valid ListenNotes API key and external API call
-            // Uncomment and modify when testing with real API
-        }
-
-        [Fact]
-        public async Task ImportPodcastByName_WithValidName_ShouldReturnCreated()
-        {
-            // This test would require a valid ListenNotes API key and external API call
-            // Uncomment and modify when testing with real API
-        }
-        */
+        #endregion
     }
 }
