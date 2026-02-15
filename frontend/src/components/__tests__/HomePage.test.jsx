@@ -71,7 +71,7 @@ describe('HomePage', () => {
 
   describe('Loading States', () => {
     it('should display loading spinner when fetching mixlists', () => {
-      mixlistService.getAllMixlists.mockImplementation(() => 
+      mixlistService.getAllMixlists.mockImplementation(() =>
         new Promise(() => {}) // Never resolves
       );
       mediaService.getAllMedia.mockResolvedValue({ data: [] });
@@ -88,7 +88,7 @@ describe('HomePage', () => {
 
     it('should display loading state for actively exploring section', async () => {
       mixlistService.getAllMixlists.mockResolvedValue({ data: mockMixlists });
-      mediaService.getAllMedia.mockImplementation(() => 
+      mediaService.getAllMedia.mockImplementation(() =>
         new Promise(() => {}) // Never resolves
       );
 
@@ -490,4 +490,3 @@ describe('HomePage', () => {
     });
   });
 });
-

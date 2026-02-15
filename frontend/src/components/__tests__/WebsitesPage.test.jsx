@@ -139,10 +139,6 @@ describe('WebsitesPage', () => {
     });
   });
 
-  // MUI Select label association doesn't work in jsdom — skipping Select interaction tests
-  it.skip('should filter to show only websites with RSS when filter selected', async () => {});
-  it.skip('should sort websites by title', async () => {});
-
   it('should navigate to import page when Import Website button clicked', async () => {
     renderWithRouter(<WebsitesPage />);
 
@@ -262,4 +258,3 @@ describe('WebsitesPage', () => {
     });
   });
 });
-

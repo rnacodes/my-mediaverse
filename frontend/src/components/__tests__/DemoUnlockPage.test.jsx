@@ -10,7 +10,6 @@ describe('DemoUnlockPage', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         windowOpenSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
-        // Default: fetch returns a successful status response
         global.fetch = vi.fn();
     });
 
@@ -39,7 +38,6 @@ describe('DemoUnlockPage', () => {
 
     describe('Loading State', () => {
         it('should show loading indicator while fetching status', async () => {
-            // Use a controlled promise so we can resolve it for clean teardown
             let resolveFetch;
             global.fetch.mockImplementation(
                 () => new Promise((resolve) => { resolveFetch = resolve; })
@@ -47,11 +45,9 @@ describe('DemoUnlockPage', () => {
 
             render(<DemoUnlockPage />);
 
-            // statusLoading is initialized to true, so progressbar is in the initial render
             const progressbars = screen.getAllByRole('progressbar');
             expect(progressbars.length).toBeGreaterThanOrEqual(1);
 
-            // Resolve the pending fetch inside act() to flush state updates cleanly
             await act(async () => {
                 resolveFetch({
                     ok: true,
@@ -339,7 +335,6 @@ describe('DemoUnlockPage', () => {
                 expect(screen.getByText('First-Time Setup Instructions')).toBeInTheDocument();
             });
 
-            // Click the accordion to expand
             fireEvent.click(screen.getByText('First-Time Setup Instructions'));
 
             await waitFor(() => {
@@ -380,14 +375,12 @@ describe('DemoUnlockPage', () => {
                 expect(screen.getByText('Demo Write Access Status')).toBeInTheDocument();
             });
 
-            // fetch was called once on mount
             expect(global.fetch).toHaveBeenCalledTimes(1);
 
             const refreshButton = screen.getByRole('button', { name: /refresh/i });
             fireEvent.click(refreshButton);
 
             await waitFor(() => {
-                // Called once on mount and once on refresh
                 expect(global.fetch).toHaveBeenCalledTimes(2);
             });
         });

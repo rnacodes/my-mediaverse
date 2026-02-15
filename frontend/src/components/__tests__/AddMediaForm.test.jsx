@@ -13,10 +13,8 @@ import * as tvShowService from '../../api/tvShowService';
 import * as videoService from '../../api/videoService';
 import * as uploadService from '../../api/uploadService';
 
-// Create mock navigate function
 const mockNavigate = vi.fn();
 
-// Mock the API services with all functions the component imports
 vi.mock('../../api/mediaService', () => ({
   addMedia: vi.fn(),
 }));
@@ -69,7 +67,6 @@ describe('AddMediaForm', () => {
     vi.clearAllMocks();
     mockNavigate.mockClear();
 
-    // Default API mocks
     mixlistService.getAllMixlists.mockResolvedValue({ data: [] });
     topicGenreService.searchTopics.mockResolvedValue({ data: [] });
     topicGenreService.searchGenres.mockResolvedValue({ data: [] });
@@ -98,8 +95,6 @@ describe('AddMediaForm', () => {
   });
 
   describe('Form Validation', () => {
-    // Use fireEvent.submit to bypass jsdom's native HTML5 validation
-    // (MUI TextField's `required` attr blocks onSubmit on empty fields)
     const submitForm = () => {
       const form = screen.getByText('Save Media').closest('form');
       fireEvent.submit(form);
@@ -152,24 +147,19 @@ describe('AddMediaForm', () => {
     it('should show Date Completed field when Completed status is selected', () => {
       renderWithRouter(<AddMediaForm />);
 
-      // Initially, Date Completed should not be visible
       expect(screen.queryByLabelText('Date Completed')).not.toBeInTheDocument();
 
-      // Select Completed status
       fireEvent.click(screen.getByLabelText('Completed'));
 
-      // Date Completed should now be visible
       expect(screen.getByLabelText('Date Completed')).toBeInTheDocument();
     });
 
     it('should hide Date Completed when switching away from Completed', () => {
       renderWithRouter(<AddMediaForm />);
 
-      // Select Completed
       fireEvent.click(screen.getByLabelText('Completed'));
       expect(screen.getByLabelText('Date Completed')).toBeInTheDocument();
 
-      // Switch back to Uncharted
       fireEvent.click(screen.getByLabelText('Uncharted'));
       expect(screen.queryByLabelText('Date Completed')).not.toBeInTheDocument();
     });

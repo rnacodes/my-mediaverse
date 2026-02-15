@@ -375,9 +375,13 @@ export const Rating = React.forwardRef(({ value, defaultValue, precision, readOn
 ));
 Rating.displayName = 'Rating';
 
-export const Tooltip = React.forwardRef(({ children, title, placement, arrow, className, sx, ...rest }, ref) => (
-  <span ref={ref}>{children}</span>
-));
+export const Tooltip = React.forwardRef(({ children, title, placement, arrow, className, sx, ...rest }, ref) => {
+  // Clone child to add aria-label from title, matching real MUI Tooltip behavior
+  const child = React.isValidElement(children)
+    ? React.cloneElement(children, { 'aria-label': title })
+    : children;
+  return <span ref={ref}>{child}</span>;
+});
 Tooltip.displayName = 'Tooltip';
 
 export const Skeleton = React.forwardRef(({ variant, width, height, animation, className, sx, ...rest }, ref) => (

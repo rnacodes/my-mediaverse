@@ -5,10 +5,8 @@ import { vi } from 'vitest';
 import WebsiteImportPage from '../WebsiteImportPage';
 import * as websiteService from '../../api/websiteService';
 
-// Create mock navigate function
 const mockNavigate = vi.fn();
 
-// Mock the API service
 vi.mock('../../api/websiteService', () => ({
   scrapeWebsitePreview: vi.fn(),
   importWebsite: vi.fn(),
@@ -169,19 +167,15 @@ describe('WebsiteImportPage', () => {
 
     renderWithRouter(<WebsiteImportPage />);
 
-    // Fill in URL
     const urlInput = screen.getByPlaceholderText('https://example.com');
     fireEvent.change(urlInput, { target: { value: 'https://test.com' } });
 
-    // Fill in notes
     const notesInput = screen.getByPlaceholderText('Add your personal notes about this website');
     fireEvent.change(notesInput, { target: { value: 'Test notes' } });
 
-    // Fill in topics
     const topicsInput = screen.getByPlaceholderText('technology, programming, design');
     fireEvent.change(topicsInput, { target: { value: 'tech, web' } });
 
-    // Fill in genres
     const genresInput = screen.getByPlaceholderText('news, blog, tutorial');
     fireEvent.change(genresInput, { target: { value: 'blog, news' } });
 
@@ -211,11 +205,9 @@ describe('WebsiteImportPage', () => {
 
     renderWithRouter(<WebsiteImportPage />);
 
-    // Fill in URL
     const urlInput = screen.getByPlaceholderText('https://example.com');
     fireEvent.change(urlInput, { target: { value: 'https://test.com' } });
 
-    // Fill in title override
     const titleInput = screen.getByPlaceholderText('Override the scraped title');
     fireEvent.change(titleInput, { target: { value: 'Custom Title' } });
 
@@ -256,7 +248,6 @@ describe('WebsiteImportPage', () => {
   });
 
   it('should disable buttons while loading', async () => {
-    // Make the API call hang indefinitely
     websiteService.scrapeWebsitePreview.mockImplementation(() => new Promise(() => {}));
 
     renderWithRouter(<WebsiteImportPage />);
@@ -295,7 +286,6 @@ describe('WebsiteImportPage', () => {
     const importButton = screen.getByText('Import Directly');
     fireEvent.click(importButton);
 
-    // Flush promise resolution and advance past the 1500ms setTimeout
     await vi.advanceTimersByTimeAsync(2000);
 
     expect(mockNavigate).toHaveBeenCalledWith('/media/123');
@@ -303,4 +293,3 @@ describe('WebsiteImportPage', () => {
     vi.useRealTimers();
   });
 });
-

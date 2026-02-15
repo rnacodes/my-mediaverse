@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act, waitFor } from '@testing-library/react';
 import { DemoReadOnlyProvider, useDemoReadOnly } from '../DemoReadOnlyContext';
 
-// Test consumer component to access context values
 const TestConsumer = ({ onRender }) => {
     const context = useDemoReadOnly();
     if (onRender) onRender(context);
@@ -75,13 +74,11 @@ describe('DemoReadOnlyContext', () => {
                 </DemoReadOnlyProvider>
             );
 
-            // Open first
             act(() => {
                 screen.getByTestId('show-dialog').click();
             });
             expect(screen.getByTestId('dialog-open')).toHaveTextContent('open');
 
-            // Then close
             act(() => {
                 screen.getByTestId('hide-dialog').click();
             });
@@ -97,30 +94,25 @@ describe('DemoReadOnlyContext', () => {
                 </DemoReadOnlyProvider>
             );
 
-            // Open dialog
             act(() => {
                 screen.getByTestId('show-dialog').click();
             });
             expect(screen.getByTestId('dialog-open')).toHaveTextContent('open');
 
-            // Close dialog (sets lastDismissedAt)
             act(() => {
                 screen.getByTestId('hide-dialog').click();
             });
             expect(screen.getByTestId('dialog-open')).toHaveTextContent('closed');
 
-            // Try to re-open immediately (within 2s debounce) - should remain closed
             act(() => {
                 screen.getByTestId('show-dialog').click();
             });
             expect(screen.getByTestId('dialog-open')).toHaveTextContent('closed');
 
-            // Advance time past debounce period
             act(() => {
                 vi.advanceTimersByTime(2001);
             });
 
-            // Now it should be able to open
             act(() => {
                 screen.getByTestId('show-dialog').click();
             });
@@ -143,7 +135,6 @@ describe('DemoReadOnlyContext', () => {
             });
 
             expect(screen.getByTestId('dialog-open')).toHaveTextContent('open');
-            expect(screen.getByTestId('blocked-action')).toContain;
         });
 
         it('should pass event detail as blocked action info', () => {
@@ -186,7 +177,6 @@ describe('DemoReadOnlyContext', () => {
 
     describe('useDemoReadOnly hook', () => {
         it('should throw error when used outside provider', () => {
-            // Suppress console.error for expected error
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
             expect(() => {

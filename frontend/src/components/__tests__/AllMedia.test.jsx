@@ -42,7 +42,7 @@ describe('AllMedia', () => {
 
   describe('Loading State', () => {
     it('should display loading spinner when fetching media', () => {
-      mediaService.getAllMedia.mockImplementation(() => 
+      mediaService.getAllMedia.mockImplementation(() =>
         new Promise(() => {}) // Never resolves
       );
 
@@ -458,27 +458,6 @@ describe('AllMedia', () => {
     });
   });
 
-  describe('Export Functionality', () => {
-    beforeEach(() => {
-      mediaService.getAllMedia.mockResolvedValue({ data: mockMediaItems });
-    });
-
-    it.skip('should display export button', async () => {
-      // Export functionality is currently commented out in the component
-      render(
-        <BrowserRouter>
-          <AllMedia />
-        </BrowserRouter>
-      );
-
-      await waitFor(() => {
-        expect(screen.getByText('Test Book')).toBeInTheDocument();
-      });
-
-      expect(screen.getByLabelText(/export/i)).toBeInTheDocument();
-    });
-  });
-
   describe('Accessibility', () => {
     beforeEach(() => {
       mediaService.getAllMedia.mockResolvedValue({ data: mockMediaItems });
@@ -499,21 +478,6 @@ describe('AllMedia', () => {
       expect(screen.getByText(/^List$/)).toBeInTheDocument();
       // Check the button group has proper aria-label
       expect(screen.getByRole('group', { name: /view mode/i })).toBeInTheDocument();
-    });
-
-    it.skip('should have proper ARIA labels on action buttons', async () => {
-      // Export functionality is currently commented out in the component
-      render(
-        <BrowserRouter>
-          <AllMedia />
-        </BrowserRouter>
-      );
-
-      await waitFor(() => {
-        expect(screen.getByText('Test Book')).toBeInTheDocument();
-      });
-
-      expect(screen.getByLabelText(/export/i)).toBeInTheDocument();
     });
   });
 
@@ -564,4 +528,3 @@ describe('AllMedia', () => {
     });
   });
 });
-

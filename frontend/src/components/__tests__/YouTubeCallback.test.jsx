@@ -4,13 +4,10 @@ import { BrowserRouter } from 'react-router-dom';
 import { vi } from 'vitest';
 import YouTubeCallback from '../../pages/YouTubeCallback';
 
-// Create mock navigate function
 const mockNavigate = vi.fn();
 
-// Store the current search params for the mock
 let currentSearchParams = new URLSearchParams();
 
-// Mock react-router-dom
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
   return {
@@ -21,11 +18,9 @@ vi.mock('react-router-dom', async () => {
 });
 
 const renderWithRouter = (component, initialUrl = '/youtube/callback') => {
-  // Extract search params from URL
   const searchString = initialUrl.includes('?') ? initialUrl.split('?')[1] : '';
   currentSearchParams = new URLSearchParams(searchString);
 
-  // Set the URL for testing
   Object.defineProperty(window, 'location', {
     value: {
       href: `http://localhost:3000${initialUrl}`,
@@ -55,11 +50,9 @@ describe('YouTubeCallback', () => {
     it('should show common header elements', async () => {
       renderWithRouter(<YouTubeCallback />, '/youtube/callback?code=test_code&state=test_state');
 
-      // Header elements are always present
       expect(screen.getByText('YouTube Authentication')).toBeInTheDocument();
       expect(screen.getByText('Processing your authentication...')).toBeInTheDocument();
-      
-      // Wait for component to settle
+
       await waitFor(() => {
         expect(screen.getByText(/YouTube authentication successful/i)).toBeInTheDocument();
       });
@@ -84,12 +77,10 @@ describe('YouTubeCallback', () => {
         renderWithRouter(<YouTubeCallback />, '/youtube/callback?code=test_code&state=test_state');
       });
 
-      // Allow initial state update
       await act(async () => {
         await Promise.resolve();
       });
 
-      // Fast-forward time by 3 seconds
       await act(async () => {
         vi.advanceTimersByTime(3000);
       });
@@ -180,7 +171,6 @@ describe('YouTubeCallback', () => {
 
   describe('Debug Information', () => {
     it('should show debug information in development mode', async () => {
-      // Mock NODE_ENV to be development
       const originalEnv = process.env.NODE_ENV;
       process.env.NODE_ENV = 'development';
 
@@ -194,12 +184,10 @@ describe('YouTubeCallback', () => {
       expect(screen.getByText(/State: test_state/)).toBeInTheDocument();
       expect(screen.getByText(/Error: None/)).toBeInTheDocument();
 
-      // Restore original NODE_ENV
       process.env.NODE_ENV = originalEnv;
     });
 
     it('should not show debug information in production mode', async () => {
-      // Mock NODE_ENV to be production
       const originalEnv = process.env.NODE_ENV;
       process.env.NODE_ENV = 'production';
 
@@ -211,7 +199,6 @@ describe('YouTubeCallback', () => {
 
       expect(screen.queryByText(/Debug Information:/i)).not.toBeInTheDocument();
 
-      // Restore original NODE_ENV
       process.env.NODE_ENV = originalEnv;
     });
   });
@@ -250,7 +237,6 @@ describe('YouTubeCallback', () => {
         expect(screen.getByText(/YouTube authentication successful/i)).toBeInTheDocument();
       });
 
-      // Verify the success state has buttons for navigation
       expect(screen.getByText('Go to Home')).toBeInTheDocument();
       expect(screen.getByText('Go to Import')).toBeInTheDocument();
     });
@@ -267,12 +253,10 @@ describe('YouTubeCallback', () => {
     it('should have accessible success buttons', async () => {
       renderWithRouter(<YouTubeCallback />, '/youtube/callback?code=test_code&state=test_state');
 
-      // Wait for success state first
       await waitFor(() => {
         expect(screen.getByText(/YouTube authentication successful/i)).toBeInTheDocument();
       });
 
-      // Then check buttons
       expect(screen.getByRole('button', { name: 'Go to Home' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Go to Import' })).toBeInTheDocument();
     });
@@ -280,12 +264,10 @@ describe('YouTubeCallback', () => {
     it('should have accessible error buttons', async () => {
       renderWithRouter(<YouTubeCallback />, '/youtube/callback?error=access_denied');
 
-      // Wait for error state first
       await waitFor(() => {
         expect(screen.getByText(/There was an error during YouTube authentication/i)).toBeInTheDocument();
       });
 
-      // Then check buttons
       expect(screen.getByRole('button', { name: 'Try Again' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Go Home' })).toBeInTheDocument();
     });

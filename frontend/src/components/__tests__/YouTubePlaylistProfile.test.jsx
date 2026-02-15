@@ -1,174 +1,183 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import YouTubePlaylistProfile from '../YouTubePlaylistProfile';
-import * as youtubeService from '../../api/youtubeService';
-import * as mixlistService from '../../api/mixlistService';
+import { getYouTubePlaylistById, getYouTubePlaylistVideos, deleteYouTubePlaylist, syncYouTubePlaylist, addVideoToYouTubePlaylist } from '../../api/youtubeService';
+import { getAllMixlists } from '../../api/mixlistService';
 
-// Mock API services
-vi.mock('../../api/youtubeService');
-vi.mock('../../api/mixlistService');
+// --- Mocks ---
 
-// Mock useParams and useNavigate
+vi.mock('../MediaInfoCard', () => ({
+    default: ({ mediaItem }) => <div data-testid="media-info-card">{mediaItem?.title}</div>
+}));
+vi.mock('../MixlistCarousel', () => ({
+    default: () => <div data-testid="mixlist-carousel">Mixlists</div>
+}));
+vi.mock('../TopicsGenresSection', () => ({
+    default: () => <div data-testid="topics-genres">Topics</div>
+}));
+
+vi.mock('../../api/youtubeService', () => ({
+    getYouTubePlaylistById: vi.fn(),
+    getYouTubePlaylistVideos: vi.fn(),
+    deleteYouTubePlaylist: vi.fn(),
+    syncYouTubePlaylist: vi.fn(),
+    addVideoToYouTubePlaylist: vi.fn()
+}));
+vi.mock('../../api/mixlistService', () => ({ getAllMixlists: vi.fn() }));
+vi.mock('axios', () => ({ default: { get: vi.fn() } }));
+
+const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom');
-  return {
-    ...actual,
-    useParams: () => ({ id: 'test-playlist-id' }),
-    useNavigate: () => vi.fn(),
-  };
+    const actual = await vi.importActual('react-router-dom');
+    return {
+        ...actual,
+        useParams: () => ({ id: '1' }),
+        useNavigate: () => mockNavigate
+    };
 });
+
+// --- Mock Data ---
+
+const mockPlaylist = {
+    id: 1,
+    title: 'My Playlist',
+    mediaType: 'Playlist',
+    status: 'ActivelyExploring',
+    thumbnail: 'http://example.com/pl.jpg',
+    youTubeUrl: 'https://youtube.com/playlist?list=PLtest'
+};
+
+const mockVideos = [
+    { id: 1, title: 'Video 1', mediaType: 'Video', thumbnail: 'http://example.com/v1.jpg' },
+    { id: 2, title: 'Video 2', mediaType: 'Video', thumbnail: 'http://example.com/v2.jpg' }
+];
+
+// --- Helpers ---
+
+const renderComponent = () => {
+    return render(
+        <BrowserRouter>
+            <YouTubePlaylistProfile />
+        </BrowserRouter>
+    );
+};
+
+const setupSuccessMocks = () => {
+    getYouTubePlaylistById.mockResolvedValue(mockPlaylist);
+    getYouTubePlaylistVideos.mockResolvedValue(mockVideos);
+    getAllMixlists.mockResolvedValue({ data: [] });
+};
+
+const waitForDataLoad = async () => {
+    await waitFor(() => {
+        expect(screen.getByRole('heading', { name: 'My Playlist' })).toBeInTheDocument();
+    });
+};
+
+// --- Tests ---
 
 describe('YouTubePlaylistProfile', () => {
-  const mockPlaylist = {
-    id: 'test-playlist-id',
-    title: 'Test YouTube Playlist',
-    description: 'Test playlist description',
-    playlistExternalId: 'PLtest123',
-    videoCount: 15,
-    thumbnail: 'https://example.com/playlist-thumb.jpg',
-    status: 0,
-    dateAdded: new Date().toISOString(),
-    videos: [], // Will be populated when includeVideos is true
-  };
-
-  const mockVideos = [
-    {
-      id: 'vid1',
-      title: 'Video 1 Title',
-      lengthInSeconds: 600,
-      publishedAt: new Date('2024-01-01').toISOString(),
-      thumbnail: 'https://example.com/vid1-thumb.jpg',
-    },
-    {
-      id: 'vid2',
-      title: 'Video 2 Title',
-      lengthInSeconds: 900,
-      publishedAt: new Date('2024-01-02').toISOString(),
-      thumbnail: 'https://example.com/vid2-thumb.jpg',
-    },
-  ];
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    // YouTube API functions return data directly (not wrapped in { data: })
-    youtubeService.getYouTubePlaylistById.mockImplementation((id, includeVideos) => {
-      if (includeVideos) {
-        return Promise.resolve({ ...mockPlaylist, videos: mockVideos });
-      }
-      return Promise.resolve(mockPlaylist);
-    });
-    youtubeService.getYouTubePlaylistVideos.mockResolvedValue(mockVideos);
-    // Mixlist API returns axios response with { data: }
-    mixlistService.getAllMixlists.mockResolvedValue({ data: [] });
-  });
-
-  it('renders playlist details correctly', async () => {
-    render(
-      <BrowserRouter>
-        <YouTubePlaylistProfile />
-      </BrowserRouter>
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText('Test YouTube Playlist')).toBeInTheDocument();
-    });
-  });
-
-  it('displays videos from the playlist', async () => {
-    render(
-      <BrowserRouter>
-        <YouTubePlaylistProfile />
-      </BrowserRouter>
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText(/My Videos/i)).toBeInTheDocument();
+    beforeEach(() => {
+        vi.clearAllMocks();
     });
 
-    // Verify the component shows it has 2 videos in the list
-    expect(screen.getByText(/My Videos \(2\)/i)).toBeInTheDocument();
-  });
-
-  it('handles sync button click', async () => {
-    youtubeService.syncYouTubePlaylist.mockResolvedValue({ 
-      data: { message: 'Synced successfully' } 
+    afterEach(() => {
+        vi.clearAllMocks();
     });
 
-    render(
-      <BrowserRouter>
-        <YouTubePlaylistProfile />
-      </BrowserRouter>
-    );
+    describe('Loading State', () => {
+        it('should show loading spinner while fetching', () => {
+            getYouTubePlaylistById.mockImplementation(() => new Promise(() => {}));
+            getYouTubePlaylistVideos.mockImplementation(() => new Promise(() => {}));
+            getAllMixlists.mockResolvedValue({ data: [] });
 
-    await waitFor(() => {
-      const syncButton = screen.queryByText(/Sync/i);
-      if (syncButton) {
-        fireEvent.click(syncButton);
-      }
+            renderComponent();
+
+            expect(screen.getByRole('progressbar')).toBeInTheDocument();
+        });
     });
 
-    // Verify sync was called if button existed
-    if (youtubeService.syncYouTubePlaylist.mock.calls.length > 0) {
-      expect(youtubeService.syncYouTubePlaylist).toHaveBeenCalledWith('test-playlist-id');
-    }
-  });
+    describe('Data Display', () => {
+        it('should display playlist title', async () => {
+            setupSuccessMocks();
+            renderComponent();
 
-  it('fetches playlist and videos on mount', async () => {
-    render(
-      <BrowserRouter>
-        <YouTubePlaylistProfile />
-      </BrowserRouter>
-    );
+            await waitForDataLoad();
 
-    await waitFor(() => {
-      // getYouTubePlaylistById is called with (id, includeVideos=true)
-      expect(youtubeService.getYouTubePlaylistById).toHaveBeenCalledWith('test-playlist-id', true);
-    });
-  });
+            expect(screen.getByRole('heading', { name: 'My Playlist' })).toBeInTheDocument();
+        });
 
-  it('handles loading state', () => {
-    youtubeService.getYouTubePlaylistById.mockImplementation(() => 
-      new Promise(resolve => setTimeout(() => resolve({ data: mockPlaylist }), 100))
-    );
+        it('should show video count', async () => {
+            setupSuccessMocks();
+            renderComponent();
 
-    render(
-      <BrowserRouter>
-        <YouTubePlaylistProfile />
-      </BrowserRouter>
-    );
+            await waitForDataLoad();
 
-    // During loading, playlist title should not be present yet
-    expect(screen.queryByText('Test YouTube Playlist')).not.toBeInTheDocument();
-  });
+            const videosHeading = screen.getByText(/My Videos/);
+            expect(videosHeading).toBeInTheDocument();
+            expect(videosHeading.textContent).toContain('2');
+        });
 
-  it('handles API error gracefully', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-    youtubeService.getYouTubePlaylistById.mockRejectedValue(new Error('API Error'));
+        it('should render media info card', async () => {
+            setupSuccessMocks();
+            renderComponent();
 
-    render(
-      <BrowserRouter>
-        <YouTubePlaylistProfile />
-      </BrowserRouter>
-    );
+            await waitFor(() => {
+                expect(screen.getByTestId('media-info-card')).toBeInTheDocument();
+            });
 
-    await waitFor(() => {
-      expect(consoleError).toHaveBeenCalled();
+            expect(screen.getByTestId('media-info-card')).toHaveTextContent('My Playlist');
+        });
     });
 
-    consoleError.mockRestore();
-  });
+    describe('Actions', () => {
+        it('should show back button', async () => {
+            setupSuccessMocks();
+            renderComponent();
 
-  it('displays video count in accordion', async () => {
-    render(
-      <BrowserRouter>
-        <YouTubePlaylistProfile />
-      </BrowserRouter>
-    );
+            await waitForDataLoad();
 
-    await waitFor(() => {
-      expect(screen.getByText(/My Videos \(2\)/i)).toBeInTheDocument();
+            const backButton = screen.getByTestId('ArrowBackIcon').closest('button');
+            expect(backButton).toBeInTheDocument();
+
+            fireEvent.click(backButton);
+            expect(mockNavigate).toHaveBeenCalledWith('/all-media?mediaType=Playlist');
+        });
+
+        it('should show delete confirmation dialog when delete is clicked', async () => {
+            setupSuccessMocks();
+            renderComponent();
+
+            await waitForDataLoad();
+
+            const deleteButton = screen.getByText('Delete').closest('button');
+            fireEvent.click(deleteButton);
+
+            await waitFor(() => {
+                expect(screen.getByText('Delete Playlist?')).toBeInTheDocument();
+            });
+
+            expect(screen.getByText(/This will remove/)).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: 'Delete Forever' })).toBeInTheDocument();
+        });
     });
-  });
+
+    describe('Error Handling', () => {
+        it('should handle API errors gracefully', async () => {
+            getYouTubePlaylistById.mockRejectedValue(new Error('Network error'));
+            getYouTubePlaylistVideos.mockRejectedValue(new Error('Network error'));
+            getAllMixlists.mockResolvedValue({ data: [] });
+
+            renderComponent();
+
+            await waitFor(() => {
+                expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+            });
+
+            expect(screen.getByText('YouTube playlist not found')).toBeInTheDocument();
+        });
+    });
 });
-

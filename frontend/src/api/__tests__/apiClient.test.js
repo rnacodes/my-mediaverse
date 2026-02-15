@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('axios', () => {
-    // Initialize storage on globalThis inside the mock factory (which runs first due to hoisting)
     globalThis.__testInterceptors = globalThis.__testInterceptors || {};
 
     const mockAxiosInstance = {
@@ -31,7 +30,6 @@ vi.mock('axios', () => {
     };
 });
 
-// Import after mocking to capture interceptors
 import { apiClient } from '../apiClient';
 
 describe('apiClient - Demo Mode Features', () => {
@@ -39,7 +37,6 @@ describe('apiClient - Demo Mode Features', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
-        // Mock sessionStorage
         originalSessionStorage = window.sessionStorage;
         const store = {};
         Object.defineProperty(window, 'sessionStorage', {

@@ -152,9 +152,9 @@ describe('MediaCard', () => {
     });
 
     it('should handle missing status gracefully', () => {
-      const videoWithoutStatus = { 
-        ...mockVideoMedia, 
-        status: undefined 
+      const videoWithoutStatus = {
+        ...mockVideoMedia,
+        status: undefined
       };
       renderWithRouter(<MediaCard media={videoWithoutStatus} />);
 
@@ -220,7 +220,7 @@ describe('MediaCard', () => {
       // Card should render with MUI Card
       const card = container.querySelector('.MuiCard-root');
       expect(card).toBeInTheDocument();
-      
+
       // Title should use smaller typography in compact mode
       expect(screen.getByText('Test Video')).toBeInTheDocument();
     });
@@ -259,7 +259,7 @@ describe('MediaCard', () => {
       // When onClick is provided, it wraps in a Box, not a Link
       const clickableBox = container.querySelector('.MuiBox-root');
       expect(clickableBox).toBeInTheDocument();
-      
+
       fireEvent.click(clickableBox);
       expect(mockOnClick).toHaveBeenCalled();
     });
@@ -285,7 +285,7 @@ describe('MediaCard', () => {
       expect(screen.queryByText('YouTube')).not.toBeInTheDocument();
       expect(screen.queryByText('Test Channel')).not.toBeInTheDocument();
       expect(screen.queryByText('60:00')).not.toBeInTheDocument();
-      
+
       // But should show book-specific information
       expect(screen.getByText('Test Book')).toBeInTheDocument();
       expect(screen.getByText('A test book description')).toBeInTheDocument();
@@ -334,11 +334,11 @@ describe('MediaCard', () => {
 
     it('should handle missing thumbnailUrl gracefully', () => {
       const videoWithoutThumb = { ...mockVideoMedia, thumbnailUrl: undefined, imageUrl: undefined };
-      
+
       expect(() => {
         renderWithRouter(<MediaCard media={videoWithoutThumb} />);
       }).not.toThrow();
-      
+
       // Should show placeholder - get the img element specifically by alt text
       const thumbnail = screen.getByAltText('Test Video');
       expect(thumbnail).toHaveAttribute('src', expect.stringContaining('placehold.co'));
@@ -346,11 +346,11 @@ describe('MediaCard', () => {
 
     it('should handle missing duration gracefully', () => {
       const videoWithoutDuration = { ...mockVideoMedia, lengthInSeconds: undefined };
-      
+
       expect(() => {
         renderWithRouter(<MediaCard media={videoWithoutDuration} />);
       }).not.toThrow();
-      
+
       // Should still show title and other info
       expect(screen.getByText('Test Video')).toBeInTheDocument();
     });

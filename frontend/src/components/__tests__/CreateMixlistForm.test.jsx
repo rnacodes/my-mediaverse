@@ -5,10 +5,8 @@ import { vi } from 'vitest';
 import CreateMixlistForm from '../CreateMixlistForm';
 import * as mixlistService from '../../api/mixlistService';
 
-// Create mock navigate function
 const mockNavigate = vi.fn();
 
-// Mock the API services
 vi.mock('../../api/mixlistService', () => ({
   createMixlist: vi.fn(),
 }));
@@ -37,13 +35,12 @@ describe('CreateMixlistForm', () => {
     vi.clearAllMocks();
     mockNavigate.mockClear();
     global.alert.mockClear();
-    // Reset API mocks
-    mixlistService.createMixlist.mockResolvedValue({ 
-      data: { 
-        id: 1, 
+    mixlistService.createMixlist.mockResolvedValue({
+      data: {
+        id: 1,
         name: 'Test Mixlist',
         thumbnail: 'https://picsum.photos/400/400?random=123&blur=1'
-      } 
+      }
     });
   });
 
@@ -51,15 +48,12 @@ describe('CreateMixlistForm', () => {
     it('should submit mixlist form with all properties and save to database', async () => {
       renderWithRouter(<CreateMixlistForm />);
 
-      // Fill in the mixlist name
       fireEvent.change(screen.getByPlaceholderText('Enter mixlist name...'), {
         target: { value: 'Test Mixlist Name' }
       });
 
-      // Submit form
       fireEvent.click(screen.getByText('Create Mixlist'));
 
-      // Verify API call with correct data structure
       await waitFor(() => {
         expect(mixlistService.createMixlist).toHaveBeenCalledWith({
           name: 'Test Mixlist Name',
@@ -72,29 +66,23 @@ describe('CreateMixlistForm', () => {
     it('should handle empty name validation', async () => {
       renderWithRouter(<CreateMixlistForm />);
 
-      // Try to submit without a name
       const submitButton = screen.getByText('Create Mixlist');
-      // Button should be disabled when name is empty
       expect(submitButton).toBeDisabled();
 
-      // Fill in a name
       fireEvent.change(screen.getByPlaceholderText('Enter mixlist name...'), {
         target: { value: 'Test Name' }
       });
 
-      // Button should now be enabled
       expect(submitButton).not.toBeDisabled();
     });
 
     it('should handle whitespace-only name validation', async () => {
       renderWithRouter(<CreateMixlistForm />);
 
-      // Fill in only whitespace
       fireEvent.change(screen.getByPlaceholderText('Enter mixlist name...'), {
         target: { value: '   ' }
       });
 
-      // Button should be enabled (component only disables during submission)
       const submitButton = screen.getByText('Create Mixlist');
       expect(submitButton).not.toBeDisabled();
     });
@@ -102,15 +90,12 @@ describe('CreateMixlistForm', () => {
     it('should trim whitespace from name before submission', async () => {
       renderWithRouter(<CreateMixlistForm />);
 
-      // Fill in name with leading/trailing whitespace
       fireEvent.change(screen.getByPlaceholderText('Enter mixlist name...'), {
         target: { value: '  Test Mixlist Name  ' }
       });
 
-      // Submit form
       fireEvent.click(screen.getByText('Create Mixlist'));
 
-      // Verify API call with trimmed name
       await waitFor(() => {
         expect(mixlistService.createMixlist).toHaveBeenCalledWith({
           name: 'Test Mixlist Name',
@@ -125,7 +110,6 @@ describe('CreateMixlistForm', () => {
     it('should generate unique thumbnail URL for each submission', async () => {
       renderWithRouter(<CreateMixlistForm />);
 
-      // First submission
       fireEvent.change(screen.getByPlaceholderText('Enter mixlist name...'), {
         target: { value: 'First Mixlist' }
       });
@@ -139,17 +123,15 @@ describe('CreateMixlistForm', () => {
         });
       });
 
-      // Clear mocks for second submission
       vi.clearAllMocks();
-      mixlistService.createMixlist.mockResolvedValue({ 
-        data: { 
-          id: 2, 
+      mixlistService.createMixlist.mockResolvedValue({
+        data: {
+          id: 2,
           name: 'Second Mixlist',
           thumbnail: 'https://picsum.photos/400/400?random=456&blur=1'
-        } 
+        }
       });
 
-      // Second submission
       fireEvent.change(screen.getByPlaceholderText('Enter mixlist name...'), {
         target: { value: 'Second Mixlist' }
       });
@@ -183,8 +165,7 @@ describe('CreateMixlistForm', () => {
 
   describe('Form State Management', () => {
     it('should show loading state during submission', async () => {
-      // Mock a delayed response
-      mixlistService.createMixlist.mockImplementation(() => 
+      mixlistService.createMixlist.mockImplementation(() =>
         new Promise(resolve => setTimeout(() => resolve({ data: { id: 1 } }), 100))
       );
 
@@ -196,18 +177,15 @@ describe('CreateMixlistForm', () => {
 
       fireEvent.click(screen.getByText('Create Mixlist'));
 
-      // Should show loading state
       expect(screen.getByText('Creating...')).toBeInTheDocument();
 
-      // Wait for submission to complete
       await waitFor(() => {
         expect(screen.getByText('Create Mixlist')).toBeInTheDocument();
       });
     });
 
     it('should disable submit button during submission', async () => {
-      // Mock a delayed response
-      mixlistService.createMixlist.mockImplementation(() => 
+      mixlistService.createMixlist.mockImplementation(() =>
         new Promise(resolve => setTimeout(() => resolve({ data: { id: 1 } }), 100))
       );
 
@@ -220,10 +198,8 @@ describe('CreateMixlistForm', () => {
       const submitButton = screen.getByText('Create Mixlist');
       fireEvent.click(submitButton);
 
-      // Button should be disabled during submission
       expect(submitButton).toBeDisabled();
 
-      // Wait for submission to complete
       await waitFor(() => {
         expect(submitButton).not.toBeDisabled();
       });
@@ -247,7 +223,6 @@ describe('CreateMixlistForm', () => {
 
       fireEvent.click(screen.getByText('Create Mixlist'));
 
-      // Verify error handling
       await waitFor(() => {
         expect(global.alert).toHaveBeenCalledWith(expect.stringMatching(/Failed to create mixlist/));
       });
@@ -266,7 +241,6 @@ describe('CreateMixlistForm', () => {
 
       fireEvent.click(screen.getByText('Create Mixlist'));
 
-      // Verify error handling
       await waitFor(() => {
         expect(global.alert).toHaveBeenCalledWith(expect.stringMatching(/Failed to create mixlist/));
       });
@@ -289,12 +263,10 @@ describe('CreateMixlistForm', () => {
       const submitButton = screen.getByText('Create Mixlist');
       fireEvent.click(submitButton);
 
-      // Wait for error to occur
       await waitFor(() => {
         expect(global.alert).toHaveBeenCalledWith(expect.stringMatching(/Failed to create mixlist/));
       });
 
-      // Button should be re-enabled
       expect(submitButton).not.toBeDisabled();
     });
   });
@@ -342,7 +314,6 @@ describe('CreateMixlistForm', () => {
         });
       });
 
-      // Verify the API service was called exactly once
       expect(mixlistService.createMixlist).toHaveBeenCalledTimes(1);
     });
 
@@ -368,7 +339,7 @@ describe('CreateMixlistForm', () => {
     it('should handle very long mixlist names', async () => {
       renderWithRouter(<CreateMixlistForm />);
 
-      const longName = 'A'.repeat(1000); // Very long name
+      const longName = 'A'.repeat(1000);
       fireEvent.change(screen.getByPlaceholderText('Enter mixlist name...'), {
         target: { value: longName }
       });

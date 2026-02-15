@@ -8,7 +8,6 @@ import * as highlightService from '../../api/highlightService';
 import * as bookService from '../../api/bookService';
 import * as articleService from '../../api/articleService';
 
-// Mock the API services
 vi.mock('../../api/readwiseService', () => ({
   validateReadwiseConnection: vi.fn(),
   syncAll: vi.fn(),
@@ -37,7 +36,6 @@ const renderWithRouter = (component) => {
 describe('ReadwiseSyncPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Default mocks for data loaded on mount
     highlightService.getUnlinkedHighlights.mockResolvedValue([]);
     bookService.getAllBooks.mockResolvedValue({ data: [] });
     articleService.getAllArticles.mockResolvedValue([]);
@@ -66,7 +64,6 @@ describe('ReadwiseSyncPage', () => {
       expect(screen.getByText('Fetch Recently Synced (7 days)')).toBeInTheDocument();
       expect(screen.getByText('Clean Highlight Text')).toBeInTheDocument();
 
-      // Refresh List button shows "Loading..." during initial mount fetch
       await waitFor(() => {
         expect(screen.getByText('Refresh List')).toBeInTheDocument();
       });
@@ -444,13 +441,11 @@ describe('ReadwiseSyncPage', () => {
 
       const fullSyncButton = screen.getByText('Full Sync');
 
-      // First attempt - should show error
       fireEvent.click(fullSyncButton);
       await waitFor(() => {
         expect(screen.getByText(/First error/)).toBeInTheDocument();
       });
 
-      // Second attempt - error should be cleared
       fireEvent.click(fullSyncButton);
       await waitFor(() => {
         expect(screen.queryByText(/First error/)).not.toBeInTheDocument();

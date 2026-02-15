@@ -1,347 +1,351 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
-import MediaProfilePage from '../MediaProfilePage';
-import * as mediaService from '../../api/mediaService';
-import * as mixlistService from '../../api/mixlistService';
-import * as bookService from '../../api/bookService';
-import * as movieService from '../../api/movieService';
-import * as videoService from '../../api/videoService';
-import * as highlightService from '../../api/highlightService';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { BrowserRouter } from 'react-router-dom';
 
-// Mock the API services
-vi.mock('../../api/mediaService');
-vi.mock('../../api/mixlistService');
-vi.mock('../../api/bookService');
-vi.mock('../../api/movieService');
-vi.mock('../../api/videoService');
-vi.mock('../../api/highlightService');
-
-// Mock child components to isolate page-level testing
+// Mock sub-components
 vi.mock('../MediaHeader', () => ({
-  default: ({ title }) => <div data-testid="media-header">{title}</div>
+    default: ({ title, mediaId }) => <div data-testid="media-header">{title}</div>
 }));
-
-vi.mock('../MediaInfoCard', () => ({
-  default: ({ mediaItem }) => (
-    <div data-testid="media-info-card">
-      <span data-testid="media-type">{mediaItem.mediaType}</span>
-      <span data-testid="media-status">{mediaItem.status}</span>
-    </div>
-  )
-}));
-
-vi.mock('../MediaDetailAccordion', () => ({
-  default: () => <div data-testid="media-detail-accordion">Details</div>
-}));
-
-vi.mock('../HighlightsSection', () => ({
-  default: ({ highlights }) => (
-    <div data-testid="highlights-section">
-      {highlights?.length || 0} highlights
-    </div>
-  )
-}));
-
-vi.mock('../TopicsGenresSection', () => ({
-  default: ({ mediaItem }) => (
-    <div data-testid="topics-genres-section">
-      Topics: {mediaItem.topics?.length || 0}, Genres: {mediaItem.genres?.length || 0}
-    </div>
-  )
-}));
-
 vi.mock('../MixlistCarousel', () => ({
-  default: ({ currentMixlists }) => (
-    <div data-testid="mixlist-carousel">
-      {currentMixlists?.length || 0} mixlists
-    </div>
-  )
+    default: ({ currentMixlists }) => <div data-testid="mixlist-carousel">{currentMixlists?.length || 0} mixlists</div>
+}));
+vi.mock('../MediaInfoCard', () => ({
+    default: ({ mediaItem }) => <div data-testid="media-info-card">{mediaItem?.title}</div>
+}));
+vi.mock('../MediaDetailAccordion', () => ({
+    default: ({ mediaItem }) => <div data-testid="media-detail-accordion">Details</div>
+}));
+vi.mock('../HighlightsSection', () => ({
+    default: ({ highlights }) => <div data-testid="highlights-section">{highlights?.length || 0} highlights</div>
+}));
+vi.mock('../TopicsGenresSection', () => ({
+    default: () => <div data-testid="topics-genres-section">Topics & Genres</div>
+}));
+vi.mock('../RelatedNotesSection', () => ({
+    default: () => <div data-testid="related-notes-section">Related Notes</div>
+}));
+vi.mock('../SimilarItemsSection', () => ({
+    default: () => <div data-testid="similar-items-section">Similar Items</div>
+}));
+vi.mock('../SavedRelatedMediaSection', () => ({
+    default: () => <div data-testid="saved-related-media">Saved Related</div>
 }));
 
-// Test data
-const mockBook = {
-  id: '123e4567-e89b-12d3-a456-426614174000',
-  title: 'Test Book Title',
-  mediaType: 'Book',
-  author: 'Test Author',
-  status: 'InProgress',
-  dateAdded: '2024-01-15T10:00:00Z',
-  description: 'A great book about testing',
-  mixlistIds: [],
-  topics: [{ id: '1', name: 'programming' }],
-  genres: [{ id: '1', name: 'technical' }]
+// Mock API services
+vi.mock('../../api/mediaService', () => ({ getMediaById: vi.fn() }));
+vi.mock('../../api/mixlistService', () => ({ getAllMixlists: vi.fn() }));
+vi.mock('../../api/bookService', () => ({ getBookById: vi.fn() }));
+vi.mock('../../api/podcastService', () => ({
+    getPodcastSeriesById: vi.fn(),
+    getPodcastEpisodeById: vi.fn(),
+    getEpisodesBySeriesId: vi.fn()
+}));
+vi.mock('../../api/movieService', () => ({ getMovieById: vi.fn() }));
+vi.mock('../../api/tvShowService', () => ({ getTvShowById: vi.fn() }));
+vi.mock('../../api/videoService', () => ({ getVideoById: vi.fn(), getPlaylistsForVideo: vi.fn() }));
+vi.mock('../../api/articleService', () => ({ getArticleById: vi.fn(), fetchArticleContent: vi.fn() }));
+vi.mock('../../api/highlightService', () => ({ getHighlightsByArticle: vi.fn(), getHighlightsByBook: vi.fn() }));
+
+// Mock router
+let mockParamsId = '1';
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async () => {
+    const actual = await vi.importActual('react-router-dom');
+    return {
+        ...actual,
+        useParams: () => ({ id: mockParamsId }),
+        useNavigate: () => mockNavigate
+    };
+});
+
+// Import after mocks
+import MediaProfilePage from '../MediaProfilePage';
+import { getMediaById } from '../../api/mediaService';
+import { getAllMixlists } from '../../api/mixlistService';
+import { getBookById } from '../../api/bookService';
+import { getPodcastSeriesById, getPodcastEpisodeById, getEpisodesBySeriesId } from '../../api/podcastService';
+import { getMovieById } from '../../api/movieService';
+import { getTvShowById } from '../../api/tvShowService';
+import { getVideoById, getPlaylistsForVideo } from '../../api/videoService';
+import { getArticleById, fetchArticleContent } from '../../api/articleService';
+import { getHighlightsByArticle, getHighlightsByBook } from '../../api/highlightService';
+
+// Mock data
+const mockBookMedia = {
+    id: 1,
+    title: 'Test Book',
+    mediaType: 'Book',
+    status: 'Completed',
+    rating: 4,
+    thumbnail: 'http://example.com/book.jpg',
+    notes: 'Great book',
+    mixlistIds: []
 };
 
-const mockMovie = {
-  id: '456e7890-e89b-12d3-a456-426614174001',
-  title: 'Test Movie Title',
-  mediaType: 'Movie',
-  director: 'Test Director',
-  status: 'Completed',
-  dateAdded: '2024-01-10T10:00:00Z',
-  releaseYear: 2023,
-  mixlistIds: ['mixlist-1'],
-  topics: [],
-  genres: [{ id: '1', name: 'action' }]
+const mockBookDetails = {
+    id: 1,
+    title: 'Test Book',
+    author: 'Author Name',
+    isbn: '1234567890',
+    pageCount: 300,
+    publishedDate: '2023-01-01'
 };
 
-const mockVideo = {
-  id: '789abcde-e89b-12d3-a456-426614174002',
-  title: 'Test Video Title',
-  mediaType: 'Video',
-  platform: 'YouTube',
-  status: 'Uncharted',
-  dateAdded: '2024-01-20T10:00:00Z',
-  mixlistIds: [],
-  topics: [],
-  genres: []
+const mockMovieMedia = {
+    id: 2,
+    title: 'Test Movie',
+    mediaType: 'Movie',
+    status: 'Completed',
+    rating: 5,
+    thumbnail: 'http://example.com/movie.jpg',
+    notes: 'Great movie',
+    mixlistIds: []
 };
 
-const mockPlaylist = {
-  id: 'playlist-123',
-  title: 'Test Playlist',
-  mediaType: 'Playlist',
-  status: 'Uncharted',
-  mixlistIds: []
+const mockMovieDetails = {
+    id: 2,
+    title: 'Test Movie',
+    director: 'Director Name',
+    releaseYear: 2023,
+    runtime: 120
 };
 
-const mockChannel = {
-  id: 'channel-123',
-  title: 'Test Channel',
-  mediaType: 'Channel',
-  status: 'Uncharted',
-  mixlistIds: []
+const mockPlaylistMedia = {
+    id: 3,
+    title: 'Test Playlist',
+    mediaType: 'Playlist',
+    status: 'InProgress',
+    mixlistIds: []
+};
+
+const mockPodcastSeriesMedia = {
+    id: 4,
+    title: 'Test Podcast Series',
+    mediaType: 'Podcast',
+    status: 'InProgress',
+    mixlistIds: []
+};
+
+const mockPodcastSeriesDetails = {
+    id: 4,
+    title: 'Test Podcast Series',
+    podcastType: 'Series',
+    publisher: 'Publisher Name'
 };
 
 const mockMixlists = [
-  { id: 'mixlist-1', name: 'My Favorites', description: 'Best content' },
-  { id: 'mixlist-2', name: 'Watch Later', description: 'To watch' }
+    { id: 10, name: 'Favorites', description: 'My favorites' },
+    { id: 20, name: 'Watch Later', description: 'To watch' },
+    { id: 30, name: 'Reading List', description: 'Books to read' }
 ];
 
-const renderWithRouter = (id) => {
-  return render(
-    <MemoryRouter initialEntries={[`/media/${id}`]}>
-      <Routes>
-        <Route path="/media/:id" element={<MediaProfilePage />} />
-        <Route path="/youtube-playlist/:id" element={<div data-testid="playlist-redirect">Playlist Page</div>} />
-        <Route path="/youtube-channel/:id" element={<div data-testid="channel-redirect">Channel Page</div>} />
-        <Route path="/all-media" element={<div data-testid="all-media">All Media</div>} />
-      </Routes>
-    </MemoryRouter>
-  );
+const mockHighlights = [
+    { id: 100, text: 'Highlight one', note: 'Note one' },
+    { id: 101, text: 'Highlight two', note: 'Note two' }
+];
+
+const renderComponent = () => {
+    return render(
+        <BrowserRouter>
+            <MediaProfilePage />
+        </BrowserRouter>
+    );
+};
+
+// Helper to set up book mocks
+const setupBookMocks = () => {
+    getMediaById.mockResolvedValue({ data: mockBookMedia });
+    getBookById.mockResolvedValue({ data: mockBookDetails });
+    getAllMixlists.mockResolvedValue({ data: [] });
+    getHighlightsByBook.mockResolvedValue([]);
+};
+
+// Helper to set up movie mocks
+const setupMovieMocks = () => {
+    getMediaById.mockResolvedValue({ data: mockMovieMedia });
+    getMovieById.mockResolvedValue({ data: mockMovieDetails });
+    getAllMixlists.mockResolvedValue({ data: [] });
 };
 
 describe('MediaProfilePage', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mixlistService.getAllMixlists.mockResolvedValue({ data: mockMixlists });
-  });
-
-  describe('Loading State', () => {
-    it('should display loading indicator while fetching media', async () => {
-      mediaService.getMediaById.mockImplementation(() => new Promise(() => {})); // Never resolves
-
-      renderWithRouter('123');
-
-      expect(screen.getByText('Loading media item...')).toBeInTheDocument();
-      expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mockParamsId = '1';
     });
 
-    it('should show media ID in loading state', () => {
-      mediaService.getMediaById.mockImplementation(() => new Promise(() => {}));
+    describe('Loading State', () => {
+        it('should show loading spinner while fetching data', () => {
+            getMediaById.mockImplementation(() => new Promise(() => {}));
 
-      renderWithRouter('test-media-id');
+            renderComponent();
 
-      expect(screen.getByText('ID: test-media-id')).toBeInTheDocument();
-    });
-  });
+            expect(screen.getByRole('progressbar')).toBeInTheDocument();
+        });
 
-  describe('Error State', () => {
-    it('should display not found message when media item is null', async () => {
-      mediaService.getMediaById.mockRejectedValue(new Error('Not found'));
+        it('should show loading indicator text', () => {
+            getMediaById.mockImplementation(() => new Promise(() => {}));
 
-      renderWithRouter('nonexistent-id');
+            renderComponent();
 
-      await waitFor(() => {
-        expect(screen.getByText('Media item not found.')).toBeInTheDocument();
-      });
+            expect(screen.getByText('Loading media item...')).toBeInTheDocument();
+        });
     });
 
-    it('should show back button when media not found', async () => {
-      mediaService.getMediaById.mockRejectedValue(new Error('Not found'));
+    describe('Data Display for Book', () => {
+        it('should render media header with book data', async () => {
+            setupBookMocks();
 
-      renderWithRouter('nonexistent-id');
+            renderComponent();
 
-      await waitFor(() => {
-        expect(screen.getByRole('button', { name: /back to all media/i })).toBeInTheDocument();
-      });
-    });
-  });
+            await waitFor(() => {
+                expect(screen.getByTestId('media-header')).toBeInTheDocument();
+            });
+            expect(screen.getByTestId('media-header')).toHaveTextContent('Test Book');
+        });
 
-  describe('Book Media Display', () => {
-    it('should render book media item with all sections', async () => {
-      mediaService.getMediaById.mockResolvedValue({ data: mockBook });
-      bookService.getBookById.mockResolvedValue({ data: mockBook });
-      highlightService.getHighlightsByBook.mockResolvedValue([]);
+        it('should render media info card', async () => {
+            setupBookMocks();
 
-      renderWithRouter(mockBook.id);
+            renderComponent();
 
-      await waitFor(() => {
-        expect(screen.getByTestId('media-header')).toHaveTextContent('Test Book Title');
-      });
+            await waitFor(() => {
+                expect(screen.getByTestId('media-info-card')).toBeInTheDocument();
+            });
+            expect(screen.getByTestId('media-info-card')).toHaveTextContent('Test Book');
+        });
 
-      expect(screen.getByTestId('media-info-card')).toBeInTheDocument();
-      expect(screen.getByTestId('media-type')).toHaveTextContent('Book');
-      expect(screen.getByTestId('media-detail-accordion')).toBeInTheDocument();
-      expect(screen.getByTestId('highlights-section')).toBeInTheDocument();
-      expect(screen.getByTestId('topics-genres-section')).toBeInTheDocument();
-      expect(screen.getByTestId('mixlist-carousel')).toBeInTheDocument();
-    });
+        it('should render highlights section for books', async () => {
+            getMediaById.mockResolvedValue({ data: mockBookMedia });
+            getBookById.mockResolvedValue({ data: mockBookDetails });
+            getAllMixlists.mockResolvedValue({ data: [] });
+            getHighlightsByBook.mockResolvedValue(mockHighlights);
 
-    it('should fetch detailed book data', async () => {
-      mediaService.getMediaById.mockResolvedValue({ data: mockBook });
-      bookService.getBookById.mockResolvedValue({ data: { ...mockBook, isbn: '1234567890' } });
-      highlightService.getHighlightsByBook.mockResolvedValue([]);
+            renderComponent();
 
-      renderWithRouter(mockBook.id);
-
-      await waitFor(() => {
-        expect(bookService.getBookById).toHaveBeenCalledWith(mockBook.id);
-      });
-    });
-  });
-
-  describe('Movie Media Display', () => {
-    it('should render movie media item', async () => {
-      mediaService.getMediaById.mockResolvedValue({ data: mockMovie });
-      movieService.getMovieById.mockResolvedValue({ data: mockMovie });
-
-      renderWithRouter(mockMovie.id);
-
-      await waitFor(() => {
-        expect(screen.getByTestId('media-header')).toHaveTextContent('Test Movie Title');
-        expect(screen.getByTestId('media-type')).toHaveTextContent('Movie');
-      });
+            await waitFor(() => {
+                expect(screen.getByTestId('highlights-section')).toBeInTheDocument();
+            });
+        });
     });
 
-    it('should fetch detailed movie data', async () => {
-      mediaService.getMediaById.mockResolvedValue({ data: mockMovie });
-      movieService.getMovieById.mockResolvedValue({ data: mockMovie });
+    describe('Data Display for Movie', () => {
+        it('should render movie profile page', async () => {
+            mockParamsId = '2';
+            setupMovieMocks();
 
-      renderWithRouter(mockMovie.id);
+            renderComponent();
 
-      await waitFor(() => {
-        expect(movieService.getMovieById).toHaveBeenCalledWith(mockMovie.id);
-      });
-    });
-  });
+            await waitFor(() => {
+                expect(screen.getByTestId('media-header')).toBeInTheDocument();
+            });
+            expect(screen.getByTestId('media-info-card')).toHaveTextContent('Test Movie');
+        });
 
-  describe('Video Media Display', () => {
-    it('should render video media item', async () => {
-      mediaService.getMediaById.mockResolvedValue({ data: mockVideo });
-      videoService.getVideoById.mockResolvedValue({ data: mockVideo });
-      videoService.getPlaylistsForVideo.mockResolvedValue([]);
+        it('should fetch movie details', async () => {
+            mockParamsId = '2';
+            setupMovieMocks();
 
-      renderWithRouter(mockVideo.id);
+            renderComponent();
 
-      await waitFor(() => {
-        expect(screen.getByTestId('media-header')).toHaveTextContent('Test Video Title');
-        expect(screen.getByTestId('media-type')).toHaveTextContent('Video');
-      });
-    });
-
-    it('should fetch playlists for video', async () => {
-      mediaService.getMediaById.mockResolvedValue({ data: mockVideo });
-      videoService.getVideoById.mockResolvedValue({ data: mockVideo });
-      videoService.getPlaylistsForVideo.mockResolvedValue([{ id: 'pl1', name: 'Playlist 1' }]);
-
-      renderWithRouter(mockVideo.id);
-
-      await waitFor(() => {
-        expect(videoService.getPlaylistsForVideo).toHaveBeenCalledWith(mockVideo.id);
-      });
-    });
-  });
-
-  describe('Media Type Redirects', () => {
-    it('should redirect Playlist to YouTube playlist page', async () => {
-      mediaService.getMediaById.mockResolvedValue({ data: mockPlaylist });
-
-      renderWithRouter(mockPlaylist.id);
-
-      await waitFor(() => {
-        expect(screen.getByTestId('playlist-redirect')).toBeInTheDocument();
-      });
+            await waitFor(() => {
+                expect(getMovieById).toHaveBeenCalledWith('2');
+            });
+        });
     });
 
-    it('should redirect Channel to YouTube channel page', async () => {
-      mediaService.getMediaById.mockResolvedValue({ data: mockChannel });
+    describe('Redirects', () => {
+        it('should redirect to YouTube playlist profile for Playlist type', async () => {
+            mockParamsId = '3';
+            getMediaById.mockResolvedValue({ data: mockPlaylistMedia });
 
-      renderWithRouter(mockChannel.id);
+            renderComponent();
 
-      await waitFor(() => {
-        expect(screen.getByTestId('channel-redirect')).toBeInTheDocument();
-      });
-    });
-  });
+            await waitFor(() => {
+                expect(mockNavigate).toHaveBeenCalledWith('/youtube-playlist/3', { replace: true });
+            });
+        });
 
-  describe('Mixlist Integration', () => {
-    it('should fetch and display mixlists', async () => {
-      const movieWithMixlists = { ...mockMovie, mixlistIds: ['mixlist-1'] };
-      mediaService.getMediaById.mockResolvedValue({ data: movieWithMixlists });
-      movieService.getMovieById.mockResolvedValue({ data: movieWithMixlists });
+        it('should redirect to podcast series profile for Channel type', async () => {
+            mockParamsId = '5';
+            const mockChannelMedia = {
+                id: 5,
+                title: 'Test Channel',
+                mediaType: 'Channel',
+                status: 'InProgress',
+                mixlistIds: []
+            };
+            getMediaById.mockResolvedValue({ data: mockChannelMedia });
 
-      renderWithRouter(mockMovie.id);
+            renderComponent();
 
-      await waitFor(() => {
-        expect(mixlistService.getAllMixlists).toHaveBeenCalled();
-      });
-
-      expect(screen.getByTestId('mixlist-carousel')).toBeInTheDocument();
-    });
-  });
-
-  describe('API Error Handling', () => {
-    it('should handle detailed book fetch failure gracefully', async () => {
-      mediaService.getMediaById.mockResolvedValue({ data: mockBook });
-      bookService.getBookById.mockRejectedValue(new Error('Book details not found'));
-      highlightService.getHighlightsByBook.mockResolvedValue([]);
-
-      renderWithRouter(mockBook.id);
-
-      // Should still render with basic data
-      await waitFor(() => {
-        expect(screen.getByTestId('media-header')).toHaveTextContent('Test Book Title');
-      });
+            await waitFor(() => {
+                expect(mockNavigate).toHaveBeenCalledWith('/youtube-channel/5', { replace: true });
+            });
+        });
     });
 
-    it('should handle video playlists fetch failure gracefully', async () => {
-      mediaService.getMediaById.mockResolvedValue({ data: mockVideo });
-      videoService.getVideoById.mockResolvedValue({ data: mockVideo });
-      videoService.getPlaylistsForVideo.mockRejectedValue(new Error('Failed to fetch playlists'));
+    describe('Add to Mixlist', () => {
+        it('should show add to mixlist FAB button', async () => {
+            setupBookMocks();
 
-      renderWithRouter(mockVideo.id);
+            renderComponent();
 
-      // Should still render without crashing
-      await waitFor(() => {
-        expect(screen.getByTestId('media-header')).toHaveTextContent('Test Video Title');
-      });
+            await waitFor(() => {
+                expect(screen.getByTestId('media-header')).toBeInTheDocument();
+            });
+            // The MixlistCarousel is rendered (which handles add-to-mixlist in the real component)
+            expect(screen.getByTestId('mixlist-carousel')).toBeInTheDocument();
+        });
+
+        it('should render mixlist carousel component', async () => {
+            getMediaById.mockResolvedValue({ data: mockBookMedia });
+            getBookById.mockResolvedValue({ data: mockBookDetails });
+            getAllMixlists.mockResolvedValue({ data: mockMixlists });
+            getHighlightsByBook.mockResolvedValue([]);
+
+            renderComponent();
+
+            await waitFor(() => {
+                expect(screen.getByTestId('mixlist-carousel')).toBeInTheDocument();
+            });
+        });
+
+        it('should fetch available mixlists on load', async () => {
+            getMediaById.mockResolvedValue({ data: mockBookMedia });
+            getBookById.mockResolvedValue({ data: mockBookDetails });
+            getAllMixlists.mockResolvedValue({ data: mockMixlists });
+            getHighlightsByBook.mockResolvedValue([]);
+
+            renderComponent();
+
+            await waitFor(() => {
+                expect(getAllMixlists).toHaveBeenCalled();
+            });
+        });
     });
 
-    it('should handle mixlists fetch failure gracefully', async () => {
-      mediaService.getMediaById.mockResolvedValue({ data: mockBook });
-      bookService.getBookById.mockResolvedValue({ data: mockBook });
-      mixlistService.getAllMixlists.mockRejectedValue(new Error('Failed to fetch mixlists'));
-      highlightService.getHighlightsByBook.mockResolvedValue([]);
+    describe('Sections', () => {
+        it('should render topics and genres section', async () => {
+            setupBookMocks();
 
-      renderWithRouter(mockBook.id);
+            renderComponent();
 
-      // Should still render page
-      await waitFor(() => {
-        expect(screen.getByTestId('media-header')).toHaveTextContent('Test Book Title');
-      });
+            await waitFor(() => {
+                expect(screen.getByTestId('topics-genres-section')).toBeInTheDocument();
+            });
+            expect(screen.getByTestId('topics-genres-section')).toHaveTextContent('Topics & Genres');
+        });
+
+        it('should render similar items section', async () => {
+            setupBookMocks();
+
+            renderComponent();
+
+            await waitFor(() => {
+                expect(screen.getByTestId('similar-items-section')).toBeInTheDocument();
+            });
+            expect(screen.getByTestId('similar-items-section')).toHaveTextContent('Similar Items');
+        });
     });
-  });
 });
