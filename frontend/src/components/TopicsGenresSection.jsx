@@ -5,6 +5,7 @@ import {
     DialogTitle, DialogContent, DialogActions, TextField, InputAdornment,
     List, ListItem, ListItemText, IconButton, CircularProgress
 } from '@mui/material';
+import { useMediaQuery, useTheme } from '@mui/material';
 import {
     Topic as TopicIcon, Category as GenreIcon, Add as AddIcon,
     Search, Close, Remove as RemoveIcon
@@ -256,7 +257,8 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
             (genre.name || genre.Name || '').toLowerCase().includes(genreSearchQuery.toLowerCase())
         );
 
-    const isMobile = window.innerWidth < 600;
+    const muiTheme = useTheme();
+    const isMobile = useMediaQuery(muiTheme.breakpoints.down('sm'));
 
     return (
         <Card sx={{ mt: 3, overflow: 'hidden', borderRadius: 2 }}>

@@ -4,7 +4,7 @@ import {
     Box, Typography, Button, Card, CardContent, Dialog,
     DialogTitle, DialogContent, DialogActions, TextField, InputAdornment,
     List, ListItem, ListItemText, ListItemSecondaryAction, IconButton,
-    CircularProgress, Chip, Link, Tooltip
+    CircularProgress, Chip, Link, Tooltip, useMediaQuery, useTheme
 } from '@mui/material';
 import {
     Article as NoteIcon, Add as AddIcon, Search, Close,
@@ -154,7 +154,8 @@ function RelatedNotesSection({ mediaItem, setSnackbar, onUpdate }) {
         }
     };
 
-    const isMobile = window.innerWidth < 600;
+    const muiTheme = useTheme();
+    const isMobile = useMediaQuery(muiTheme.breakpoints.down('sm'));
 
     return (
         <Card sx={{ mt: 3, overflow: 'hidden', borderRadius: 2 }}>

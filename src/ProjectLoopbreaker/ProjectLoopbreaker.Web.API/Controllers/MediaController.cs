@@ -758,14 +758,15 @@ namespace ProjectLoopbreaker.Web.API.Controllers
 
             try
             {
+                var lowerQuery = query.ToLowerInvariant();
                 var results = await _context.MediaItems
                     .AsNoTracking()
                     .AsSplitQuery()
-                    .Where(m => EF.Functions.ILike(m.Title, $"%{query}%") || 
-                               (m.Description != null && EF.Functions.ILike(m.Description, $"%{query}%")) ||
-                               (m.Topics.Any(t => EF.Functions.ILike(t.Name, $"%{query}%"))) ||
-                               (m.Genres.Any(g => EF.Functions.ILike(g.Name, $"%{query}%"))) ||
-                               EF.Functions.ILike(m.MediaType.ToString(), $"%{query}%"))
+                    .Where(m => m.Title.ToLower().Contains(lowerQuery) ||
+                               (m.Description != null && m.Description.ToLower().Contains(lowerQuery)) ||
+                               (m.Topics.Any(t => t.Name.ToLower().Contains(lowerQuery))) ||
+                               (m.Genres.Any(g => g.Name.ToLower().Contains(lowerQuery))) ||
+                               m.MediaType.ToString().ToLower().Contains(lowerQuery))
                     .Include(m => m.Mixlists)
                     .Include(m => m.Topics)
                     .Include(m => m.Genres)

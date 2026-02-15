@@ -4,7 +4,9 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Moq;
 using ProjectLoopbreaker.Infrastructure.Data;
+using ProjectLoopbreaker.Shared.Interfaces;
 
 namespace ProjectLoopbreaker.IntegrationTests
 {
@@ -124,6 +126,24 @@ namespace ProjectLoopbreaker.IntegrationTests
                 
                 Console.WriteLine("✅ DbContext and IApplicationDbContext registered");
                 Console.WriteLine("=== WebApplicationFactory ConfigureServices END ===");
+
+                // Replace real Typesense service with a no-op mock to prevent
+                // test data from leaking into the production Typesense instance.
+                // Without this, every CRUD operation in integration tests indexes
+                // documents into the real Typesense server via environment variables,
+                // creating orphaned search records that don't exist in any database.
+                var typesenseDescriptors = services.Where(d =>
+                    d.ServiceType == typeof(ITypeSenseService))
+                    .ToList();
+
+                foreach (var desc in typesenseDescriptors)
+                {
+                    services.Remove(desc);
+                }
+
+                var mockTypeSenseService = new Mock<ITypeSenseService>();
+                services.AddScoped(_ => mockTypeSenseService.Object);
+                Console.WriteLine("✅ ITypeSenseService replaced with no-op mock (prevents Typesense leakage)");
 
                 // Configure ListenNotes API to use MOCK server for testing
                 // See: https://www.listennotes.com/api/docs/?test=1

@@ -170,9 +170,8 @@ export const theme = createTheme({
           textTransform: 'none',
           fontWeight: 'bold',
           padding: '12px 24px',
-          transition: TRANSITIONS.normal,
+          transition: `box-shadow ${TRANSITIONS.normal}`,
           '&:hover': {
-            transform: 'translateY(-2px)',
             boxShadow: SHADOWS.md
           }
         },
@@ -198,9 +197,8 @@ export const theme = createTheme({
         root: {
           backgroundColor: COLORS.background.paper,
           borderRadius: BORDER_RADIUS.lg,
-          transition: TRANSITIONS.normal,
+          transition: `box-shadow ${TRANSITIONS.normal}`,
           '&:hover': {
-            transform: 'translateY(-5px)',
             boxShadow: SHADOWS.lg
           }
         }

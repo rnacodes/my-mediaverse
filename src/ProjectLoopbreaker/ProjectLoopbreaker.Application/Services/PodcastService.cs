@@ -61,11 +61,12 @@ namespace ProjectLoopbreaker.Application.Services
 
         public async Task<IEnumerable<PodcastSeries>> SearchPodcastSeriesAsync(string query)
         {
+            var lowerQuery = query.ToLowerInvariant();
             return await _context.PodcastSeries
                 .AsNoTracking()
                 .AsSplitQuery()
-                .Where(p => EF.Functions.ILike(p.Title, $"%{query}%") || 
-                           (p.Publisher != null && EF.Functions.ILike(p.Publisher, $"%{query}%")))
+                .Where(p => p.Title.ToLower().Contains(lowerQuery) ||
+                           (p.Publisher != null && p.Publisher.ToLower().Contains(lowerQuery)))
                 .Include(p => p.Topics)
                 .Include(p => p.Genres)
                 .Include(p => p.Mixlists)

@@ -68,7 +68,7 @@ namespace ProjectLoopbreaker.Application.Services
                 return await _context.TvShows
                     .AsNoTracking()
                     .AsSplitQuery()
-                    .Where(t => t.Creator != null && EF.Functions.ILike(t.Creator, $"%{creator}%"))
+                    .Where(t => t.Creator != null && t.Creator.ToLower().Contains(creator.ToLowerInvariant()))
                     .Include(t => t.Topics)
                     .Include(t => t.Genres)
                     .ToListAsync();

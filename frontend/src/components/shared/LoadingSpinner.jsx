@@ -157,20 +157,23 @@ const LoadingSpinner = ({
   return content;
 };
 
-// Add CSS animations
-const style = document.createElement('style');
-style.textContent = `
-  @keyframes pulse {
-    0%, 80%, 100% {
-      opacity: 1;
-      transform: scale(1);
+// Add CSS animations (only once)
+if (!document.getElementById('loading-spinner-keyframes')) {
+  const style = document.createElement('style');
+  style.id = 'loading-spinner-keyframes';
+  style.textContent = `
+    @keyframes pulse {
+      0%, 80%, 100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      40% {
+        opacity: 0.5;
+        transform: scale(0.8);
+      }
     }
-    40% {
-      opacity: 0.5;
-      transform: scale(0.8);
-    }
-  }
-`;
-document.head.appendChild(style);
+  `;
+  document.head.appendChild(style);
+}
 
 export default LoadingSpinner;

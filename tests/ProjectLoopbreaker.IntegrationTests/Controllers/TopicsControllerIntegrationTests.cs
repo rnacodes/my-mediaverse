@@ -462,19 +462,25 @@ namespace ProjectLoopbreaker.IntegrationTests.Controllers
 
             await _client.PostAsync("/api/media", mediaContent);
 
-            // Act - Search for the topic
-            var response = await _client.GetAsync($"/api/topics/search?query={topicName}");
+            // Act - Search for the topic to get its ID
+            var searchResponse = await _client.GetAsync($"/api/topics/search?query={topicName}");
+            Assert.Equal(HttpStatusCode.OK, searchResponse.StatusCode);
 
-            // Assert
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
-            var content = await response.Content.ReadAsStringAsync();
-            var topics = JsonSerializer.Deserialize<List<TopicResponseDto>>(content, _jsonOptions);
+            var searchContent = await searchResponse.Content.ReadAsStringAsync();
+            var topics = JsonSerializer.Deserialize<List<TopicResponseDto>>(searchContent, _jsonOptions);
             Assert.NotNull(topics);
             Assert.Single(topics);
-            
-            var topic = topics.First();
-            Assert.Contains(topicName.ToLower(), topic.Name);
+
+            var topicFromSearch = topics.First();
+            Assert.Contains(topicName.ToLower(), topicFromSearch.Name);
+
+            // Get topic by ID to verify media association (search endpoint omits MediaItemIds for performance)
+            var response = await _client.GetAsync($"/api/topics/{topicFromSearch.Id}");
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+            var content = await response.Content.ReadAsStringAsync();
+            var topic = JsonSerializer.Deserialize<TopicResponseDto>(content, _jsonOptions);
+            Assert.NotNull(topic);
             Assert.NotEmpty(topic.MediaItemIds); // Should have associated media
         }
 

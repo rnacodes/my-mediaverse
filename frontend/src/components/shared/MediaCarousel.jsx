@@ -146,7 +146,6 @@ const MediaCarousel = ({
         position: 'relative',
         '& .swiper-slide': {
           zIndex: 1,
-          transition: 'z-index 0.3s ease'
         },
         '& .swiper-slide-active': {
           zIndex: 10

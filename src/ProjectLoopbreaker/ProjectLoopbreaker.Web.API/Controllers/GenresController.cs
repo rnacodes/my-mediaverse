@@ -32,15 +32,10 @@ namespace ProjectLoopbreaker.Web.API.Controllers
                     .OrderBy(g => g.Name)
                     .ToListAsync();
 
-                // Get all media item counts in a single batched query using GROUP BY
-                var genreCounts = await _context.Database
-                    .SqlQueryRaw<GenreCountResult>(@"
-                        SELECT mig.""GenreId"", COUNT(*) as ""Count""
-                        FROM ""MediaItemGenres"" mig
-                        GROUP BY mig.""GenreId""")
+                // Get all media item counts using LINQ navigation properties
+                var genreCounts = await _context.Genres
+                    .Select(g => new { GenreId = g.Id, Count = g.MediaItems.Count })
                     .ToListAsync();
-
-                // Create a dictionary for O(1) lookup
                 var countsByGenreId = genreCounts.ToDictionary(gc => gc.GenreId, gc => gc.Count);
 
                 // Build response with counts (no need for individual queries)
@@ -62,13 +57,6 @@ namespace ProjectLoopbreaker.Web.API.Controllers
             }
         }
 
-        // Helper class for count results
-        private class GenreCountResult
-        {
-            public Guid GenreId { get; set; }
-            public int Count { get; set; }
-        }
-
         // GET: api/genres/search?query={query}
         [HttpGet("search")]
         public async Task<ActionResult<IEnumerable<GenreResponseDto>>> SearchGenres([FromQuery] string query)
@@ -87,14 +75,10 @@ namespace ProjectLoopbreaker.Web.API.Controllers
                     .OrderBy(g => g.Name)
                     .ToListAsync();
 
-                // Get counts for all genres in a single query
-                var genreCounts = await _context.Database
-                    .SqlQueryRaw<GenreCountResult>(@"
-                        SELECT mig.""GenreId"", COUNT(*) as ""Count""
-                        FROM ""MediaItemGenres"" mig
-                        GROUP BY mig.""GenreId""")
+                // Get counts for all genres using LINQ
+                var genreCounts = await _context.Genres
+                    .Select(g => new { GenreId = g.Id, Count = g.MediaItems.Count })
                     .ToListAsync();
-
                 var countsByGenreId = genreCounts.ToDictionary(gc => gc.GenreId, gc => gc.Count);
 
                 var response = genres.Select(genre => new GenreResponseDto
@@ -129,13 +113,10 @@ namespace ProjectLoopbreaker.Web.API.Controllers
                     return NotFound($"Genre with ID {id} not found.");
                 }
 
-                // Get media item IDs directly without loading full entities
-                var mediaItemIds = await _context.Database
-                    .SqlQueryRaw<Guid>(@"
-                        SELECT mi.""Id""
-                        FROM ""MediaItems"" mi
-                        INNER JOIN ""MediaItemGenres"" mig ON mi.""Id"" = mig.""MediaItemId""
-                        WHERE mig.""GenreId"" = {0}", id)
+                // Get media item IDs using LINQ navigation properties
+                var mediaItemIds = await _context.MediaItems
+                    .Where(m => m.Genres.Any(g => g.Id == id))
+                    .Select(m => m.Id)
                     .ToListAsync();
 
                 var response = new GenreResponseDto
@@ -228,13 +209,10 @@ namespace ProjectLoopbreaker.Web.API.Controllers
             genre.Name = normalizedGenreName;
             await _context.SaveChangesAsync();
 
-            // Get media item IDs
-            var mediaItemIds = await _context.Database
-                .SqlQueryRaw<Guid>(@"
-                    SELECT mi.""Id""
-                    FROM ""MediaItems"" mi
-                    INNER JOIN ""MediaItemGenres"" mig ON mi.""Id"" = mig.""MediaItemId""
-                    WHERE mig.""GenreId"" = {0}", id)
+            // Get media item IDs using LINQ navigation properties
+            var mediaItemIds = await _context.MediaItems
+                .Where(m => m.Genres.Any(g => g.Id == id))
+                .Select(m => m.Id)
                 .ToListAsync();
 
             var response = new GenreResponseDto

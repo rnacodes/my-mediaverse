@@ -46,8 +46,9 @@ namespace ProjectLoopbreaker.IntegrationTests.Controllers
         [Fact]
         public async Task CreateBook_ShouldCreateBook_WhenValidDataProvided()
         {
-            // Arrange
-            var dto = TestDataFactory.CreateBookDto("Test Book", "Test Author");
+            // Arrange - use unique title/author to avoid collision with other tests sharing the in-memory DB
+            var uniqueSuffix = Guid.NewGuid().ToString()[..8];
+            var dto = TestDataFactory.CreateBookDto($"Test Book {uniqueSuffix}", $"Test Author {uniqueSuffix}");
             dto.Description = "A test book description";
             dto.Status = Status.Uncharted;
             dto.Format = BookFormat.Digital;

@@ -462,19 +462,25 @@ namespace ProjectLoopbreaker.IntegrationTests.Controllers
 
             await _client.PostAsync("/api/media", mediaContent);
 
-            // Act - Search for the genre
-            var response = await _client.GetAsync($"/api/genres/search?query={genreName}");
+            // Act - Search for the genre to get its ID
+            var searchResponse = await _client.GetAsync($"/api/genres/search?query={genreName}");
+            Assert.Equal(HttpStatusCode.OK, searchResponse.StatusCode);
 
-            // Assert
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
-            var content = await response.Content.ReadAsStringAsync();
-            var genres = JsonSerializer.Deserialize<List<GenreResponseDto>>(content, _jsonOptions);
+            var searchContent = await searchResponse.Content.ReadAsStringAsync();
+            var genres = JsonSerializer.Deserialize<List<GenreResponseDto>>(searchContent, _jsonOptions);
             Assert.NotNull(genres);
             Assert.Single(genres);
-            
-            var genre = genres.First();
-            Assert.Contains(genreName.ToLower(), genre.Name);
+
+            var genreFromSearch = genres.First();
+            Assert.Contains(genreName.ToLower(), genreFromSearch.Name);
+
+            // Get genre by ID to verify media association (search endpoint omits MediaItemIds for performance)
+            var response = await _client.GetAsync($"/api/genres/{genreFromSearch.Id}");
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+            var content = await response.Content.ReadAsStringAsync();
+            var genre = JsonSerializer.Deserialize<GenreResponseDto>(content, _jsonOptions);
+            Assert.NotNull(genre);
             Assert.NotEmpty(genre.MediaItemIds); // Should have associated media
         }
 
