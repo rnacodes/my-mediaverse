@@ -16,6 +16,7 @@ using Typesense;
 using Typesense.Setup;
 using Pgvector.EntityFrameworkCore;
 using ProjectLoopbreaker.Web.API.Authentication;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -840,9 +841,42 @@ builder.Services.AddSingleton<ITypesenseClient>(sp =>
 // Register Typesense service
 builder.Services.AddScoped<ITypeSenseService, TypeSenseService>();
 
-// Add other services like Swagger if needed
+// Add Swagger/OpenAPI services with JWT Bearer authentication
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Project Loopbreaker API",
+        Version = "v1",
+        Description = "Personal media library management API for podcasts, books, movies, TV shows, YouTube, articles, and websites."
+    });
+
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "Enter your JWT token (the 'Bearer' prefix is added automatically)",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT"
+    });
+
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
 
 var app = builder.Build();
 
@@ -882,11 +916,12 @@ catch (Exception ex)
 // Add global exception handler first to catch all unhandled exceptions
 app.UseGlobalExceptionHandler();
 
-if (app.Environment.IsDevelopment())
+app.UseSwagger();
+app.UseSwaggerUI(options =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+    options.SwaggerEndpoint("/swagger/v1/swagger.json", "Project Loopbreaker API V1");
+    options.RoutePrefix = string.Empty;
+});
 
 //app.UseHttpsRedirection();
 app.UseRouting(); // Ensure routing is enabled
