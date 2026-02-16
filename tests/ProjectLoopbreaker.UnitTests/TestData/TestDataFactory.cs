@@ -1,6 +1,7 @@
 using AutoFixture;
 using AutoFixture.Kernel;
 using ProjectLoopbreaker.Domain.Entities;
+using ProjectLoopbreaker.Domain.Enums;
 using ProjectLoopbreaker.DTOs;
 using ProjectLoopbreaker.Shared.DTOs.TMDB;
 
@@ -420,6 +421,182 @@ namespace ProjectLoopbreaker.UnitTests.TestData
                     correspondent: $"Correspondent {i + 1}"));
             }
             return documents;
+        }
+
+        // Article Test Data Factory Methods
+        public static Article CreateArticle(string? title = null, string? author = null)
+        {
+            return new Article
+            {
+                Id = Guid.NewGuid(),
+                Title = title ?? "Test Article",
+                Author = author ?? "Test Author",
+                MediaType = MediaType.Article,
+                Status = Status.Uncharted,
+                DateAdded = DateTime.UtcNow,
+                SyncStatus = SyncStatus.LocalOnly,
+                Topics = new List<Topic>(),
+                Genres = new List<Genre>(),
+                Mixlists = new List<Mixlist>(),
+                Highlights = new List<Highlight>()
+            };
+        }
+
+        public static List<Article> CreateArticles(int count)
+        {
+            var articles = new List<Article>();
+            for (int i = 0; i < count; i++)
+            {
+                articles.Add(CreateArticle($"Test Article {i + 1}", $"Test Author {i + 1}"));
+            }
+            return articles;
+        }
+
+        // Video Test Data Factory Methods
+        public static Video CreateVideo(string? title = null, string? platform = null, VideoType? videoType = null)
+        {
+            return new Video
+            {
+                Id = Guid.NewGuid(),
+                Title = title ?? "Test Video",
+                Platform = platform ?? "YouTube",
+                VideoType = videoType ?? VideoType.Episode,
+                MediaType = MediaType.Video,
+                Status = Status.Uncharted,
+                DateAdded = DateTime.UtcNow,
+                Topics = new List<Topic>(),
+                Genres = new List<Genre>(),
+                Mixlists = new List<Mixlist>(),
+                Episodes = new List<Video>(),
+                PlaylistVideos = new List<YouTubePlaylistVideo>()
+            };
+        }
+
+        // YouTube Channel Test Data Factory Methods
+        public static YouTubeChannel CreateYouTubeChannel(string? title = null, string? channelExternalId = null)
+        {
+            return new YouTubeChannel
+            {
+                Id = Guid.NewGuid(),
+                Title = title ?? "Test YouTube Channel",
+                ChannelExternalId = channelExternalId ?? "UC_test123",
+                MediaType = MediaType.Channel,
+                Status = Status.Uncharted,
+                DateAdded = DateTime.UtcNow,
+                Topics = new List<Topic>(),
+                Genres = new List<Genre>(),
+                Mixlists = new List<Mixlist>(),
+                Videos = new List<Video>()
+            };
+        }
+
+        // YouTube Playlist Test Data Factory Methods
+        public static YouTubePlaylist CreateYouTubePlaylist(string? title = null, string? playlistExternalId = null)
+        {
+            return new YouTubePlaylist
+            {
+                Id = Guid.NewGuid(),
+                Title = title ?? "Test YouTube Playlist",
+                PlaylistExternalId = playlistExternalId ?? "PL_test123",
+                MediaType = MediaType.Playlist,
+                Status = Status.Uncharted,
+                DateAdded = DateTime.UtcNow,
+                Topics = new List<Topic>(),
+                Genres = new List<Genre>(),
+                Mixlists = new List<Mixlist>(),
+                PlaylistVideos = new List<YouTubePlaylistVideo>()
+            };
+        }
+
+        // PodcastSeries (new entity) Test Data Factory Methods
+        public static PodcastSeries CreateNewPodcastSeries(string? title = null, string? publisher = null)
+        {
+            return new PodcastSeries
+            {
+                Id = Guid.NewGuid(),
+                Title = title ?? "Test Podcast Series",
+                Publisher = publisher ?? "Test Publisher",
+                MediaType = MediaType.Podcast,
+                Status = Status.Uncharted,
+                DateAdded = DateTime.UtcNow,
+                TotalEpisodes = 0,
+                Topics = new List<Topic>(),
+                Genres = new List<Genre>(),
+                Mixlists = new List<Mixlist>(),
+                Episodes = new List<PodcastEpisode>()
+            };
+        }
+
+        // PodcastEpisode (new entity) Test Data Factory Methods
+        public static PodcastEpisode CreateNewPodcastEpisode(string? title = null, Guid? seriesId = null)
+        {
+            return new PodcastEpisode
+            {
+                Id = Guid.NewGuid(),
+                Title = title ?? "Test Podcast Episode",
+                SeriesId = seriesId ?? Guid.NewGuid(),
+                MediaType = MediaType.Podcast,
+                Status = Status.Uncharted,
+                DateAdded = DateTime.UtcNow,
+                Topics = new List<Topic>(),
+                Genres = new List<Genre>(),
+                Mixlists = new List<Mixlist>()
+            };
+        }
+
+        // Note Test Data Factory Methods
+        public static Note CreateNote(string? title = null, string? slug = null, string? vaultName = null)
+        {
+            return new Note
+            {
+                Id = Guid.NewGuid(),
+                Title = title ?? "Test Note",
+                Slug = slug ?? "test-note",
+                VaultName = vaultName ?? "general",
+                DateImported = DateTime.UtcNow,
+                Tags = new List<string>(),
+                MediaItemNotes = new List<MediaItemNote>()
+            };
+        }
+
+        // Highlight Test Data Factory Methods
+        public static Highlight CreateHighlight(string? text = null, int? readwiseId = null)
+        {
+            return new Highlight
+            {
+                Id = Guid.NewGuid(),
+                Text = text ?? "Test highlight text",
+                ReadwiseId = readwiseId ?? 1,
+                CreatedAt = DateTime.UtcNow
+            };
+        }
+
+        // RefreshToken Test Data Factory Methods
+        public static RefreshToken CreateRefreshToken(string? userId = null, bool isActive = true)
+        {
+            return new RefreshToken
+            {
+                Token = Guid.NewGuid().ToString("N"),
+                UserId = userId ?? "admin",
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = isActive ? DateTime.UtcNow.AddDays(7) : DateTime.UtcNow.AddDays(-1),
+                IsRevoked = false
+            };
+        }
+
+        // MediaItemRelation Test Data Factory Methods
+        public static MediaItemRelation CreateMediaItemRelation(
+            Guid? sourceId = null,
+            Guid? relatedId = null,
+            RelationSource? source = null)
+        {
+            return new MediaItemRelation
+            {
+                SourceMediaItemId = sourceId ?? Guid.NewGuid(),
+                RelatedMediaItemId = relatedId ?? Guid.NewGuid(),
+                Source = source ?? RelationSource.ManuallyAdded,
+                CreatedAt = DateTime.UtcNow
+            };
         }
     }
 }
