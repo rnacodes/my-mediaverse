@@ -916,6 +916,64 @@ catch (Exception ex)
 // Add global exception handler first to catch all unhandled exceptions
 app.UseGlobalExceptionHandler();
 
+// Protect Swagger UI with Basic Authentication in non-development environments
+if (!app.Environment.IsDevelopment())
+{
+    app.Use(async (context, next) =>
+    {
+        var path = context.Request.Path.Value?.TrimEnd('/') ?? "";
+
+        var isSwaggerPath = path == ""
+            || path.Equals("/index.html", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase);
+
+        if (isSwaggerPath)
+        {
+            string? authHeader = context.Request.Headers.Authorization;
+
+            if (authHeader != null && authHeader.StartsWith("Basic ", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    var encoded = authHeader["Basic ".Length..].Trim();
+                    var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(encoded));
+                    var separatorIndex = decoded.IndexOf(':');
+
+                    if (separatorIndex > 0)
+                    {
+                        var username = decoded[..separatorIndex];
+                        var password = decoded[(separatorIndex + 1)..];
+
+                        var expectedUsername = Environment.GetEnvironmentVariable("AUTH_USERNAME")
+                            ?? builder.Configuration["Auth:Username"];
+                        var expectedPassword = Environment.GetEnvironmentVariable("AUTH_PASSWORD")
+                            ?? builder.Configuration["Auth:Password"];
+
+                        if (!string.IsNullOrEmpty(expectedUsername)
+                            && !string.IsNullOrEmpty(expectedPassword)
+                            && username == expectedUsername
+                            && password == expectedPassword)
+                        {
+                            await next();
+                            return;
+                        }
+                    }
+                }
+                catch (FormatException)
+                {
+                    // Invalid base64, fall through to 401
+                }
+            }
+
+            context.Response.StatusCode = 401;
+            context.Response.Headers.WWWAuthenticate = "Basic realm=\"Project Loopbreaker API\"";
+            return;
+        }
+
+        await next();
+    });
+}
+
 app.UseSwagger();
 app.UseSwaggerUI(options =>
 {
