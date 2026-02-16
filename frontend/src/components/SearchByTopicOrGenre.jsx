@@ -354,15 +354,14 @@ function SearchByTopicOrGenre() {
                             <Grid container spacing={1}>
                                 {topics.map((topic) => (
                                     <Grid item xs={12} sm={6} md={4} lg={3} key={topic.id || topic.Id}>
-                                        <Card 
-                                            sx={{ 
+                                        <Card
+                                            sx={{
                                                 cursor: 'pointer',
                                                 '&:hover': {
                                                     backgroundColor: 'action.hover',
-                                                    transform: 'translateY(-2px)',
                                                     boxShadow: 2
                                                 },
-                                                transition: 'all 0.2s ease-in-out',
+                                                transition: 'box-shadow 0.2s ease-in-out, background-color 0.2s ease-in-out',
                                                 position: 'relative'
                                             }}
                                             onClick={() => handleTopicClick(topic)}
@@ -487,15 +486,14 @@ function SearchByTopicOrGenre() {
                             <Grid container spacing={1}>
                                 {genres.map((genre) => (
                                     <Grid item xs={12} sm={6} md={4} lg={3} key={genre.id || genre.Id}>
-                                        <Card 
-                                            sx={{ 
+                                        <Card
+                                            sx={{
                                                 cursor: 'pointer',
                                                 '&:hover': {
                                                     backgroundColor: 'action.hover',
-                                                    transform: 'translateY(-2px)',
                                                     boxShadow: 2
                                                 },
-                                                transition: 'all 0.2s ease-in-out',
+                                                transition: 'box-shadow 0.2s ease-in-out, background-color 0.2s ease-in-out',
                                                 position: 'relative'
                                             }}
                                             onClick={() => handleGenreClick(genre)}

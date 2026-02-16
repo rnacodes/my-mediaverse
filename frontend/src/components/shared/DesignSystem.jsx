@@ -287,9 +287,8 @@ export const commonStyles = {
     height: '100%',
     display: 'flex',
     flexDirection: 'column',
-    transition: TRANSITIONS.normal,
+    transition: 'box-shadow 0.3s ease-in-out',
     '&:hover': {
-      transform: 'translateY(-5px)',
       boxShadow: SHADOWS.lg
     }
   },

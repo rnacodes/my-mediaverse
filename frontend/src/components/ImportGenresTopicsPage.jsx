@@ -92,7 +92,7 @@ function ImportGenresTopicsPage() {
                 </Typography>
             </Box>
 
-            <Card sx={{ mb: 3 }}>
+            <Card sx={{ mb: 3, '&:hover': { boxShadow: 'none' }, transition: 'none' }}>
                 <CardContent>
                     <Tabs
                         value={activeTab}
@@ -205,7 +205,7 @@ function ImportGenresTopicsPage() {
             </Card>
 
             {importResults && (
-                <Card>
+                <Card sx={{ '&:hover': { boxShadow: 'none' }, transition: 'none' }}>
                     <CardContent>
                         <Typography variant="h5" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <CheckCircle color="success" />
