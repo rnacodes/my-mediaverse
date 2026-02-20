@@ -252,7 +252,7 @@ function PodcastSeriesProfile() {
                 <Box display="flex" alignItems="center" mb={3}>
                     <IconButton onClick={() => navigate('/all-media?mediaType=Podcast')} sx={{ mr: 2 }}><ArrowBack /></IconButton>
                     <Typography variant="h4" sx={{ flexGrow: 1 }}>{series.title}</Typography>
-                    <IconButton onClick={() => navigate(`/edit-media/${id}`)}><Edit /></IconButton>
+                    <IconButton onClick={() => navigate(`/media/${id}/edit`)}><Edit /></IconButton>
                 </Box>
 
                 {/* Profile Card */}

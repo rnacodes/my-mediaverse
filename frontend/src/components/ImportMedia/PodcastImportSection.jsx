@@ -44,7 +44,8 @@ function PodcastImportSection({ expanded, onAccordionChange, onSnackbar }) {
                 publisher: podcast.publisher_original || podcast.publisher_highlighted || 'Unknown Publisher',
                 description: podcast.description_original || podcast.description_highlighted || 'No description available',
                 image: podcast.image || 'https://placehold.co/300x300/362759/fcfafa?text=No+Image',
-                total_episodes: podcast.total_episodes || 0
+                total_episodes: podcast.total_episodes || 0,
+                listennotes_url: podcast.listennotes_url || null
             })) || [];
 
             setPodcastSearchResults(transformedResults);
@@ -68,16 +69,17 @@ function PodcastImportSection({ expanded, onAccordionChange, onSnackbar }) {
 
         try {
             const result = await importPodcastSeriesFromApi(podcastId);
+            const responseData = result.data || result;
 
             onSnackbar?.({ open: true, message: 'Podcast series imported successfully!', severity: 'success' });
             setPodcastIsLoading(false);
             setPodcastId('');
 
-            console.log('Podcast imported successfully:', result);
+            console.log('Podcast imported successfully:', responseData);
 
-            const mediaId = result.id || result.Id;
+            const mediaId = responseData.id || responseData.Id;
             setTimeout(() => {
-                navigate(mediaId ? `/media/${mediaId}` : '/all-media');
+                navigate(mediaId ? `/podcast-series/${mediaId}` : '/all-media');
             }, 1500);
 
         } catch (err) {
@@ -98,16 +100,17 @@ function PodcastImportSection({ expanded, onAccordionChange, onSnackbar }) {
 
         try {
             const result = await importPodcastSeriesByName(podcastName);
+            const responseData = result.data || result;
 
             onSnackbar?.({ open: true, message: 'Podcast series imported successfully!', severity: 'success' });
             setPodcastIsLoading(false);
             setPodcastName('');
 
-            console.log('Podcast imported successfully:', result);
+            console.log('Podcast imported successfully:', responseData);
 
-            const mediaId = result.id || result.Id;
+            const mediaId = responseData.id || responseData.Id;
             setTimeout(() => {
-                navigate(mediaId ? `/media/${mediaId}` : '/all-media');
+                navigate(mediaId ? `/podcast-series/${mediaId}` : '/all-media');
             }, 1500);
 
         } catch (err) {
@@ -123,15 +126,16 @@ function PodcastImportSection({ expanded, onAccordionChange, onSnackbar }) {
 
         try {
             const result = await importPodcastSeriesFromApi(podcast.id);
+            const responseData = result.data || result;
 
             onSnackbar?.({ open: true, message: `"${podcast.title}" imported successfully!`, severity: 'success' });
             setPodcastIsLoading(false);
 
-            console.log('Podcast imported successfully:', result);
+            console.log('Podcast imported successfully:', responseData);
 
-            const mediaId = result.id || result.Id;
+            const mediaId = responseData.id || responseData.Id;
             setTimeout(() => {
-                navigate(mediaId ? `/media/${mediaId}` : '/all-media');
+                navigate(mediaId ? `/podcast-series/${mediaId}` : '/all-media');
             }, 1500);
 
         } catch (err) {
@@ -271,7 +275,7 @@ function PodcastImportSection({ expanded, onAccordionChange, onSnackbar }) {
                                                         <Box sx={{ display: 'flex', gap: 1 }}>
                                                             <WhiteOutlineButton
                                                                 size="small"
-                                                                href={`https://www.listennotes.com/podcasts/${podcast.id}/`}
+                                                                href={podcast.listennotes_url || `https://www.listennotes.com/podcasts/${podcast.id}/`}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
                                                                 endIcon={<OpenInNew fontSize="small" />}

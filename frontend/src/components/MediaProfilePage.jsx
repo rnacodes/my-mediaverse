@@ -59,26 +59,18 @@ function MediaProfilePage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        console.log('Fetching media item with ID:', id);
-        
         // First get the basic media info to determine the type
         const mediaResponse = await getMediaById(id);
-        console.log('Media response:', mediaResponse);
         const basicMedia = mediaResponse.data;
-        console.log('Basic media data:', basicMedia);
 
         // Redirect to specialized profile pages for certain media types
-        // MediaType enum: Article=0, Book=1, Channel=2, Document=3, Movie=4, Music=5, Other=6, Playlist=7, Podcast=8, TVShow=9, Video=10, VideoGame=11, Website=12
         const mediaType = basicMedia.mediaType;
-        console.log('MediaType value:', mediaType, 'Type:', typeof mediaType);
 
         if (mediaType === 'Playlist' || mediaType === 7) {
-          console.log('Redirecting to YouTube playlist profile');
           navigate(`/youtube-playlist/${id}`, { replace: true });
           return;
         }
         if (mediaType === 'Channel' || mediaType === 2) {
-          console.log('Redirecting to YouTube channel profile');
           navigate(`/youtube-channel/${id}`, { replace: true });
           return;
         }
@@ -90,7 +82,6 @@ function MediaProfilePage() {
           try {
             const bookResponse = await getBookById(id);
             detailedMedia = { ...basicMedia, ...bookResponse.data };
-            console.log('Detailed book data:', detailedMedia);
           } catch (bookError) {
             console.warn('Could not fetch detailed book data, using basic data:', bookError);
           }
@@ -99,22 +90,14 @@ function MediaProfilePage() {
             // Try to fetch as podcast series first
             try {
               const seriesResponse = await getPodcastSeriesById(id);
-              detailedMedia = { ...basicMedia, ...seriesResponse.data };
-              console.log('Detailed podcast series data:', detailedMedia);
-              
-              // Fetch episodes for the series
-              try {
-                const episodesResponse = await getEpisodesBySeriesId(id);
-                detailedMedia.episodes = episodesResponse.data || [];
-              } catch (episodesError) {
-                console.warn('Could not fetch episodes for series:', episodesError);
-              }
+              // Redirect to dedicated podcast series profile page
+              navigate(`/podcast-series/${id}`, { replace: true });
+              return;
             } catch (seriesError) {
               // If series fetch fails, try as episode
               try {
                 const episodeResponse = await getPodcastEpisodeById(id);
                 detailedMedia = { ...basicMedia, ...episodeResponse.data };
-                console.log('Detailed podcast episode data:', detailedMedia);
                 
                 // If it's an episode, try to fetch the parent series info
                 if (detailedMedia.seriesId) {
@@ -136,7 +119,6 @@ function MediaProfilePage() {
           try {
             const movieResponse = await getMovieById(id);
             detailedMedia = { ...basicMedia, ...movieResponse.data };
-            console.log('Detailed movie data:', detailedMedia);
           } catch (movieError) {
             console.warn('Could not fetch detailed movie data, using basic data:', movieError);
           }
@@ -144,7 +126,6 @@ function MediaProfilePage() {
           try {
             const tvShowResponse = await getTvShowById(id);
             detailedMedia = { ...basicMedia, ...tvShowResponse.data };
-            console.log('Detailed TV show data:', detailedMedia);
           } catch (tvShowError) {
             console.warn('Could not fetch detailed TV show data, using basic data:', tvShowError);
           }
@@ -152,90 +133,34 @@ function MediaProfilePage() {
           try {
             const videoResponse = await getVideoById(id);
             detailedMedia = { ...basicMedia, ...videoResponse.data };
-            console.log('Detailed video data:', detailedMedia);
           } catch (videoError) {
             console.warn('Could not fetch detailed video data, using basic data:', videoError);
           }
         } else if (basicMedia.mediaType === 'Article') {
           try {
             const articleResponse = await getArticleById(id);
-            console.log('Article API response:', articleResponse);
             // Check if response has .data property or if it's the data itself
             const articleData = articleResponse.data || articleResponse;
             detailedMedia = { ...basicMedia, ...articleData };
-            console.log('Detailed article data:', detailedMedia);
           } catch (articleError) {
             console.warn('Could not fetch detailed article data, using basic data:', articleError);
           }
         }
         
         setMediaItem(detailedMedia);
-        
-        // Debug: Log all available fields
-        console.log('Final media item fields:', Object.keys(detailedMedia));
-        console.log('Book specific fields:', {
-          author: detailedMedia.author,
-          isbn: detailedMedia.isbn,
-          asin: detailedMedia.asin,
-          format: detailedMedia.format,
-          partOfSeries: detailedMedia.partOfSeries
-        });
-        console.log('Podcast specific fields:', {
-          podcastType: detailedMedia.podcastType,
-          podcastTypeValue: detailedMedia.podcastType,
-          durationInSeconds: detailedMedia.durationInSeconds,
-          publisher: detailedMedia.publisher,
-          audioLink: detailedMedia.audioLink,
-          releaseDate: detailedMedia.releaseDate
-        });
-        console.log('Podcast type check:', {
-          exists: !!detailedMedia.podcastType,
-          value: detailedMedia.podcastType,
-          isSeries: detailedMedia.podcastType === 'Series',
-          isEpisode: detailedMedia.podcastType === 'Episode'
-        });
-        console.log('Video specific fields:', {
-          platform: detailedMedia.platform,
-          channelId: detailedMedia.channelId,
-          channel: detailedMedia.channel,
-          lengthInSeconds: detailedMedia.lengthInSeconds,
-          videoType: detailedMedia.videoType,
-          externalId: detailedMedia.externalId,
-          parentVideoId: detailedMedia.parentVideoId
-        });
-        console.log('Article specific fields:', {
-          author: detailedMedia.author,
-          publication: detailedMedia.publication,
-          publicationDate: detailedMedia.publicationDate,
-          originalUrl: detailedMedia.originalUrl,
-          readingProgress: detailedMedia.readingProgress,
-          estimatedReadingTimeMinutes: detailedMedia.estimatedReadingTimeMinutes,
-          wordCount: detailedMedia.wordCount,
-          isStarred: detailedMedia.isStarred,
-          progressTimestamp: detailedMedia.progressTimestamp
-        });
+
+        // Fetch all mixlists once and derive both current and available lists
+        const mixlistsResponse = await getAllMixlists();
+        const allMixlists = mixlistsResponse.data || [];
+        setAvailableMixlists(allMixlists);
 
         const mixlistIds = detailedMedia.mixlistIds || [];
-        console.log('Mixlist IDs:', mixlistIds);
-        
         if (mixlistIds.length > 0) {
-          const mixlistPromises = mixlistIds.map(id => 
-            getAllMixlists().then(response => 
-              response.data.find(mixlist => mixlist.id === id)
-            ).catch(() => null)
-          );
-          
-          const mixlists = await Promise.all(mixlistPromises);
-          const validMixlists = mixlists.filter(mixlist => mixlist !== null);
-          console.log('Fetched mixlists:', validMixlists);
-          setCurrentMixlists(validMixlists);
+          const mixlistIdSet = new Set(mixlistIds);
+          setCurrentMixlists(allMixlists.filter(m => mixlistIdSet.has(m.id)));
         } else {
           setCurrentMixlists([]);
         }
-
-        const mixlistsResponse = await getAllMixlists();
-        console.log('Mixlists response:', mixlistsResponse);
-        setAvailableMixlists(mixlistsResponse.data || []);
 
       } catch (error) {
         console.error('Failed to fetch data:', error);
@@ -323,28 +248,26 @@ function MediaProfilePage() {
     }
     
     try {
-      console.log('Adding media to mixlist:', { mixlistId: selectedMixlistId, mediaId: id });
       await addMediaToMixlist(selectedMixlistId, id);
       setSnackbar({ open: true, message: 'Media added to mixlist successfully!', severity: 'success' });
       setAddToMixlistDialog(false);
       setSelectedMixlistId(null);
       setMixlistSearchQuery('');
-      
+
       // Refresh the current mixlists
       const updatedMediaResponse = await getMediaById(id);
       const updatedMedia = updatedMediaResponse.data;
       const mixlistIds = updatedMedia.mixlistIds || [];
-      
+
+      const mixlistsResponse = await getAllMixlists();
+      const allMixlists = mixlistsResponse.data || [];
+      setAvailableMixlists(allMixlists);
+
       if (mixlistIds.length > 0) {
-        const mixlistPromises = mixlistIds.map(id => 
-          getAllMixlists().then(response => 
-            response.data.find(mixlist => mixlist.id === id)
-          ).catch(() => null)
-        );
-        
-        const mixlists = await Promise.all(mixlistPromises);
-        const validMixlists = mixlists.filter(mixlist => mixlist !== null);
-        setCurrentMixlists(validMixlists);
+        const mixlistIdSet = new Set(mixlistIds);
+        setCurrentMixlists(allMixlists.filter(m => mixlistIdSet.has(m.id)));
+      } else {
+        setCurrentMixlists([]);
       }
     } catch (error) {
       console.error('Failed to add media to mixlist:', error);

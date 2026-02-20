@@ -30,11 +30,18 @@ function MediaInfoCard({
 
   const description = mediaItem?.description || mediaItem?.notes;
 
+  // Extract plain text from HTML, properly decoding entities like &nbsp;
+  const getTextFromHtml = (htmlString) => {
+    if (!htmlString) return '';
+    const temp = document.createElement('div');
+    temp.innerHTML = htmlString;
+    return temp.textContent || temp.innerText || '';
+  };
+
   // Function to count words in HTML content
   const countWords = (htmlString) => {
     if (!htmlString) return 0;
-    // Remove HTML tags and count words
-    const text = htmlString.replace(/<[^>]*>/g, ' ');
+    const text = getTextFromHtml(htmlString);
     const words = text.trim().split(/\s+/);
     return words.filter(word => word.length > 0).length;
   };
@@ -42,12 +49,11 @@ function MediaInfoCard({
   // Function to truncate HTML content by word count
   const truncateDescription = (htmlString, maxWords) => {
     if (!htmlString) return '';
-    // Remove HTML tags for word counting
-    const text = htmlString.replace(/<[^>]*>/g, ' ');
-    const words = text.trim().split(/\s+/);
-    
+    const text = getTextFromHtml(htmlString);
+    const words = text.trim().split(/\s+/).filter(word => word.length > 0);
+
     if (words.length <= maxWords) return htmlString;
-    
+
     // Truncate the plain text version
     const truncatedText = words.slice(0, maxWords).join(' ');
     return truncatedText + '...';

@@ -69,5 +69,8 @@ namespace ProjectLoopbreaker.Shared.DTOs.ListenNotes
 
         [JsonPropertyName("listen_score_global_rank")]
         public string? ListenScoreGlobalRank { get; set; }
+
+        [JsonPropertyName("listennotes_url")]
+        public string? ListenNotesUrl { get; set; }
     }
 }
