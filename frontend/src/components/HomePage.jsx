@@ -239,7 +239,7 @@ export default function HomePage() {
   }, []);
 
   const handleCreateMixlist = () => {
-                            navigate('/create-mixlist');
+    navigate('/create-mixlist', { state: { returnTo: '/' } });
   };
 
   const handleImportMedia = () => {

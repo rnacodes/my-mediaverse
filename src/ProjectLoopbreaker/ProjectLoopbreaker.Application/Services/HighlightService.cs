@@ -544,6 +544,126 @@ namespace ProjectLoopbreaker.Application.Services
 
             return cleanedCount;
         }
+
+        public async Task<BulkHighlightResultDto> BulkCreateHighlightsAsync(List<CreateHighlightDto> dtos)
+        {
+            var result = new BulkHighlightResultDto();
+            var highlightsToIndex = new List<Highlight>();
+
+            foreach (var dto in dtos)
+            {
+                try
+                {
+                    var cleanedText = HtmlTextCleaner.Clean(dto.Text);
+
+                    var highlight = new Highlight
+                    {
+                        Id = Guid.NewGuid(),
+                        Text = cleanedText,
+                        Note = dto.Note,
+                        Title = dto.Title,
+                        Author = dto.Author,
+                        Category = dto.Category?.ToLowerInvariant(),
+                        SourceUrl = dto.SourceUrl,
+                        ArticleId = dto.ArticleId,
+                        BookId = dto.BookId,
+                        Tags = dto.Tags != null ? string.Join(",", dto.Tags.Select(t => t.ToLowerInvariant())) : null,
+                        Location = dto.Location,
+                        LocationType = dto.LocationType,
+                        HighlightedAt = dto.HighlightedAt,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    // Auto-link to article by URL if sourceUrl is provided and no articleId set
+                    if (highlight.ArticleId == null && !string.IsNullOrEmpty(dto.SourceUrl))
+                    {
+                        var normalizedUrl = UrlNormalizer.Normalize(dto.SourceUrl);
+                        var urlWithoutProtocol = normalizedUrl
+                            .Replace("https://", "")
+                            .Replace("http://", "");
+
+                        var article = await _context.Articles
+                            .FirstOrDefaultAsync(a =>
+                                a.Link != null &&
+                                EF.Functions.ILike(a.Link, normalizedUrl));
+
+                        if (article == null)
+                        {
+                            article = await _context.Articles
+                                .FirstOrDefaultAsync(a =>
+                                    a.Link != null &&
+                                    (EF.Functions.ILike(a.Link, $"%{urlWithoutProtocol}") ||
+                                     EF.Functions.ILike(a.Link, $"%{urlWithoutProtocol}/")));
+                        }
+
+                        if (article != null)
+                        {
+                            highlight.ArticleId = article.Id;
+                            highlight.Article = article;
+                            result.Linked++;
+                        }
+                    }
+
+                    // Auto-link to book by title + author if category is "books" and no bookId set
+                    if (highlight.ArticleId == null && highlight.BookId == null &&
+                        dto.Category?.ToLowerInvariant() == "books" &&
+                        !string.IsNullOrEmpty(dto.Title) && !string.IsNullOrEmpty(dto.Author))
+                    {
+                        var book = await _context.Books
+                            .FirstOrDefaultAsync(b =>
+                                b.Title.ToLower() == dto.Title.ToLower() &&
+                                b.Author != null && b.Author.ToLower() == dto.Author.ToLower());
+
+                        if (book != null)
+                        {
+                            highlight.BookId = book.Id;
+                            highlight.Book = book;
+                            result.Linked++;
+                        }
+                    }
+
+                    // Fallback: try title match for articles if no link yet
+                    if (highlight.ArticleId == null && highlight.BookId == null &&
+                        dto.Category?.ToLowerInvariant() == "articles" &&
+                        !string.IsNullOrEmpty(dto.Title))
+                    {
+                        var article = await _context.Articles
+                            .FirstOrDefaultAsync(a =>
+                                EF.Functions.ILike(a.Title, dto.Title));
+
+                        if (article != null)
+                        {
+                            highlight.ArticleId = article.Id;
+                            highlight.Article = article;
+                            result.Linked++;
+                        }
+                    }
+
+                    _context.Add(highlight);
+                    highlightsToIndex.Add(highlight);
+                    result.Created++;
+                }
+                catch (Exception ex)
+                {
+                    var preview = dto.Text.Length > 50 ? dto.Text[..50] + "..." : dto.Text;
+                    result.Errors.Add($"Failed to create highlight '{preview}': {ex.Message}");
+                    _logger.LogWarning(ex, "Failed to create highlight in bulk operation");
+                }
+            }
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Bulk created {Created} highlights, linked {Linked}, errors {Errors}",
+                result.Created, result.Linked, result.Errors.Count);
+
+            // Index all highlights in Typesense
+            foreach (var highlight in highlightsToIndex)
+            {
+                await IndexHighlightInTypesenseAsync(highlight);
+            }
+
+            return result;
+        }
     }
 }
 

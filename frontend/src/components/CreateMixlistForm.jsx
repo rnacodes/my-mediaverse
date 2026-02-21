@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
     TextField, Button, Box, Typography, Container
 } from '@mui/material';
@@ -13,6 +13,7 @@ function CreateMixlistForm() {
     const [thumbnailFile, setThumbnailFile] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const navigate = useNavigate();
+    const location = useLocation();
 
     // Handle thumbnail file upload
     const handleThumbnailUpload = async (event) => {
@@ -55,8 +56,13 @@ function CreateMixlistForm() {
             console.log('Mixlist created!', response);
             console.log('Mixlist data:', response.data);
             
-            // Navigate to the mixlist or back to mixlists list
-            navigate('/mixlists'); // Updated route
+            // Navigate back to the originating page, or to the new mixlist profile
+            const returnTo = location.state?.returnTo;
+            if (returnTo) {
+                navigate(returnTo);
+            } else {
+                navigate(`/mixlist/${response.data.id}`);
+            }
         } catch (error) {
             console.error('Failed to create mixlist:', error);
             console.error('Error details:', error.response?.data);

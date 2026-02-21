@@ -39,3 +39,19 @@ export const removeMediaFromMixlist = (mixlistId, mediaItemId) => {
 export const seedMixlists = () => {
     return apiClient.post('/dev/seed-mixlists');
 };
+
+// ============================================
+// Mixlist-Note linking API calls
+// ============================================
+
+export const getNotesForMixlist = (mixlistId) => {
+    return apiClient.get(`/mixlist/${mixlistId}/notes`);
+};
+
+export const linkNoteToMixlist = (mixlistId, noteId, linkDescription) => {
+    return apiClient.post(`/mixlist/${mixlistId}/notes`, { noteId, linkDescription });
+};
+
+export const unlinkNoteFromMixlist = (mixlistId, noteId) => {
+    return apiClient.delete(`/mixlist/${mixlistId}/notes/${noteId}`);
+};

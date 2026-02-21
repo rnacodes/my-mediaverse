@@ -216,7 +216,7 @@ describe('AddMediaForm', () => {
 
       fireEvent.click(screen.getByText('+ New Mixlist'));
 
-      expect(mockNavigate).toHaveBeenCalledWith('/create-mixlist');
+      expect(mockNavigate).toHaveBeenCalledWith('/create-mixlist', { state: { returnTo: '/add-media' } });
     });
   });
 });

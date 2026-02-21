@@ -115,6 +115,21 @@ export const getUnlinkedHighlights = async () => {
 };
 
 /**
+ * Bulk creates multiple highlights
+ * @param {Array} highlights - Array of highlight data objects
+ * @returns {{ created: number, linked: number, errors: string[] }}
+ */
+export const bulkCreateHighlights = async (highlights) => {
+    try {
+        const response = await apiClient.post('/highlight/bulk', highlights);
+        return response.data;
+    } catch (error) {
+        console.error('Error bulk creating highlights:', error);
+        throw error;
+    }
+};
+
+/**
  * Creates a new highlight
  * @param {Object} highlightData - The highlight data
  */

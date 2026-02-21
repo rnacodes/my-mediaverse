@@ -55,6 +55,24 @@ export const deleteArticle = async (id) => {
 };
 
 // ============================================
+// Article Metadata Scraping
+// ============================================
+
+/**
+ * Scrapes metadata from a URL (title, author, description, publication, thumbnail)
+ * @param {string} url - The URL to scrape
+ */
+export const scrapeArticlePreview = async (url) => {
+    try {
+        const response = await apiClient.post('/article/scrape-preview', { url });
+        return response.data;
+    } catch (error) {
+        console.error('Error scraping article preview:', error);
+        throw error;
+    }
+};
+
+// ============================================
 // Article Deduplication API Methods
 // ============================================
 

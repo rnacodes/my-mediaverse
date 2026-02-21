@@ -5,7 +5,7 @@ import {
     List, ListItem, ListItemText, IconButton, Chip
 } from '@mui/material';
 import { PlaylistAdd, Search, Close } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { addMediaToMixlist } from '../api/mixlistService';
 
 function MixlistCarousel({
@@ -21,6 +21,7 @@ function MixlistCarousel({
   const [selectedMixlistId, setSelectedMixlistId] = useState(null);
   const [mixlistSearchQuery, setMixlistSearchQuery] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleAddToMixlist = useCallback(async () => {
     if (!selectedMixlistId) {
@@ -73,8 +74,8 @@ function MixlistCarousel({
     );
 
   const handleCreateNewMixlist = useCallback(() => {
-    navigate('/create-mixlist');
-  }, [navigate]);
+    navigate('/create-mixlist', { state: { returnTo: location.pathname } });
+  }, [navigate, location.pathname]);
 
   return (
     <Card sx={{ mt: 3, overflow: 'hidden', borderRadius: 2 }}>

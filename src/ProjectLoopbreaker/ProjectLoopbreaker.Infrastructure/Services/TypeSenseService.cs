@@ -34,9 +34,12 @@ namespace ProjectLoopbreaker.Infrastructure.Services
             _logger = logger;
 
             // Get the collection prefix from configuration (e.g., "demo_" for demo site)
-            var collectionPrefix = Environment.GetEnvironmentVariable("TYPESENSE_COLLECTION_PREFIX") ??
-                                 configuration["Typesense:CollectionPrefix"] ??
-                                 string.Empty;
+            // Use IsNullOrEmpty check so that an empty-string env var falls through to appsettings
+            var envPrefix = Environment.GetEnvironmentVariable("TYPESENSE_COLLECTION_PREFIX");
+            var collectionPrefix = !string.IsNullOrEmpty(envPrefix)
+                ? envPrefix
+                : configuration["Typesense:CollectionPrefix"] ?? string.Empty;
+            var prefixSource = !string.IsNullOrEmpty(envPrefix) ? "TYPESENSE_COLLECTION_PREFIX env var" : "appsettings";
 
             // Dynamically set collection names with prefix
             _mediaCollectionName = $"{collectionPrefix}media_items";
@@ -44,8 +47,9 @@ namespace ProjectLoopbreaker.Infrastructure.Services
             _notesCollectionName = $"{collectionPrefix}obsidian_notes";
             _highlightsCollectionName = $"{collectionPrefix}highlights";
 
-            _logger.LogInformation("TypeSense collections configured with prefix '{Prefix}': {MediaCollection}, {MixlistCollection}, {NotesCollection}, {HighlightsCollection}",
-                collectionPrefix, _mediaCollectionName, _mixlistCollectionName, _notesCollectionName, _highlightsCollectionName);
+            _logger.LogInformation(
+                "TypeSense collections configured with prefix '{Prefix}' (source: {Source}): {MediaCollection}, {MixlistCollection}, {NotesCollection}, {HighlightsCollection}",
+                collectionPrefix, prefixSource, _mediaCollectionName, _mixlistCollectionName, _notesCollectionName, _highlightsCollectionName);
         }
 
         /// <summary>
@@ -331,20 +335,30 @@ namespace ProjectLoopbreaker.Infrastructure.Services
                     documents.Add(document);
                 }
 
-                // Import documents in batch (more efficient than individual upserts)
+                // Reset collection to remove any orphaned/stale documents
+                _logger.LogInformation("Resetting collection '{CollectionName}' before re-indexing to remove stale data...", _mediaCollectionName);
+                await ResetMediaItemsCollectionAsync();
+
+                if (documents.Count == 0)
+                {
+                    _logger.LogInformation("No media items found to index.");
+                    return 0;
+                }
+
+                // Import documents in batch (collection is fresh, so use Create)
                 var importResults = await _typesenseClient.ImportDocuments<MediaItemDocument>(
-                    _mediaCollectionName, 
-                    documents, 
+                    _mediaCollectionName,
+                    documents,
                     40, // Batch size
-                    ImportType.Upsert
+                    ImportType.Create
                 );
 
                 var successCount = importResults.Count(r => r.Success);
                 var failureCount = importResults.Count(r => !r.Success);
 
                 _logger.LogInformation(
-                    "Bulk re-index complete. Success: {SuccessCount}, Failures: {FailureCount}", 
-                    successCount, 
+                    "Bulk re-index complete. Success: {SuccessCount}, Failures: {FailureCount}",
+                    successCount,
                     failureCount
                 );
 
@@ -556,20 +570,30 @@ namespace ProjectLoopbreaker.Infrastructure.Services
                     documents.Add(document);
                 }
 
-                // Import documents in batch (more efficient than individual upserts)
+                // Reset collection to remove any orphaned/stale documents
+                _logger.LogInformation("Resetting collection '{CollectionName}' before re-indexing to remove stale data...", _mixlistCollectionName);
+                await ResetMixlistsCollectionAsync();
+
+                if (documents.Count == 0)
+                {
+                    _logger.LogInformation("No mixlists found to index.");
+                    return 0;
+                }
+
+                // Import documents in batch (collection is fresh, so use Create)
                 var importResults = await _typesenseClient.ImportDocuments<MixlistDocument>(
-                    _mixlistCollectionName, 
-                    documents, 
+                    _mixlistCollectionName,
+                    documents,
                     40, // Batch size
-                    ImportType.Upsert
+                    ImportType.Create
                 );
 
                 var successCount = importResults.Count(r => r.Success);
                 var failureCount = importResults.Count(r => !r.Success);
 
                 _logger.LogInformation(
-                    "Bulk re-index of mixlists complete. Success: {SuccessCount}, Failures: {FailureCount}", 
-                    successCount, 
+                    "Bulk re-index of mixlists complete. Success: {SuccessCount}, Failures: {FailureCount}",
+                    successCount,
                     failureCount
                 );
 
@@ -824,11 +848,22 @@ namespace ProjectLoopbreaker.Infrastructure.Services
                     LinkedMediaCount = note.MediaItemNotes.Count
                 }).ToList();
 
+                // Reset collection to remove any orphaned/stale documents
+                _logger.LogInformation("Resetting collection '{CollectionName}' before re-indexing to remove stale data...", _notesCollectionName);
+                await ResetNotesCollectionAsync();
+
+                if (documents.Count == 0)
+                {
+                    _logger.LogInformation("No notes found to index.");
+                    return 0;
+                }
+
+                // Import documents in batch (collection is fresh, so use Create)
                 var importResults = await _typesenseClient.ImportDocuments<ObsidianNoteDocument>(
                     _notesCollectionName,
                     documents,
                     40,
-                    ImportType.Upsert
+                    ImportType.Create
                 );
 
                 var successCount = importResults.Count(r => r.Success);
@@ -1324,17 +1359,22 @@ namespace ProjectLoopbreaker.Infrastructure.Services
                     };
                 }).ToList();
 
+                // Reset collection to remove any orphaned/stale documents
+                _logger.LogInformation("Resetting collection '{CollectionName}' before re-indexing to remove stale data...", _highlightsCollectionName);
+                await ResetHighlightsCollectionAsync();
+
                 if (documents.Count == 0)
                 {
                     _logger.LogInformation("No highlights found to index.");
                     return 0;
                 }
 
+                // Import documents in batch (collection is fresh, so use Create)
                 var importResults = await _typesenseClient.ImportDocuments<HighlightDocument>(
                     _highlightsCollectionName,
                     documents,
                     40,
-                    ImportType.Upsert
+                    ImportType.Create
                 );
 
                 var successCount = importResults.Count(r => r.Success);

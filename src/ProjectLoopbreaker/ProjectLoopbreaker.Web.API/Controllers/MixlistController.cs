@@ -101,6 +101,18 @@ namespace ProjectLoopbreaker.Web.API.Controllers
                             Description = mi.Description,
                             MediaType = mi.MediaType,
                             Thumbnail = mi.Thumbnail
+                        }).ToArray(),
+                        LinkedNotes = m.MixlistNotes.Select(mn => new LinkedNoteDto
+                        {
+                            Id = mn.Note.Id,
+                            Slug = mn.Note.Slug,
+                            Title = mn.Note.Title,
+                            Description = mn.Note.Description,
+                            VaultName = mn.Note.VaultName,
+                            SourceUrl = mn.Note.SourceUrl,
+                            Tags = mn.Note.Tags,
+                            LinkedAt = mn.LinkedAt,
+                            LinkDescription = mn.LinkDescription
                         }).ToArray()
                     })
                     .FirstOrDefaultAsync();
@@ -503,6 +515,7 @@ namespace ProjectLoopbreaker.Web.API.Controllers
             {
                 var mixlist = await _context.Mixlists
                     .Include(m => m.MediaItems)
+                    .Include(m => m.MixlistNotes)
                     .FirstOrDefaultAsync(m => m.Id == id);
 
                 if (mixlist == null)
@@ -516,8 +529,9 @@ namespace ProjectLoopbreaker.Web.API.Controllers
                     await DeleteThumbnailFromS3(mixlist.Thumbnail);
                 }
 
-                // Clear media items (just removes association, doesn't delete media)
+                // Clear media items and notes (just removes associations, doesn't delete them)
                 mixlist.MediaItems.Clear();
+                mixlist.MixlistNotes.Clear();
 
                 _context.Mixlists.Remove(mixlist);
                 await _context.SaveChangesAsync();
@@ -538,6 +552,124 @@ namespace ProjectLoopbreaker.Web.API.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, new { error = "Failed to delete mixlist", details = ex.Message });
+            }
+        }
+
+        // POST: api/mixlist/{mixlistId}/notes
+        [HttpPost("{mixlistId:guid}/notes")]
+        public async Task<IActionResult> LinkNoteToMixlist(Guid mixlistId, [FromBody] LinkNoteToMixlistDto dto)
+        {
+            try
+            {
+                var mixlistExists = await _context.Mixlists
+                    .AsNoTracking()
+                    .AnyAsync(m => m.Id == mixlistId);
+
+                if (!mixlistExists)
+                {
+                    return NotFound($"Mixlist with ID {mixlistId} not found.");
+                }
+
+                var noteExists = await _context.Notes
+                    .AsNoTracking()
+                    .AnyAsync(n => n.Id == dto.NoteId);
+
+                if (!noteExists)
+                {
+                    return NotFound($"Note with ID {dto.NoteId} not found.");
+                }
+
+                var alreadyLinked = await _context.MixlistNotes
+                    .AsNoTracking()
+                    .AnyAsync(mn => mn.MixlistId == mixlistId && mn.NoteId == dto.NoteId);
+
+                if (alreadyLinked)
+                {
+                    return BadRequest($"Note is already linked to this mixlist.");
+                }
+
+                var mixlistNote = new MixlistNote
+                {
+                    MixlistId = mixlistId,
+                    NoteId = dto.NoteId,
+                    LinkedAt = DateTime.UtcNow,
+                    LinkDescription = dto.LinkDescription
+                };
+
+                _context.MixlistNotes.Add(mixlistNote);
+                await _context.SaveChangesAsync();
+
+                return Ok(new { message = "Note linked to mixlist successfully." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "Failed to link note to mixlist", details = ex.Message });
+            }
+        }
+
+        // DELETE: api/mixlist/{mixlistId}/notes/{noteId}
+        [HttpDelete("{mixlistId:guid}/notes/{noteId:guid}")]
+        public async Task<IActionResult> UnlinkNoteFromMixlist(Guid mixlistId, Guid noteId)
+        {
+            try
+            {
+                var mixlistNote = await _context.MixlistNotes
+                    .FirstOrDefaultAsync(mn => mn.MixlistId == mixlistId && mn.NoteId == noteId);
+
+                if (mixlistNote == null)
+                {
+                    return NotFound($"Note link not found for this mixlist.");
+                }
+
+                _context.MixlistNotes.Remove(mixlistNote);
+                await _context.SaveChangesAsync();
+
+                return Ok(new { message = "Note unlinked from mixlist successfully." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "Failed to unlink note from mixlist", details = ex.Message });
+            }
+        }
+
+        // GET: api/mixlist/{mixlistId}/notes
+        [HttpGet("{mixlistId:guid}/notes")]
+        public async Task<ActionResult<IEnumerable<LinkedNoteDto>>> GetNotesForMixlist(Guid mixlistId)
+        {
+            try
+            {
+                var mixlistExists = await _context.Mixlists
+                    .AsNoTracking()
+                    .AnyAsync(m => m.Id == mixlistId);
+
+                if (!mixlistExists)
+                {
+                    return NotFound($"Mixlist with ID {mixlistId} not found.");
+                }
+
+                var notes = await _context.MixlistNotes
+                    .AsNoTracking()
+                    .Where(mn => mn.MixlistId == mixlistId)
+                    .OrderByDescending(mn => mn.LinkedAt)
+                    .Select(mn => new LinkedNoteDto
+                    {
+                        Id = mn.Note.Id,
+                        Slug = mn.Note.Slug,
+                        Title = mn.Note.Title,
+                        Description = mn.Note.Description,
+                        VaultName = mn.Note.VaultName,
+                        SourceUrl = mn.Note.SourceUrl,
+                        Tags = mn.Note.Tags,
+                        LinkedAt = mn.LinkedAt,
+                        LinkDescription = mn.LinkDescription
+                    })
+                    .ToListAsync();
+
+                return Ok(notes);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "Failed to get notes for mixlist", details = ex.Message });
             }
         }
 

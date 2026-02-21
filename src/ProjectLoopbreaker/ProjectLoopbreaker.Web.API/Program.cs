@@ -794,11 +794,17 @@ builder.Services.AddSingleton<ITypesenseClient>(sp =>
     var protocol = Environment.GetEnvironmentVariable("TYPESENSE_PROTOCOL") ?? 
                    configuration["Typesense:Protocol"] ?? "https";
 
+    var collectionPrefixEnv = Environment.GetEnvironmentVariable("TYPESENSE_COLLECTION_PREFIX");
+    var collectionPrefixConfig = configuration["Typesense:CollectionPrefix"];
+
     Console.WriteLine("=== Typesense Configuration Debug ===");
     Console.WriteLine($"API Key: {(string.IsNullOrEmpty(apiKey) ? "MISSING" : "SET")}");
     Console.WriteLine($"Host: {(string.IsNullOrEmpty(host) ? "MISSING" : host)}");
     Console.WriteLine($"Port: {portString}");
     Console.WriteLine($"Protocol: {protocol}");
+    Console.WriteLine($"Collection Prefix (env var): {(collectionPrefixEnv == null ? "NOT SET" : $"'{collectionPrefixEnv}'")}");
+    Console.WriteLine($"Collection Prefix (appsettings): {(collectionPrefixConfig == null ? "NOT SET" : $"'{collectionPrefixConfig}'")}");
+    Console.WriteLine($"Effective Prefix: '{(!string.IsNullOrEmpty(collectionPrefixEnv) ? collectionPrefixEnv : collectionPrefixConfig ?? "")}'");
 
     // Check if configuration is complete
     if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(host))

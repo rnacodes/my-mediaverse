@@ -26,7 +26,7 @@ import SimilarItemsSection from './SimilarItemsSection';
 import SavedRelatedMediaSection from './SavedRelatedMediaSection';
 import { formatMediaType, formatStatus, getMediaTypeColor, getStatusColor, getRatingIcon, getRatingText } from '../utils/formatters';
 import { getMediaById } from '../api/mediaService';
-import { getAllMixlists } from '../api/mixlistService';
+import { getAllMixlists, addMediaToMixlist } from '../api/mixlistService';
 import { getBookById } from '../api/bookService';
 import { getPodcastSeriesById, getPodcastEpisodeById, getEpisodesBySeriesId } from '../api/podcastService';
 import { getMovieById } from '../api/movieService';
@@ -294,7 +294,7 @@ function MediaProfilePage() {
     );
 
   const handleCreateNewMixlist = () => {
-    navigate('/create-mixlist');
+    navigate('/create-mixlist', { state: { returnTo: `/media/${id}` } });
   };
 
   if (loading) {

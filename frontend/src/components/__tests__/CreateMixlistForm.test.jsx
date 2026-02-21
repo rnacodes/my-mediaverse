@@ -282,7 +282,7 @@ describe('CreateMixlistForm', () => {
       fireEvent.click(screen.getByText('Create Mixlist'));
 
       await waitFor(() => {
-        expect(mockNavigate).toHaveBeenCalledWith('/mixlists');
+        expect(mockNavigate).toHaveBeenCalledWith('/mixlist/1');
       });
     });
 

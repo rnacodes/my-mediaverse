@@ -26,7 +26,6 @@ import ImportMediaPage from './components/ImportMedia';
 import ImportMixlistPage from './components/ImportMixlistPage';
 import ImportGenresTopicsPage from './components/ImportGenresTopicsPage';
 import SearchByTopicOrGenre from './components/SearchByTopicOrGenre';
-import SearchResults from './components/SearchResults';
 import Search from './components/Search';
 import DemoPage from './components/DemoPage';
 import UploadMediaPage from './components/UploadMediaPage';
@@ -53,6 +52,7 @@ import NotesListingPage from './components/NotesListingPage';
 import AiAdminPage from './components/AiAdminPage';
 import SearchByVibePage from './components/SearchByVibePage';
 import DemoUnlockPage from './components/DemoUnlockPage';
+import DemoDataUploadPage from './components/DemoDataUploadPage';
 
 // --- Import Demo Read-Only Dialog ---
 import DemoReadOnlyDialog from './components/shared/DemoReadOnlyDialog';
@@ -128,9 +128,6 @@ function App() {
             } />
             <Route path="/search-by-topic-genre" element={
               <ConditionalProtectedRoute><SearchByTopicOrGenre /></ConditionalProtectedRoute>
-            } />
-            <Route path="/search-results" element={
-              <ConditionalProtectedRoute><SearchResults /></ConditionalProtectedRoute>
             } />
             <Route path="/search" element={
               <ConditionalProtectedRoute><Search /></ConditionalProtectedRoute>
@@ -209,6 +206,9 @@ function App() {
             } />
             <Route path="/demo-unlock" element={
               <ConditionalProtectedRoute><DemoUnlockPage /></ConditionalProtectedRoute>
+            } />
+            <Route path="/upload-demo-data" element={
+              <ConditionalProtectedRoute><DemoDataUploadPage /></ConditionalProtectedRoute>
             } />
           {/* Catch-all route for 404 */}
           <Route path="*" element={

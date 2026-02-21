@@ -185,6 +185,18 @@ namespace ProjectLoopbreaker.DTOs
     }
 
     /// <summary>
+    /// DTO for linking a note to a mixlist.
+    /// </summary>
+    public class LinkNoteToMixlistDto
+    {
+        [JsonPropertyName("noteId")]
+        public Guid NoteId { get; set; }
+
+        [JsonPropertyName("linkDescription")]
+        public string? LinkDescription { get; set; }
+    }
+
+    /// <summary>
     /// DTO for note sync operation results.
     /// </summary>
     public class NoteSyncResultDto

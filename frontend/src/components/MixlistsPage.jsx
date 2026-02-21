@@ -500,10 +500,10 @@ function MixlistsPage() {
                     <Button 
                         variant="contained" 
                         size="large"
-                        onClick={() => navigate('/create-mixlist')}
-                        sx={{ 
-                            fontSize: { xs: '0.875rem', sm: '1rem' }, 
-                            px: { xs: 3, sm: 4 }, 
+                        onClick={() => navigate('/create-mixlist', { state: { returnTo: '/mixlists' } })}
+                        sx={{
+                            fontSize: { xs: '0.875rem', sm: '1rem' },
+                            px: { xs: 3, sm: 4 },
                             py: 1.5,
                             minHeight: '48px',
                             width: { xs: '100%', sm: 'auto' },
@@ -570,7 +570,7 @@ function MixlistsPage() {
                     height: { xs: 56, sm: 56 },
                     zIndex: 1000
                 }}
-                onClick={() => navigate('/create-mixlist')}
+                onClick={() => navigate('/create-mixlist', { state: { returnTo: '/mixlists' } })}
             >
                 <Add sx={{ fontSize: { xs: 24, sm: 28 } }} />
             </Fab>

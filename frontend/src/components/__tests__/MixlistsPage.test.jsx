@@ -92,7 +92,7 @@ describe('MixlistsPage', () => {
 
       fireEvent.click(screen.getByRole('button', { name: /create first mixlist/i }));
 
-      expect(mockNavigate).toHaveBeenCalledWith('/create-mixlist');
+      expect(mockNavigate).toHaveBeenCalledWith('/create-mixlist', { state: { returnTo: '/mixlists' } });
     });
   });
 
@@ -245,7 +245,7 @@ describe('MixlistsPage', () => {
       const fab = screen.getByRole('button', { name: /create mixlist/i });
       fireEvent.click(fab);
 
-      expect(mockNavigate).toHaveBeenCalledWith('/create-mixlist');
+      expect(mockNavigate).toHaveBeenCalledWith('/create-mixlist', { state: { returnTo: '/mixlists' } });
     });
   });
 

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using ProjectLoopbreaker.Application.Interfaces;
 using ProjectLoopbreaker.DTOs;
 using ProjectLoopbreaker.Domain.Entities;
+using ProjectLoopbreaker.Shared.Interfaces;
 
 namespace ProjectLoopbreaker.Web.API.Controllers
 {
@@ -13,6 +14,7 @@ namespace ProjectLoopbreaker.Web.API.Controllers
         private readonly IArticleMappingService _articleMappingService;
         private readonly IReaderService? _readerService;
         private readonly IArticleDeduplicationService? _deduplicationService;
+        private readonly IWebsiteScraperService? _websiteScraperService;
         private readonly ILogger<ArticleController> _logger;
 
         public ArticleController(
@@ -20,13 +22,15 @@ namespace ProjectLoopbreaker.Web.API.Controllers
             IArticleMappingService articleMappingService,
             ILogger<ArticleController> logger,
             IReaderService? readerService = null,
-            IArticleDeduplicationService? deduplicationService = null)
+            IArticleDeduplicationService? deduplicationService = null,
+            IWebsiteScraperService? websiteScraperService = null)
         {
             _articleService = articleService;
             _articleMappingService = articleMappingService;
             _logger = logger;
             _readerService = readerService;
             _deduplicationService = deduplicationService;
+            _websiteScraperService = websiteScraperService;
         }
 
         // GET: api/article
@@ -339,9 +343,50 @@ namespace ProjectLoopbreaker.Web.API.Controllers
             }
         }
 
+        // POST: api/article/scrape-preview
+        [HttpPost("scrape-preview")]
+        public async Task<IActionResult> ScrapePreview([FromBody] ArticleScrapeRequestDto dto)
+        {
+            try
+            {
+                if (dto == null || string.IsNullOrWhiteSpace(dto.Url))
+                {
+                    return BadRequest(new { error = "URL is required" });
+                }
+
+                if (_websiteScraperService == null)
+                {
+                    return StatusCode(500, new { error = "Website scraper service not configured" });
+                }
+
+                _logger.LogInformation("Scraping article metadata from URL: {Url}", dto.Url);
+                var scrapedData = await _websiteScraperService.ScrapeWebsiteAsync(dto.Url);
+                return Ok(scrapedData);
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Invalid URL for scrape preview: {Url}", dto?.Url);
+                return BadRequest(new { error = "Invalid URL", details = ex.Message });
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogWarning(ex, "Failed to fetch URL for scrape preview: {Url}", dto?.Url);
+                return BadRequest(new { error = "Failed to fetch URL", details = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error scraping article metadata from URL: {Url}", dto?.Url);
+                return StatusCode(500, new { error = "Failed to scrape article metadata", details = ex.Message });
+            }
+        }
+
     }
 
     // Helper DTOs for specific endpoints
+    public class ArticleScrapeRequestDto
+    {
+        public required string Url { get; set; }
+    }
     public class ArticleContentUpdateDto
     {
         public required string HtmlContent { get; set; }

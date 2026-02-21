@@ -1554,7 +1554,7 @@ function AddMediaForm() {
                         <Button
                             variant="contained"
                             color="secondary"
-                            onClick={() => navigate('/create-mixlist')}
+                            onClick={() => navigate('/create-mixlist', { state: { returnTo: '/add-media' } })}
                             sx={{ 
                                 fontSize: '16px',
                                 fontWeight: 'bold',

@@ -154,6 +154,28 @@ namespace ProjectLoopbreaker.Web.API.Controllers
             }
         }
 
+        // POST: api/highlight/bulk
+        [HttpPost("bulk")]
+        public async Task<ActionResult<BulkHighlightResultDto>> BulkCreateHighlights([FromBody] List<CreateHighlightDto> dtos)
+        {
+            try
+            {
+                if (dtos == null || dtos.Count == 0)
+                {
+                    return BadRequest(new { error = "At least one highlight is required" });
+                }
+
+                _logger.LogInformation("Bulk creating {Count} highlights", dtos.Count);
+                var result = await _highlightService.BulkCreateHighlightsAsync(dtos);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error bulk creating highlights");
+                return StatusCode(500, new { error = "Failed to bulk create highlights", details = ex.Message });
+            }
+        }
+
         // POST: api/highlight/sync
         [HttpPost("sync")]
         public async Task<ActionResult<HighlightSyncResultDto>> SyncHighlights([FromQuery] DateTime? lastSync = null)

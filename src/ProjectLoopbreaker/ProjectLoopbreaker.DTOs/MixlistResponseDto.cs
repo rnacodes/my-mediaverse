@@ -23,6 +23,10 @@ namespace ProjectLoopbreaker.DTOs
         // Optionally include basic media info for display
         [JsonPropertyName("mediaItems")]
         public MediaItemSummary[] MediaItems { get; set; } = Array.Empty<MediaItemSummary>();
+
+        // Linked notes
+        [JsonPropertyName("linkedNotes")]
+        public LinkedNoteDto[] LinkedNotes { get; set; } = Array.Empty<LinkedNoteDto>();
     }
     
     public class MediaItemSummary

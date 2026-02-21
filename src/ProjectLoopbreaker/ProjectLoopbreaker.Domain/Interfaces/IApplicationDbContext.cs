@@ -26,6 +26,7 @@ namespace ProjectLoopbreaker.Domain.Interfaces
         IQueryable<RefreshToken> RefreshTokens { get; }
         IQueryable<Note> Notes { get; }
         IQueryable<MediaItemNote> MediaItemNotes { get; }
+        IQueryable<MixlistNote> MixlistNotes { get; }
         IQueryable<MediaItemRelation> MediaItemRelations { get; }
 
         // Basic operations

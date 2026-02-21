@@ -29,6 +29,7 @@ namespace ProjectLoopbreaker.Infrastructure.Data
         public DbSet<RefreshToken> RefreshTokens { get; set; }
         public DbSet<Note> Notes { get; set; }
         public DbSet<MediaItemNote> MediaItemNotes { get; set; }
+        public DbSet<MixlistNote> MixlistNotes { get; set; }
         public DbSet<MediaItemRelation> MediaItemRelations { get; set; }
 
         // IApplicationDbContext interface implementations
@@ -51,6 +52,7 @@ namespace ProjectLoopbreaker.Infrastructure.Data
         IQueryable<RefreshToken> IApplicationDbContext.RefreshTokens => RefreshTokens;
         IQueryable<Note> IApplicationDbContext.Notes => Notes;
         IQueryable<MediaItemNote> IApplicationDbContext.MediaItemNotes => MediaItemNotes;
+        IQueryable<MixlistNote> IApplicationDbContext.MixlistNotes => MixlistNotes;
         IQueryable<MediaItemRelation> IApplicationDbContext.MediaItemRelations => MediaItemRelations;
 
 
@@ -797,6 +799,34 @@ namespace ProjectLoopbreaker.Infrastructure.Data
                 // Configure relationship with Note
                 entity.HasOne(e => e.Note)
                     .WithMany(n => n.MediaItemNotes)
+                    .HasForeignKey(e => e.NoteId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.Property(e => e.LinkDescription)
+                    .HasMaxLength(500);
+
+                entity.Property(e => e.LinkedAt)
+                    .IsRequired();
+
+                // Create index on LinkedAt for sorting
+                entity.HasIndex(e => e.LinkedAt);
+            });
+
+            // Configure MixlistNote join entity
+            modelBuilder.Entity<MixlistNote>(entity =>
+            {
+                // Composite primary key
+                entity.HasKey(e => new { e.MixlistId, e.NoteId });
+
+                // Configure relationship with Mixlist
+                entity.HasOne(e => e.Mixlist)
+                    .WithMany(m => m.MixlistNotes)
+                    .HasForeignKey(e => e.MixlistId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                // Configure relationship with Note
+                entity.HasOne(e => e.Note)
+                    .WithMany(n => n.MixlistNotes)
                     .HasForeignKey(e => e.NoteId)
                     .OnDelete(DeleteBehavior.Cascade);
 

@@ -116,5 +116,10 @@ namespace ProjectLoopbreaker.Domain.Entities
         /// Navigation property for many-to-many relationship with media items.
         /// </summary>
         public ICollection<MediaItemNote> MediaItemNotes { get; set; } = new List<MediaItemNote>();
+
+        /// <summary>
+        /// Navigation property for many-to-many relationship with mixlists.
+        /// </summary>
+        public ICollection<MixlistNote> MixlistNotes { get; set; } = new List<MixlistNote>();
     }
 }

@@ -14,6 +14,7 @@ import {
 import { getMixlistById, removeMediaFromMixlist, addMediaToMixlist } from '../api/mixlistService';
 import { searchMedia } from '../api/mediaService';
 import SimpleMediaCarousel from './shared/SimpleMediaCarousel';
+import MixlistRelatedNotesSection from './MixlistRelatedNotesSection';
 import { formatMediaType, formatStatus } from '../utils/formatters';
 
 function MixlistProfilePage() {
@@ -546,6 +547,13 @@ function MixlistProfilePage() {
                             </Box>
                         </Box>
                     )}
+
+                    {/* Related Notes Section */}
+                    <MixlistRelatedNotesSection
+                        mixlistId={mixlist?.id}
+                        mixlistName={mixlist?.name}
+                        setSnackbar={setSnackbar}
+                    />
 
                     {/* Action Buttons Section */}
                     <Box sx={{ textAlign: 'center', mt: 4, pb: 4 }}>

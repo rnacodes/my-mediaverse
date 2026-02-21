@@ -30,6 +30,12 @@ namespace ProjectLoopbreaker.Application.Interfaces
         /// Returns the number of highlights that were cleaned.
         /// </summary>
         Task<int> CleanAllHighlightTextAsync();
+
+        /// <summary>
+        /// Creates multiple highlights in a single transaction.
+        /// Auto-links highlights to existing books/articles by title/author or URL.
+        /// </summary>
+        Task<BulkHighlightResultDto> BulkCreateHighlightsAsync(List<CreateHighlightDto> dtos);
     }
 }
 
