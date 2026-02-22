@@ -83,7 +83,7 @@ function ImportGenresTopicsPage() {
                 <Button
                     startIcon={<ArrowBack />}
                     onClick={() => navigate(-1)}
-                    sx={{ mr: 2 }}
+                    sx={{ mr: 2, color: 'white' }}
                 >
                     Back
                 </Button>
@@ -138,10 +138,10 @@ function ImportGenresTopicsPage() {
                             startIcon={<FileDownload />}
                             onClick={downloadSampleCsv}
                             sx={{
-                                backgroundColor: 'white',
-                                color: 'black',
+                                backgroundColor: '#9c27b0',
+                                color: 'white',
                                 '&:hover': {
-                                    backgroundColor: 'rgba(255, 255, 255, 0.9)'
+                                    backgroundColor: '#7b1fa2'
                                 }
                             }}
                         >
@@ -153,10 +153,10 @@ function ImportGenresTopicsPage() {
                             component="label"
                             startIcon={<CloudUpload />}
                             sx={{
-                                backgroundColor: 'white',
-                                color: 'black',
+                                backgroundColor: '#9c27b0',
+                                color: 'white',
                                 '&:hover': {
-                                    backgroundColor: 'rgba(255, 255, 255, 0.9)'
+                                    backgroundColor: '#7b1fa2'
                                 }
                             }}
                         >
@@ -187,14 +187,14 @@ function ImportGenresTopicsPage() {
                             disabled={!file || importing}
                             startIcon={importing ? <CircularProgress size={20} color="inherit" /> : <CloudUpload />}
                             sx={{
-                                backgroundColor: 'white',
-                                color: 'black',
+                                backgroundColor: '#9c27b0',
+                                color: 'white',
                                 '&:hover': {
-                                    backgroundColor: 'rgba(255, 255, 255, 0.9)'
+                                    backgroundColor: '#7b1fa2'
                                 },
                                 '&.Mui-disabled': {
-                                    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-                                    color: 'rgba(0, 0, 0, 0.5)'
+                                    backgroundColor: 'rgba(156, 39, 176, 0.5)',
+                                    color: 'rgba(255, 255, 255, 0.5)'
                                 }
                             }}
                         >
@@ -293,10 +293,17 @@ function ImportGenresTopicsPage() {
 
                         <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
                             <Button
-                                variant="outlined"
+                                variant="contained"
                                 onClick={() => {
                                     setFile(null);
                                     setImportResults(null);
+                                }}
+                                sx={{
+                                    backgroundColor: '#9c27b0',
+                                    color: 'white',
+                                    '&:hover': {
+                                        backgroundColor: '#7b1fa2'
+                                    }
                                 }}
                             >
                                 Import Another File
@@ -304,6 +311,13 @@ function ImportGenresTopicsPage() {
                             <Button
                                 variant="contained"
                                 onClick={() => navigate(-1)}
+                                sx={{
+                                    backgroundColor: '#9c27b0',
+                                    color: 'white',
+                                    '&:hover': {
+                                        backgroundColor: '#7b1fa2'
+                                    }
+                                }}
                             >
                                 Done
                             </Button>

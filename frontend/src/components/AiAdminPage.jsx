@@ -409,7 +409,7 @@ const AiAdminPage = () => {
                 Description Generation Complete
               </Typography>
               <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
-                <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'white'}}>
                   {descriptionsResult.successCount || descriptionsResult.processed || 0}
                 </Typography>
                 <Typography variant="body2" color="textSecondary">
@@ -463,6 +463,7 @@ const AiAdminPage = () => {
                   onClick={handleGenerateMediaEmbeddings}
                   disabled={generatingMediaEmbeddings || !isAiAvailable}
                   fullWidth
+                  sx={{ color: 'white' }}
                 >
                   {generatingMediaEmbeddings ? 'Generating...' : 'Generate Media Embeddings'}
                 </Button>
@@ -490,6 +491,7 @@ const AiAdminPage = () => {
                   onClick={handleGenerateNoteEmbeddings}
                   disabled={generatingNoteEmbeddings || !isAiAvailable}
                   fullWidth
+                  sx={{ color: 'white' }}
                 >
                   {generatingNoteEmbeddings ? 'Generating...' : 'Generate Note Embeddings'}
                 </Button>
@@ -512,7 +514,7 @@ const AiAdminPage = () => {
                 Media Embeddings Complete
               </Typography>
               <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
-                <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'white'}}>
                   {mediaEmbeddingsResult.successCount || mediaEmbeddingsResult.processed || 0}
                 </Typography>
                 <Typography variant="body2" color="textSecondary">
@@ -547,7 +549,7 @@ const AiAdminPage = () => {
                 Note Embeddings Complete
               </Typography>
               <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
-                <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'white'}}>
                   {noteEmbeddingsResult.successCount || noteEmbeddingsResult.processed || 0}
                 </Typography>
                 <Typography variant="body2" color="textSecondary">

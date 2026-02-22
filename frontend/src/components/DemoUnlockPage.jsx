@@ -272,7 +272,15 @@ const DemoUnlockPage = () => {
                             inputMode: 'numeric',
                             style: { letterSpacing: '0.5em', fontSize: '1.2em', textAlign: 'center' },
                         }}
-                        sx={{ width: 180 }}
+                        InputLabelProps={{
+                            sx: { color: 'white' }
+                        }}
+                        sx={{
+                            width: 180,
+                            '& .MuiInputLabel-root.Mui-focused': {
+                                color: 'white'
+                            }
+                        }}
                     />
                     <Button
                         variant="contained"

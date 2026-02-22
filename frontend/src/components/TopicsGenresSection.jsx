@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
     Box, Typography, Chip, Button, Card, CardContent, Dialog,
     DialogTitle, DialogContent, DialogActions, TextField, InputAdornment,
-    List, ListItem, ListItemText, IconButton, CircularProgress
+    List, ListItem, ListItemText, ListItemIcon, IconButton, CircularProgress, Checkbox
 } from '@mui/material';
 import { useMediaQuery, useTheme } from '@mui/material';
 import {
@@ -21,8 +21,8 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
     const [addGenreDialog, setAddGenreDialog] = useState(false);
     const [topicSearchQuery, setTopicSearchQuery] = useState('');
     const [genreSearchQuery, setGenreSearchQuery] = useState('');
-    const [selectedTopicId, setSelectedTopicId] = useState(null);
-    const [selectedGenreId, setSelectedGenreId] = useState(null);
+    const [selectedTopicIds, setSelectedTopicIds] = useState([]);
+    const [selectedGenreIds, setSelectedGenreIds] = useState([]);
 
     // State for inline create
     const [newTopicName, setNewTopicName] = useState('');
@@ -85,61 +85,85 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
     // Close dialogs
     const handleCloseTopicDialog = () => {
         setAddTopicDialog(false);
-        setSelectedTopicId(null);
+        setSelectedTopicIds([]);
         setTopicSearchQuery('');
     };
 
     const handleCloseGenreDialog = () => {
         setAddGenreDialog(false);
-        setSelectedGenreId(null);
+        setSelectedGenreIds([]);
         setGenreSearchQuery('');
     };
 
-    // Add topic to media item
-    const handleAddTopic = async () => {
-        if (!selectedTopicId) {
-            setSnackbar?.({ open: true, message: 'Please select a topic first', severity: 'warning' });
+    // Toggle topic selection
+    const handleToggleTopicId = (topicId) => {
+        setSelectedTopicIds(prev =>
+            prev.includes(topicId)
+                ? prev.filter(id => id !== topicId)
+                : [...prev, topicId]
+        );
+    };
+
+    // Toggle genre selection
+    const handleToggleGenreId = (genreId) => {
+        setSelectedGenreIds(prev =>
+            prev.includes(genreId)
+                ? prev.filter(id => id !== genreId)
+                : [...prev, genreId]
+        );
+    };
+
+    // Add selected topics to media item
+    const handleAddTopics = async () => {
+        if (selectedTopicIds.length === 0) {
+            setSnackbar?.({ open: true, message: 'Please select at least one topic', severity: 'warning' });
             return;
         }
 
         setSaving(true);
         try {
-            const selectedTopic = availableTopics.find(t => (t.id || t.Id) === selectedTopicId);
-            const topicName = selectedTopic?.name || selectedTopic?.Name;
-            const newTopics = [...currentTopics, topicName];
+            const selectedNames = selectedTopicIds.map(id => {
+                const topic = availableTopics.find(t => (t.id || t.Id) === id);
+                return topic?.name || topic?.Name;
+            }).filter(Boolean);
+            const newTopics = [...currentTopics, ...selectedNames];
 
             await updateMediaTopicsGenres(mediaItem.id, newTopics, currentGenres);
-            setSnackbar?.({ open: true, message: `Added topic "${topicName}"`, severity: 'success' });
+            const count = selectedNames.length;
+            setSnackbar?.({ open: true, message: `Added ${count} topic${count > 1 ? 's' : ''}`, severity: 'success' });
             handleCloseTopicDialog();
             onUpdate?.();
         } catch (error) {
-            console.error('Error adding topic:', error);
-            setSnackbar?.({ open: true, message: 'Failed to add topic', severity: 'error' });
+            console.error('Error adding topics:', error);
+            setSnackbar?.({ open: true, message: 'Failed to add topics', severity: 'error' });
         } finally {
             setSaving(false);
         }
     };
 
-    // Add genre to media item
-    const handleAddGenre = async () => {
-        if (!selectedGenreId) {
-            setSnackbar?.({ open: true, message: 'Please select a genre first', severity: 'warning' });
+    // Add selected genres to media item
+    const handleAddGenres = async () => {
+        if (selectedGenreIds.length === 0) {
+            setSnackbar?.({ open: true, message: 'Please select at least one genre', severity: 'warning' });
             return;
         }
 
         setSaving(true);
         try {
-            const selectedGenre = availableGenres.find(g => (g.id || g.Id) === selectedGenreId);
-            const genreName = selectedGenre?.name || selectedGenre?.Name;
-            const newGenres = [...currentGenres, genreName];
+            const selectedNames = selectedGenreIds.map(id => {
+                const genre = availableGenres.find(g => (g.id || g.Id) === id);
+                return genre?.name || genre?.Name;
+            }).filter(Boolean);
+            const newGenres = [...currentGenres, ...selectedNames];
 
             await updateMediaTopicsGenres(mediaItem.id, currentTopics, newGenres);
-            setSnackbar?.({ open: true, message: `Added genre "${genreName}"`, severity: 'success' });
+            const count = selectedNames.length;
+            setSnackbar?.({ open: true, message: `Added ${count} genre${count > 1 ? 's' : ''}`, severity: 'success' });
             handleCloseGenreDialog();
             onUpdate?.();
         } catch (error) {
-            console.error('Error adding genre:', error);
-            setSnackbar?.({ open: true, message: 'Failed to add genre', severity: 'error' });
+            console.error('Error adding genres:', error);
+            setSnackbar?.({ open: true, message: 'Failed to add genres', severity: 'error' });
         } finally {
             setSaving(false);
         }
@@ -420,7 +444,7 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
             >
                 <DialogTitle>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography variant="h6">Add Topic</Typography>
+                        <Typography variant="h6">Add Topics</Typography>
                         <IconButton
                             onClick={handleCloseTopicDialog}
                             size="small"
@@ -438,7 +462,7 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
                 </DialogTitle>
                 <DialogContent>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        Select a topic to add to "{mediaItem?.title}":
+                        Select topics to add to "{mediaItem?.title}":
                     </Typography>
 
                     {/* Search Bar */}
@@ -480,30 +504,43 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
                     ) : (
                         <List sx={{ maxHeight: '300px', overflowY: 'auto' }}>
                             {filteredAvailableTopics.length > 0 ? (
-                                filteredAvailableTopics.map((topic) => (
-                                    <ListItem
-                                        key={topic.id || topic.Id}
-                                        onClick={() => setSelectedTopicId(topic.id || topic.Id)}
-                                        sx={{
-                                            borderRadius: 1,
-                                            mb: 1,
-                                            cursor: 'pointer',
-                                            backgroundColor: selectedTopicId === (topic.id || topic.Id)
-                                                ? 'rgba(25, 118, 210, 0.3)'
-                                                : 'transparent',
-                                            border: selectedTopicId === (topic.id || topic.Id)
-                                                ? '2px solid rgba(25, 118, 210, 0.8)'
-                                                : '1px solid rgba(255, 255, 255, 0.1)',
-                                            '&:hover': {
-                                                backgroundColor: selectedTopicId === (topic.id || topic.Id)
-                                                    ? 'rgba(25, 118, 210, 0.4)'
-                                                    : 'rgba(255, 255, 255, 0.05)'
-                                            }
-                                        }}
-                                    >
-                                        <ListItemText primary={topic.name || topic.Name} />
-                                    </ListItem>
-                                ))
+                                filteredAvailableTopics.map((topic) => {
+                                    const topicId = topic.id || topic.Id;
+                                    const isSelected = selectedTopicIds.includes(topicId);
+                                    return (
+                                        <ListItem
+                                            key={topicId}
+                                            onClick={() => handleToggleTopicId(topicId)}
+                                            sx={{
+                                                borderRadius: 1,
+                                                mb: 1,
+                                                cursor: 'pointer',
+                                                backgroundColor: isSelected
+                                                    ? 'rgba(25, 118, 210, 0.3)'
+                                                    : 'transparent',
+                                                border: isSelected
+                                                    ? '2px solid rgba(25, 118, 210, 0.8)'
+                                                    : '1px solid rgba(255, 255, 255, 0.1)',
+                                                '&:hover': {
+                                                    backgroundColor: isSelected
+                                                        ? 'rgba(25, 118, 210, 0.4)'
+                                                        : 'rgba(255, 255, 255, 0.05)'
+                                                }
+                                            }}
+                                        >
+                                            <ListItemIcon sx={{ minWidth: 36 }}>
+                                                <Checkbox
+                                                    edge="start"
+                                                    checked={isSelected}
+                                                    tabIndex={-1}
+                                                    disableRipple
+                                                    sx={{ color: 'rgba(255, 255, 255, 0.5)', '&.Mui-checked': { color: '#1976d2' } }}
+                                                />
+                                            </ListItemIcon>
+                                            <ListItemText primary={topic.name || topic.Name} />
+                                        </ListItem>
+                                    );
+                                })
                             ) : (
                                 <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
                                     {topicSearchQuery
@@ -559,11 +596,11 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
                         Cancel
                     </Button>
                     <Button
-                        onClick={handleAddTopic}
+                        onClick={handleAddTopics}
                         sx={{ color: 'white' }}
-                        disabled={!selectedTopicId || saving}
+                        disabled={selectedTopicIds.length === 0 || saving}
                     >
-                        {saving ? 'Adding...' : 'Add'}
+                        {saving ? 'Adding...' : `Add${selectedTopicIds.length > 0 ? ` (${selectedTopicIds.length})` : ''}`}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -577,7 +614,7 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
             >
                 <DialogTitle>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography variant="h6">Add Genre</Typography>
+                        <Typography variant="h6">Add Genres</Typography>
                         <IconButton
                             onClick={handleCloseGenreDialog}
                             size="small"
@@ -595,7 +632,7 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
                 </DialogTitle>
                 <DialogContent>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        Select a genre to add to "{mediaItem?.title}":
+                        Select genres to add to "{mediaItem?.title}":
                     </Typography>
 
                     {/* Search Bar */}
@@ -637,30 +674,43 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
                     ) : (
                         <List sx={{ maxHeight: '300px', overflowY: 'auto' }}>
                             {filteredAvailableGenres.length > 0 ? (
-                                filteredAvailableGenres.map((genre) => (
-                                    <ListItem
-                                        key={genre.id || genre.Id}
-                                        onClick={() => setSelectedGenreId(genre.id || genre.Id)}
-                                        sx={{
-                                            borderRadius: 1,
-                                            mb: 1,
-                                            cursor: 'pointer',
-                                            backgroundColor: selectedGenreId === (genre.id || genre.Id)
-                                                ? 'rgba(75, 106, 162, 0.3)'
-                                                : 'transparent',
-                                            border: selectedGenreId === (genre.id || genre.Id)
-                                                ? '2px solid rgba(75, 106, 162, 0.8)'
-                                                : '1px solid rgba(255, 255, 255, 0.1)',
-                                            '&:hover': {
-                                                backgroundColor: selectedGenreId === (genre.id || genre.Id)
-                                                    ? 'rgba(75, 106, 162, 0.4)'
-                                                    : 'rgba(255, 255, 255, 0.05)'
-                                            }
-                                        }}
-                                    >
-                                        <ListItemText primary={genre.name || genre.Name} />
-                                    </ListItem>
-                                ))
+                                filteredAvailableGenres.map((genre) => {
+                                    const genreId = genre.id || genre.Id;
+                                    const isSelected = selectedGenreIds.includes(genreId);
+                                    return (
+                                        <ListItem
+                                            key={genreId}
+                                            onClick={() => handleToggleGenreId(genreId)}
+                                            sx={{
+                                                borderRadius: 1,
+                                                mb: 1,
+                                                cursor: 'pointer',
+                                                backgroundColor: isSelected
+                                                    ? 'rgba(75, 106, 162, 0.3)'
+                                                    : 'transparent',
+                                                border: isSelected
+                                                    ? '2px solid rgba(75, 106, 162, 0.8)'
+                                                    : '1px solid rgba(255, 255, 255, 0.1)',
+                                                '&:hover': {
+                                                    backgroundColor: isSelected
+                                                        ? 'rgba(75, 106, 162, 0.4)'
+                                                        : 'rgba(255, 255, 255, 0.05)'
+                                                }
+                                            }}
+                                        >
+                                            <ListItemIcon sx={{ minWidth: 36 }}>
+                                                <Checkbox
+                                                    edge="start"
+                                                    checked={isSelected}
+                                                    tabIndex={-1}
+                                                    disableRipple
+                                                    sx={{ color: 'rgba(255, 255, 255, 0.5)', '&.Mui-checked': { color: '#4b6aa2' } }}
+                                                />
+                                            </ListItemIcon>
+                                            <ListItemText primary={genre.name || genre.Name} />
+                                        </ListItem>
+                                    );
+                                })
                             ) : (
                                 <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
                                     {genreSearchQuery
@@ -716,11 +766,11 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
                         Cancel
                     </Button>
                     <Button
-                        onClick={handleAddGenre}
+                        onClick={handleAddGenres}
                         sx={{ color: 'white' }}
-                        disabled={!selectedGenreId || saving}
+                        disabled={selectedGenreIds.length === 0 || saving}
                     >
-                        {saving ? 'Adding...' : 'Add'}
+                        {saving ? 'Adding...' : `Add${selectedGenreIds.length > 0 ? ` (${selectedGenreIds.length})` : ''}`}
                     </Button>
                 </DialogActions>
             </Dialog>

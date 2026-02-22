@@ -6,7 +6,7 @@ import {
     Alert, Grid, Card, CardContent, Button, TextField, Dialog, DialogTitle,
     DialogContent, DialogActions, IconButton, DialogContentText
 } from '@mui/material';
-import { ExpandMore, Topic as TopicIcon, Category as GenreIcon, Add as AddIcon, Delete as DeleteIcon, CloudUpload as UploadIcon, Edit as EditIcon } from '@mui/icons-material';
+import { ExpandMore, Topic as TopicIcon, Category as GenreIcon, Add as AddIcon, Delete as DeleteIcon, CloudUpload as UploadIcon, Edit as EditIcon, PlaylistAdd } from '@mui/icons-material';
 import { getAllTopics, getAllGenres, createTopic, createGenre, deleteTopic, deleteGenre, updateTopic, updateGenre } from '../api/topicGenreService';
 
 function SearchByTopicOrGenre() {
@@ -245,7 +245,7 @@ function SearchByTopicOrGenre() {
                 <Typography variant="h4" component="h1" gutterBottom sx={{ mb: 1 }}>
                     📚 Topics & Genres Directory
                 </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
                     Browse, create, and manage all your topics and genres. Click any to see related media, or{' '}
                     <Button
                         variant="text"
@@ -256,6 +256,7 @@ function SearchByTopicOrGenre() {
                             textTransform: 'none',
                             verticalAlign: 'baseline',
                             color: 'white',
+                            fontSize: 'inherit',
                             '&:hover': {
                                 color: 'primary.light',
                                 backgroundColor: 'transparent'
@@ -264,31 +265,41 @@ function SearchByTopicOrGenre() {
                     >
                         go to advanced search
                     </Button>
-                    . Need to add many at once?{' '}
+                    .
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
                     <Button
-                        variant="text"
+                        variant="contained"
+                        startIcon={<UploadIcon />}
                         onClick={() => navigate('/import-genres-topics')}
                         sx={{
-                            p: 0,
-                            minWidth: 'auto',
-                            textTransform: 'none',
-                            verticalAlign: 'baseline',
+                            backgroundColor: '#9c27b0',
                             color: 'white',
-                            fontWeight: 'normal',
-                            fontSize: 'inherit',
-                            lineHeight: 'inherit',
                             '&:hover': {
-                                color: 'primary.light',
-                                backgroundColor: 'transparent'
+                                backgroundColor: '#7b1fa2'
                             }
                         }}
                     >
-                        Bulk upload via CSV
+                        Bulk Upload via CSV
                     </Button>
-                </Typography>
+                    <Button
+                        variant="contained"
+                        startIcon={<PlaylistAdd />}
+                        onClick={() => navigate('/create-mixlist', { state: { returnTo: '/search-by-topic-genre' } })}
+                        sx={{
+                            backgroundColor: '#362759',
+                            color: 'white',
+                            '&:hover': {
+                                backgroundColor: '#2a1e47'
+                            }
+                        }}
+                    >
+                        Create New Mixlist
+                    </Button>
+                </Box>
                 
                 {error && (
-                    <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
+                    <Alert severity="error" sx={{ mb: 3, bgcolor: 'background.paper', color: 'white', '& .MuiAlert-icon': { color: '#f44336' } }} onClose={() => setError('')}>
                         {error}
                     </Alert>
                 )}
@@ -358,10 +369,9 @@ function SearchByTopicOrGenre() {
                                             sx={{
                                                 cursor: 'pointer',
                                                 '&:hover': {
-                                                    backgroundColor: 'action.hover',
-                                                    boxShadow: 2
+                                                    boxShadow: 'none'
                                                 },
-                                                transition: 'box-shadow 0.2s ease-in-out, background-color 0.2s ease-in-out',
+                                                transition: 'none',
                                                 position: 'relative'
                                             }}
                                             onClick={() => handleTopicClick(topic)}
@@ -374,10 +384,10 @@ function SearchByTopicOrGenre() {
                                                         handleEditClick('topic', topic);
                                                     }}
                                                     sx={{
-                                                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                                                        backgroundColor: '#9c27b0',
+                                                        color: 'white',
                                                         '&:hover': {
-                                                            backgroundColor: 'primary.light',
-                                                            color: 'white'
+                                                            backgroundColor: '#7b1fa2'
                                                         }
                                                     }}
                                                 >
@@ -390,10 +400,10 @@ function SearchByTopicOrGenre() {
                                                         handleDeleteClick('topic', topic);
                                                     }}
                                                     sx={{
-                                                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                                                        backgroundColor: '#9c27b0',
+                                                        color: 'white',
                                                         '&:hover': {
-                                                            backgroundColor: 'error.light',
-                                                            color: 'white'
+                                                            backgroundColor: '#7b1fa2'
                                                         }
                                                     }}
                                                 >
@@ -490,10 +500,9 @@ function SearchByTopicOrGenre() {
                                             sx={{
                                                 cursor: 'pointer',
                                                 '&:hover': {
-                                                    backgroundColor: 'action.hover',
-                                                    boxShadow: 2
+                                                    boxShadow: 'none'
                                                 },
-                                                transition: 'box-shadow 0.2s ease-in-out, background-color 0.2s ease-in-out',
+                                                transition: 'none',
                                                 position: 'relative'
                                             }}
                                             onClick={() => handleGenreClick(genre)}
@@ -506,10 +515,10 @@ function SearchByTopicOrGenre() {
                                                         handleEditClick('genre', genre);
                                                     }}
                                                     sx={{
-                                                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                                                        backgroundColor: '#9c27b0',
+                                                        color: 'white',
                                                         '&:hover': {
-                                                            backgroundColor: '#4b6aa2',
-                                                            color: 'white'
+                                                            backgroundColor: '#7b1fa2'
                                                         }
                                                     }}
                                                 >
@@ -522,10 +531,10 @@ function SearchByTopicOrGenre() {
                                                         handleDeleteClick('genre', genre);
                                                     }}
                                                     sx={{
-                                                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                                                        backgroundColor: '#9c27b0',
+                                                        color: 'white',
                                                         '&:hover': {
-                                                            backgroundColor: 'error.light',
-                                                            color: 'white'
+                                                            backgroundColor: '#7b1fa2'
                                                         }
                                                     }}
                                                 >
@@ -591,16 +600,22 @@ function SearchByTopicOrGenre() {
                         />
                     </DialogContent>
                     <DialogActions>
-                        <Button 
-                            onClick={() => setOpenTopicDialog(false)} 
+                        <Button
+                            onClick={() => setOpenTopicDialog(false)}
                             disabled={creating}
+                            sx={{ color: 'white' }}
                         >
                             Cancel
                         </Button>
-                        <Button 
-                            onClick={handleCreateTopic} 
+                        <Button
+                            onClick={handleCreateTopic}
                             variant="contained"
                             disabled={creating || !newTopicName.trim()}
+                            sx={{
+                                backgroundColor: '#9c27b0',
+                                color: 'white',
+                                '&:hover': { backgroundColor: '#7b1fa2' }
+                            }}
                         >
                             {creating ? 'Creating...' : 'Create'}
                         </Button>
@@ -635,16 +650,22 @@ function SearchByTopicOrGenre() {
                         />
                     </DialogContent>
                     <DialogActions>
-                        <Button 
-                            onClick={() => setOpenGenreDialog(false)} 
+                        <Button
+                            onClick={() => setOpenGenreDialog(false)}
                             disabled={creating}
+                            sx={{ color: 'white' }}
                         >
                             Cancel
                         </Button>
-                        <Button 
-                            onClick={handleCreateGenre} 
+                        <Button
+                            onClick={handleCreateGenre}
                             variant="contained"
                             disabled={creating || !newGenreName.trim()}
+                            sx={{
+                                backgroundColor: '#9c27b0',
+                                color: 'white',
+                                '&:hover': { backgroundColor: '#7b1fa2' }
+                            }}
                         >
                             {creating ? 'Creating...' : 'Create'}
                         </Button>
@@ -678,17 +699,22 @@ function SearchByTopicOrGenre() {
                         )}
                     </DialogContent>
                     <DialogActions>
-                        <Button 
-                            onClick={handleCancelDelete} 
+                        <Button
+                            onClick={handleCancelDelete}
                             disabled={deleting}
+                            sx={{ color: 'white' }}
                         >
                             Cancel
                         </Button>
-                        <Button 
-                            onClick={handleConfirmDelete} 
+                        <Button
+                            onClick={handleConfirmDelete}
                             variant="contained"
-                            color="error"
                             disabled={deleting}
+                            sx={{
+                                backgroundColor: '#9c27b0',
+                                color: 'white',
+                                '&:hover': { backgroundColor: '#7b1fa2' }
+                            }}
                         >
                             {deleting ? 'Deleting...' : 'Delete'}
                         </Button>
@@ -730,6 +756,7 @@ function SearchByTopicOrGenre() {
                         <Button
                             onClick={handleCancelEdit}
                             disabled={editing}
+                            sx={{ color: 'white' }}
                         >
                             Cancel
                         </Button>
@@ -737,6 +764,11 @@ function SearchByTopicOrGenre() {
                             onClick={handleConfirmEdit}
                             variant="contained"
                             disabled={editing || !editName.trim() || editName.trim() === editTarget?.name}
+                            sx={{
+                                backgroundColor: '#9c27b0',
+                                color: 'white',
+                                '&:hover': { backgroundColor: '#7b1fa2' }
+                            }}
                         >
                             {editing ? 'Saving...' : 'Save'}
                         </Button>

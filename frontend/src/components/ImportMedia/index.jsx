@@ -27,7 +27,14 @@ function ImportMediaPage() {
     };
 
     return (
-        <Container maxWidth="lg">
+        <Container maxWidth="lg" sx={{
+            '& .MuiInputLabel-root': {
+                color: 'white'
+            },
+            '& .MuiInputLabel-root.Mui-focused': {
+                color: 'white'
+            }
+        }}>
             <Typography variant="h4" gutterBottom sx={{ mt: 4, mb: 3 }}>
                 Import Media
             </Typography>

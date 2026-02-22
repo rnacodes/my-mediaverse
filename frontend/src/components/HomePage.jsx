@@ -743,7 +743,7 @@ export default function HomePage() {
                 sx={{
                     width: { xs: '100%', sm: 'auto' },
                     minHeight: '44px',
-                    color: '#1B1B1B'
+                    color: 'white'
                 }}
               >
                 Browse All Media

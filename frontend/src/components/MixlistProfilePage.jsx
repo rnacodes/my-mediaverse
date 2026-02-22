@@ -30,6 +30,7 @@ function MixlistProfilePage() {
     const [searching, setSearching] = useState(false);
     const [selectedMediaIds, setSelectedMediaIds] = useState([]);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+    const [filterQuery, setFilterQuery] = useState('');
 
     useEffect(() => {
         const loadMixlist = async () => {
@@ -248,6 +249,11 @@ function MixlistProfilePage() {
 
     const currentMediaItems = mixlist.MediaItems || mixlist.mediaItems || [];
     const hasMediaItems = currentMediaItems.length > 0;
+    const filteredMediaItems = filterQuery.trim()
+        ? currentMediaItems.filter(item =>
+            (item.title || item.Title || '').toLowerCase().includes(filterQuery.toLowerCase())
+          )
+        : currentMediaItems;
 
     return (
         <Box sx={{ minHeight: '100vh' }}>
@@ -342,6 +348,26 @@ function MixlistProfilePage() {
                                 Created on: {new Date(mixlist.DateCreated || mixlist.dateCreated).toLocaleDateString()}
                             </Typography>
 
+                            {/* Search Filter */}
+                            {hasMediaItems && (
+                                <TextField
+                                    fullWidth
+                                    placeholder="Search media in this mixlist..."
+                                    value={filterQuery}
+                                    onChange={(e) => setFilterQuery(e.target.value)}
+                                    variant="outlined"
+                                    size="small"
+                                    InputProps={{
+                                        startAdornment: (
+                                            <InputAdornment position="start">
+                                                <Search sx={{ color: 'rgba(255, 255, 255, 0.5)' }} />
+                                            </InputAdornment>
+                                        ),
+                                    }}
+                                    sx={{ mb: 3 }}
+                                />
+                            )}
+
                             {/* Collapsible Media List */}
                             <Box>
                                 <Button
@@ -356,13 +382,13 @@ function MixlistProfilePage() {
                                         mb: 2
                                     }}
                                 >
-                                    Media Items ({currentMediaItems.length})
+                                    Media Items ({filterQuery ? `${filteredMediaItems.length} of ${currentMediaItems.length}` : currentMediaItems.length})
                                 </Button>
-                                
+
                                 <Collapse in={mediaListExpanded}>
                                     <Box sx={{ pl: 2 }}>
-                                        {hasMediaItems ? (
-                                            currentMediaItems.map((mediaItem, index) => (
+                                        {filteredMediaItems.length > 0 ? (
+                                            filteredMediaItems.map((mediaItem, index) => (
                                                 <Paper key={mediaItem.id || mediaItem.Id} sx={{ p: 2, mb: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                                                         <Typography variant="body2" color="text.secondary">
@@ -412,7 +438,7 @@ function MixlistProfilePage() {
                                             ))
                                         ) : (
                                             <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-                                                No media items in this mixlist yet.
+                                                {filterQuery ? `No media items matching "${filterQuery}".` : 'No media items in this mixlist yet.'}
                                             </Typography>
                                         )}
                                     </Box>
@@ -422,10 +448,10 @@ function MixlistProfilePage() {
                     </Card>
 
                     {/* Simple Media Carousel */}
-                    {hasMediaItems && (
+                    {filteredMediaItems.length > 0 && (
                         <Box sx={{ mb: 4 }}>
                             <SimpleMediaCarousel
-                                mediaItems={currentMediaItems}
+                                mediaItems={filteredMediaItems}
                                 title="Browse Media"
                                 subtitle="Click on any item to view details below"
                                 onMediaClick={handleMediaCarouselClick}
@@ -486,7 +512,16 @@ function MixlistProfilePage() {
                                             </Box>
                                             
                                             {/* Description beneath title */}
-                                            <Typography variant="body2" sx={{ mb: 2, lineHeight: 1.4, color: 'text.secondary' }}>
+                                            <Typography variant="body2" sx={{
+                                                mb: 2,
+                                                lineHeight: 1.4,
+                                                color: 'text.secondary',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                display: '-webkit-box',
+                                                WebkitLineClamp: 4,
+                                                WebkitBoxOrient: 'vertical'
+                                            }}>
                                                 {selectedMedia.description || selectedMedia.Description || selectedMedia.desc || selectedMedia.Desc || 'No description available'}
                                             </Typography>
                                             
@@ -586,7 +621,7 @@ function MixlistProfilePage() {
                                 onClick={() => navigate('/import-media')}
                                 sx={{ fontSize: '16px', px: 4, py: 1.5 }}
                             >
-                                Import Media
+                                Import via API
                             </Button>
                         </Box>
                     </Box>

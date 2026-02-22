@@ -227,13 +227,15 @@ const CleanupManagementPage = () => {
             <Grid container spacing={3}>
                 {cleanupActions.map((item, index) => (
                     <Grid item xs={12} sm={6} md={4} key={index}>
-                        <Card 
-                            sx={{ 
+                        <Card
+                            sx={{
                                 height: '100%',
                                 display: 'flex',
                                 flexDirection: 'column',
                                 borderLeft: 4,
-                                borderColor: `${item.color}.main`
+                                borderColor: `${item.color}.main`,
+                                '&:hover': { boxShadow: 'none' },
+                                transition: 'none'
                             }}
                         >
                             <CardContent sx={{ flexGrow: 1 }}>
@@ -261,7 +263,7 @@ const CleanupManagementPage = () => {
                                         `Delete ${item.title}?`,
                                         `Are you sure you want to delete all ${item.title.toLowerCase()}? This action cannot be undone.`
                                     )}
-                                    sx={{ mt: 'auto' }}
+                                    sx={{ mt: 'auto', color: 'white' }}
                                 >
                                     Delete All
                                 </Button>

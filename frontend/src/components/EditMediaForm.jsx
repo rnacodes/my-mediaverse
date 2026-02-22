@@ -6,10 +6,11 @@ import {
     Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
     List, ListItem, ListItemText, IconButton, Chip, InputAdornment, Tooltip
 } from '@mui/material';
-import { Save, Cancel, ArrowBack, Delete, Add as AddIcon, Search, Close, Delete as DeleteIcon, OpenInNew as OpenInNewIcon, Article as NoteIcon } from '@mui/icons-material';
+import { Save, Cancel, ArrowBack, Delete, Add as AddIcon, Search, Close, Delete as DeleteIcon, OpenInNew as OpenInNewIcon, Article as NoteIcon, PlaylistAdd } from '@mui/icons-material';
 import { getMediaById, updateMedia, deleteMedia } from '../api/mediaService';
 import { uploadThumbnail } from '../api/uploadService';
 import { getNotesForMedia, getAllNotes, searchNotes, linkNoteToMedia, unlinkNoteFromMedia } from '../api/noteService';
+import { getAllMixlists, addMediaToMixlist, removeMediaFromMixlist } from '../api/mixlistService';
 import { formatStatus, formatMediaType } from '../utils/formatters';
 import TopicsGenresSection from './TopicsGenresSection';
 
@@ -34,7 +35,15 @@ function EditMediaForm() {
     const [selectedNoteId, setSelectedNoteId] = useState(null);
     const [linkDescription, setLinkDescription] = useState('');
     const [savingNote, setSavingNote] = useState(false);
-    
+
+    // Mixlist management state
+    const [currentMixlists, setCurrentMixlists] = useState([]);
+    const [availableMixlists, setAvailableMixlists] = useState([]);
+    const [addMixlistDialog, setAddMixlistDialog] = useState(false);
+    const [mixlistSearchQuery, setMixlistSearchQuery] = useState('');
+    const [selectedMixlistId, setSelectedMixlistId] = useState(null);
+    const [savingMixlist, setSavingMixlist] = useState(false);
+
     const [formData, setFormData] = useState({
         title: '',
         mediaType: 'Other',
@@ -124,6 +133,91 @@ function EditMediaForm() {
             fetchLinkedNotes();
         }
     }, [id, fetchLinkedNotes]);
+
+    // Fetch mixlists for this media item
+    const fetchMixlists = useCallback(async () => {
+        if (!mediaItem) return;
+        try {
+            const response = await getAllMixlists();
+            const allMixlists = response.data || [];
+            const mixlistIds = mediaItem.mixlistIds || [];
+            if (mixlistIds.length > 0) {
+                const mixlistIdSet = new Set(mixlistIds);
+                setCurrentMixlists(allMixlists.filter(m => mixlistIdSet.has(m.id)));
+                setAvailableMixlists(allMixlists.filter(m => !mixlistIdSet.has(m.id)));
+            } else {
+                setCurrentMixlists([]);
+                setAvailableMixlists(allMixlists);
+            }
+        } catch (error) {
+            console.error('Error fetching mixlists:', error);
+        }
+    }, [mediaItem]);
+
+    useEffect(() => {
+        if (mediaItem) {
+            fetchMixlists();
+        }
+    }, [mediaItem, fetchMixlists]);
+
+    // Mixlist handlers
+    const handleOpenMixlistDialog = () => {
+        setAddMixlistDialog(true);
+        setMixlistSearchQuery('');
+        setSelectedMixlistId(null);
+    };
+
+    const handleCloseMixlistDialog = () => {
+        setAddMixlistDialog(false);
+        setSelectedMixlistId(null);
+        setMixlistSearchQuery('');
+    };
+
+    const handleAddToMixlist = async () => {
+        if (!selectedMixlistId) {
+            setSnackbar({ open: true, message: 'Please select a mixlist first', severity: 'warning' });
+            return;
+        }
+        setSavingMixlist(true);
+        try {
+            await addMediaToMixlist(selectedMixlistId, id);
+            const addedMixlist = availableMixlists.find(m => m.id === selectedMixlistId);
+            if (addedMixlist) {
+                setCurrentMixlists(prev => [...prev, addedMixlist]);
+                setAvailableMixlists(prev => prev.filter(m => m.id !== selectedMixlistId));
+            }
+            setSnackbar({ open: true, message: 'Added to mixlist', severity: 'success' });
+            handleCloseMixlistDialog();
+        } catch (error) {
+            console.error('Error adding to mixlist:', error);
+            setSnackbar({ open: true, message: 'Failed to add to mixlist', severity: 'error' });
+        } finally {
+            setSavingMixlist(false);
+        }
+    };
+
+    const handleRemoveFromMixlist = async (mixlistId, mixlistName) => {
+        setSavingMixlist(true);
+        try {
+            await removeMediaFromMixlist(mixlistId, id);
+            const removedMixlist = currentMixlists.find(m => m.id === mixlistId);
+            if (removedMixlist) {
+                setAvailableMixlists(prev => [...prev, removedMixlist]);
+                setCurrentMixlists(prev => prev.filter(m => m.id !== mixlistId));
+            }
+            setSnackbar({ open: true, message: `Removed from "${mixlistName}"`, severity: 'success' });
+        } catch (error) {
+            console.error('Error removing from mixlist:', error);
+            setSnackbar({ open: true, message: 'Failed to remove from mixlist', severity: 'error' });
+        } finally {
+            setSavingMixlist(false);
+        }
+    };
+
+    const filteredAvailableMixlistsForDialog = availableMixlists.filter(m =>
+        (m.name || '').toLowerCase().includes(mixlistSearchQuery.toLowerCase()) ||
+        (m.description || '').toLowerCase().includes(mixlistSearchQuery.toLowerCase())
+    );
 
     // Fetch available notes when dialog opens
     const fetchAvailableNotes = useCallback(async () => {
@@ -574,6 +668,76 @@ function EditMediaForm() {
                                     onChange={(e) => handleInputChange('notes', e.target.value)}
                                 />
 
+                                {/* Mixlists Section */}
+                                <Box sx={{
+                                    border: '1px solid rgba(255, 255, 255, 0.23)',
+                                    borderRadius: 1,
+                                    p: 2
+                                }}>
+                                    <Box sx={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        mb: 2
+                                    }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <PlaylistAdd sx={{ fontSize: 20, color: 'rgba(255, 255, 255, 0.7)' }} />
+                                            <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                                                Mixlists ({currentMixlists.length})
+                                            </Typography>
+                                        </Box>
+                                        <Button
+                                            variant="outlined"
+                                            size="small"
+                                            startIcon={<AddIcon />}
+                                            onClick={handleOpenMixlistDialog}
+                                            disabled={savingMixlist}
+                                            sx={{
+                                                borderColor: 'rgba(255, 255, 255, 0.5)',
+                                                color: 'white',
+                                                '&:hover': {
+                                                    borderColor: 'white',
+                                                    backgroundColor: 'rgba(255, 255, 255, 0.08)'
+                                                }
+                                            }}
+                                        >
+                                            Add to Mixlist
+                                        </Button>
+                                    </Box>
+
+                                    {currentMixlists.length > 0 ? (
+                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                            {currentMixlists.map((mixlist) => (
+                                                <Chip
+                                                    key={mixlist.id}
+                                                    label={mixlist.name}
+                                                    onDelete={() => handleRemoveFromMixlist(mixlist.id, mixlist.name)}
+                                                    deleteIcon={<Close sx={{ fontSize: 16, color: 'white !important' }} />}
+                                                    disabled={savingMixlist}
+                                                    onClick={() => navigate(`/mixlist/${mixlist.id}`)}
+                                                    sx={{
+                                                        cursor: 'pointer',
+                                                        backgroundColor: '#362759',
+                                                        color: 'white',
+                                                        fontWeight: 'bold',
+                                                        '&:hover': {
+                                                            backgroundColor: '#2a1e47'
+                                                        }
+                                                    }}
+                                                />
+                                            ))}
+                                        </Box>
+                                    ) : (
+                                        <Typography
+                                            variant="body2"
+                                            color="text.secondary"
+                                            sx={{ fontStyle: 'italic', textAlign: 'center', py: 1 }}
+                                        >
+                                            Not part of any mixlists. Click "Add to Mixlist" to assign.
+                                        </Typography>
+                                    )}
+                                </Box>
+
                                 {/* Linked Notes Section */}
                                 <Box sx={{
                                     border: '1px solid rgba(255, 255, 255, 0.23)',
@@ -1004,6 +1168,120 @@ function EditMediaForm() {
                         disabled={!selectedNoteId || savingNote}
                     >
                         {savingNote ? 'Linking...' : 'Link Note'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Add to Mixlist Dialog */}
+            <Dialog
+                open={addMixlistDialog}
+                onClose={handleCloseMixlistDialog}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="h6">Add to Mixlist</Typography>
+                        <IconButton
+                            onClick={handleCloseMixlistDialog}
+                            size="small"
+                            sx={{
+                                color: 'rgba(255, 255, 255, 0.7)',
+                                '&:hover': {
+                                    color: 'white',
+                                    backgroundColor: 'rgba(255, 255, 255, 0.1)'
+                                }
+                            }}
+                        >
+                            <Close fontSize="small" />
+                        </IconButton>
+                    </Box>
+                </DialogTitle>
+                <DialogContent>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        Select a mixlist to add "{formData.title}" to:
+                    </Typography>
+
+                    {/* Search Bar */}
+                    <Box sx={{ mb: 2 }}>
+                        <TextField
+                            fullWidth
+                            placeholder="Search mixlists..."
+                            value={mixlistSearchQuery}
+                            onChange={(e) => setMixlistSearchQuery(e.target.value)}
+                            variant="outlined"
+                            size="small"
+                            InputProps={{
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <Search sx={{ color: 'rgba(255, 255, 255, 0.5)' }} />
+                                    </InputAdornment>
+                                ),
+                            }}
+                            sx={{
+                                '& .MuiOutlinedInput-root': {
+                                    color: 'white',
+                                    '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.3)' },
+                                    '&:hover fieldset': { borderColor: 'rgba(255, 255, 255, 0.5)' },
+                                    '&.Mui-focused fieldset': { borderColor: 'rgba(255, 255, 255, 0.7)' },
+                                },
+                                '& .MuiInputBase-input::placeholder': {
+                                    color: 'rgba(255, 255, 255, 0.5)',
+                                    opacity: 1,
+                                },
+                            }}
+                        />
+                    </Box>
+
+                    {/* Mixlist List */}
+                    <List sx={{ maxHeight: '300px', overflowY: 'auto' }}>
+                        {filteredAvailableMixlistsForDialog.length > 0 ? (
+                            filteredAvailableMixlistsForDialog.map((mixlist) => (
+                                <ListItem
+                                    key={mixlist.id}
+                                    onClick={() => setSelectedMixlistId(mixlist.id)}
+                                    sx={{
+                                        borderRadius: 1,
+                                        mb: 1,
+                                        cursor: 'pointer',
+                                        backgroundColor: selectedMixlistId === mixlist.id
+                                            ? 'rgba(25, 118, 210, 0.3)'
+                                            : 'transparent',
+                                        border: selectedMixlistId === mixlist.id
+                                            ? '2px solid rgba(25, 118, 210, 0.8)'
+                                            : '1px solid rgba(255, 255, 255, 0.1)',
+                                        '&:hover': {
+                                            backgroundColor: selectedMixlistId === mixlist.id
+                                                ? 'rgba(25, 118, 210, 0.4)'
+                                                : 'rgba(255, 255, 255, 0.05)'
+                                        }
+                                    }}
+                                >
+                                    <ListItemText
+                                        primary={mixlist.name}
+                                        secondary={mixlist.description || `${mixlist.mediaItems?.length || 0} items`}
+                                    />
+                                </ListItem>
+                            ))
+                        ) : (
+                            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+                                {mixlistSearchQuery
+                                    ? 'No mixlists match your search.'
+                                    : 'No available mixlists. Create a new mixlist first.'}
+                            </Typography>
+                        )}
+                    </List>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseMixlistDialog} sx={{ color: 'white' }}>
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={handleAddToMixlist}
+                        sx={{ color: 'white' }}
+                        disabled={!selectedMixlistId || savingMixlist}
+                    >
+                        {savingMixlist ? 'Adding...' : 'Add'}
                     </Button>
                 </DialogActions>
             </Dialog>

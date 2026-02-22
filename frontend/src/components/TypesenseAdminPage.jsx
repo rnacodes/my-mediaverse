@@ -453,7 +453,7 @@ const TypesenseAdminPage = () => {
               </Typography>
               
               <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
-                <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'white' }}>
                   {reindexResult.indexed_count || reindexResult.indexedCount || 0}
                 </Typography>
                 <Typography variant="body2" color="textSecondary">
@@ -485,7 +485,7 @@ const TypesenseAdminPage = () => {
               </Typography>
               
               <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
-                <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'white' }}>
                   {reindexMixlistsResult.indexed_count || reindexMixlistsResult.indexedCount || 0}
                 </Typography>
                 <Typography variant="body2" color="textSecondary">
@@ -706,7 +706,7 @@ const TypesenseAdminPage = () => {
               </Typography>
               
               <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
-                <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'white' }}>
                   {deduplicationResult.mergedCount || 0}
                 </Typography>
                 <Typography variant="body2" color="textSecondary">
@@ -852,7 +852,7 @@ const TypesenseAdminPage = () => {
                     <Typography variant="subtitle2" color="textSecondary">
                       {result.vaultName || `Vault ${index + 1}`}
                     </Typography>
-                    <Typography variant="h5" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                    <Typography variant="h5" sx={{ fontWeight: 'bold', color: 'white' }}>
                       {result.importedCount || 0}
                     </Typography>
                     <Typography variant="caption" color="textSecondary">
@@ -886,7 +886,7 @@ const TypesenseAdminPage = () => {
               </Typography>
 
               <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
-                <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'white' }}>
                   {reindexNotesResult.indexed_count || reindexNotesResult.indexedCount || 0}
                 </Typography>
                 <Typography variant="body2" color="textSecondary">

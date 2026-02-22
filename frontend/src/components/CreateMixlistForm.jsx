@@ -48,7 +48,7 @@ function CreateMixlistForm() {
             const mixlistData = {
                 name: name.trim(),
                 description: description.trim() || null,
-                thumbnail: thumbnail || `https://picsum.photos/400/400?random=${Date.now()}&blur=1`
+                thumbnail: thumbnail || 'https://project-loopbreaker.atl1.cdn.digitaloceanspaces.com/thumbnails/mixlist-placeholder.png'
             };
 
             console.log('Attempting to create mixlist with data:', mixlistData);
@@ -209,13 +209,17 @@ function CreateMixlistForm() {
                     </Typography>
                     <Button
                         variant="contained"
-                        color="secondary"
                         component="label"
                         sx={{
                             fontSize: '16px',
                             fontWeight: 'bold',
                             textTransform: 'none',
-                            py: 1.5
+                            py: 1.5,
+                            backgroundColor: '#9c27b0',
+                            color: 'white',
+                            '&:hover': {
+                                backgroundColor: '#7b1fa2'
+                            }
                         }}
                     >
                         Choose File
@@ -268,14 +272,19 @@ function CreateMixlistForm() {
                 <Box sx={{ display: 'flex', gap: 2, mt: 4 }}>
                     <Button
                         type="button"
-                        variant="outlined"
+                        variant="contained"
                         onClick={() => navigate(-1)}
                         sx={{
                             flex: 1,
                             fontSize: '16px',
                             fontWeight: 'bold',
                             textTransform: 'none',
-                            py: 1.5
+                            py: 1.5,
+                            backgroundColor: '#9c27b0',
+                            color: 'white',
+                            '&:hover': {
+                                backgroundColor: '#7b1fa2'
+                            }
                         }}
                     >
                         Cancel
@@ -283,14 +292,18 @@ function CreateMixlistForm() {
                     <Button
                         type="submit"
                         variant="contained"
-                        color="primary"
                         disabled={!name || isSubmitting}
                         sx={{
                             flex: 2,
                             fontSize: '16px',
                             fontWeight: 'bold',
                             textTransform: 'none',
-                            py: 1.5
+                            py: 1.5,
+                            backgroundColor: '#9c27b0',
+                            color: 'white',
+                            '&:hover': {
+                                backgroundColor: '#7b1fa2'
+                            }
                         }}
                     >
                         {isSubmitting ? 'Creating...' : 'Create Mixlist'}
