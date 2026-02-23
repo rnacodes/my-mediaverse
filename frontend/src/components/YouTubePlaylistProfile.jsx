@@ -134,7 +134,7 @@ function YouTubePlaylistProfile() {
         try {
             await deleteYouTubePlaylist(id);
             setSnackbar({ open: true, message: 'YouTube playlist deleted', severity: 'success' });
-            setTimeout(() => navigate('/all-media?mediaType=Playlist'), 1500);
+            setTimeout(() => navigate('/'), 1500);
         } catch (error) {
             console.error('Error deleting playlist:', error);
             setSnackbar({ open: true, message: 'Failed to delete playlist', severity: 'error' });

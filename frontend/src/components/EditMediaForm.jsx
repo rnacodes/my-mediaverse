@@ -422,9 +422,9 @@ function EditMediaForm() {
                 severity: 'success' 
             });
             
-            // Navigate to all media page after a short delay
+            // Navigate to homepage after a short delay
             setTimeout(() => {
-                navigate('/all-media');
+                navigate('/');
             }, 1500);
         } catch (error) {
             console.error('Failed to delete media:', error);

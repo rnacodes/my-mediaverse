@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { BrowserRouter } from 'react-router-dom';
 import DemoUnlockPage from '../DemoUnlockPage';
+
+const renderWithRouter = (ui) => render(<BrowserRouter>{ui}</BrowserRouter>);
 
 const DEMO_API_BASE = 'https://demo-api.mymediaverseuniverse.com/api/demo';
 
@@ -43,7 +46,7 @@ describe('DemoUnlockPage', () => {
                 () => new Promise((resolve) => { resolveFetch = resolve; })
             );
 
-            render(<DemoUnlockPage />);
+            renderWithRouter(<DemoUnlockPage />);
 
             const progressbars = screen.getAllByRole('progressbar');
             expect(progressbars.length).toBeGreaterThanOrEqual(1);
@@ -65,7 +68,7 @@ describe('DemoUnlockPage', () => {
                 message: 'Not in demo environment',
             });
 
-            render(<DemoUnlockPage />);
+            renderWithRouter(<DemoUnlockPage />);
 
             await waitFor(() => {
                 expect(screen.getByText('Not Active')).toBeInTheDocument();
@@ -79,7 +82,7 @@ describe('DemoUnlockPage', () => {
                 message: 'Write access is disabled',
             });
 
-            render(<DemoUnlockPage />);
+            renderWithRouter(<DemoUnlockPage />);
 
             await waitFor(() => {
                 expect(screen.getByText('Active')).toBeInTheDocument();
@@ -93,7 +96,7 @@ describe('DemoUnlockPage', () => {
                 message: 'Write access is disabled',
             });
 
-            render(<DemoUnlockPage />);
+            renderWithRouter(<DemoUnlockPage />);
 
             await waitFor(() => {
                 expect(screen.getByText('Disabled (Read-Only)')).toBeInTheDocument();
@@ -107,7 +110,7 @@ describe('DemoUnlockPage', () => {
                 message: 'Write access is enabled via TOTP',
             });
 
-            render(<DemoUnlockPage />);
+            renderWithRouter(<DemoUnlockPage />);
 
             await waitFor(() => {
                 expect(screen.getByText('Enabled')).toBeInTheDocument();
@@ -127,7 +130,7 @@ describe('DemoUnlockPage', () => {
         });
 
         it('should accept 6-digit numeric input', async () => {
-            render(<DemoUnlockPage />);
+            renderWithRouter(<DemoUnlockPage />);
 
             await waitFor(() => {
                 expect(screen.getByLabelText('TOTP Code')).toBeInTheDocument();
@@ -140,7 +143,7 @@ describe('DemoUnlockPage', () => {
         });
 
         it('should strip non-numeric characters', async () => {
-            render(<DemoUnlockPage />);
+            renderWithRouter(<DemoUnlockPage />);
 
             await waitFor(() => {
                 expect(screen.getByLabelText('TOTP Code')).toBeInTheDocument();
@@ -153,7 +156,7 @@ describe('DemoUnlockPage', () => {
         });
 
         it('should trigger unlock on Enter key when code is 6 digits', async () => {
-            render(<DemoUnlockPage />);
+            renderWithRouter(<DemoUnlockPage />);
 
             await waitFor(() => {
                 expect(screen.getByLabelText('TOTP Code')).toBeInTheDocument();
@@ -170,7 +173,7 @@ describe('DemoUnlockPage', () => {
         });
 
         it('should NOT trigger unlock on Enter key when code is less than 6 digits', async () => {
-            render(<DemoUnlockPage />);
+            renderWithRouter(<DemoUnlockPage />);
 
             await waitFor(() => {
                 expect(screen.getByLabelText('TOTP Code')).toBeInTheDocument();
@@ -194,7 +197,7 @@ describe('DemoUnlockPage', () => {
         });
 
         it('should open unlock URL with TOTP code when Unlock button is clicked', async () => {
-            render(<DemoUnlockPage />);
+            renderWithRouter(<DemoUnlockPage />);
 
             await waitFor(() => {
                 expect(screen.getByLabelText('TOTP Code')).toBeInTheDocument();
@@ -213,7 +216,7 @@ describe('DemoUnlockPage', () => {
         });
 
         it('should show info message after unlock click', async () => {
-            render(<DemoUnlockPage />);
+            renderWithRouter(<DemoUnlockPage />);
 
             await waitFor(() => {
                 expect(screen.getByLabelText('TOTP Code')).toBeInTheDocument();
@@ -229,7 +232,7 @@ describe('DemoUnlockPage', () => {
         });
 
         it('should clear TOTP code after unlock', async () => {
-            render(<DemoUnlockPage />);
+            renderWithRouter(<DemoUnlockPage />);
 
             await waitFor(() => {
                 expect(screen.getByLabelText('TOTP Code')).toBeInTheDocument();
@@ -246,7 +249,7 @@ describe('DemoUnlockPage', () => {
         });
 
         it('should disable unlock button when code is less than 6 digits', async () => {
-            render(<DemoUnlockPage />);
+            renderWithRouter(<DemoUnlockPage />);
 
             await waitFor(() => {
                 expect(screen.getByLabelText('TOTP Code')).toBeInTheDocument();
@@ -269,7 +272,7 @@ describe('DemoUnlockPage', () => {
                 message: 'Write access is enabled',
             });
 
-            render(<DemoUnlockPage />);
+            renderWithRouter(<DemoUnlockPage />);
 
             await waitFor(() => {
                 expect(screen.getByRole('button', { name: /revoke write access/i })).toBeInTheDocument();
@@ -289,7 +292,7 @@ describe('DemoUnlockPage', () => {
         it('should display error when fetch fails with network error', async () => {
             mockFetchError();
 
-            render(<DemoUnlockPage />);
+            renderWithRouter(<DemoUnlockPage />);
 
             await waitFor(() => {
                 expect(screen.getByText(/Could not connect to the demo API/)).toBeInTheDocument();
@@ -299,7 +302,7 @@ describe('DemoUnlockPage', () => {
         it('should display error when fetch returns non-OK status', async () => {
             mockFetchNotOk();
 
-            render(<DemoUnlockPage />);
+            renderWithRouter(<DemoUnlockPage />);
 
             await waitFor(() => {
                 expect(screen.getByText(/Failed to fetch status from demo API/)).toBeInTheDocument();
@@ -315,7 +318,7 @@ describe('DemoUnlockPage', () => {
                 message: 'Write access is disabled',
             });
 
-            render(<DemoUnlockPage />);
+            renderWithRouter(<DemoUnlockPage />);
 
             await waitFor(() => {
                 expect(screen.getByText('First-Time Setup Instructions')).toBeInTheDocument();
@@ -329,7 +332,7 @@ describe('DemoUnlockPage', () => {
                 message: 'Write access is disabled',
             });
 
-            render(<DemoUnlockPage />);
+            renderWithRouter(<DemoUnlockPage />);
 
             await waitFor(() => {
                 expect(screen.getByText('First-Time Setup Instructions')).toBeInTheDocument();
@@ -353,7 +356,7 @@ describe('DemoUnlockPage', () => {
                 message: 'Write access is disabled',
             });
 
-            render(<DemoUnlockPage />);
+            renderWithRouter(<DemoUnlockPage />);
 
             await waitFor(() => {
                 expect(screen.getByText('Demo Mode Administration')).toBeInTheDocument();
@@ -369,7 +372,7 @@ describe('DemoUnlockPage', () => {
                 message: 'Write access is disabled',
             });
 
-            render(<DemoUnlockPage />);
+            renderWithRouter(<DemoUnlockPage />);
 
             await waitFor(() => {
                 expect(screen.getByText('Demo Write Access Status')).toBeInTheDocument();
@@ -394,7 +397,7 @@ describe('DemoUnlockPage', () => {
                 message: 'Write access is disabled',
             });
 
-            render(<DemoUnlockPage />);
+            renderWithRouter(<DemoUnlockPage />);
 
             await waitFor(() => {
                 expect(screen.getByText('Check Directly')).toBeInTheDocument();

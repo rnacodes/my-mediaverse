@@ -223,7 +223,7 @@ function PodcastSeriesProfile() {
         try {
             await deletePodcastSeries(id);
             setSnackbar({ open: true, message: 'Podcast series deleted', severity: 'success' });
-            setTimeout(() => navigate('/all-media?mediaType=Podcast'), 1500);
+            setTimeout(() => navigate('/'), 1500);
         } catch (error) {
             setSnackbar({ open: true, message: 'Failed to delete podcast series', severity: 'error' });
         }

@@ -201,8 +201,8 @@ const ReadwiseSyncPage = () => {
   return (
     <div className="readwise-sync-page">
       <div className="page-header">
-        <h1>Readwise Sync</h1>
-        <p className="subtitle">
+        <h1 style={{ color: 'white' }}>Readwise Sync</h1>
+        <p className="subtitle" style={{ color: 'white' }}>
           Sync your articles and highlights from Readwise Reader
         </p>
       </div>

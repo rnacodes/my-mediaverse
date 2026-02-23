@@ -139,6 +139,7 @@ export const FileCopy = createIcon('FileCopy');
 export const AutoFixHigh = createIcon('AutoFixHigh');
 export const Dns = createIcon('Dns');
 export const FormatQuote = createIcon('FormatQuote');
+export const Palette = createIcon('Palette');
 
 // Default export for sub-module default imports like `import X from '@mui/icons-material/X'`
 export default createIcon('Default');

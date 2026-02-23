@@ -261,7 +261,7 @@ function EditMixlistForm() {
                                     </Typography>
                                     <Button
                                         variant="contained"
-                                        color="secondary"
+                                        color="primary"
                                         component="label"
                                         sx={{ 
                                             fontSize: '16px',
@@ -370,8 +370,8 @@ function EditMixlistForm() {
                                 {/* Action Buttons */}
                                 <Box sx={{ display: 'flex', gap: 2, justifyContent: 'space-between', mt: 4 }}>
                                     <Button
-                                        variant="outlined"
-                                        color="error"
+                                        variant="contained"
+                                        color="primary"
                                         startIcon={<Delete />}
                                         onClick={() => setDeleteDialogOpen(true)}
                                         disabled={saving}
@@ -382,13 +382,13 @@ function EditMixlistForm() {
                                     <Box sx={{ display: 'flex', gap: 2 }}>
                                         <Button
                                             variant="contained"
-                                            color="secondary"
+                                            color="primary"
                                             startIcon={<Cancel />}
                                             onClick={handleCancel}
                                             disabled={saving}
                                             size="large"
                                             sx={{
-                                                color: '#1B1B1B',
+                                                color: 'primary',
                                                 fontSize: '16px',
                                                 fontWeight: 'bold',
                                                 textTransform: 'none',

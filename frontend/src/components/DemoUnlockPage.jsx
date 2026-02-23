@@ -35,6 +35,7 @@ import {
     Schedule as ScheduleIcon,
     Language as LanguageIcon,
     Upload as UploadIcon,
+    Palette as PaletteIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 
@@ -321,6 +322,19 @@ const DemoUnlockPage = () => {
                         }}
                     >
                         Upload Demo Data
+                    </Button>
+                    <Button
+                        variant="contained"
+                        startIcon={<PaletteIcon />}
+                        onClick={() => navigate('/demo')}
+                        sx={{
+                            height: 56,
+                            bgcolor: '#362759',
+                            color: '#fcfafa',
+                            '&:hover': { bgcolor: '#4f3a7a' },
+                        }}
+                    >
+                        View Design System
                     </Button>
                 </Box>
             </Paper>
