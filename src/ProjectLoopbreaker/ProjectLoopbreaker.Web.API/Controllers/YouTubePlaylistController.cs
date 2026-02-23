@@ -279,7 +279,8 @@ namespace ProjectLoopbreaker.Web.API.Controllers
                 Rating = playlist.Rating,
                 Notes = playlist.Notes,
                 Topics = playlist.Topics?.Select(t => t.Name).ToList() ?? new List<string>(),
-                Genres = playlist.Genres?.Select(g => g.Name).ToList() ?? new List<string>()
+                Genres = playlist.Genres?.Select(g => g.Name).ToList() ?? new List<string>(),
+                MixlistIds = playlist.Mixlists?.Select(m => m.Id).ToArray() ?? Array.Empty<Guid>()
             };
 
             if (includeVideos && playlist.PlaylistVideos != null)

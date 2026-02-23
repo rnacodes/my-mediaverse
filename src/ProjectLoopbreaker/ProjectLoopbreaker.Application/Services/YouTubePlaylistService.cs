@@ -32,7 +32,11 @@ namespace ProjectLoopbreaker.Application.Services
 
         public async Task<YouTubePlaylist?> GetPlaylistByIdAsync(Guid id, bool includeVideos = false)
         {
-            var query = _context.YouTubePlaylists.AsQueryable();
+            var query = _context.YouTubePlaylists
+                .Include(p => p.Topics)
+                .Include(p => p.Genres)
+                .Include(p => p.Mixlists)
+                .AsQueryable();
 
             if (includeVideos)
             {
@@ -46,7 +50,11 @@ namespace ProjectLoopbreaker.Application.Services
 
         public async Task<YouTubePlaylist?> GetPlaylistByExternalIdAsync(string externalId, bool includeVideos = false)
         {
-            var query = _context.YouTubePlaylists.AsQueryable();
+            var query = _context.YouTubePlaylists
+                .Include(p => p.Topics)
+                .Include(p => p.Genres)
+                .Include(p => p.Mixlists)
+                .AsQueryable();
 
             if (includeVideos)
             {
@@ -63,6 +71,7 @@ namespace ProjectLoopbreaker.Application.Services
             return await _context.YouTubePlaylists
                 .Include(p => p.Topics)
                 .Include(p => p.Genres)
+                .Include(p => p.Mixlists)
                 .ToListAsync();
         }
 

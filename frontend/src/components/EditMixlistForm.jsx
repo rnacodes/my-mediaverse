@@ -200,10 +200,21 @@ function EditMixlistForm() {
             <Box sx={{ mt: 4 }}>
                 {/* Header */}
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
-                    <Button
+                <Button
                         onClick={handleCancel}
                         startIcon={<ArrowBack />}
-                        sx={{ mr: 2 }}
+                        variant="outlined"
+                        sx={{ 
+                            mr: { xs: 0, sm: 2 },
+                            minHeight: '44px',
+                            color: 'white',
+                            borderColor: 'white',
+                            fontSize: { xs: '0.875rem', sm: '1rem' },
+                            '&:hover': {
+                                borderColor: 'white',
+                                backgroundColor: 'rgba(255, 255, 255, 0.08)'
+                            }
+                        }}
                     >
                         Back
                     </Button>

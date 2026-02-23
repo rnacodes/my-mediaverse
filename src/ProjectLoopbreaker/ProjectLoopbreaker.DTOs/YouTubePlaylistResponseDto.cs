@@ -64,7 +64,10 @@ namespace ProjectLoopbreaker.DTOs
         
         [JsonPropertyName("genres")]
         public List<string> Genres { get; set; } = new();
-        
+
+        [JsonPropertyName("mixlistIds")]
+        public Guid[] MixlistIds { get; set; } = Array.Empty<Guid>();
+
         /// <summary>
         /// List of videos in this playlist (optional, loaded on demand)
         /// </summary>
