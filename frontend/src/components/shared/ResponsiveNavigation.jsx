@@ -132,6 +132,7 @@ const ResponsiveNavigation = () => {
   const mediaMenuItems = [
     { text: 'Media Form', path: '/add-media', icon: <Add /> },
     { text: 'API Import', path: '/import-media', icon: <Download /> },
+    { text: 'Import Website', path: '/import-website', icon: <Language /> },
     { text: 'Bulk Upload', path: '/upload-media', icon: <Upload /> }
   ];
 

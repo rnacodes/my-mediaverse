@@ -113,12 +113,39 @@ const DemoUnlockPage = () => {
             <Typography variant="h3" gutterBottom sx={{ mb: 1, fontWeight: 'bold' }}>
                 Demo Mode Administration
             </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
+            <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
                 Manage write access for the demo site at{' '}
                 <a href={DEMO_SITE_URL} target="_blank" rel="noopener noreferrer">
                     {DEMO_SITE_URL}
                 </a>
             </Typography>
+
+            <Box sx={{ display: 'flex', gap: 2, mb: 4, flexWrap: 'wrap' }}>
+                <Button
+                    variant="contained"
+                    startIcon={<UploadIcon />}
+                    onClick={() => navigate('/upload-demo-data')}
+                    sx={{
+                        bgcolor: '#7b1fa2',
+                        color: 'white',
+                        '&:hover': { bgcolor: '#6a1b9a' },
+                    }}
+                >
+                    Upload Demo Data
+                </Button>
+                <Button
+                    variant="contained"
+                    startIcon={<PaletteIcon />}
+                    onClick={() => navigate('/demo')}
+                    sx={{
+                        bgcolor: '#362759',
+                        color: '#fcfafa',
+                        '&:hover': { bgcolor: '#4f3a7a' },
+                    }}
+                >
+                    View Design System
+                </Button>
+            </Box>
 
             {/* Status Section */}
             <Paper elevation={3} sx={{ p: 3, mb: 3, bgcolor: '#1a1a2e', color: 'white' }}>
@@ -309,32 +336,6 @@ const DemoUnlockPage = () => {
                         sx={{ height: 56, color: '#fcfafa' }}
                     >
                         Go to Demo Site
-                    </Button>
-                    <Button
-                        variant="contained"
-                        startIcon={<UploadIcon />}
-                        onClick={() => navigate('/upload-demo-data')}
-                        sx={{
-                            height: 56,
-                            bgcolor: '#7b1fa2',
-                            color: 'white',
-                            '&:hover': { bgcolor: '#6a1b9a' },
-                        }}
-                    >
-                        Upload Demo Data
-                    </Button>
-                    <Button
-                        variant="contained"
-                        startIcon={<PaletteIcon />}
-                        onClick={() => navigate('/demo')}
-                        sx={{
-                            height: 56,
-                            bgcolor: '#362759',
-                            color: '#fcfafa',
-                            '&:hover': { bgcolor: '#4f3a7a' },
-                        }}
-                    >
-                        View Design System
                     </Button>
                 </Box>
             </Paper>

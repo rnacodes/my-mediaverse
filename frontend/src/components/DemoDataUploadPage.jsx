@@ -762,7 +762,7 @@ function DemoDataUploadPage() {
                 <Button
                     startIcon={<ArrowBack />}
                     onClick={() => navigate(-1)}
-                    sx={{ mr: 2 }}
+                    sx={{ mr: 2, color: '#fcfafa' }}
                 >
                     Back
                 </Button>

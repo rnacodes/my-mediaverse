@@ -311,10 +311,13 @@ function EditMixlistForm() {
                                             value.map((option, index) => (
                                                 <Chip
                                                     key={index}
-                                                    variant="outlined"
                                                     label={option}
                                                     size="small"
-                                                    sx={{ fontSize: '12px' }}
+                                                    sx={{
+                                                        backgroundColor: 'primary.main',
+                                                        color: 'white',
+                                                        fontSize: '0.75rem'
+                                                    }}
                                                     {...getTagProps({ index })}
                                                 />
                                             ))
@@ -349,10 +352,13 @@ function EditMixlistForm() {
                                             value.map((option, index) => (
                                                 <Chip
                                                     key={index}
-                                                    variant="outlined"
                                                     label={option}
                                                     size="small"
-                                                    sx={{ fontSize: '12px' }}
+                                                    sx={{
+                                                        backgroundColor: '#4b6aa2',
+                                                        color: 'white',
+                                                        fontSize: '0.75rem'
+                                                    }}
                                                     {...getTagProps({ index })}
                                                 />
                                             ))

@@ -239,6 +239,17 @@ export const theme = createTheme({
           boxShadow: SHADOWS.sm
         }
       }
+    },
+
+    MuiInputLabel: {
+      styleOverrides: {
+        root: {
+          color: COLORS.text.primary,
+          '&.Mui-focused': {
+            color: COLORS.text.primary
+          }
+        }
+      }
     }
   }
 });

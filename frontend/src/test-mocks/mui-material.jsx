@@ -305,13 +305,48 @@ export const OutlinedInput = React.forwardRef(({ className, sx, label, ...rest }
 OutlinedInput.displayName = 'OutlinedInput';
 
 export const Autocomplete = React.forwardRef(({
-  renderInput, options, value, onChange, multiple, freeSolo, filterSelectedOptions,
+  renderInput, renderTags, options, value, onChange, multiple, freeSolo, filterSelectedOptions,
   getOptionLabel, isOptionEqualToValue, loading, loadingText, noOptionsText,
-  onInputChange, inputValue, className, sx, disablePortal, ListboxProps,
+  onInputChange, inputValue, className, sx, disablePortal, ListboxProps, disabled,
   ...rest
 }, ref) => {
-  const inputEl = renderInput ? renderInput({ inputProps: {}, InputProps: {}, InputLabelProps: {} }) : null;
-  return <div ref={ref} className={`MuiAutocomplete-root ${className || ''}`.trim()}>{inputEl}</div>;
+  const [internalValue, setInternalValue] = React.useState(value || (multiple ? [] : null));
+  React.useEffect(() => { setInternalValue(value || (multiple ? [] : null)); }, [value, multiple]);
+
+  const handleKeyDown = (e) => {
+    if (freeSolo && multiple && e.key === 'Enter' && e.target.value.trim()) {
+      e.preventDefault();
+      const newVal = [...(internalValue || []), e.target.value.trim()];
+      setInternalValue(newVal);
+      if (onChange) onChange(e, newVal);
+      e.target.value = '';
+    }
+  };
+
+  const getTagProps = ({ index }) => ({
+    onDelete: () => {
+      const newVal = (internalValue || []).filter((_, i) => i !== index);
+      setInternalValue(newVal);
+      if (onChange) onChange({}, newVal);
+    }
+  });
+
+  const tags = multiple && renderTags && (internalValue || []).length > 0
+    ? renderTags(internalValue, getTagProps)
+    : null;
+
+  const inputEl = renderInput ? renderInput({
+    inputProps: { onKeyDown: handleKeyDown },
+    InputProps: {},
+    InputLabelProps: {}
+  }) : null;
+
+  return (
+    <div ref={ref} className={`MuiAutocomplete-root ${className || ''}`.trim()}>
+      {tags}
+      {inputEl}
+    </div>
+  );
 });
 Autocomplete.displayName = 'Autocomplete';
 

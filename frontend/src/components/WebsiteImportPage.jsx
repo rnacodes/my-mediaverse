@@ -3,16 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import {
     TextField, Button, Box, Typography, Container,
     Card, CardContent, CircularProgress, Alert,
-    Chip, Grid, Paper
+    Chip, Grid, Paper, Autocomplete
 } from '@mui/material';
 import { Language, Download, Visibility, OpenInNew, RssFeed, ArrowBack } from '@mui/icons-material';
 import { scrapeWebsitePreview, importWebsite } from '../api/websiteService';
+import { searchTopics, searchGenres } from '../api/topicGenreService';
 
 function WebsiteImportPage() {
     const [url, setUrl] = useState('');
     const [notes, setNotes] = useState('');
-    const [topics, setTopics] = useState('');
-    const [genres, setGenres] = useState('');
+    const [topics, setTopics] = useState([]);
+    const [genres, setGenres] = useState([]);
+    const [topicSuggestions, setTopicSuggestions] = useState([]);
+    const [genreSuggestions, setGenreSuggestions] = useState([]);
     const [titleOverride, setTitleOverride] = useState('');
 
     const [previewData, setPreviewData] = useState(null);
@@ -22,6 +25,34 @@ function WebsiteImportPage() {
     const [success, setSuccess] = useState('');
 
     const navigate = useNavigate();
+
+    const handleTopicSearch = async (inputValue) => {
+        if (inputValue.length > 0) {
+            try {
+                const response = await searchTopics(inputValue);
+                setTopicSuggestions(response.data);
+            } catch (error) {
+                console.error('Error searching topics:', error);
+                setTopicSuggestions([]);
+            }
+        } else {
+            setTopicSuggestions([]);
+        }
+    };
+
+    const handleGenreSearch = async (inputValue) => {
+        if (inputValue.length > 0) {
+            try {
+                const response = await searchGenres(inputValue);
+                setGenreSuggestions(response.data);
+            } catch (error) {
+                console.error('Error searching genres:', error);
+                setGenreSuggestions([]);
+            }
+        } else {
+            setGenreSuggestions([]);
+        }
+    };
 
     const handlePreview = async () => {
         if (!url.trim()) {
@@ -63,18 +94,11 @@ function WebsiteImportPage() {
         setSuccess('');
 
         try {
-            const topicsArray = topics
-                ? topics.split(',').map(t => t.trim()).filter(t => t)
-                : [];
-            const genresArray = genres
-                ? genres.split(',').map(g => g.trim()).filter(g => g)
-                : [];
-
             const websiteData = {
                 url: url.trim(),
                 notes: notes.trim() || null,
-                topics: topicsArray.length > 0 ? topicsArray : null,
-                genres: genresArray.length > 0 ? genresArray : null,
+                topics: topics.length > 0 ? topics : null,
+                genres: genres.length > 0 ? genres : null,
                 titleOverride: titleOverride.trim() || null
             };
 
@@ -293,27 +317,87 @@ function WebsiteImportPage() {
                     disabled={isLoading || isImporting}
                 />
 
-                <TextField
-                    fullWidth
-                    label="Topics"
-                    value={topics}
-                    onChange={(e) => setTopics(e.target.value)}
-                    placeholder="technology, programming, design"
-                    sx={{ mb: 2 }}
-                    disabled={isLoading || isImporting}
-                    helperText="Comma-separated topics"
-                />
+                <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
+                        Topics
+                    </Typography>
+                    <Autocomplete
+                        multiple
+                        freeSolo
+                        options={topicSuggestions.map((option) => option.name || option.Name)}
+                        value={topics}
+                        onChange={(event, newValue) => {
+                            setTopics(newValue.map(t => t.toLowerCase()));
+                        }}
+                        onInputChange={(event, newInputValue) => {
+                            handleTopicSearch(newInputValue);
+                        }}
+                        disabled={isLoading || isImporting}
+                        renderTags={(value, getTagProps) =>
+                            value.map((option, index) => (
+                                <Chip
+                                    key={index}
+                                    label={option}
+                                    size="small"
+                                    sx={{
+                                        backgroundColor: 'primary.main',
+                                        color: 'white',
+                                        fontSize: '0.75rem'
+                                    }}
+                                    {...getTagProps({ index })}
+                                />
+                            ))
+                        }
+                        renderInput={(params) => (
+                            <TextField
+                                {...params}
+                                placeholder="Type to search or add topics..."
+                                variant="outlined"
+                            />
+                        )}
+                    />
+                </Box>
 
-                <TextField
-                    fullWidth
-                    label="Genres"
-                    value={genres}
-                    onChange={(e) => setGenres(e.target.value)}
-                    placeholder="news, blog, tutorial"
-                    sx={{ mb: 2 }}
-                    disabled={isLoading || isImporting}
-                    helperText="Comma-separated genres"
-                />
+                <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
+                        Genres
+                    </Typography>
+                    <Autocomplete
+                        multiple
+                        freeSolo
+                        options={genreSuggestions.map((option) => option.name || option.Name)}
+                        value={genres}
+                        onChange={(event, newValue) => {
+                            setGenres(newValue.map(g => g.toLowerCase()));
+                        }}
+                        onInputChange={(event, newInputValue) => {
+                            handleGenreSearch(newInputValue);
+                        }}
+                        disabled={isLoading || isImporting}
+                        renderTags={(value, getTagProps) =>
+                            value.map((option, index) => (
+                                <Chip
+                                    key={index}
+                                    label={option}
+                                    size="small"
+                                    sx={{
+                                        backgroundColor: '#4b6aa2',
+                                        color: 'white',
+                                        fontSize: '0.75rem'
+                                    }}
+                                    {...getTagProps({ index })}
+                                />
+                            ))
+                        }
+                        renderInput={(params) => (
+                            <TextField
+                                {...params}
+                                placeholder="Type to search or add genres..."
+                                variant="outlined"
+                            />
+                        )}
+                    />
+                </Box>
             </Paper>
 
             {/* Footer buttons */}

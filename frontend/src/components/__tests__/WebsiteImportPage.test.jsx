@@ -2,14 +2,21 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { vi } from 'vitest';
+import userEvent from '@testing-library/user-event';
 import WebsiteImportPage from '../WebsiteImportPage';
 import * as websiteService from '../../api/websiteService';
+import * as topicGenreService from '../../api/topicGenreService';
 
 const mockNavigate = vi.fn();
 
 vi.mock('../../api/websiteService', () => ({
   scrapeWebsitePreview: vi.fn(),
   importWebsite: vi.fn(),
+}));
+
+vi.mock('../../api/topicGenreService', () => ({
+  searchTopics: vi.fn().mockResolvedValue({ data: [] }),
+  searchGenres: vi.fn().mockResolvedValue({ data: [] }),
 }));
 
 vi.mock('react-router-dom', async () => {
@@ -156,6 +163,7 @@ describe('WebsiteImportPage', () => {
   });
 
   it('should include notes, topics, and genres when importing', async () => {
+    const user = userEvent.setup();
     const mockImportResult = {
       id: '123',
       title: 'Test Website',
@@ -173,11 +181,15 @@ describe('WebsiteImportPage', () => {
     const notesInput = screen.getByPlaceholderText('Add your personal notes about this website');
     fireEvent.change(notesInput, { target: { value: 'Test notes' } });
 
-    const topicsInput = screen.getByPlaceholderText('technology, programming, design');
-    fireEvent.change(topicsInput, { target: { value: 'tech, web' } });
+    // Add topics via Autocomplete (type and press Enter for freeSolo)
+    const topicsInput = screen.getByPlaceholderText('Type to search or add topics...');
+    await user.type(topicsInput, 'tech{Enter}');
+    await user.type(topicsInput, 'web{Enter}');
 
-    const genresInput = screen.getByPlaceholderText('news, blog, tutorial');
-    fireEvent.change(genresInput, { target: { value: 'blog, news' } });
+    // Add genres via Autocomplete (type and press Enter for freeSolo)
+    const genresInput = screen.getByPlaceholderText('Type to search or add genres...');
+    await user.type(genresInput, 'blog{Enter}');
+    await user.type(genresInput, 'news{Enter}');
 
     const importButton = screen.getByText('Import Directly');
     fireEvent.click(importButton);
