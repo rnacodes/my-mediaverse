@@ -13,6 +13,7 @@ namespace ProjectLoopbreaker.Application.Interfaces
         Task<List<YouTubePlaylistItemDto>> GetAllPlaylistItemsAsync(string playlistId);
         Task<YouTubeChannelDto?> GetChannelDetailsAsync(string channelId);
         Task<YouTubeChannelDto?> GetChannelByUsernameAsync(string username);
+        Task<YouTubeChannelDto?> GetChannelByHandleAsync(string handle);
         Task<List<YouTubePlaylistItemDto>> GetChannelUploadsAsync(string channelId, int maxResults = 25, string? pageToken = null);
         
         // Import methods

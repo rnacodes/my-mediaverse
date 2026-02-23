@@ -261,6 +261,34 @@ namespace ProjectLoopbreaker.Infrastructure.Clients
         }
 
         /// <summary>
+        /// Get channel details by handle (e.g., @TheTaleFoundry)
+        /// </summary>
+        public async Task<YouTubeChannelDto?> GetChannelByHandleAsync(string handle)
+        {
+            try
+            {
+                // Ensure handle has @ prefix as required by the YouTube API
+                var handleWithPrefix = handle.StartsWith("@") ? handle : $"@{handle}";
+                var url = $"channels?part=snippet,contentDetails,statistics,brandingSettings&forHandle={handleWithPrefix}&key={_apiKey}";
+
+                _logger.LogInformation("Getting YouTube channel details for handle: {Handle}", handleWithPrefix);
+
+                var response = await _httpClient.GetAsync(url);
+                response.EnsureSuccessStatusCode();
+
+                var jsonContent = await response.Content.ReadAsStringAsync();
+                var result = JsonSerializer.Deserialize<YouTubeChannelListResponseDto>(jsonContent, _jsonOptions);
+
+                return result?.Items?.FirstOrDefault();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting YouTube channel details for handle: {Handle}", handle);
+                throw;
+            }
+        }
+
+        /// <summary>
         /// Get videos from a channel's uploads playlist
         /// </summary>
         public async Task<List<YouTubePlaylistItemDto>> GetChannelUploadsAsync(string channelId, int maxResults = 25, string? pageToken = null)

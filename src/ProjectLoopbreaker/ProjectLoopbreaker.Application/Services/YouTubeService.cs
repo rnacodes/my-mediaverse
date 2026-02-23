@@ -69,6 +69,11 @@ namespace ProjectLoopbreaker.Application.Services
             return await _youTubeApiClient.GetChannelByUsernameAsync(username);
         }
 
+        public async Task<YouTubeChannelDto?> GetChannelByHandleAsync(string handle)
+        {
+            return await _youTubeApiClient.GetChannelByHandleAsync(handle);
+        }
+
         public async Task<List<YouTubePlaylistItemDto>> GetChannelUploadsAsync(string channelId, int maxResults = 25, string? pageToken = null)
         {
             return await _youTubeApiClient.GetChannelUploadsAsync(channelId, maxResults, pageToken);
@@ -261,11 +266,12 @@ namespace ProjectLoopbreaker.Application.Services
                     return videos.FirstOrDefault() ?? throw new InvalidOperationException("No videos imported from playlist");
                 }
 
-                // Try to extract channel ID
-                var channelId = YouTubeHelper.ExtractChannelIdFromUrl(url);
-                if (!string.IsNullOrEmpty(channelId))
+                // Try to extract channel identifier (could be ID, handle, or username)
+                var channelIdentifier = YouTubeHelper.ExtractChannelIdFromUrl(url);
+                if (!string.IsNullOrEmpty(channelIdentifier))
                 {
-                    return await ImportChannelAsync(channelId);
+                    var resolvedChannelId = await ResolveChannelIdAsync(channelIdentifier);
+                    return await ImportChannelAsync(resolvedChannelId);
                 }
 
                 throw new ArgumentException($"Unable to extract valid YouTube ID from URL: {url}");
@@ -275,6 +281,37 @@ namespace ProjectLoopbreaker.Application.Services
                 _logger.LogError(ex, $"Error importing from YouTube URL: {url}");
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Resolves a channel identifier (handle, username, custom URL, or channel ID) to a real YouTube channel ID.
+        /// Real channel IDs start with "UC" and are used directly. Other identifiers are resolved via the YouTube API.
+        /// </summary>
+        private async Task<string> ResolveChannelIdAsync(string identifier)
+        {
+            // Real channel IDs start with "UC"
+            if (identifier.StartsWith("UC"))
+                return identifier;
+
+            _logger.LogInformation("Resolving channel identifier: {Identifier}", identifier);
+
+            // Try as handle (for /@handle URLs)
+            var channelDto = await _youTubeApiClient.GetChannelByHandleAsync(identifier);
+            if (channelDto?.Id != null)
+            {
+                _logger.LogInformation("Resolved handle @{Handle} to channel ID: {ChannelId}", identifier, channelDto.Id);
+                return channelDto.Id;
+            }
+
+            // Try as username (for /user/ URLs)
+            channelDto = await _youTubeApiClient.GetChannelByUsernameAsync(identifier);
+            if (channelDto?.Id != null)
+            {
+                _logger.LogInformation("Resolved username {Username} to channel ID: {ChannelId}", identifier, channelDto.Id);
+                return channelDto.Id;
+            }
+
+            throw new InvalidOperationException($"Could not resolve channel identifier: {identifier}");
         }
 
         /// <summary>
