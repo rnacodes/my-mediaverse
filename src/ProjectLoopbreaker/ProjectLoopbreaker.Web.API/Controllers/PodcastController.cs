@@ -1,6 +1,3 @@
-//TODO: Look at what podcast series page looks like
-//TODO: Ensure that user can view all episode options and only save those that they want to save.
-//TODO: Episodes can be viewed in a list where each one has a plus sign next to it. If plus sign is checked, the item is added to database.
 using Microsoft.AspNetCore.Mvc;
 using ProjectLoopbreaker.Domain.Entities;
 using ProjectLoopbreaker.Application.Interfaces;

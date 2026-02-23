@@ -34,12 +34,15 @@ import {
     Info as InfoIcon,
     Schedule as ScheduleIcon,
     Language as LanguageIcon,
+    Upload as UploadIcon,
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 
 const DEMO_API_BASE = 'https://demo-api.mymediaverseuniverse.com/api/demo';
 const DEMO_SITE_URL = 'https://demo.mymediaverseuniverse.com';
 
 const DemoUnlockPage = () => {
+    const navigate = useNavigate();
     const [totpCode, setTotpCode] = useState('');
     const [unlockClicked, setUnlockClicked] = useState(false);
     const [statusData, setStatusData] = useState(null);
@@ -305,6 +308,19 @@ const DemoUnlockPage = () => {
                         sx={{ height: 56, color: '#fcfafa' }}
                     >
                         Go to Demo Site
+                    </Button>
+                    <Button
+                        variant="contained"
+                        startIcon={<UploadIcon />}
+                        onClick={() => navigate('/upload-demo-data')}
+                        sx={{
+                            height: 56,
+                            bgcolor: '#7b1fa2',
+                            color: 'white',
+                            '&:hover': { bgcolor: '#6a1b9a' },
+                        }}
+                    >
+                        Upload Demo Data
                     </Button>
                 </Box>
             </Paper>

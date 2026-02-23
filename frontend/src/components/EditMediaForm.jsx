@@ -606,7 +606,7 @@ function EditMediaForm() {
                                     </Typography>
                                     <Button
                                         variant="contained"
-                                        color="secondary"
+                                        color="primary"
                                         component="label"
                                         sx={{ 
                                             fontSize: { xs: '0.875rem', sm: '1rem' },

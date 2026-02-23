@@ -344,9 +344,55 @@ function MixlistProfilePage() {
                             )}
 
                             {/* Date Created */}
-                            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                                 Created on: {new Date(mixlist.DateCreated || mixlist.dateCreated).toLocaleDateString()}
                             </Typography>
+
+                            {/* Topics */}
+                            {(mixlist.Topics || mixlist.topics || []).length > 0 && (
+                                <Box sx={{ mb: 2 }}>
+                                    <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                                        Topics
+                                    </Typography>
+                                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                                        {(mixlist.Topics || mixlist.topics).map((topic, idx) => (
+                                            <Chip
+                                                key={idx}
+                                                label={topic}
+                                                size="small"
+                                                sx={{
+                                                    backgroundColor: 'primary.main',
+                                                    color: 'white',
+                                                    fontSize: '0.75rem'
+                                                }}
+                                            />
+                                        ))}
+                                    </Box>
+                                </Box>
+                            )}
+
+                            {/* Genres */}
+                            {(mixlist.Genres || mixlist.genres || []).length > 0 && (
+                                <Box sx={{ mb: 3 }}>
+                                    <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                                        Genres
+                                    </Typography>
+                                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                                        {(mixlist.Genres || mixlist.genres).map((genre, idx) => (
+                                            <Chip
+                                                key={idx}
+                                                label={genre}
+                                                size="small"
+                                                sx={{
+                                                    backgroundColor: '#4b6aa2',
+                                                    color: 'white',
+                                                    fontSize: '0.75rem'
+                                                }}
+                                            />
+                                        ))}
+                                    </Box>
+                                </Box>
+                            )}
 
                             {/* Search Filter */}
                             {hasMediaItems && (

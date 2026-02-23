@@ -3,11 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
     Container, Typography, TextField, Button, Box,
     Card, CardContent, Snackbar, Alert, CircularProgress,
-    Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions
+    Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
+    Chip, Autocomplete
 } from '@mui/material';
 import { Save, Cancel, ArrowBack, Delete } from '@mui/icons-material';
 import { getMixlistById, updateMixlist, deleteMixlist } from '../api/mixlistService';
 import { uploadThumbnail } from '../api/uploadService';
+import { searchTopics, searchGenres } from '../api/topicGenreService';
 
 function EditMixlistForm() {
     const { id } = useParams();
@@ -18,10 +20,15 @@ function EditMixlistForm() {
     const [thumbnailFile, setThumbnailFile] = useState(null);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     
+    const [topicSuggestions, setTopicSuggestions] = useState([]);
+    const [genreSuggestions, setGenreSuggestions] = useState([]);
+
     const [formData, setFormData] = useState({
         name: '',
         description: '',
-        thumbnail: ''
+        thumbnail: '',
+        topics: [],
+        genres: []
     });
 
     useEffect(() => {
@@ -33,7 +40,9 @@ function EditMixlistForm() {
                 setFormData({
                     name: mixlist.Name || mixlist.name || '',
                     description: mixlist.Description || mixlist.description || '',
-                    thumbnail: mixlist.Thumbnail || mixlist.thumbnail || ''
+                    thumbnail: mixlist.Thumbnail || mixlist.thumbnail || '',
+                    topics: mixlist.Topics || mixlist.topics || [],
+                    genres: mixlist.Genres || mixlist.genres || []
                 });
             } catch (error) {
                 console.error('Failed to fetch mixlist:', error);
@@ -53,6 +62,34 @@ function EditMixlistForm() {
             ...prev,
             [field]: value
         }));
+    };
+
+    const handleTopicSearch = async (inputValue) => {
+        if (inputValue.length > 0) {
+            try {
+                const response = await searchTopics(inputValue);
+                setTopicSuggestions(response.data);
+            } catch (error) {
+                console.error('Error searching topics:', error);
+                setTopicSuggestions([]);
+            }
+        } else {
+            setTopicSuggestions([]);
+        }
+    };
+
+    const handleGenreSearch = async (inputValue) => {
+        if (inputValue.length > 0) {
+            try {
+                const response = await searchGenres(inputValue);
+                setGenreSuggestions(response.data);
+            } catch (error) {
+                console.error('Error searching genres:', error);
+                setGenreSuggestions([]);
+            }
+        } else {
+            setGenreSuggestions([]);
+        }
     };
 
     // Handle thumbnail file upload
@@ -252,6 +289,82 @@ function EditMixlistForm() {
                                             Selected: {thumbnailFile.name}
                                         </Typography>
                                     )}
+                                </Box>
+
+                                {/* Topics */}
+                                <Box>
+                                    <Typography variant="body1" sx={{ mb: 1, fontWeight: 'bold' }}>
+                                        Topics
+                                    </Typography>
+                                    <Autocomplete
+                                        multiple
+                                        freeSolo
+                                        options={topicSuggestions.map((option) => option.name || option.Name)}
+                                        value={formData.topics}
+                                        onChange={(event, newValue) => {
+                                            handleInputChange('topics', newValue.map(t => t.toLowerCase()));
+                                        }}
+                                        onInputChange={(event, newInputValue) => {
+                                            handleTopicSearch(newInputValue);
+                                        }}
+                                        renderTags={(value, getTagProps) =>
+                                            value.map((option, index) => (
+                                                <Chip
+                                                    key={index}
+                                                    variant="outlined"
+                                                    label={option}
+                                                    size="small"
+                                                    sx={{ fontSize: '12px' }}
+                                                    {...getTagProps({ index })}
+                                                />
+                                            ))
+                                        }
+                                        renderInput={(params) => (
+                                            <TextField
+                                                {...params}
+                                                placeholder="Type to search or add topics..."
+                                                variant="outlined"
+                                            />
+                                        )}
+                                    />
+                                </Box>
+
+                                {/* Genres */}
+                                <Box>
+                                    <Typography variant="body1" sx={{ mb: 1, fontWeight: 'bold' }}>
+                                        Genres
+                                    </Typography>
+                                    <Autocomplete
+                                        multiple
+                                        freeSolo
+                                        options={genreSuggestions.map((option) => option.name || option.Name)}
+                                        value={formData.genres}
+                                        onChange={(event, newValue) => {
+                                            handleInputChange('genres', newValue.map(g => g.toLowerCase()));
+                                        }}
+                                        onInputChange={(event, newInputValue) => {
+                                            handleGenreSearch(newInputValue);
+                                        }}
+                                        renderTags={(value, getTagProps) =>
+                                            value.map((option, index) => (
+                                                <Chip
+                                                    key={index}
+                                                    variant="outlined"
+                                                    label={option}
+                                                    size="small"
+                                                    sx={{ fontSize: '12px' }}
+                                                    {...getTagProps({ index })}
+                                                />
+                                            ))
+                                        }
+                                        renderInput={(params) => (
+                                            <TextField
+                                                {...params}
+                                                placeholder="Type to search or add genres..."
+                                                variant="outlined"
+                                            />
+                                        )}
+                                    />
                                 </Box>
 
                                 {/* Action Buttons */}

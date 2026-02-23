@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-    TextField, Button, Box, Typography, Container
+    TextField, Button, Box, Typography, Container, Chip, Autocomplete
 } from '@mui/material';
 import { createMixlist } from '../api/mixlistService';
 import { uploadThumbnail } from '../api/uploadService';
+import { searchTopics, searchGenres } from '../api/topicGenreService';
 
 function CreateMixlistForm() {
     const [name, setName] = useState('');
@@ -12,8 +13,40 @@ function CreateMixlistForm() {
     const [thumbnail, setThumbnail] = useState('');
     const [thumbnailFile, setThumbnailFile] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [topics, setTopics] = useState([]);
+    const [genres, setGenres] = useState([]);
+    const [topicSuggestions, setTopicSuggestions] = useState([]);
+    const [genreSuggestions, setGenreSuggestions] = useState([]);
     const navigate = useNavigate();
     const location = useLocation();
+
+    const handleTopicSearch = async (inputValue) => {
+        if (inputValue.length > 0) {
+            try {
+                const response = await searchTopics(inputValue);
+                setTopicSuggestions(response.data);
+            } catch (error) {
+                console.error('Error searching topics:', error);
+                setTopicSuggestions([]);
+            }
+        } else {
+            setTopicSuggestions([]);
+        }
+    };
+
+    const handleGenreSearch = async (inputValue) => {
+        if (inputValue.length > 0) {
+            try {
+                const response = await searchGenres(inputValue);
+                setGenreSuggestions(response.data);
+            } catch (error) {
+                console.error('Error searching genres:', error);
+                setGenreSuggestions([]);
+            }
+        } else {
+            setGenreSuggestions([]);
+        }
+    };
 
     // Handle thumbnail file upload
     const handleThumbnailUpload = async (event) => {
@@ -48,7 +81,9 @@ function CreateMixlistForm() {
             const mixlistData = {
                 name: name.trim(),
                 description: description.trim() || null,
-                thumbnail: thumbnail || 'https://project-loopbreaker.atl1.cdn.digitaloceanspaces.com/thumbnails/mixlist-placeholder.png'
+                thumbnail: thumbnail || 'https://project-loopbreaker.atl1.cdn.digitaloceanspaces.com/thumbnails/mixlist-placeholder.png',
+                topics: topics.length > 0 ? topics : [],
+                genres: genres.length > 0 ? genres : []
             };
 
             console.log('Attempting to create mixlist with data:', mixlistData);
@@ -249,6 +284,90 @@ function CreateMixlistForm() {
                         </Typography>
                     )}
                 </Box>
+
+                {/* Topics */}
+                <Typography variant="h5" sx={{
+                    fontSize: '20px',
+                    fontWeight: 'bold',
+                    mb: 1,
+                    color: '#ffffff'
+                }}>
+                    Topics
+                </Typography>
+                <Autocomplete
+                    multiple
+                    freeSolo
+                    options={topicSuggestions.map((option) => option.name || option.Name)}
+                    value={topics}
+                    onChange={(event, newValue) => {
+                        setTopics(newValue.map(t => t.toLowerCase()));
+                    }}
+                    onInputChange={(event, newInputValue) => {
+                        handleTopicSearch(newInputValue);
+                    }}
+                    renderTags={(value, getTagProps) =>
+                        value.map((option, index) => (
+                            <Chip
+                                key={index}
+                                variant="outlined"
+                                label={option}
+                                size="small"
+                                sx={{ fontSize: '12px' }}
+                                {...getTagProps({ index })}
+                            />
+                        ))
+                    }
+                    renderInput={(params) => (
+                        <TextField
+                            {...params}
+                            placeholder="Type to search or add topics..."
+                            variant="outlined"
+                        />
+                    )}
+                    sx={{ mb: 3 }}
+                />
+
+                {/* Genres */}
+                <Typography variant="h5" sx={{
+                    fontSize: '20px',
+                    fontWeight: 'bold',
+                    mb: 1,
+                    color: '#ffffff'
+                }}>
+                    Genres
+                </Typography>
+                <Autocomplete
+                    multiple
+                    freeSolo
+                    options={genreSuggestions.map((option) => option.name || option.Name)}
+                    value={genres}
+                    onChange={(event, newValue) => {
+                        setGenres(newValue.map(g => g.toLowerCase()));
+                    }}
+                    onInputChange={(event, newInputValue) => {
+                        handleGenreSearch(newInputValue);
+                    }}
+                    renderTags={(value, getTagProps) =>
+                        value.map((option, index) => (
+                            <Chip
+                                key={index}
+                                variant="outlined"
+                                label={option}
+                                size="small"
+                                sx={{ fontSize: '12px' }}
+                                {...getTagProps({ index })}
+                            />
+                        ))
+                    }
+                    renderInput={(params) => (
+                        <TextField
+                            {...params}
+                            placeholder="Type to search or add genres..."
+                            variant="outlined"
+                        />
+                    )}
+                    sx={{ mb: 3 }}
+                />
 
                 {/* Info about thumbnail generation */}
                 <Box sx={{ mb: 3, p: 2, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '8px' }}>

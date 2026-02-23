@@ -325,7 +325,11 @@ namespace ProjectLoopbreaker.Web.API.Controllers
             try
             {
                 using var reader = new StreamReader(file.OpenReadStream());
-                using var csv = new CsvReader(reader, CultureInfo.InvariantCulture);
+                var csvConfig = new CsvHelper.Configuration.CsvConfiguration(CultureInfo.InvariantCulture)
+                {
+                    PrepareHeaderForMatch = args => args.Header.ToLowerInvariant()
+                };
+                using var csv = new CsvReader(reader, csvConfig);
 
                 csv.Read();
                 csv.ReadHeader();
@@ -342,7 +346,7 @@ namespace ProjectLoopbreaker.Web.API.Controllers
 
                     try
                     {
-                        var name = csv.GetField("Name");
+                        var name = csv.GetField("name");
 
                         if (string.IsNullOrWhiteSpace(name))
                         {

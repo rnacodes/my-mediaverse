@@ -24,5 +24,9 @@ namespace ProjectLoopbreaker.Domain.Entities
 
         // Navigation property for many-to-many relationship with notes
         public ICollection<MixlistNote> MixlistNotes { get; set; } = new List<MixlistNote>();
+
+        // Navigation properties for many-to-many with topics and genres
+        public ICollection<Topic> Topics { get; set; } = new List<Topic>();
+        public ICollection<Genre> Genres { get; set; } = new List<Genre>();
     }
 }

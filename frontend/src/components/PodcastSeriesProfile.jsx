@@ -289,10 +289,10 @@ function PodcastSeriesProfile() {
 
                 {/* Main Action Bar */}
                 <Box display="flex" gap={1} flexWrap="wrap" my={3}>
-                    {getListenNotesUrl() && <Button variant="outlined" size="small" startIcon={<OpenInNew />} href={getListenNotesUrl()} target="_blank">ListenNotes</Button>}
-                    <Button variant="outlined" size="small" startIcon={<Sync />} onClick={handleSync} disabled={syncing}>{syncing ? <CircularProgress size={20} /> : 'Sync'}</Button>
-                    <Button variant="outlined" size="small" startIcon={<Visibility />} onClick={handleViewAllEpisodes}>All Episodes</Button>
-                    <Button variant="outlined" size="small" startIcon={<Delete />} onClick={() => setDeleteConfirmDialog(true)} color="error">Delete</Button>
+                    {getListenNotesUrl() && <Button variant="contained" size="small" startIcon={<OpenInNew />} href={getListenNotesUrl()} target="_blank">ListenNotes</Button>}
+                    <Button variant="contained" size="small" startIcon={<Sync />} onClick={handleSync} disabled={syncing}>{syncing ? <CircularProgress size={20} /> : 'Sync'}</Button>
+                    <Button variant="contained" size="small" startIcon={<Visibility />} onClick={handleViewAllEpisodes}>All Episodes</Button>
+                    <Button variant="contained" size="small" startIcon={<Delete />} onClick={() => setDeleteConfirmDialog(true)} color="error">Delete</Button>
                 </Box>
 
                 {/* Local Episodes (Already Imported) */}

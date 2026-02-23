@@ -215,6 +215,50 @@ namespace ProjectLoopbreaker.Infrastructure.Data
                         j.ToTable("MediaItemGenres");
                     });
 
+            // Configure many-to-many relationship between Mixlist and Topic
+            modelBuilder.Entity<Mixlist>()
+                .HasMany(m => m.Topics)
+                .WithMany(t => t.Mixlists)
+                .UsingEntity<Dictionary<string, object>>(
+                    "MixlistTopics",
+                    j => j
+                        .HasOne<Topic>()
+                        .WithMany()
+                        .HasForeignKey("TopicId")
+                        .OnDelete(DeleteBehavior.Cascade),
+                    j => j
+                        .HasOne<Mixlist>()
+                        .WithMany()
+                        .HasForeignKey("MixlistId")
+                        .OnDelete(DeleteBehavior.Cascade),
+                    j =>
+                    {
+                        j.HasKey("MixlistId", "TopicId");
+                        j.ToTable("MixlistTopics");
+                    });
+
+            // Configure many-to-many relationship between Mixlist and Genre
+            modelBuilder.Entity<Mixlist>()
+                .HasMany(m => m.Genres)
+                .WithMany(g => g.Mixlists)
+                .UsingEntity<Dictionary<string, object>>(
+                    "MixlistGenres",
+                    j => j
+                        .HasOne<Genre>()
+                        .WithMany()
+                        .HasForeignKey("GenreId")
+                        .OnDelete(DeleteBehavior.Cascade),
+                    j => j
+                        .HasOne<Mixlist>()
+                        .WithMany()
+                        .HasForeignKey("MixlistId")
+                        .OnDelete(DeleteBehavior.Cascade),
+                    j =>
+                    {
+                        j.HasKey("MixlistId", "GenreId");
+                        j.ToTable("MixlistGenres");
+                    });
+
             // Configure many-to-many relationship between BaseMediaItem and Mixlist
             modelBuilder.Entity<BaseMediaItem>()
                 .HasMany(m => m.Mixlists)

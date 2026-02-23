@@ -63,7 +63,9 @@ namespace ProjectLoopbreaker.Web.API.Controllers
                             Description = mi.Description,
                             MediaType = mi.MediaType,
                             Thumbnail = mi.Thumbnail
-                        }).ToArray()
+                        }).ToArray(),
+                        Topics = m.Topics.Select(t => t.Name).ToArray(),
+                        Genres = m.Genres.Select(g => g.Name).ToArray()
                     })
                     .ToListAsync();
 
@@ -113,7 +115,9 @@ namespace ProjectLoopbreaker.Web.API.Controllers
                             Tags = mn.Note.Tags,
                             LinkedAt = mn.LinkedAt,
                             LinkDescription = mn.LinkDescription
-                        }).ToArray()
+                        }).ToArray(),
+                        Topics = m.Topics.Select(t => t.Name).ToArray(),
+                        Genres = m.Genres.Select(g => g.Name).ToArray()
                     })
                     .FirstOrDefaultAsync();
 
@@ -147,7 +151,7 @@ namespace ProjectLoopbreaker.Web.API.Controllers
                 var mixlists = await _context.Mixlists
                     .AsNoTracking()
                     .AsSplitQuery()
-                    .Where(m => 
+                    .Where(m =>
                         m.Name.ToLower().Contains(searchQuery) ||
                         (m.Description != null && m.Description.ToLower().Contains(searchQuery))
                     )
@@ -166,7 +170,9 @@ namespace ProjectLoopbreaker.Web.API.Controllers
                             Description = mi.Description,
                             MediaType = mi.MediaType,
                             Thumbnail = mi.Thumbnail
-                        }).ToArray()
+                        }).ToArray(),
+                        Topics = m.Topics.Select(t => t.Name).ToArray(),
+                        Genres = m.Genres.Select(g => g.Name).ToArray()
                     })
                     .ToListAsync();
 
@@ -203,6 +209,46 @@ namespace ProjectLoopbreaker.Web.API.Controllers
             _context.Mixlists.Add(mixlist);
             await _context.SaveChangesAsync();
 
+            // Handle topics
+            var topicNames = new List<string>();
+            if (dto.Topics != null && dto.Topics.Length > 0)
+            {
+                foreach (var topicName in dto.Topics.Where(t => !string.IsNullOrWhiteSpace(t)))
+                {
+                    var normalizedName = topicName.Trim().ToLower();
+                    var topic = await _context.Topics.FirstOrDefaultAsync(t => t.Name == normalizedName);
+                    if (topic == null)
+                    {
+                        topic = new Topic { Name = normalizedName };
+                        _context.Topics.Add(topic);
+                        await _context.SaveChangesAsync();
+                    }
+                    mixlist.Topics.Add(topic);
+                    topicNames.Add(normalizedName);
+                }
+                await _context.SaveChangesAsync();
+            }
+
+            // Handle genres
+            var genreNames = new List<string>();
+            if (dto.Genres != null && dto.Genres.Length > 0)
+            {
+                foreach (var genreName in dto.Genres.Where(g => !string.IsNullOrWhiteSpace(g)))
+                {
+                    var normalizedName = genreName.Trim().ToLower();
+                    var genre = await _context.Genres.FirstOrDefaultAsync(g => g.Name == normalizedName);
+                    if (genre == null)
+                    {
+                        genre = new Genre { Name = normalizedName };
+                        _context.Genres.Add(genre);
+                        await _context.SaveChangesAsync();
+                    }
+                    mixlist.Genres.Add(genre);
+                    genreNames.Add(normalizedName);
+                }
+                await _context.SaveChangesAsync();
+            }
+
             // Index in Typesense
             try
             {
@@ -212,9 +258,9 @@ namespace ProjectLoopbreaker.Web.API.Controllers
                     mixlist.Description,
                     mixlist.Thumbnail,
                     mixlist.DateCreated,
-                    new List<string>(), // Empty initially
-                    new List<string>(), // Empty initially
-                    new List<string>()  // Empty initially
+                    new List<string>(), // No media items initially
+                    topicNames,
+                    genreNames
                 );
             }
             catch (Exception ex)
@@ -231,7 +277,9 @@ namespace ProjectLoopbreaker.Web.API.Controllers
                 DateCreated = mixlist.DateCreated,
                 Thumbnail = mixlist.Thumbnail,
                 MediaItemIds = Array.Empty<Guid>(),
-                MediaItems = Array.Empty<MediaItemSummary>()
+                MediaItems = Array.Empty<MediaItemSummary>(),
+                Topics = topicNames.ToArray(),
+                Genres = genreNames.ToArray()
             };
 
             return CreatedAtAction(nameof(GetMixlist), new { id = mixlist.Id }, response);
@@ -430,8 +478,11 @@ namespace ProjectLoopbreaker.Web.API.Controllers
         {
             try
             {
-                // Load only the mixlist entity without related data
-                var mixlist = await _context.Mixlists.FindAsync(id);
+                // Load the mixlist with topics and genres for potential update
+                var mixlist = await _context.Mixlists
+                    .Include(m => m.Topics)
+                    .Include(m => m.Genres)
+                    .FirstOrDefaultAsync(m => m.Id == id);
 
                 if (mixlist == null)
                 {
@@ -448,6 +499,54 @@ namespace ProjectLoopbreaker.Web.API.Controllers
                 if (dto.Thumbnail != null)
                     mixlist.Thumbnail = dto.Thumbnail;
 
+                // Update topics if provided
+                var topicNames = new List<string>();
+                if (dto.Topics != null)
+                {
+                    mixlist.Topics.Clear();
+                    foreach (var topicName in dto.Topics.Where(t => !string.IsNullOrWhiteSpace(t)))
+                    {
+                        var normalizedName = topicName.Trim().ToLower();
+                        var topic = await _context.Topics.FirstOrDefaultAsync(t => t.Name == normalizedName);
+                        if (topic == null)
+                        {
+                            topic = new Topic { Name = normalizedName };
+                            _context.Topics.Add(topic);
+                            await _context.SaveChangesAsync();
+                        }
+                        mixlist.Topics.Add(topic);
+                        topicNames.Add(normalizedName);
+                    }
+                }
+                else
+                {
+                    topicNames = mixlist.Topics.Select(t => t.Name).ToList();
+                }
+
+                // Update genres if provided
+                var genreNames = new List<string>();
+                if (dto.Genres != null)
+                {
+                    mixlist.Genres.Clear();
+                    foreach (var genreName in dto.Genres.Where(g => !string.IsNullOrWhiteSpace(g)))
+                    {
+                        var normalizedName = genreName.Trim().ToLower();
+                        var genre = await _context.Genres.FirstOrDefaultAsync(g => g.Name == normalizedName);
+                        if (genre == null)
+                        {
+                            genre = new Genre { Name = normalizedName };
+                            _context.Genres.Add(genre);
+                            await _context.SaveChangesAsync();
+                        }
+                        mixlist.Genres.Add(genre);
+                        genreNames.Add(normalizedName);
+                    }
+                }
+                else
+                {
+                    genreNames = mixlist.Genres.Select(g => g.Name).ToList();
+                }
+
                 await _context.SaveChangesAsync();
 
                 // Re-index in Typesense with lightweight queries
@@ -459,20 +558,6 @@ namespace ProjectLoopbreaker.Web.API.Controllers
                         .SelectMany(m => m.MediaItems.Select(mi => mi.Title))
                         .ToListAsync();
 
-                    var topics = await _context.Mixlists
-                        .AsNoTracking()
-                        .Where(m => m.Id == id)
-                        .SelectMany(m => m.MediaItems.SelectMany(mi => mi.Topics.Select(t => t.Name)))
-                        .Distinct()
-                        .ToListAsync();
-
-                    var genres = await _context.Mixlists
-                        .AsNoTracking()
-                        .Where(m => m.Id == id)
-                        .SelectMany(m => m.MediaItems.SelectMany(mi => mi.Genres.Select(g => g.Name)))
-                        .Distinct()
-                        .ToListAsync();
-
                     await _typeSenseService.IndexMixlistAsync(
                         mixlist.Id,
                         mixlist.Name,
@@ -480,8 +565,8 @@ namespace ProjectLoopbreaker.Web.API.Controllers
                         mixlist.Thumbnail,
                         mixlist.DateCreated,
                         mediaItemTitles,
-                        topics,
-                        genres
+                        topicNames,
+                        genreNames
                     );
                 }
                 catch (Exception ex)
@@ -498,7 +583,9 @@ namespace ProjectLoopbreaker.Web.API.Controllers
                     DateCreated = mixlist.DateCreated,
                     Thumbnail = mixlist.Thumbnail,
                     MediaItemIds = Array.Empty<Guid>(),
-                    MediaItems = Array.Empty<MediaItemSummary>()
+                    MediaItems = Array.Empty<MediaItemSummary>(),
+                    Topics = topicNames.ToArray(),
+                    Genres = genreNames.ToArray()
                 });
             }
             catch (Exception ex)
@@ -516,6 +603,8 @@ namespace ProjectLoopbreaker.Web.API.Controllers
                 var mixlist = await _context.Mixlists
                     .Include(m => m.MediaItems)
                     .Include(m => m.MixlistNotes)
+                    .Include(m => m.Topics)
+                    .Include(m => m.Genres)
                     .FirstOrDefaultAsync(m => m.Id == id);
 
                 if (mixlist == null)
@@ -529,9 +618,11 @@ namespace ProjectLoopbreaker.Web.API.Controllers
                     await DeleteThumbnailFromS3(mixlist.Thumbnail);
                 }
 
-                // Clear media items and notes (just removes associations, doesn't delete them)
+                // Clear associations (doesn't delete the related entities themselves)
                 mixlist.MediaItems.Clear();
                 mixlist.MixlistNotes.Clear();
+                mixlist.Topics.Clear();
+                mixlist.Genres.Clear();
 
                 _context.Mixlists.Remove(mixlist);
                 await _context.SaveChangesAsync();

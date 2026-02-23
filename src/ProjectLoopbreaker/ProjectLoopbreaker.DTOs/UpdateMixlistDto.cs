@@ -12,5 +12,11 @@ namespace ProjectLoopbreaker.DTOs
         
         [JsonPropertyName("thumbnail")]
         public string? Thumbnail { get; set; }
+
+        [JsonPropertyName("topics")]
+        public string[]? Topics { get; set; }
+
+        [JsonPropertyName("genres")]
+        public string[]? Genres { get; set; }
     }
 }

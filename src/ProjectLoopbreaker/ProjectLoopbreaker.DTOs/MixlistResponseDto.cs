@@ -27,6 +27,12 @@ namespace ProjectLoopbreaker.DTOs
         // Linked notes
         [JsonPropertyName("linkedNotes")]
         public LinkedNoteDto[] LinkedNotes { get; set; } = Array.Empty<LinkedNoteDto>();
+
+        [JsonPropertyName("topics")]
+        public string[] Topics { get; set; } = Array.Empty<string>();
+
+        [JsonPropertyName("genres")]
+        public string[] Genres { get; set; } = Array.Empty<string>();
     }
     
     public class MediaItemSummary

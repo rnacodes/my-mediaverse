@@ -13,6 +13,10 @@ vi.mock('../../api/mixlistService', () => ({
 vi.mock('../../api/uploadService', () => ({
   uploadThumbnail: vi.fn(),
 }));
+vi.mock('../../api/topicGenreService', () => ({
+  searchTopics: vi.fn().mockResolvedValue({ data: [] }),
+  searchGenres: vi.fn().mockResolvedValue({ data: [] }),
+}));
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
@@ -58,7 +62,9 @@ describe('CreateMixlistForm', () => {
         expect(mixlistService.createMixlist).toHaveBeenCalledWith({
           name: 'Test Mixlist Name',
           description: null,
-          thumbnail: expect.stringMatching(/^https:\/\/picsum\.photos\/400\/400\?random=\d+&blur=1$/)
+          thumbnail: 'https://project-loopbreaker.atl1.cdn.digitaloceanspaces.com/thumbnails/mixlist-placeholder.png',
+          topics: [],
+          genres: []
         });
       });
     });
@@ -100,7 +106,9 @@ describe('CreateMixlistForm', () => {
         expect(mixlistService.createMixlist).toHaveBeenCalledWith({
           name: 'Test Mixlist Name',
           description: null,
-          thumbnail: expect.stringMatching(/^https:\/\/picsum\.photos\/400\/400\?random=\d+&blur=1$/)
+          thumbnail: 'https://project-loopbreaker.atl1.cdn.digitaloceanspaces.com/thumbnails/mixlist-placeholder.png',
+          topics: [],
+          genres: []
         });
       });
     });
@@ -119,7 +127,9 @@ describe('CreateMixlistForm', () => {
         expect(mixlistService.createMixlist).toHaveBeenCalledWith({
           name: 'First Mixlist',
           description: null,
-          thumbnail: expect.stringMatching(/^https:\/\/picsum\.photos\/400\/400\?random=\d+&blur=1$/)
+          thumbnail: 'https://project-loopbreaker.atl1.cdn.digitaloceanspaces.com/thumbnails/mixlist-placeholder.png',
+          topics: [],
+          genres: []
         });
       });
 
@@ -141,12 +151,14 @@ describe('CreateMixlistForm', () => {
         expect(mixlistService.createMixlist).toHaveBeenCalledWith({
           name: 'Second Mixlist',
           description: null,
-          thumbnail: expect.stringMatching(/^https:\/\/picsum\.photos\/400\/400\?random=\d+&blur=1$/)
+          thumbnail: 'https://project-loopbreaker.atl1.cdn.digitaloceanspaces.com/thumbnails/mixlist-placeholder.png',
+          topics: [],
+          genres: []
         });
       });
     });
 
-    it('should include blur effect in thumbnail URL', async () => {
+    it('should use default placeholder thumbnail when none provided', async () => {
       renderWithRouter(<CreateMixlistForm />);
 
       fireEvent.change(screen.getByPlaceholderText('Enter mixlist name...'), {
@@ -157,7 +169,7 @@ describe('CreateMixlistForm', () => {
 
       await waitFor(() => {
         const callArgs = mixlistService.createMixlist.mock.calls[0][0];
-        expect(callArgs.thumbnail).toContain('blur=1');
+        expect(callArgs.thumbnail).toBe('https://project-loopbreaker.atl1.cdn.digitaloceanspaces.com/thumbnails/mixlist-placeholder.png');
         expect(callArgs.description).toBeNull();
       });
     });
@@ -310,7 +322,9 @@ describe('CreateMixlistForm', () => {
         expect(mixlistService.createMixlist).toHaveBeenCalledWith({
           name: mixlistName,
           description: null,
-          thumbnail: expect.stringMatching(/^https:\/\/picsum\.photos\/400\/400\?random=\d+&blur=1$/)
+          thumbnail: 'https://project-loopbreaker.atl1.cdn.digitaloceanspaces.com/thumbnails/mixlist-placeholder.png',
+          topics: [],
+          genres: []
         });
       });
 
@@ -331,7 +345,9 @@ describe('CreateMixlistForm', () => {
         expect(mixlistService.createMixlist).toHaveBeenCalledWith({
           name: mixlistName,
           description: null,
-          thumbnail: expect.stringMatching(/^https:\/\/picsum\.photos\/400\/400\?random=\d+&blur=1$/)
+          thumbnail: 'https://project-loopbreaker.atl1.cdn.digitaloceanspaces.com/thumbnails/mixlist-placeholder.png',
+          topics: [],
+          genres: []
         });
       });
     });
@@ -350,7 +366,9 @@ describe('CreateMixlistForm', () => {
         expect(mixlistService.createMixlist).toHaveBeenCalledWith({
           name: longName,
           description: null,
-          thumbnail: expect.stringMatching(/^https:\/\/picsum\.photos\/400\/400\?random=\d+&blur=1$/)
+          thumbnail: 'https://project-loopbreaker.atl1.cdn.digitaloceanspaces.com/thumbnails/mixlist-placeholder.png',
+          topics: [],
+          genres: []
         });
       });
     });

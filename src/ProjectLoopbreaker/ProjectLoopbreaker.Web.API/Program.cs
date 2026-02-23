@@ -853,7 +853,7 @@ builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
     {
-        Title = "Project Loopbreaker API",
+        Title = "My MediaVerse API",
         Version = "v1",
         Description = "Personal media library management API for podcasts, books, movies, TV shows, YouTube, articles, and websites."
     });
