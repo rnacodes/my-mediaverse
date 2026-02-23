@@ -676,7 +676,7 @@ namespace ProjectLoopbreaker.Infrastructure.Data
                 entity.HasKey(e => e.Id);
                 
                 entity.Property(e => e.ReadwiseId)
-                    .IsRequired();
+                    .IsRequired(false);
                     
                 entity.Property(e => e.Text)
                     .HasMaxLength(8191)
@@ -734,7 +734,8 @@ namespace ProjectLoopbreaker.Infrastructure.Data
                     
                 // Create indexes for better query performance
                 entity.HasIndex(e => e.ReadwiseId)
-                    .IsUnique();
+                    .IsUnique()
+                    .HasFilter("\"ReadwiseId\" IS NOT NULL");
                 entity.HasIndex(e => e.ArticleId);
                 entity.HasIndex(e => e.BookId);
                 entity.HasIndex(e => e.ReadwiseBookId);

@@ -18,7 +18,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 # Paths
-$rootDir = $PSScriptRoot
+$rootDir = (Split-Path $PSScriptRoot -Parent)
 $webApiDir = Join-Path $rootDir "src\ProjectLoopbreaker\ProjectLoopbreaker.Web.API"
 $infraProject = "..\ProjectLoopbreaker.Infrastructure"
 

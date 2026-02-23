@@ -232,7 +232,7 @@ function ArticleUploadTab() {
                     </Typography>
                 </Alert>
                 <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
-                    <Button variant="outlined" onClick={handleReset}>
+                    <Button variant="contained" onClick={handleReset}>
                         Upload Another Article
                     </Button>
                     <Button
@@ -552,7 +552,7 @@ function HighlightUploadTab() {
                 )}
 
                 <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
-                    <Button variant="outlined" onClick={handleReset}>
+                    <Button variant="contained" onClick={handleReset}>
                         Upload Another File
                     </Button>
                 </Box>

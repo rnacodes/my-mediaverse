@@ -17,10 +17,9 @@ namespace ProjectLoopbreaker.Domain.Entities
         
         /// <summary>
         /// External ID from Readwise API (highlight.id)
-        /// Used for deduplication and sync
+        /// Used for deduplication and sync. Null for manually-created highlights.
         /// </summary>
-        [Required]
-        public int ReadwiseId { get; set; }
+        public int? ReadwiseId { get; set; }
         
         /// <summary>
         /// The actual highlight text (required)

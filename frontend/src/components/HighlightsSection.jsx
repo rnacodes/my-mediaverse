@@ -88,19 +88,7 @@ function HighlightsSection({ mediaItem, highlights, highlightsLoading }) {
                         lineHeight: 1.7,
                         color: '#ffffff',
                         mb: 2,
-                        fontStyle: 'italic',
-                        '&::before': {
-                          content: '"""',
-                          fontSize: { xs: '1.2rem', sm: '1.5rem' },
-                          color: '#FFD700',
-                          marginRight: '0.5rem'
-                        },
-                        '&::after': {
-                          content: '"""',
-                          fontSize: { xs: '1.2rem', sm: '1.5rem' },
-                          color: '#FFD700',
-                          marginLeft: '0.5rem'
-                        }
+                        fontStyle: 'italic'
                       }}
                     >
                       {highlight.text || highlight.highlightText}

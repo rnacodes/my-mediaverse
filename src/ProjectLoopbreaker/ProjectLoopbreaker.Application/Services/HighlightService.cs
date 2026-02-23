@@ -651,7 +651,16 @@ namespace ProjectLoopbreaker.Application.Services
                 }
             }
 
-            await _context.SaveChangesAsync();
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to save bulk highlights to database");
+                result.Errors.Add($"Database save failed: {ex.Message}");
+                return result;
+            }
 
             _logger.LogInformation("Bulk created {Created} highlights, linked {Linked}, errors {Errors}",
                 result.Created, result.Linked, result.Errors.Count);
