@@ -94,7 +94,6 @@ My MediaVerse leverages AI to enhance discovery and organization:
 | Feature                       | Description                                                                                                                                     |
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Vector Embeddings**         | Semantic embeddings generated for all media items and notes using OpenAI's text-embedding-3-large model, stored in PostgreSQL with pgvector     |
-| **Search by Vibe**            | Natural language search that finds content matching a mood or description (e.g., "dark atmospheric sci-fi" or "uplifting productivity content") |
 | **Similar Items**             | Discover semantically related media items and notes based on embedding similarity                                                               |
 | **AI Description Generation** | Automatic concise summaries generated for notes using DigitalOcean Gradient AI                                                                  |
 
@@ -340,7 +339,7 @@ This is the Minimum Viable Product release with core functionality complete. Act
 - Media library management for all 8 types
 - Mixlist creation and management
 - Typesense search integration
-- AI-powered "Search by Vibe" and similar items
+- AI-powered recommendations
 - Vector embeddings for semantic discovery
 - Readwise article and highlight sync
 - Notes integration with Obsidian
