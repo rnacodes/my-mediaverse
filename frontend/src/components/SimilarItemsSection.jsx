@@ -27,7 +27,7 @@ import { saveRelatedMedia, getRelatedMedia } from '../api/relatedMediaService';
 import { formatMediaType } from '../utils/formatters';
 import { getAspectRatio } from '../utils/mediaImageUtils';
 
-const SIMILARITY_THRESHOLD = 0.70;
+const SIMILARITY_THRESHOLD = 0.40;
 
 function SimilarItemsSection({ mediaItem, setSnackbar, onRelatedMediaSaved }) {
   const [similarItems, setSimilarItems] = useState([]);
