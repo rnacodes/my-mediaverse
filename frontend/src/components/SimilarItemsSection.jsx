@@ -27,7 +27,16 @@ import { saveRelatedMedia, getRelatedMedia } from '../api/relatedMediaService';
 import { formatMediaType } from '../utils/formatters';
 import { getAspectRatio } from '../utils/mediaImageUtils';
 
-const SIMILARITY_THRESHOLD = 0.40;
+const DEFAULT_SIMILARITY_THRESHOLD = 0.40;
+
+const getSimilarityThreshold = () => {
+  const stored = localStorage.getItem('similarityThreshold');
+  if (stored !== null) {
+    const val = parseFloat(stored);
+    if (!isNaN(val) && val >= 0 && val <= 1) return val;
+  }
+  return DEFAULT_SIMILARITY_THRESHOLD;
+};
 
 function SimilarItemsSection({ mediaItem, setSnackbar, onRelatedMediaSaved }) {
   const [similarItems, setSimilarItems] = useState([]);
@@ -62,9 +71,10 @@ function SimilarItemsSection({ mediaItem, setSnackbar, onRelatedMediaSaved }) {
       const items = await getSimilarMedia(mediaItem.id, 20);
 
       // Filter: exclude already-saved related items and items below threshold
+      const threshold = getSimilarityThreshold();
       const filtered = (items || []).filter(item =>
         !relatedIds.has(item.id) &&
-        item.similarityScore >= SIMILARITY_THRESHOLD
+        item.similarityScore >= threshold
       );
 
       setSimilarItems(filtered);
@@ -154,7 +164,7 @@ function SimilarItemsSection({ mediaItem, setSnackbar, onRelatedMediaSaved }) {
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <AutoAwesomeIcon color={expanded ? 'primary' : 'action'} />
+            <AutoAwesomeIcon sx={{ color: expanded ? '#fcfafa' : undefined }} color={expanded ? undefined : 'action'} />
             <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
               Get Recommendations
             </Typography>
@@ -261,7 +271,7 @@ function SimilarItemsSection({ mediaItem, setSnackbar, onRelatedMediaSaved }) {
                     ) : savingItemId === item.id ? (
                       <CircularProgress size={16} />
                     ) : (
-                      <AddCircleIcon fontSize="small" color="primary" />
+                      <AddCircleIcon fontSize="small" sx={{ color: '#fcfafa' }} />
                     )}
                   </IconButton>
                 </Tooltip>
@@ -310,14 +320,6 @@ function SimilarItemsSection({ mediaItem, setSnackbar, onRelatedMediaSaved }) {
                         size="small"
                         sx={{ fontSize: '0.65rem', height: 20 }}
                       />
-                      {item.similarityScore && (
-                        <Chip
-                          label={`${Math.round(item.similarityScore * 100)}%`}
-                          size="small"
-                          color="secondary"
-                          sx={{ fontSize: '0.65rem', height: 20 }}
-                        />
-                      )}
                     </Box>
                   </CardContent>
                 </Box>

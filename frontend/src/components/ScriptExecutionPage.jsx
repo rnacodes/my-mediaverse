@@ -434,10 +434,11 @@ const ScriptExecutionPage = () => {
 
                 <Button
                     variant="contained"
-                    color="secondary"
+                    color="primary"
                     startIcon={vaultRunning ? <CircularProgress size={20} color="inherit" /> : <PlayIcon />}
                     onClick={handleRunNormalizeVault}
                     disabled={isRunning || !isServiceHealthy || !vaultPath.trim()}
+                    sx={{ color: '#fcfafa' }}
                 >
                     {vaultRunning ? 'Running...' : 'Run Standardize Vault'}
                 </Button>

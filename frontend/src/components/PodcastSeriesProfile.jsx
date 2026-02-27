@@ -368,7 +368,7 @@ function PodcastSeriesProfile() {
                         </>
                     )}
                 </DialogContent>
-                <DialogActions><Button onClick={() => setViewAllEpisodesDialog(false)}>Close</Button></DialogActions>
+                <DialogActions><Button onClick={() => setViewAllEpisodesDialog(false)} sx={{ color: '#fcfafa' }}>Close</Button></DialogActions>
             </Dialog>
 
             {/* Delete Dialog */}
@@ -376,7 +376,7 @@ function PodcastSeriesProfile() {
                 <DialogTitle>Delete Series?</DialogTitle>
                 <DialogContent><Typography>This will remove "{series?.title}" and all its imported episodes.</Typography></DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setDeleteConfirmDialog(false)}>Cancel</Button>
+                    <Button onClick={() => setDeleteConfirmDialog(false)} sx={{ color: '#fcfafa' }}>Cancel</Button>
                     <Button onClick={handleDelete} color="error" variant="contained">Delete Forever</Button>
                 </DialogActions>
             </Dialog>

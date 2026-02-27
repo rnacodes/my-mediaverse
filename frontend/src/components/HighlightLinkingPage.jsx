@@ -547,7 +547,7 @@ export default function HighlightLinkingPage() {
                     )}
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setLinkDialogOpen(false)} disabled={linking}>
+                    <Button onClick={() => setLinkDialogOpen(false)} disabled={linking} sx={{ color: '#fcfafa' }}>
                         Cancel
                     </Button>
                 </DialogActions>

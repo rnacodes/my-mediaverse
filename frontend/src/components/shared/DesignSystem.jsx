@@ -247,6 +247,20 @@ export const theme = createTheme({
           color: COLORS.text.primary,
           '&.Mui-focused': {
             color: COLORS.text.primary
+          },
+          '&.MuiInputLabel-shrink': {
+            color: COLORS.text.primary
+          }
+        }
+      }
+    },
+
+    MuiFormLabel: {
+      styleOverrides: {
+        root: {
+          color: COLORS.text.primary,
+          '&.Mui-focused': {
+            color: COLORS.text.primary
           }
         }
       }

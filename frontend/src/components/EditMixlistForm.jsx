@@ -259,6 +259,7 @@ function EditMixlistForm() {
                                     placeholder="https://example.com/image.jpg"
                                     helperText="Optional: URL to an image for this mixlist"
                                     InputLabelProps={{ sx: { color: '#fcfafa' } }}
+                                    FormHelperTextProps={{ sx: { color: '#fcfafa' } }}
                                 />
 
                                 {/* Thumbnail Upload */}

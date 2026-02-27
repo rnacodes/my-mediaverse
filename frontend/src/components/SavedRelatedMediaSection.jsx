@@ -110,7 +110,7 @@ function SavedRelatedMediaSection({ mediaItem, setSnackbar, refreshTrigger }) {
     setSearching(true);
     try {
       const response = await searchMedia(searchQuery);
-      const items = response || [];
+      const items = response?.data || response || [];
       // Filter out current item and already related items
       const relatedIds = new Set(relatedItems.map(r => r.relatedMediaItem?.id));
       const filtered = items.filter(item =>
@@ -348,14 +348,6 @@ function SavedRelatedMediaSection({ mediaItem, setSnackbar, refreshTrigger }) {
                               sx={{ fontSize: '0.65rem', height: 20 }}
                             />
                           )}
-                          {relation.similarityScore && (
-                            <Chip
-                              label={`${Math.round(relation.similarityScore * 100)}%`}
-                              size="small"
-                              variant="outlined"
-                              sx={{ fontSize: '0.65rem', height: 20 }}
-                            />
-                          )}
                         </Box>
                       </CardContent>
                     </Box>
@@ -436,11 +428,14 @@ function SavedRelatedMediaSection({ mediaItem, setSnackbar, refreshTrigger }) {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => {
-            setAddDialogOpen(false);
-            setSearchQuery('');
-            setSearchResults([]);
-          }}>
+          <Button
+            onClick={() => {
+              setAddDialogOpen(false);
+              setSearchQuery('');
+              setSearchResults([]);
+            }}
+            sx={{ color: '#fcfafa' }}
+          >
             Cancel
           </Button>
         </DialogActions>

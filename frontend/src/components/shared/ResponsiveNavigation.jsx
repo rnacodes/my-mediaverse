@@ -59,7 +59,8 @@ import {
   Terminal,
   FormatQuote,
   AddLink,
-  LockOpen
+  LockOpen,
+  PlaylistAdd
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -133,14 +134,16 @@ const ResponsiveNavigation = () => {
     { text: 'Media Form', path: '/add-media', icon: <Add /> },
     { text: 'API Import', path: '/import-media', icon: <Download /> },
     { text: 'Import Website', path: '/import-website', icon: <Language /> },
-    { text: 'Bulk Upload', path: '/upload-media', icon: <Upload /> }
+    { text: 'Bulk Upload', path: '/upload-media', icon: <Upload /> },
+    { text: 'Create Mixlist', path: '/create-mixlist', icon: <PlaylistAdd /> },
+    { text: 'Readwise Sync', path: '/readwise-sync', icon: <Sync />, requiresAuth: true }
   ];
 
   const adminMenuItems = [
     { text: 'AI Admin', path: '/ai-admin', icon: <Psychology />, requiresAuth: true },
     { text: 'Background Jobs', path: '/background-jobs', icon: <Work />, requiresAuth: true },
     { text: 'Cleanup', path: '/cleanup', icon: <CleaningServices />, requiresAuth: true },
-    { text: 'Demo Unlock', path: '/demo-unlock', icon: <LockOpen />, requiresAuth: true },
+    { text: 'Demo Admin', path: '/demo-unlock', icon: <LockOpen />, requiresAuth: true },
     { text: 'Local Scripts', path: '/script-execution', icon: <Terminal />, requiresAuth: true },
     { text: 'Readwise Sync', path: '/readwise-sync', icon: <Sync />, requiresAuth: true },
     { text: 'Link Highlights', path: '/highlight-linking', icon: <AddLink />, requiresAuth: true },

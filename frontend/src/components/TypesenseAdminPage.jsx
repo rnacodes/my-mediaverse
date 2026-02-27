@@ -24,6 +24,8 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  Switch,
+  FormControlLabel,
 } from '@mui/material';
 import {
   Refresh as RefreshIcon,
@@ -33,7 +35,7 @@ import {
   Error as ErrorIcon,
   Info as InfoIcon,
 } from '@mui/icons-material';
-import { typesenseReindex, reindexMixlists, typesenseHealth, typesenseSearch, typesenseResetMediaItems, typesenseResetMixlists, reindexNotes, resetNotesCollection } from '../api/typesenseService';
+import { typesenseReindex, reindexMixlists, typesenseHealth, typesenseSearch, typesenseResetMediaItems, typesenseResetMixlists, reindexNotes, resetNotesCollection, getRealTimeIndexingStatus, setRealTimeIndexingStatus } from '../api/typesenseService';
 import { findDuplicateArticles, deduplicateArticles } from '../api/articleService';
 import { syncAllVaults, getSyncStatus } from '../api/noteService';
 import { formatStatus } from '../utils/formatters';
@@ -73,6 +75,11 @@ const TypesenseAdminPage = () => {
   const [duplicates, setDuplicates] = useState(null);
   const [findingDuplicates, setFindingDuplicates] = useState(false);
 
+  // State for real-time indexing toggle
+  const [realTimeIndexing, setRealTimeIndexing] = useState(true);
+  const [realTimeIndexingLoading, setRealTimeIndexingLoading] = useState(false);
+  const [realTimeIndexingError, setRealTimeIndexingError] = useState(null);
+
   // State for notes sync/reindex
   const [syncingNotes, setSyncingNotes] = useState(false);
   const [syncNotesResult, setSyncNotesResult] = useState(null);
@@ -85,10 +92,39 @@ const TypesenseAdminPage = () => {
   const [resetNotesError, setResetNotesError] = useState(null);
   const [noteSyncStatus, setNoteSyncStatus] = useState(null);
 
-  // Check health on component mount
+  // Check health and indexing status on component mount
   useEffect(() => {
     checkHealth();
+    fetchRealTimeIndexingStatus();
   }, []);
+
+  // Fetch real-time indexing status
+  const fetchRealTimeIndexingStatus = async () => {
+    try {
+      const result = await getRealTimeIndexingStatus();
+      setRealTimeIndexing(result.enabled);
+    } catch (error) {
+      if (error.response?.status !== 401) {
+        console.error('Failed to get real-time indexing status:', error);
+      }
+    }
+  };
+
+  // Handler to toggle real-time indexing
+  const handleToggleRealTimeIndexing = async (event) => {
+    const newState = event.target.checked;
+    setRealTimeIndexingLoading(true);
+    setRealTimeIndexingError(null);
+
+    try {
+      await setRealTimeIndexingStatus(newState);
+      setRealTimeIndexing(newState);
+    } catch (error) {
+      setRealTimeIndexingError(error.response?.data?.message || error.message || 'Failed to toggle real-time indexing');
+    } finally {
+      setRealTimeIndexingLoading(false);
+    }
+  };
 
   // Handler for bulk reindex media items
   const handleReindex = async () => {
@@ -325,6 +361,43 @@ const TypesenseAdminPage = () => {
       <Typography variant="h3" gutterBottom sx={{ mb: 4, fontWeight: 'bold' }}>
         Typesense Administration
       </Typography>
+
+      {/* Real-Time Indexing Toggle */}
+      <Paper elevation={3} sx={{ p: 3, mb: 3, border: !realTimeIndexing ? '2px solid #f44336' : 'none' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
+            Real-Time Indexing
+          </Typography>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={realTimeIndexing}
+                onChange={handleToggleRealTimeIndexing}
+                disabled={realTimeIndexingLoading}
+                color="success"
+              />
+            }
+            label={realTimeIndexingLoading ? 'Updating...' : (realTimeIndexing ? 'Enabled' : 'Paused')}
+            labelPlacement="start"
+          />
+        </Box>
+
+        {realTimeIndexing ? (
+          <Alert severity="info" icon={<InfoIcon />}>
+            Media items are indexed in Typesense immediately after each create, update, or delete. Toggle this off before bulk imports to avoid hundreds of individual index operations.
+          </Alert>
+        ) : (
+          <Alert severity="warning" icon={<ErrorIcon />}>
+            Real-time indexing is <strong>paused</strong>. New media items will NOT appear in search results until you run a bulk reindex below. This setting resets to enabled when the server restarts.
+          </Alert>
+        )}
+
+        {realTimeIndexingError && (
+          <Alert severity="error" sx={{ mt: 2 }}>
+            <strong>Toggle Failed:</strong> {realTimeIndexingError}
+          </Alert>
+        )}
+      </Paper>
 
       {/* Health Status Section */}
       <Paper elevation={3} sx={{ p: 3, mb: 3 }}>

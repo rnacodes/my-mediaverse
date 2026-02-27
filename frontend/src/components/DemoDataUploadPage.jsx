@@ -4,7 +4,7 @@ import {
     Box, Typography, Button, Card, CardContent, TextField,
     Alert, CircularProgress, Divider, Chip, Tab, Tabs,
     FormControl, InputLabel, Select, MenuItem, Checkbox,
-    FormControlLabel, Slider, IconButton, Paper, Collapse
+    FormControlLabel, Slider, IconButton, Paper, Collapse, Autocomplete
 } from '@mui/material';
 import {
     ArrowBack, CloudUpload, Search as SearchIcon, CheckCircle,
@@ -12,6 +12,7 @@ import {
 } from '@mui/icons-material';
 import { scrapeArticlePreview, createArticle } from '../api/articleService';
 import { bulkCreateHighlights } from '../api/highlightService';
+import { searchTopics, searchGenres } from '../api/topicGenreService';
 
 const whiteButtonSx = {
     backgroundColor: 'white',
@@ -136,8 +137,10 @@ function ArticleUploadTab() {
     const [readingProgress, setReadingProgress] = useState(0);
     const [wordCount, setWordCount] = useState('');
     const [publicationDate, setPublicationDate] = useState('');
-    const [topicsInput, setTopicsInput] = useState('');
-    const [genresInput, setGenresInput] = useState('');
+    const [topics, setTopics] = useState([]);
+    const [genres, setGenres] = useState([]);
+    const [topicSuggestions, setTopicSuggestions] = useState([]);
+    const [genreSuggestions, setGenreSuggestions] = useState([]);
     const [isArchived, setIsArchived] = useState(false);
     const [isStarred, setIsStarred] = useState(false);
     const [notes, setNotes] = useState('');
@@ -162,6 +165,34 @@ function ArticleUploadTab() {
         }
     };
 
+    const handleTopicSearch = async (inputValue) => {
+        if (inputValue.length > 0) {
+            try {
+                const response = await searchTopics(inputValue);
+                setTopicSuggestions(response.data);
+            } catch (err) {
+                console.error('Error searching topics:', err);
+                setTopicSuggestions([]);
+            }
+        } else {
+            setTopicSuggestions([]);
+        }
+    };
+
+    const handleGenreSearch = async (inputValue) => {
+        if (inputValue.length > 0) {
+            try {
+                const response = await searchGenres(inputValue);
+                setGenreSuggestions(response.data);
+            } catch (err) {
+                console.error('Error searching genres:', err);
+                setGenreSuggestions([]);
+            }
+        } else {
+            setGenreSuggestions([]);
+        }
+    };
+
     const handleSave = async () => {
         if (!title.trim()) {
             setError('Title is required');
@@ -170,9 +201,6 @@ function ArticleUploadTab() {
         setSaving(true);
         setError('');
         try {
-            const topics = topicsInput.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
-            const genres = genresInput.split(',').map(g => g.trim().toLowerCase()).filter(Boolean);
-
             const articleData = {
                 title: title.trim(),
                 link: url.trim() || undefined,
@@ -216,8 +244,8 @@ function ArticleUploadTab() {
         setReadingProgress(0);
         setWordCount('');
         setPublicationDate('');
-        setTopicsInput('');
-        setGenresInput('');
+        setTopics([]);
+        setGenres([]);
         setIsArchived(false);
         setIsStarred(false);
         setNotes('');
@@ -365,20 +393,83 @@ function ArticleUploadTab() {
                             valueLabelDisplay="auto"
                         />
                     </Box>
-                    <Box sx={{ display: 'flex', gap: 2 }}>
-                        <TextField
-                            fullWidth
-                            label="Topics (comma-separated)"
-                            value={topicsInput}
-                            onChange={(e) => setTopicsInput(e.target.value)}
-                            placeholder="e.g. productivity, technology"
+                    <Box>
+                        <Typography variant="body1" sx={{ mb: 1, fontWeight: 'bold' }}>
+                            Topics
+                        </Typography>
+                        <Autocomplete
+                            multiple
+                            freeSolo
+                            options={topicSuggestions.map((option) => option.name || option.Name)}
+                            value={topics}
+                            onChange={(event, newValue) => {
+                                setTopics(newValue.map(t => t.toLowerCase()));
+                            }}
+                            onInputChange={(event, newInputValue) => {
+                                handleTopicSearch(newInputValue);
+                            }}
+                            renderTags={(value, getTagProps) =>
+                                value.map((option, index) => (
+                                    <Chip
+                                        key={index}
+                                        label={option}
+                                        size="small"
+                                        sx={{
+                                            backgroundColor: 'primary.main',
+                                            color: 'white',
+                                            fontSize: '0.75rem'
+                                        }}
+                                        {...getTagProps({ index })}
+                                    />
+                                ))
+                            }
+                            renderInput={(params) => (
+                                <TextField
+                                    {...params}
+                                    placeholder="Type to search or add topics..."
+                                    variant="outlined"
+                                />
+                            )}
+                            sx={{ mb: 2 }}
                         />
-                        <TextField
-                            fullWidth
-                            label="Genres (comma-separated)"
-                            value={genresInput}
-                            onChange={(e) => setGenresInput(e.target.value)}
-                            placeholder="e.g. technology, science"
+                    </Box>
+                    <Box>
+                        <Typography variant="body1" sx={{ mb: 1, fontWeight: 'bold' }}>
+                            Genres
+                        </Typography>
+                        <Autocomplete
+                            multiple
+                            freeSolo
+                            options={genreSuggestions.map((option) => option.name || option.Name)}
+                            value={genres}
+                            onChange={(event, newValue) => {
+                                setGenres(newValue.map(g => g.toLowerCase()));
+                            }}
+                            onInputChange={(event, newInputValue) => {
+                                handleGenreSearch(newInputValue);
+                            }}
+                            renderTags={(value, getTagProps) =>
+                                value.map((option, index) => (
+                                    <Chip
+                                        key={index}
+                                        label={option}
+                                        size="small"
+                                        sx={{
+                                            backgroundColor: '#4b6aa2',
+                                            color: 'white',
+                                            fontSize: '0.75rem'
+                                        }}
+                                        {...getTagProps({ index })}
+                                    />
+                                ))
+                            }
+                            renderInput={(params) => (
+                                <TextField
+                                    {...params}
+                                    placeholder="Type to search or add genres..."
+                                    variant="outlined"
+                                />
+                            )}
                         />
                     </Box>
                     <Box sx={{ display: 'flex', gap: 3 }}>

@@ -196,14 +196,6 @@ function SimilarNotesSection({ note, setSnackbar }) {
                               height: 22,
                             }}
                           />
-                          {similarNote.similarityScore && (
-                            <Chip
-                              label={`${Math.round(similarNote.similarityScore * 100)}%`}
-                              size="small"
-                              color="secondary"
-                              sx={{ fontSize: '0.65rem', height: 20 }}
-                            />
-                          )}
                         </Box>
                       }
                       secondary={

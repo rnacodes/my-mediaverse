@@ -4,7 +4,7 @@ import {
     Box, Typography, Button, Card, CardContent, Dialog,
     DialogTitle, DialogContent, DialogActions, TextField, InputAdornment,
     List, ListItem, ListItemText, ListItemSecondaryAction, IconButton,
-    CircularProgress, Chip, Link, Tooltip, useMediaQuery, useTheme
+    CircularProgress, Chip, Link, Tooltip, useMediaQuery, useTheme, Checkbox
 } from '@mui/material';
 import {
     Article as NoteIcon, Add as AddIcon, Search, Close,
@@ -22,7 +22,7 @@ function RelatedNotesSection({ mediaItem, setSnackbar, onUpdate }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [availableNotes, setAvailableNotes] = useState([]);
     const [loadingAvailable, setLoadingAvailable] = useState(false);
-    const [selectedNoteId, setSelectedNoteId] = useState(null);
+    const [selectedNoteIds, setSelectedNoteIds] = useState(new Set());
     const [linkDescription, setLinkDescription] = useState('');
     const [saving, setSaving] = useState(false);
 
@@ -86,7 +86,7 @@ function RelatedNotesSection({ mediaItem, setSnackbar, onUpdate }) {
     const handleOpenDialog = () => {
         setLinkDialog(true);
         setSearchQuery('');
-        setSelectedNoteId(null);
+        setSelectedNoteIds(new Set());
         setLinkDescription('');
         fetchAvailableNotes();
     };
@@ -94,29 +94,59 @@ function RelatedNotesSection({ mediaItem, setSnackbar, onUpdate }) {
     // Close dialog
     const handleCloseDialog = () => {
         setLinkDialog(false);
-        setSelectedNoteId(null);
+        setSelectedNoteIds(new Set());
         setSearchQuery('');
         setLinkDescription('');
     };
 
-    // Link note to media
+    // Toggle note selection
+    const toggleNoteSelection = (noteId) => {
+        setSelectedNoteIds(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(noteId)) {
+                newSet.delete(noteId);
+            } else {
+                newSet.add(noteId);
+            }
+            return newSet;
+        });
+    };
+
+    // Link notes to media
     const handleLinkNote = async () => {
-        if (!selectedNoteId) {
-            setSnackbar?.({ open: true, message: 'Please select a note first', severity: 'warning' });
+        if (selectedNoteIds.size === 0) {
+            setSnackbar?.({ open: true, message: 'Please select at least one note', severity: 'warning' });
             return;
         }
 
         setSaving(true);
         try {
-            await linkNoteToMedia(selectedNoteId, mediaItem.id, linkDescription || null);
-            const selectedNote = availableNotes.find(n => n.id === selectedNoteId);
-            setSnackbar?.({ open: true, message: `Linked note "${selectedNote?.title}"`, severity: 'success' });
+            let successCount = 0;
+            let errorCount = 0;
+            for (const noteId of selectedNoteIds) {
+                try {
+                    await linkNoteToMedia(noteId, mediaItem.id, linkDescription || null);
+                    successCount++;
+                } catch (err) {
+                    console.error(`Error linking note ${noteId}:`, err);
+                    errorCount++;
+                }
+            }
+            if (successCount > 0) {
+                setSnackbar?.({
+                    open: true,
+                    message: `Linked ${successCount} note${successCount !== 1 ? 's' : ''}${errorCount > 0 ? ` (${errorCount} failed)` : ''}`,
+                    severity: errorCount > 0 ? 'warning' : 'success'
+                });
+            } else {
+                setSnackbar?.({ open: true, message: 'Failed to link notes', severity: 'error' });
+            }
             handleCloseDialog();
             fetchLinkedNotes();
             onUpdate?.();
         } catch (error) {
-            console.error('Error linking note:', error);
-            setSnackbar?.({ open: true, message: 'Failed to link note', severity: 'error' });
+            console.error('Error linking notes:', error);
+            setSnackbar?.({ open: true, message: 'Failed to link notes', severity: 'error' });
         } finally {
             setSaving(false);
         }
@@ -379,7 +409,15 @@ function RelatedNotesSection({ mediaItem, setSnackbar, onUpdate }) {
                 </DialogTitle>
                 <DialogContent>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        Select a note to link to "{mediaItem?.title}":
+                        Select notes to link to "{mediaItem?.title}":
+                        {selectedNoteIds.size > 0 && (
+                            <Chip
+                                label={`${selectedNoteIds.size} selected`}
+                                size="small"
+                                color="success"
+                                sx={{ ml: 1 }}
+                            />
+                        )}
                     </Typography>
 
                     {/* Search Bar */}
@@ -427,24 +465,30 @@ function RelatedNotesSection({ mediaItem, setSnackbar, onUpdate }) {
                                 filteredAvailableNotes.map((note) => (
                                     <ListItem
                                         key={note.id}
-                                        onClick={() => setSelectedNoteId(note.id)}
+                                        onClick={() => toggleNoteSelection(note.id)}
                                         sx={{
                                             borderRadius: 1,
                                             mb: 1,
                                             cursor: 'pointer',
-                                            backgroundColor: selectedNoteId === note.id
+                                            backgroundColor: selectedNoteIds.has(note.id)
                                                 ? 'rgba(25, 118, 210, 0.3)'
                                                 : 'transparent',
-                                            border: selectedNoteId === note.id
+                                            border: selectedNoteIds.has(note.id)
                                                 ? '2px solid rgba(25, 118, 210, 0.8)'
                                                 : '1px solid rgba(255, 255, 255, 0.1)',
                                             '&:hover': {
-                                                backgroundColor: selectedNoteId === note.id
+                                                backgroundColor: selectedNoteIds.has(note.id)
                                                     ? 'rgba(25, 118, 210, 0.4)'
                                                     : 'rgba(255, 255, 255, 0.05)'
                                             }
                                         }}
                                     >
+                                        <Checkbox
+                                            checked={selectedNoteIds.has(note.id)}
+                                            onClick={(e) => e.stopPropagation()}
+                                            onChange={() => toggleNoteSelection(note.id)}
+                                            sx={{ mr: 1 }}
+                                        />
                                         <ListItemText
                                             primary={
                                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -485,7 +529,7 @@ function RelatedNotesSection({ mediaItem, setSnackbar, onUpdate }) {
                     )}
 
                     {/* Link Description */}
-                    {selectedNoteId && (
+                    {selectedNoteIds.size > 0 && (
                         <TextField
                             fullWidth
                             placeholder="Optional: Describe how this note relates to this media..."
@@ -517,9 +561,9 @@ function RelatedNotesSection({ mediaItem, setSnackbar, onUpdate }) {
                     <Button
                         onClick={handleLinkNote}
                         sx={{ color: 'white' }}
-                        disabled={!selectedNoteId || saving}
+                        disabled={selectedNoteIds.size === 0 || saving}
                     >
-                        {saving ? 'Linking...' : 'Link'}
+                        {saving ? 'Linking...' : `Link${selectedNoteIds.size > 1 ? ` (${selectedNoteIds.size})` : ''}`}
                     </Button>
                 </DialogActions>
             </Dialog>

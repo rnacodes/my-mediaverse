@@ -23,7 +23,7 @@ function ReadwiseImportSection({ expanded, onAccordionChange }) {
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
                     <AutoStories />
                     <Typography variant="h6">
-                        Highlights from Readwise
+                        Articles and Highlights from Readwise
                     </Typography>
                     <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Typography variant="body2" color="text.secondary">

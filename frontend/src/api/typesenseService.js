@@ -1,6 +1,39 @@
 import { apiClient } from './apiClient';
 
 // ============================================
+// Real-Time Indexing Toggle
+// ============================================
+
+/**
+ * Get the current real-time indexing status
+ * @returns {Promise<Object>} Object with { enabled: boolean }
+ */
+export const getRealTimeIndexingStatus = async () => {
+    try {
+        const response = await apiClient.get('/search/realtime-indexing');
+        return response.data;
+    } catch (error) {
+        console.error('Error getting real-time indexing status:', error);
+        throw error;
+    }
+};
+
+/**
+ * Enable or disable real-time Typesense indexing for CRUD operations
+ * @param {boolean} enabled - Whether to enable real-time indexing
+ * @returns {Promise<Object>} Result with { enabled, message }
+ */
+export const setRealTimeIndexingStatus = async (enabled) => {
+    try {
+        const response = await apiClient.post('/search/realtime-indexing', { enabled });
+        return response.data;
+    } catch (error) {
+        console.error('Error setting real-time indexing status:', error);
+        throw error;
+    }
+};
+
+// ============================================
 // Typesense Admin API calls
 // ============================================
 

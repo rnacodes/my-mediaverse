@@ -73,6 +73,7 @@ Create themed playlists called "Mixlists" that can contain any combination of me
 - **Typesense-Powered Search:** Fast, typo-tolerant full-text search across your entire library
 - **Advanced Filtering:** Filter by media type, topic, genre, or status
 - **Combined Queries:** Search with multiple filters simultaneously
+- **Real-Time Indexing Toggle:** Pause automatic per-item indexing during bulk imports, then reindex in one batch
 
 ### Highlights System
 

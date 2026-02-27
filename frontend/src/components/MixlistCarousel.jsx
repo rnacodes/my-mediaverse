@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import {
     Box, Card, CardContent, Typography, Button, Dialog,
     DialogTitle, DialogContent, DialogActions, TextField, InputAdornment,
-    List, ListItem, ListItemText, IconButton, Chip
+    List, ListItem, ListItemText, IconButton, Chip, Checkbox
 } from '@mui/material';
 import { PlaylistAdd, Search, Close } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -18,51 +18,78 @@ function MixlistCarousel({
   isMobile
 }) {
   const [addToMixlistDialog, setAddToMixlistDialog] = useState(false);
-  const [selectedMixlistId, setSelectedMixlistId] = useState(null);
+  const [selectedMixlistIds, setSelectedMixlistIds] = useState(new Set());
   const [mixlistSearchQuery, setMixlistSearchQuery] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
 
+  const toggleMixlistSelection = useCallback((mixlistId) => {
+    setSelectedMixlistIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(mixlistId)) {
+        newSet.delete(mixlistId);
+      } else {
+        newSet.add(mixlistId);
+      }
+      return newSet;
+    });
+  }, []);
+
   const handleAddToMixlist = useCallback(async () => {
-    if (!selectedMixlistId) {
-      setSnackbar({ open: true, message: 'Please select a mixlist first', severity: 'warning' });
+    if (selectedMixlistIds.size === 0) {
+      setSnackbar({ open: true, message: 'Please select at least one mixlist', severity: 'warning' });
       return;
     }
-    
-    try {
-      console.log('Adding media to mixlist:', { mixlistId: selectedMixlistId, mediaId: mediaItem.id });
-      await addMediaToMixlist(selectedMixlistId, mediaItem.id);
-      setSnackbar({ open: true, message: 'Media added to mixlist successfully!', severity: 'success' });
-      setAddToMixlistDialog(false);
-      setSelectedMixlistId(null);
-      setMixlistSearchQuery('');
-      
-      // To avoid circular dependency and simplify, we will just refetch all mixlists
-      // in the parent component after this action, or update the state here more directly.
-      // For now, we will just clear the dialog and let the parent handle the refresh.
-      // A more robust solution might involve passing a refresh function from the parent.
 
-      // For simplicity, directly update currentMixlists and availableMixlists if the data is available.
-      const newlyAddedMixlist = availableMixlists.find(m => m.id === selectedMixlistId);
-      if (newlyAddedMixlist) {
-        setCurrentMixlists(prev => [...prev, newlyAddedMixlist]);
-        setAvailableMixlists(prev => prev.filter(m => m.id !== selectedMixlistId));
+    try {
+      let successCount = 0;
+      let errorCount = 0;
+      const addedMixlists = [];
+
+      for (const mixlistId of selectedMixlistIds) {
+        try {
+          await addMediaToMixlist(mixlistId, mediaItem.id);
+          successCount++;
+          const addedMixlist = availableMixlists.find(m => m.id === mixlistId);
+          if (addedMixlist) addedMixlists.push(addedMixlist);
+        } catch (err) {
+          console.error(`Failed to add to mixlist ${mixlistId}:`, err);
+          errorCount++;
+        }
       }
 
+      if (successCount > 0) {
+        setSnackbar({
+          open: true,
+          message: `Added to ${successCount} mixlist${successCount !== 1 ? 's' : ''}${errorCount > 0 ? ` (${errorCount} failed)` : ''}`,
+          severity: errorCount > 0 ? 'warning' : 'success'
+        });
+        setCurrentMixlists(prev => [...prev, ...addedMixlists]);
+        setAvailableMixlists(prev => prev.filter(m => !selectedMixlistIds.has(m.id)));
+      } else {
+        setSnackbar({
+          open: true,
+          message: 'Failed to add to mixlists',
+          severity: 'error'
+        });
+      }
+
+      setAddToMixlistDialog(false);
+      setSelectedMixlistIds(new Set());
+      setMixlistSearchQuery('');
     } catch (error) {
-      console.error('Failed to add media to mixlist:', error);
-      console.error('Error details:', error.response || error);
-      setSnackbar({ 
-        open: true, 
+      console.error('Failed to add media to mixlists:', error);
+      setSnackbar({
+        open: true,
         message: `Failed to add media to mixlist: ${error.response?.data?.message || error.message || 'Unknown error'}`,
-        severity: 'error' 
+        severity: 'error'
       });
     }
-  }, [selectedMixlistId, mediaItem.id, setSnackbar, availableMixlists, setCurrentMixlists, setAvailableMixlists]);
+  }, [selectedMixlistIds, mediaItem.id, setSnackbar, availableMixlists, setCurrentMixlists, setAvailableMixlists]);
 
   const handleCloseMixlistDialog = useCallback(() => {
     setAddToMixlistDialog(false);
-    setSelectedMixlistId(null);
+    setSelectedMixlistIds(new Set());
     setMixlistSearchQuery('');
   }, []);
 
@@ -246,7 +273,15 @@ function MixlistCarousel({
         </DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Select a mixlist to add "{mediaItem?.title}" to:
+            Select mixlists to add "{mediaItem?.title}" to:
+            {selectedMixlistIds.size > 0 && (
+              <Chip
+                label={`${selectedMixlistIds.size} selected`}
+                size="small"
+                color="success"
+                sx={{ ml: 1 }}
+              />
+            )}
           </Typography>
           
           {/* Search Bar */}
@@ -290,26 +325,32 @@ function MixlistCarousel({
           <List sx={{ maxHeight: '300px', overflowY: 'auto' }}>
             {filteredAvailableMixlists.length > 0 ? (
               filteredAvailableMixlists.map((mixlist) => (
-                <ListItem 
+                <ListItem
                   key={mixlist.id}
-                  onClick={() => setSelectedMixlistId(mixlist.id)}
+                  onClick={() => toggleMixlistSelection(mixlist.id)}
                   sx={{
                     borderRadius: 1,
                     mb: 1,
                     cursor: 'pointer',
-                    backgroundColor: selectedMixlistId === mixlist.id 
-                      ? 'rgba(25, 118, 210, 0.3)' 
+                    backgroundColor: selectedMixlistIds.has(mixlist.id)
+                      ? 'rgba(25, 118, 210, 0.3)'
                       : 'transparent',
-                    border: selectedMixlistId === mixlist.id 
-                      ? '2px solid rgba(25, 118, 210, 0.8)' 
+                    border: selectedMixlistIds.has(mixlist.id)
+                      ? '2px solid rgba(25, 118, 210, 0.8)'
                       : '1px solid rgba(255, 255, 255, 0.1)',
                     '&:hover': {
-                      backgroundColor: selectedMixlistId === mixlist.id 
-                        ? 'rgba(25, 118, 210, 0.4)' 
+                      backgroundColor: selectedMixlistIds.has(mixlist.id)
+                        ? 'rgba(25, 118, 210, 0.4)'
                         : 'rgba(255, 255, 255, 0.05)'
                     }
                   }}
                 >
+                  <Checkbox
+                    checked={selectedMixlistIds.has(mixlist.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={() => toggleMixlistSelection(mixlist.id)}
+                    sx={{ mr: 1 }}
+                  />
                   <ListItemText
                     primary={mixlist.name}
                     secondary={mixlist.description || `${mixlist.mediaItems?.length || 0} items`}
@@ -332,12 +373,12 @@ function MixlistCarousel({
           >
             Cancel
           </Button>
-          <Button 
+          <Button
             onClick={handleAddToMixlist}
             sx={{ color: 'white' }}
-            disabled={!selectedMixlistId}
+            disabled={selectedMixlistIds.size === 0}
           >
-            Save
+            {`Add${selectedMixlistIds.size > 1 ? ` (${selectedMixlistIds.size})` : ''}`}
           </Button>
         </DialogActions>
       </Dialog>

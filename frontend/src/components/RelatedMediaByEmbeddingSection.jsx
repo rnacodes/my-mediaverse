@@ -199,14 +199,6 @@ function RelatedMediaByEmbeddingSection({ note, setSnackbar }) {
                             size="small"
                             sx={{ fontSize: '0.65rem', height: 20 }}
                           />
-                          {item.similarityScore && (
-                            <Chip
-                              label={`${Math.round(item.similarityScore * 100)}%`}
-                              size="small"
-                              color="secondary"
-                              sx={{ fontSize: '0.65rem', height: 20 }}
-                            />
-                          )}
                         </Box>
                       </CardContent>
                     </Card>

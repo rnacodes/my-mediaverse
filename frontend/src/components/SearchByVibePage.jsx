@@ -139,14 +139,6 @@ function SearchByVibePage() {
                   size="small"
                   color="primary"
                 />
-                {item.similarityScore && (
-                  <Chip
-                    icon={<AutoAwesomeIcon sx={{ fontSize: '0.9rem !important' }} />}
-                    label={`${Math.round(item.similarityScore * 100)}% match`}
-                    size="small"
-                    color="secondary"
-                  />
-                )}
               </Box>
 
               {item.description && (
@@ -211,14 +203,6 @@ function SearchByVibePage() {
                   size="small"
                   color="primary"
                 />
-                {item.similarityScore && (
-                  <Chip
-                    icon={<AutoAwesomeIcon sx={{ fontSize: '0.9rem !important' }} />}
-                    label={`${Math.round(item.similarityScore * 100)}%`}
-                    size="small"
-                    color="secondary"
-                  />
-                )}
               </Box>
             }
             secondary={

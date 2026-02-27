@@ -10,6 +10,14 @@ namespace ProjectLoopbreaker.Application.Helpers
     public static class TypesenseIndexingHelper
     {
         /// <summary>
+        /// Controls whether real-time indexing is enabled for individual CRUD operations.
+        /// When disabled, media items will not be automatically indexed/deleted in Typesense.
+        /// Bulk reindex operations are not affected by this flag.
+        /// Defaults to true and resets to true on application restart.
+        /// </summary>
+        public static bool IsRealTimeIndexingEnabled { get; set; } = true;
+
+        /// <summary>
         /// Indexes a media item in Typesense after it has been created or updated.
         /// Handles extracting the appropriate fields based on media type.
         /// </summary>
@@ -21,8 +29,8 @@ namespace ProjectLoopbreaker.Application.Helpers
             ITypeSenseService? typeSenseService,
             Dictionary<string, object>? additionalFields = null)
         {
-            // If Typesense service is not available, skip indexing silently
-            if (typeSenseService == null)
+            // If real-time indexing is disabled or Typesense service is not available, skip
+            if (!IsRealTimeIndexingEnabled || typeSenseService == null)
                 return;
 
             try
@@ -60,8 +68,8 @@ namespace ProjectLoopbreaker.Application.Helpers
             Guid id,
             ITypeSenseService? typeSenseService)
         {
-            // If Typesense service is not available, skip deletion silently
-            if (typeSenseService == null)
+            // If real-time indexing is disabled or Typesense service is not available, skip
+            if (!IsRealTimeIndexingEnabled || typeSenseService == null)
                 return;
 
             try

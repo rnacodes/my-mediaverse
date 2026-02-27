@@ -12,6 +12,8 @@ import {
   Grid,
   Chip,
   Divider,
+  Slider,
+  TextField,
 } from '@mui/material';
 import {
   Refresh as RefreshIcon,
@@ -20,6 +22,7 @@ import {
   Info as InfoIcon,
   Psychology as PsychologyIcon,
   AutoAwesome as AutoAwesomeIcon,
+  Tune as TuneIcon,
 } from '@mui/icons-material';
 import {
   getAiStatus, generateNoteDescriptionsBatch, getPendingNoteDescriptions,
@@ -57,6 +60,16 @@ const AiAdminPage = () => {
   const [noteEmbeddingsResult, setNoteEmbeddingsResult] = useState(null);
   const [noteEmbeddingsError, setNoteEmbeddingsError] = useState(null);
 
+  // State for similarity threshold
+  const [similarityThreshold, setSimilarityThreshold] = useState(() => {
+    const stored = localStorage.getItem('similarityThreshold');
+    return stored !== null ? parseFloat(stored) : 0.40;
+  });
+  const [thresholdInput, setThresholdInput] = useState(() => {
+    const stored = localStorage.getItem('similarityThreshold');
+    return stored !== null ? String(Math.round(parseFloat(stored) * 100)) : '40';
+  });
+
   // Fetch status on mount
   useEffect(() => {
     fetchAllStatus();
@@ -74,7 +87,10 @@ const AiAdminPage = () => {
       // Fetch recommendation status
       try {
         const recResult = await getRecommendationStatus();
-        setRecommendationStatus(recResult);
+        setRecommendationStatus({
+          isAvailable: recResult?.available ?? recResult?.isAvailable ?? false,
+          message: recResult?.message,
+        });
       } catch {
         // Recommendation might not be available
         setRecommendationStatus({ isAvailable: false });
@@ -82,22 +98,22 @@ const AiAdminPage = () => {
 
       // Fetch pending counts
       try {
-        const descCount = await getPendingNoteDescriptions();
-        setPendingDescriptions(descCount);
+        const descResult = await getPendingNoteDescriptions();
+        setPendingDescriptions(descResult?.count ?? descResult);
       } catch {
         setPendingDescriptions(null);
       }
 
       try {
-        const mediaCount = await getPendingMediaEmbeddings();
-        setPendingMediaEmbeddings(mediaCount);
+        const mediaResult = await getPendingMediaEmbeddings();
+        setPendingMediaEmbeddings(mediaResult?.count ?? mediaResult);
       } catch {
         setPendingMediaEmbeddings(null);
       }
 
       try {
-        const noteCount = await getPendingNoteEmbeddings();
-        setPendingNoteEmbeddings(noteCount);
+        const noteResult = await getPendingNoteEmbeddings();
+        setPendingNoteEmbeddings(noteResult?.count ?? noteResult);
       } catch {
         setPendingNoteEmbeddings(null);
       }
@@ -120,8 +136,8 @@ const AiAdminPage = () => {
       setDescriptionsResult(result);
       // Refresh pending count
       try {
-        const descCount = await getPendingNoteDescriptions();
-        setPendingDescriptions(descCount);
+        const descResult = await getPendingNoteDescriptions();
+        setPendingDescriptions(descResult?.count ?? descResult);
       } catch {
         // Ignore
       }
@@ -143,8 +159,8 @@ const AiAdminPage = () => {
       setMediaEmbeddingsResult(result);
       // Refresh pending count
       try {
-        const mediaCount = await getPendingMediaEmbeddings();
-        setPendingMediaEmbeddings(mediaCount);
+        const mediaResult = await getPendingMediaEmbeddings();
+        setPendingMediaEmbeddings(mediaResult?.count ?? mediaResult);
       } catch {
         // Ignore
       }
@@ -166,8 +182,8 @@ const AiAdminPage = () => {
       setNoteEmbeddingsResult(result);
       // Refresh pending count
       try {
-        const noteCount = await getPendingNoteEmbeddings();
-        setPendingNoteEmbeddings(noteCount);
+        const noteResult = await getPendingNoteEmbeddings();
+        setPendingNoteEmbeddings(noteResult?.count ?? noteResult);
       } catch {
         // Ignore
       }
@@ -175,6 +191,24 @@ const AiAdminPage = () => {
       setNoteEmbeddingsError(error.response?.data?.message || error.message || 'Failed to generate note embeddings');
     } finally {
       setGeneratingNoteEmbeddings(false);
+    }
+  };
+
+  const handleThresholdSliderChange = (_, newValue) => {
+    const decimal = newValue / 100;
+    setSimilarityThreshold(decimal);
+    setThresholdInput(String(newValue));
+    localStorage.setItem('similarityThreshold', String(decimal));
+  };
+
+  const handleThresholdInputChange = (e) => {
+    const val = e.target.value;
+    setThresholdInput(val);
+    const num = parseInt(val, 10);
+    if (!isNaN(num) && num >= 0 && num <= 100) {
+      const decimal = num / 100;
+      setSimilarityThreshold(decimal);
+      localStorage.setItem('similarityThreshold', String(decimal));
     }
   };
 
@@ -569,6 +603,64 @@ const AiAdminPage = () => {
             </CardContent>
           </Card>
         )}
+      </Paper>
+
+      {/* Recommendation Settings Section */}
+      <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
+        <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
+          Recommendation Settings
+        </Typography>
+
+        <Alert severity="info" icon={<TuneIcon />} sx={{ mb: 2 }}>
+          Adjust the similarity threshold used to filter recommended items.
+          Items below this threshold are hidden from "Similar Items" results.
+          Stored locally in your browser.
+        </Alert>
+
+        <Card variant="outlined">
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              Similarity Threshold
+            </Typography>
+            <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+              Items with a similarity score below this percentage will be filtered out.
+              Lower values show more results (less strict), higher values show fewer but more relevant results.
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, px: 1 }}>
+              <Slider
+                value={Math.round(similarityThreshold * 100)}
+                onChange={handleThresholdSliderChange}
+                min={0}
+                max={100}
+                step={5}
+                marks={[
+                  { value: 0, label: '0%' },
+                  { value: 25, label: '25%' },
+                  { value: 50, label: '50%' },
+                  { value: 75, label: '75%' },
+                  { value: 100, label: '100%' },
+                ]}
+                valueLabelDisplay="auto"
+                valueLabelFormat={(v) => `${v}%`}
+                sx={{ flex: 1, color: '#9c27b0' }}
+              />
+              <TextField
+                value={thresholdInput}
+                onChange={handleThresholdInputChange}
+                size="small"
+                type="number"
+                inputProps={{ min: 0, max: 100, step: 5 }}
+                sx={{ width: 80 }}
+                InputProps={{
+                  endAdornment: <Typography variant="body2">%</Typography>,
+                }}
+              />
+            </Box>
+            <Typography variant="body2" sx={{ mt: 2, fontStyle: 'italic', color: 'text.secondary' }}>
+              Current: {Math.round(similarityThreshold * 100)}% — Items scoring below {Math.round(similarityThreshold * 100)}% similarity will be hidden
+            </Typography>
+          </CardContent>
+        </Card>
       </Paper>
 
       {/* Background Service Info */}

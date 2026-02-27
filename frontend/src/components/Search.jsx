@@ -240,12 +240,12 @@ export default function Search() {
         if (urlParamsLoaded) {
             performSearch();
         }
-    }, [searchQuery, searchMode, selectedMediaTypes, selectedTopics, selectedGenres, selectedStatus, selectedRatings, currentPage, urlParamsLoaded]);
+    }, [searchQuery, searchMode, selectedMediaTypes, selectedTopics, selectedGenres, selectedStatus, selectedRatings, sortBy, currentPage, urlParamsLoaded]);
 
     // Check if we have any selection criteria for media search
     const hasMediaFilters = searchMode === 'media' && (
         searchQuery.trim() !== '' ||
-        (selectedMediaTypes.length > 0 && !selectedMediaTypes.includes('all')) ||
+        selectedMediaTypes.length > 0 ||
         selectedTopics.length > 0 ||
         selectedGenres.length > 0 ||
         selectedStatus !== 'all' ||

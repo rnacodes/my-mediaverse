@@ -393,7 +393,7 @@ function YouTubeChannelProfile() {
                         </>
                     )}
                 </DialogContent>
-                <DialogActions><Button onClick={() => setViewAllVideosDialog(false)}>Close</Button></DialogActions>
+                <DialogActions><Button onClick={() => setViewAllVideosDialog(false)} sx={{ color: '#fcfafa' }}>Close</Button></DialogActions>
             </Dialog>
 
             {/* Delete Dialog */}
@@ -401,7 +401,7 @@ function YouTubeChannelProfile() {
                 <DialogTitle>Delete Channel?</DialogTitle>
                 <DialogContent><Typography>This will remove "{channel?.title}" from your library. Associated videos will remain in the database.</Typography></DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setDeleteConfirmDialog(false)}>Cancel</Button>
+                    <Button onClick={() => setDeleteConfirmDialog(false)} sx={{ color: '#fcfafa' }}>Cancel</Button>
                     <Button onClick={handleDelete} color="error" variant="contained">Delete Forever</Button>
                 </DialogActions>
             </Dialog>
