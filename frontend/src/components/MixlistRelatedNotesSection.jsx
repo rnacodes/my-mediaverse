@@ -3,7 +3,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import {
     Box, Typography, Button, Card, CardContent, Dialog,
     DialogTitle, DialogContent, DialogActions, TextField, InputAdornment,
-    List, ListItem, ListItemText, IconButton,
+    List, ListItem, ListItemText, IconButton, Checkbox,
     CircularProgress, Chip, Link, Tooltip, useMediaQuery, useTheme
 } from '@mui/material';
 import {
@@ -23,7 +23,7 @@ function MixlistRelatedNotesSection({ mixlistId, mixlistName, setSnackbar }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [availableNotes, setAvailableNotes] = useState([]);
     const [loadingAvailable, setLoadingAvailable] = useState(false);
-    const [selectedNoteId, setSelectedNoteId] = useState(null);
+    const [selectedNoteIds, setSelectedNoteIds] = useState(new Set());
     const [linkDescription, setLinkDescription] = useState('');
     const [saving, setSaving] = useState(false);
 
@@ -81,11 +81,24 @@ function MixlistRelatedNotesSection({ mixlistId, mixlistName, setSnackbar }) {
         }
     }, [fetchAvailableNotes]);
 
+    // Toggle note selection
+    const toggleNoteSelection = (noteId) => {
+        setSelectedNoteIds(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(noteId)) {
+                newSet.delete(noteId);
+            } else {
+                newSet.add(noteId);
+            }
+            return newSet;
+        });
+    };
+
     // Open dialog
     const handleOpenDialog = () => {
         setLinkDialog(true);
         setSearchQuery('');
-        setSelectedNoteId(null);
+        setSelectedNoteIds(new Set());
         setLinkDescription('');
         fetchAvailableNotes();
     };
@@ -93,28 +106,45 @@ function MixlistRelatedNotesSection({ mixlistId, mixlistName, setSnackbar }) {
     // Close dialog
     const handleCloseDialog = () => {
         setLinkDialog(false);
-        setSelectedNoteId(null);
+        setSelectedNoteIds(new Set());
         setSearchQuery('');
         setLinkDescription('');
     };
 
-    // Link note to mixlist
+    // Link notes to mixlist
     const handleLinkNote = async () => {
-        if (!selectedNoteId) {
-            setSnackbar?.({ open: true, message: 'Please select a note first', severity: 'warning' });
+        if (selectedNoteIds.size === 0) {
+            setSnackbar?.({ open: true, message: 'Please select at least one note', severity: 'warning' });
             return;
         }
 
         setSaving(true);
         try {
-            await linkNoteToMixlist(mixlistId, selectedNoteId, linkDescription || null);
-            const selectedNote = availableNotes.find(n => n.id === selectedNoteId);
-            setSnackbar?.({ open: true, message: `Linked note "${selectedNote?.title}"`, severity: 'success' });
+            let successCount = 0;
+            let errorCount = 0;
+            for (const noteId of selectedNoteIds) {
+                try {
+                    await linkNoteToMixlist(mixlistId, noteId, linkDescription || null);
+                    successCount++;
+                } catch (err) {
+                    console.error(`Error linking note ${noteId}:`, err);
+                    errorCount++;
+                }
+            }
+            if (successCount > 0) {
+                setSnackbar?.({
+                    open: true,
+                    message: `Linked ${successCount} note${successCount !== 1 ? 's' : ''}${errorCount > 0 ? ` (${errorCount} failed)` : ''}`,
+                    severity: errorCount > 0 ? 'warning' : 'success'
+                });
+            } else {
+                setSnackbar?.({ open: true, message: 'Failed to link notes', severity: 'error' });
+            }
             handleCloseDialog();
             fetchLinkedNotes();
         } catch (error) {
-            console.error('Error linking note:', error);
-            setSnackbar?.({ open: true, message: 'Failed to link note', severity: 'error' });
+            console.error('Error linking notes:', error);
+            setSnackbar?.({ open: true, message: 'Failed to link notes', severity: 'error' });
         } finally {
             setSaving(false);
         }
@@ -376,7 +406,10 @@ function MixlistRelatedNotesSection({ mixlistId, mixlistName, setSnackbar }) {
                 </DialogTitle>
                 <DialogContent>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        Select a note to link to "{mixlistName}":
+                        Select notes to link to "{mixlistName}":
+                        {selectedNoteIds.size > 0 && (
+                            <Chip label={`${selectedNoteIds.size} selected`} size="small" color="success" sx={{ ml: 1 }} />
+                        )}
                     </Typography>
 
                     {/* Search Bar */}
@@ -424,24 +457,30 @@ function MixlistRelatedNotesSection({ mixlistId, mixlistName, setSnackbar }) {
                                 filteredAvailableNotes.map((note) => (
                                     <ListItem
                                         key={note.id}
-                                        onClick={() => setSelectedNoteId(note.id)}
+                                        onClick={() => toggleNoteSelection(note.id)}
                                         sx={{
                                             borderRadius: 1,
                                             mb: 1,
                                             cursor: 'pointer',
-                                            backgroundColor: selectedNoteId === note.id
+                                            backgroundColor: selectedNoteIds.has(note.id)
                                                 ? 'rgba(25, 118, 210, 0.3)'
                                                 : 'transparent',
-                                            border: selectedNoteId === note.id
+                                            border: selectedNoteIds.has(note.id)
                                                 ? '2px solid rgba(25, 118, 210, 0.8)'
                                                 : '1px solid rgba(255, 255, 255, 0.1)',
                                             '&:hover': {
-                                                backgroundColor: selectedNoteId === note.id
+                                                backgroundColor: selectedNoteIds.has(note.id)
                                                     ? 'rgba(25, 118, 210, 0.4)'
                                                     : 'rgba(255, 255, 255, 0.05)'
                                             }
                                         }}
                                     >
+                                        <Checkbox
+                                            checked={selectedNoteIds.has(note.id)}
+                                            onClick={(e) => e.stopPropagation()}
+                                            onChange={() => toggleNoteSelection(note.id)}
+                                            sx={{ mr: 1 }}
+                                        />
                                         <ListItemText
                                             primary={
                                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -482,10 +521,10 @@ function MixlistRelatedNotesSection({ mixlistId, mixlistName, setSnackbar }) {
                     )}
 
                     {/* Link Description */}
-                    {selectedNoteId && (
+                    {selectedNoteIds.size > 0 && (
                         <TextField
                             fullWidth
-                            placeholder="Optional: Describe how this note relates to this mixlist..."
+                            placeholder="Optional: Describe how these notes relate to this mixlist..."
                             value={linkDescription}
                             onChange={(e) => setLinkDescription(e.target.value)}
                             variant="outlined"
@@ -514,9 +553,9 @@ function MixlistRelatedNotesSection({ mixlistId, mixlistName, setSnackbar }) {
                     <Button
                         onClick={handleLinkNote}
                         sx={{ color: 'white' }}
-                        disabled={!selectedNoteId || saving}
+                        disabled={selectedNoteIds.size === 0 || saving}
                     >
-                        {saving ? 'Linking...' : 'Link'}
+                        {saving ? 'Linking...' : `Link${selectedNoteIds.size > 1 ? ` (${selectedNoteIds.size})` : ''}`}
                     </Button>
                 </DialogActions>
             </Dialog>

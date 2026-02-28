@@ -496,7 +496,7 @@ export default function Search() {
                     // Only searching media items (no notes or highlights)
                     const searchOptions = {
                         query: searchQuery || '*',
-                        mediaTypes: mediaTypesFiltered,
+                        mediaTypes: selectedMediaTypes.includes('all') ? [] : mediaTypesFiltered,
                         topics: selectedTopics,
                         genres: selectedGenres,
                         status: selectedStatus !== 'all' ? selectedStatus : null,

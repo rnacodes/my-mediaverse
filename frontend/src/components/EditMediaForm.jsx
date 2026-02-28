@@ -4,7 +4,7 @@ import {
     Container, Typography, TextField, Button, Box, MenuItem,
     Card, CardContent, Snackbar, Alert, CircularProgress,
     Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
-    List, ListItem, ListItemText, IconButton, Chip, InputAdornment, Tooltip
+    List, ListItem, ListItemText, IconButton, Chip, InputAdornment, Tooltip, Checkbox
 } from '@mui/material';
 import { Save, Cancel, ArrowBack, Delete, Add as AddIcon, Search, Close, Delete as DeleteIcon, OpenInNew as OpenInNewIcon, Article as NoteIcon, PlaylistAdd } from '@mui/icons-material';
 import { getMediaById, updateMedia, deleteMedia } from '../api/mediaService';
@@ -32,7 +32,7 @@ function EditMediaForm() {
     const [noteSearchQuery, setNoteSearchQuery] = useState('');
     const [availableNotes, setAvailableNotes] = useState([]);
     const [loadingAvailableNotes, setLoadingAvailableNotes] = useState(false);
-    const [selectedNoteId, setSelectedNoteId] = useState(null);
+    const [selectedNoteIds, setSelectedNoteIds] = useState(new Set());
     const [linkDescription, setLinkDescription] = useState('');
     const [savingNote, setSavingNote] = useState(false);
 
@@ -41,7 +41,7 @@ function EditMediaForm() {
     const [availableMixlists, setAvailableMixlists] = useState([]);
     const [addMixlistDialog, setAddMixlistDialog] = useState(false);
     const [mixlistSearchQuery, setMixlistSearchQuery] = useState('');
-    const [selectedMixlistId, setSelectedMixlistId] = useState(null);
+    const [selectedMixlistIds, setSelectedMixlistIds] = useState(new Set());
     const [savingMixlist, setSavingMixlist] = useState(false);
 
     const [formData, setFormData] = useState({
@@ -160,37 +160,68 @@ function EditMediaForm() {
         }
     }, [mediaItem, fetchMixlists]);
 
+    // Toggle mixlist selection
+    const toggleMixlistSelection = (mixlistId) => {
+        setSelectedMixlistIds(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(mixlistId)) {
+                newSet.delete(mixlistId);
+            } else {
+                newSet.add(mixlistId);
+            }
+            return newSet;
+        });
+    };
+
     // Mixlist handlers
     const handleOpenMixlistDialog = () => {
         setAddMixlistDialog(true);
         setMixlistSearchQuery('');
-        setSelectedMixlistId(null);
+        setSelectedMixlistIds(new Set());
     };
 
     const handleCloseMixlistDialog = () => {
         setAddMixlistDialog(false);
-        setSelectedMixlistId(null);
+        setSelectedMixlistIds(new Set());
         setMixlistSearchQuery('');
     };
 
     const handleAddToMixlist = async () => {
-        if (!selectedMixlistId) {
-            setSnackbar({ open: true, message: 'Please select a mixlist first', severity: 'warning' });
+        if (selectedMixlistIds.size === 0) {
+            setSnackbar({ open: true, message: 'Please select at least one mixlist', severity: 'warning' });
             return;
         }
         setSavingMixlist(true);
         try {
-            await addMediaToMixlist(selectedMixlistId, id);
-            const addedMixlist = availableMixlists.find(m => m.id === selectedMixlistId);
-            if (addedMixlist) {
-                setCurrentMixlists(prev => [...prev, addedMixlist]);
-                setAvailableMixlists(prev => prev.filter(m => m.id !== selectedMixlistId));
+            let successCount = 0;
+            let errorCount = 0;
+            const addedMixlists = [];
+            for (const mixlistId of selectedMixlistIds) {
+                try {
+                    await addMediaToMixlist(mixlistId, id);
+                    successCount++;
+                    const addedMixlist = availableMixlists.find(m => m.id === mixlistId);
+                    if (addedMixlist) addedMixlists.push(addedMixlist);
+                } catch (err) {
+                    console.error(`Failed to add to mixlist ${mixlistId}:`, err);
+                    errorCount++;
+                }
             }
-            setSnackbar({ open: true, message: 'Added to mixlist', severity: 'success' });
+            if (successCount > 0) {
+                setCurrentMixlists(prev => [...prev, ...addedMixlists]);
+                setAvailableMixlists(prev => prev.filter(m => !selectedMixlistIds.has(m.id)));
+                setSnackbar({
+                    open: true,
+                    message: `Added to ${successCount} mixlist${successCount !== 1 ? 's' : ''}${errorCount > 0 ? ` (${errorCount} failed)` : ''}`,
+                    severity: errorCount > 0 ? 'warning' : 'success'
+                });
+            } else {
+                setSnackbar({ open: true, message: 'Failed to add to mixlists', severity: 'error' });
+            }
             handleCloseMixlistDialog();
         } catch (error) {
-            console.error('Error adding to mixlist:', error);
-            setSnackbar({ open: true, message: 'Failed to add to mixlist', severity: 'error' });
+            console.error('Failed to add media to mixlists:', error);
+            setSnackbar({ open: true, message: 'Failed to add to mixlists', severity: 'error' });
         } finally {
             setSavingMixlist(false);
         }
@@ -252,11 +283,24 @@ function EditMediaForm() {
         }
     }, [fetchAvailableNotes]);
 
+    // Toggle note selection
+    const toggleNoteSelection = (noteId) => {
+        setSelectedNoteIds(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(noteId)) {
+                newSet.delete(noteId);
+            } else {
+                newSet.add(noteId);
+            }
+            return newSet;
+        });
+    };
+
     // Open link note dialog
     const handleOpenLinkNoteDialog = () => {
         setLinkNoteDialog(true);
         setNoteSearchQuery('');
-        setSelectedNoteId(null);
+        setSelectedNoteIds(new Set());
         setLinkDescription('');
         fetchAvailableNotes();
     };
@@ -264,27 +308,44 @@ function EditMediaForm() {
     // Close link note dialog
     const handleCloseLinkNoteDialog = () => {
         setLinkNoteDialog(false);
-        setSelectedNoteId(null);
+        setSelectedNoteIds(new Set());
         setNoteSearchQuery('');
         setLinkDescription('');
     };
 
-    // Link note to media
+    // Link notes to media
     const handleLinkNote = async () => {
-        if (!selectedNoteId) {
-            setSnackbar({ open: true, message: 'Please select a note first', severity: 'warning' });
+        if (selectedNoteIds.size === 0) {
+            setSnackbar({ open: true, message: 'Please select at least one note', severity: 'warning' });
             return;
         }
         setSavingNote(true);
         try {
-            await linkNoteToMedia(selectedNoteId, id, linkDescription || null);
-            const selectedNote = availableNotes.find(n => n.id === selectedNoteId);
-            setSnackbar({ open: true, message: `Linked note "${selectedNote?.title}"`, severity: 'success' });
+            let successCount = 0;
+            let errorCount = 0;
+            for (const noteId of selectedNoteIds) {
+                try {
+                    await linkNoteToMedia(noteId, id, linkDescription || null);
+                    successCount++;
+                } catch (err) {
+                    console.error(`Error linking note ${noteId}:`, err);
+                    errorCount++;
+                }
+            }
+            if (successCount > 0) {
+                setSnackbar({
+                    open: true,
+                    message: `Linked ${successCount} note${successCount !== 1 ? 's' : ''}${errorCount > 0 ? ` (${errorCount} failed)` : ''}`,
+                    severity: errorCount > 0 ? 'warning' : 'success'
+                });
+            } else {
+                setSnackbar({ open: true, message: 'Failed to link notes', severity: 'error' });
+            }
             handleCloseLinkNoteDialog();
             fetchLinkedNotes();
         } catch (error) {
-            console.error('Error linking note:', error);
-            setSnackbar({ open: true, message: 'Failed to link note', severity: 'error' });
+            console.error('Error linking notes:', error);
+            setSnackbar({ open: true, message: 'Failed to link notes', severity: 'error' });
         } finally {
             setSavingNote(false);
         }
@@ -1027,7 +1088,10 @@ function EditMediaForm() {
                 </DialogTitle>
                 <DialogContent>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        Select a note to link to "{formData.title}":
+                        Select notes to link to "{formData.title}":
+                        {selectedNoteIds.size > 0 && (
+                            <Chip label={`${selectedNoteIds.size} selected`} size="small" color="success" sx={{ ml: 1 }} />
+                        )}
                     </Typography>
 
                     {/* Search Bar */}
@@ -1075,24 +1139,30 @@ function EditMediaForm() {
                                 filteredAvailableNotes.map((note) => (
                                     <ListItem
                                         key={note.id}
-                                        onClick={() => setSelectedNoteId(note.id)}
+                                        onClick={() => toggleNoteSelection(note.id)}
                                         sx={{
                                             borderRadius: 1,
                                             mb: 1,
                                             cursor: 'pointer',
-                                            backgroundColor: selectedNoteId === note.id
+                                            backgroundColor: selectedNoteIds.has(note.id)
                                                 ? 'rgba(25, 118, 210, 0.3)'
                                                 : 'transparent',
-                                            border: selectedNoteId === note.id
+                                            border: selectedNoteIds.has(note.id)
                                                 ? '2px solid rgba(25, 118, 210, 0.8)'
                                                 : '1px solid rgba(255, 255, 255, 0.1)',
                                             '&:hover': {
-                                                backgroundColor: selectedNoteId === note.id
+                                                backgroundColor: selectedNoteIds.has(note.id)
                                                     ? 'rgba(25, 118, 210, 0.4)'
                                                     : 'rgba(255, 255, 255, 0.05)'
                                             }
                                         }}
                                     >
+                                        <Checkbox
+                                            checked={selectedNoteIds.has(note.id)}
+                                            onClick={(e) => e.stopPropagation()}
+                                            onChange={() => toggleNoteSelection(note.id)}
+                                            sx={{ mr: 1 }}
+                                        />
                                         <ListItemText
                                             primary={
                                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1133,10 +1203,10 @@ function EditMediaForm() {
                     )}
 
                     {/* Link Description */}
-                    {selectedNoteId && (
+                    {selectedNoteIds.size > 0 && (
                         <TextField
                             fullWidth
-                            placeholder="Optional: Describe how this note relates to this media..."
+                            placeholder="Optional: Describe how these notes relate to this media..."
                             value={linkDescription}
                             onChange={(e) => setLinkDescription(e.target.value)}
                             variant="outlined"
@@ -1165,9 +1235,9 @@ function EditMediaForm() {
                     <Button
                         onClick={handleLinkNote}
                         variant="contained"
-                        disabled={!selectedNoteId || savingNote}
+                        disabled={selectedNoteIds.size === 0 || savingNote}
                     >
-                        {savingNote ? 'Linking...' : 'Link Note'}
+                        {savingNote ? 'Linking...' : `Link${selectedNoteIds.size > 1 ? ` (${selectedNoteIds.size})` : ' Note'}`}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -1199,7 +1269,10 @@ function EditMediaForm() {
                 </DialogTitle>
                 <DialogContent>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        Select a mixlist to add "{formData.title}" to:
+                        Select mixlists to add "{formData.title}" to:
+                        {selectedMixlistIds.size > 0 && (
+                            <Chip label={`${selectedMixlistIds.size} selected`} size="small" color="success" sx={{ ml: 1 }} />
+                        )}
                     </Typography>
 
                     {/* Search Bar */}
@@ -1239,24 +1312,30 @@ function EditMediaForm() {
                             filteredAvailableMixlistsForDialog.map((mixlist) => (
                                 <ListItem
                                     key={mixlist.id}
-                                    onClick={() => setSelectedMixlistId(mixlist.id)}
+                                    onClick={() => toggleMixlistSelection(mixlist.id)}
                                     sx={{
                                         borderRadius: 1,
                                         mb: 1,
                                         cursor: 'pointer',
-                                        backgroundColor: selectedMixlistId === mixlist.id
+                                        backgroundColor: selectedMixlistIds.has(mixlist.id)
                                             ? 'rgba(25, 118, 210, 0.3)'
                                             : 'transparent',
-                                        border: selectedMixlistId === mixlist.id
+                                        border: selectedMixlistIds.has(mixlist.id)
                                             ? '2px solid rgba(25, 118, 210, 0.8)'
                                             : '1px solid rgba(255, 255, 255, 0.1)',
                                         '&:hover': {
-                                            backgroundColor: selectedMixlistId === mixlist.id
+                                            backgroundColor: selectedMixlistIds.has(mixlist.id)
                                                 ? 'rgba(25, 118, 210, 0.4)'
                                                 : 'rgba(255, 255, 255, 0.05)'
                                         }
                                     }}
                                 >
+                                    <Checkbox
+                                        checked={selectedMixlistIds.has(mixlist.id)}
+                                        onClick={(e) => e.stopPropagation()}
+                                        onChange={() => toggleMixlistSelection(mixlist.id)}
+                                        sx={{ mr: 1 }}
+                                    />
                                     <ListItemText
                                         primary={mixlist.name}
                                         secondary={mixlist.description || `${mixlist.mediaItems?.length || 0} items`}
@@ -1279,9 +1358,9 @@ function EditMediaForm() {
                     <Button
                         onClick={handleAddToMixlist}
                         sx={{ color: 'white' }}
-                        disabled={!selectedMixlistId || savingMixlist}
+                        disabled={selectedMixlistIds.size === 0 || savingMixlist}
                     >
-                        {savingMixlist ? 'Adding...' : 'Add'}
+                        {savingMixlist ? 'Adding...' : `Add${selectedMixlistIds.size > 1 ? ` (${selectedMixlistIds.size})` : ''}`}
                     </Button>
                 </DialogActions>
             </Dialog>
