@@ -32,7 +32,7 @@
 
 My MediaVerse is a comprehensive personal media library management application designed to help you track, organize, and discover content across multiple media formats. Whether you're tracking books you've read, podcasts you're listening to, movies on your watchlist, or articles you've saved, My MediaVerse brings everything together in one unified platform. 
 
-I created My MediaVerse after years of trying to organize my entertainment options, and not finding any existing tools that had the exact functionality that I wanted. I found platforms that would support specific types of media, such as movies, but none that could bring all of my options together. The placeholder name "Project Loopbreaker" partially came about because it's very easy to fall into a loop of pointless phone scrolling if you can't decide what you want to do - but having everything in one place could help avoid that. If I'm bored, I can just pull up one of my mixlists for the topic I'm interested at the time, and easily find something to read, watch, or listen to.
+I created My MediaVerse after years of trying to organize my entertainment options, and not finding any existing tools that had the exact functionality that I wanted. I found platforms that would support specific types of media, such as movies, but none that could bring all of my options together. The placeholder name "Project Loopbreaker" partially came about because it's easy to fall into a loop of pointless phone scrolling if you can't decide what you want to do - but having everything in one place could help avoid that. If I'm bored, I can just pull up one of my mixlists for the topic I'm interested in at the time, and easily find something to read, watch, or listen to.
 
 ### Who is it for?
 
