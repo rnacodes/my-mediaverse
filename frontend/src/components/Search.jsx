@@ -342,6 +342,7 @@ export default function Search() {
                         runtimeMinutes: doc.runtime_minutes || null,
                         lengthInSeconds: doc.length_in_seconds || null,
                         durationInSeconds: doc.duration_in_seconds || null,
+                        seriesId: doc.series_id || null,
                         podcastType: doc.podcast_type || null,
                         videoType: doc.video_type || null,
                         publication: doc.publication || null,

@@ -109,6 +109,12 @@ namespace ProjectLoopbreaker.Infrastructure.Models
         [JsonPropertyName("platform")]
         public string? Platform { get; set; }
 
+        /// <summary>
+        /// Series ID (for Podcast Episodes) - used to distinguish episodes from series in routing
+        /// </summary>
+        [JsonPropertyName("series_id")]
+        public string? SeriesId { get; set; }
+
         // Note: Vector embeddings are stored in PostgreSQL with pgvector, not in Typesense
     }
 }

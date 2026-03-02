@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import {
     Box, Card, CardContent, Typography, Button, Chip, CircularProgress,
-    Grid, Divider, Snackbar, Alert
+    Grid, Divider, Snackbar, Alert, Dialog, DialogTitle, DialogContent,
+    DialogContentText, DialogActions
 } from '@mui/material';
 import {
     ArrowBack as ArrowBackIcon,
@@ -10,17 +11,35 @@ import {
     FormatQuote as QuoteIcon,
     Star as StarIcon,
     Article as ArticleIcon,
-    Book as BookIcon
+    Book as BookIcon,
+    Delete as DeleteIcon
 } from '@mui/icons-material';
-import { getHighlightById } from '../api/highlightService';
+import { getHighlightById, deleteHighlight } from '../api/highlightService';
 
 function HighlightProfilePage() {
     const [highlight, setHighlight] = useState(null);
     const [loading, setLoading] = useState(true);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [deleting, setDeleting] = useState(false);
 
     const { id } = useParams();
     const navigate = useNavigate();
+
+    const handleDelete = async () => {
+        try {
+            setDeleting(true);
+            await deleteHighlight(id);
+            setSnackbar({ open: true, message: 'Highlight deleted successfully', severity: 'success' });
+            setTimeout(() => navigate(-1), 1000);
+        } catch (error) {
+            console.error('Error deleting highlight:', error);
+            setSnackbar({ open: true, message: 'Failed to delete highlight', severity: 'error' });
+        } finally {
+            setDeleting(false);
+            setDeleteDialogOpen(false);
+        }
+    };
 
     useEffect(() => {
         const fetchData = async () => {
@@ -114,7 +133,18 @@ function HighlightProfilePage() {
                 {/* Header with back button */}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                     <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} sx={{ color: 'white' }}>Back</Button>
-                    {highlight.isFavorite && <StarIcon sx={{ color: '#FFD700', fontSize: 28 }} />}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {highlight.isFavorite && <StarIcon sx={{ color: '#FFD700', fontSize: 28 }} />}
+                        <Button
+                            startIcon={<DeleteIcon />}
+                            onClick={() => setDeleteDialogOpen(true)}
+                            color="error"
+                            variant="outlined"
+                            size="small"
+                        >
+                            Delete
+                        </Button>
+                    </Box>
                 </Box>
 
                 {/* Main Card */}
@@ -252,6 +282,21 @@ function HighlightProfilePage() {
                     </CardContent>
                 </Card>
             </Box>
+
+            <Dialog open={deleteDialogOpen} onClose={() => !deleting && setDeleteDialogOpen(false)}>
+                <DialogTitle>Delete Highlight</DialogTitle>
+                <DialogContent>
+                    <DialogContentText>
+                        Are you sure you want to delete this highlight? This action cannot be undone.
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>Cancel</Button>
+                    <Button onClick={handleDelete} color="error" variant="contained" disabled={deleting}>
+                        {deleting ? 'Deleting...' : 'Delete'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
 
             <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
                 <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity}>{snackbar.message}</Alert>

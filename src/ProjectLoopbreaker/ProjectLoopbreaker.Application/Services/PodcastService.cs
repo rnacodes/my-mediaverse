@@ -321,10 +321,7 @@ namespace ProjectLoopbreaker.Application.Services
             await TypesenseIndexingHelper.IndexMediaItemAsync(
                 episode,
                 _typeSenseService,
-                new Dictionary<string, object>
-                {
-                    { "publisher", episode.Publisher ?? "" }
-                });
+                TypesenseIndexingHelper.GetPodcastEpisodeFields(episode));
 
             // Load the Series navigation property
             episode.Series = await _context.PodcastSeries

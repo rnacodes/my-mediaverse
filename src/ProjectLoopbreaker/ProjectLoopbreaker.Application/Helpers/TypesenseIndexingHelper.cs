@@ -154,6 +154,21 @@ namespace ProjectLoopbreaker.Application.Helpers
         }
 
         /// <summary>
+        /// Helper to extract additional fields for Podcast Episodes.
+        /// </summary>
+        public static Dictionary<string, object>? GetPodcastEpisodeFields(PodcastEpisode episode)
+        {
+            var fields = new Dictionary<string, object>();
+
+            if (!string.IsNullOrEmpty(episode.Publisher))
+                fields["publisher"] = episode.Publisher;
+
+            fields["series_id"] = episode.SeriesId.ToString();
+
+            return fields;
+        }
+
+        /// <summary>
         /// Helper to extract additional fields for Videos.
         /// </summary>
         public static Dictionary<string, object>? GetVideoFields(Video video)

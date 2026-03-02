@@ -35,7 +35,7 @@ import {
   Error as ErrorIcon,
   Info as InfoIcon,
 } from '@mui/icons-material';
-import { typesenseReindex, reindexMixlists, typesenseHealth, typesenseSearch, typesenseResetMediaItems, typesenseResetMixlists, reindexNotes, resetNotesCollection, getRealTimeIndexingStatus, setRealTimeIndexingStatus } from '../api/typesenseService';
+import { typesenseReindex, reindexMixlists, typesenseHealth, typesenseSearch, typesenseResetMediaItems, typesenseResetMixlists, reindexNotes, resetNotesCollection, reindexHighlights, resetHighlightsCollection, getRealTimeIndexingStatus, setRealTimeIndexingStatus } from '../api/typesenseService';
 import { findDuplicateArticles, deduplicateArticles } from '../api/articleService';
 import { syncAllVaults, getSyncStatus } from '../api/noteService';
 import { formatStatus } from '../utils/formatters';
@@ -91,6 +91,14 @@ const TypesenseAdminPage = () => {
   const [resetNotesResult, setResetNotesResult] = useState(null);
   const [resetNotesError, setResetNotesError] = useState(null);
   const [noteSyncStatus, setNoteSyncStatus] = useState(null);
+
+  // State for highlights reindex/reset
+  const [reindexingHighlights, setReindexingHighlights] = useState(false);
+  const [reindexHighlightsResult, setReindexHighlightsResult] = useState(null);
+  const [reindexHighlightsError, setReindexHighlightsError] = useState(null);
+  const [resettingHighlights, setResettingHighlights] = useState(false);
+  const [resetHighlightsResult, setResetHighlightsResult] = useState(null);
+  const [resetHighlightsError, setResetHighlightsError] = useState(null);
 
   // Check health and indexing status on component mount
   useEffect(() => {
@@ -327,6 +335,42 @@ const TypesenseAdminPage = () => {
     }
   };
 
+  // Handler for reindexing highlights
+  const handleReindexHighlights = async () => {
+    setReindexingHighlights(true);
+    setReindexHighlightsResult(null);
+    setReindexHighlightsError(null);
+
+    try {
+      const result = await reindexHighlights();
+      setReindexHighlightsResult(result);
+    } catch (error) {
+      setReindexHighlightsError(error.response?.data?.message || error.message || 'Failed to reindex highlights');
+    } finally {
+      setReindexingHighlights(false);
+    }
+  };
+
+  // Handler for resetting highlights collection
+  const handleResetHighlights = async () => {
+    if (!window.confirm('WARNING: This will delete ALL highlights from the search index! This action cannot be undone. Continue?')) {
+      return;
+    }
+
+    setResettingHighlights(true);
+    setResetHighlightsResult(null);
+    setResetHighlightsError(null);
+
+    try {
+      const result = await resetHighlightsCollection();
+      setResetHighlightsResult(result);
+    } catch (error) {
+      setResetHighlightsError(error.response?.data?.message || error.message || 'Failed to reset highlights collection');
+    } finally {
+      setResettingHighlights(false);
+    }
+  };
+
   // Fetch note sync status
   const fetchNoteSyncStatus = async () => {
     try {
@@ -509,6 +553,29 @@ const TypesenseAdminPage = () => {
               </CardContent>
             </Card>
           </Grid>
+
+          <Grid item xs={12} md={6}>
+            <Card variant="outlined">
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Reindex Highlights
+                </Typography>
+                <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+                  Syncs all Readwise highlights from your database to the search index.
+                </Typography>
+                <Button
+                  variant="contained"
+                  color="error"
+                  startIcon={reindexingHighlights ? <CircularProgress size={20} color="inherit" /> : <RefreshIcon />}
+                  onClick={handleReindexHighlights}
+                  disabled={reindexingHighlights}
+                  fullWidth
+                >
+                  {reindexingHighlights ? 'Reindexing...' : 'Reindex Highlights'}
+                </Button>
+              </CardContent>
+            </Card>
+          </Grid>
         </Grid>
 
         {/* Media Items Reindex Results */}
@@ -574,6 +641,38 @@ const TypesenseAdminPage = () => {
             </CardContent>
           </Card>
         )}
+
+        {/* Highlights Reindex Results */}
+        {reindexHighlightsError && (
+          <Alert severity="error" sx={{ mt: 2 }}>
+            <strong>Highlights Reindex Failed:</strong> {reindexHighlightsError}
+          </Alert>
+        )}
+
+        {reindexHighlightsResult && (
+          <Card variant="outlined" sx={{ mt: 2, bgcolor: 'success.light' }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: '#fcfafa' }}>
+                Highlights Reindex Complete
+              </Typography>
+
+              <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
+                <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'white' }}>
+                  {reindexHighlightsResult.indexed_count || reindexHighlightsResult.indexedCount || 0}
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  Highlights Indexed
+                </Typography>
+              </Box>
+
+              {reindexHighlightsResult.message && (
+                <Typography variant="body2" sx={{ mt: 2, fontStyle: 'italic' }}>
+                  {reindexHighlightsResult.message}
+                </Typography>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </Paper>
 
       {/* Reset Collections Section */}
@@ -634,6 +733,29 @@ const TypesenseAdminPage = () => {
               </CardContent>
             </Card>
           </Grid>
+
+          <Grid item xs={12} md={6}>
+            <Card variant="outlined">
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Reset Highlights
+                </Typography>
+                <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+                  Deletes and recreates the highlights collection. All indexed highlights will be removed from search.
+                </Typography>
+                <Button
+                  variant="contained"
+                  color="error"
+                  startIcon={resettingHighlights ? <CircularProgress size={20} color="inherit" /> : <RefreshIcon />}
+                  onClick={handleResetHighlights}
+                  disabled={resettingHighlights}
+                  fullWidth
+                >
+                  {resettingHighlights ? 'Resetting...' : 'Reset Highlights Collection'}
+                </Button>
+              </CardContent>
+            </Card>
+          </Grid>
         </Grid>
 
         {resetError && (
@@ -645,6 +767,18 @@ const TypesenseAdminPage = () => {
         {resetResult && (
           <Alert severity="success" sx={{ mt: 2 }}>
             <strong>✓ Reset Complete:</strong> {resetResult.message || 'Collection has been reset successfully.'}
+          </Alert>
+        )}
+
+        {resetHighlightsError && (
+          <Alert severity="error" sx={{ mt: 2 }}>
+            <strong>Highlights Reset Failed:</strong> {resetHighlightsError}
+          </Alert>
+        )}
+
+        {resetHighlightsResult && (
+          <Alert severity="success" sx={{ mt: 2 }}>
+            <strong>Reset Complete:</strong> {resetHighlightsResult.message || 'Highlights collection has been reset successfully.'}
           </Alert>
         )}
       </Paper>

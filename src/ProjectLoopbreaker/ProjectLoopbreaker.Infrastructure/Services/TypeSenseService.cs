@@ -86,7 +86,8 @@ namespace ProjectLoopbreaker.Infrastructure.Services
                     new Field("creator", FieldType.String, true, optional: true), // Searchable and facetable
                     new Field("publisher", FieldType.String, true, optional: true), // Searchable and facetable
                     new Field("release_year", FieldType.Int32, true, optional: true), // Facetable
-                    new Field("platform", FieldType.String, true, optional: true) // Facetable
+                    new Field("platform", FieldType.String, true, optional: true), // Facetable
+                    new Field("series_id", FieldType.String, false, optional: true, index: false) // For podcast episode routing
                     // Note: Vector embeddings are stored in PostgreSQL with pgvector for similarity search
                 })
                 {
@@ -156,6 +157,9 @@ namespace ProjectLoopbreaker.Infrastructure.Services
                     
                     if (additionalFields.TryGetValue("platform", out var platform))
                         document.Platform = platform?.ToString();
+
+                    if (additionalFields.TryGetValue("series_id", out var seriesId))
+                        document.SeriesId = seriesId?.ToString();
                 }
 
                 // Upsert: creates if new, updates if exists
@@ -290,10 +294,23 @@ namespace ProjectLoopbreaker.Infrastructure.Services
                             break;
 
                         case "Podcast":
-                            var podcast = await _context.PodcastSeries.AsNoTracking()
-                                .FirstOrDefaultAsync(p => p.Id == item.Id);
-                            if (podcast?.Publisher != null)
-                                additionalFields["publisher"] = podcast.Publisher;
+                            // Check if it's a podcast episode first (episodes have SeriesId)
+                            var episode = await _context.PodcastEpisodes.AsNoTracking()
+                                .FirstOrDefaultAsync(e => e.Id == item.Id);
+                            if (episode != null)
+                            {
+                                additionalFields["series_id"] = episode.SeriesId.ToString();
+                                if (episode.Publisher != null)
+                                    additionalFields["publisher"] = episode.Publisher;
+                            }
+                            else
+                            {
+                                // It's a podcast series
+                                var podcast = await _context.PodcastSeries.AsNoTracking()
+                                    .FirstOrDefaultAsync(p => p.Id == item.Id);
+                                if (podcast?.Publisher != null)
+                                    additionalFields["publisher"] = podcast.Publisher;
+                            }
                             break;
 
                         case "Video":
@@ -331,6 +348,8 @@ namespace ProjectLoopbreaker.Infrastructure.Services
                         document.ReleaseYear = Convert.ToInt32(releaseYear);
                     if (additionalFields.TryGetValue("platform", out var platform))
                         document.Platform = platform.ToString();
+                    if (additionalFields.TryGetValue("series_id", out var seriesId))
+                        document.SeriesId = seriesId.ToString();
 
                     documents.Add(document);
                 }
