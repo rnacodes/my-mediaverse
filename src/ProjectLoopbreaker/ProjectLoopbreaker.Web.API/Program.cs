@@ -732,6 +732,7 @@ builder.Services.AddHttpClient<ITraktApiClient, TraktApiClient>(client =>
     client.DefaultRequestHeaders.Add("trakt-api-version", "2");
     client.DefaultRequestHeaders.Add("User-Agent", "ProjectLoopbreaker/1.0");
 });
+builder.Services.AddScoped<ITraktSyncService, TraktSyncService>();
 
 // Configure DigitalOcean Spaces S3 Client (optional - won't break app if not configured)
 builder.Services.AddSingleton<IAmazonS3>(sp =>
