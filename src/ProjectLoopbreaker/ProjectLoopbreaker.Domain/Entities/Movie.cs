@@ -47,7 +47,22 @@ namespace ProjectLoopbreaker.Domain.Entities
         
         [StringLength(500)]
         public string? OriginalTitle { get; set; }
-        
+
+        // Trakt.tv integration fields
+        public int? TraktId { get; set; }
+
+        [StringLength(200)]
+        public string? TraktSlug { get; set; }
+
+        public int? TraktPlays { get; set; }
+
+        public DateTime? TraktLastWatchedAt { get; set; }
+
+        /// <summary>
+        /// Raw Trakt rating on 1-10 scale
+        /// </summary>
+        public int? TraktRating { get; set; }
+
         /// <summary>
         /// Gets the full TMDB backdrop URL
         /// </summary>
