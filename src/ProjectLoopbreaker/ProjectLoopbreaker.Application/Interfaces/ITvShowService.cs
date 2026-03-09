@@ -14,5 +14,12 @@ namespace ProjectLoopbreaker.Application.Interfaces
         Task<bool> DeleteTvShowAsync(Guid id);
         Task<bool> TvShowExistsAsync(string title, int? firstAirYear = null);
         Task<TvShow?> GetTvShowByTitleAndYearAsync(string title, int? firstAirYear = null);
+
+        // Episode methods
+        Task<IEnumerable<TvShowEpisode>> GetEpisodesByShowIdAsync(Guid showId);
+        Task<TvShowEpisode?> GetTvShowEpisodeByIdAsync(Guid id);
+        Task<TvShowEpisode> CreateTvShowEpisodeAsync(CreateTvShowEpisodeDto dto);
+        Task<bool> DeleteTvShowEpisodeAsync(Guid id);
+        Task<bool> TvShowEpisodeExistsAsync(Guid showId, int seasonNumber, int episodeNumber);
     }
 }
