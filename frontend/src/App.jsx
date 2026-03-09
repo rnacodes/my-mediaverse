@@ -40,6 +40,7 @@ import YouTubeChannelList from './components/YouTubeChannelList';
 import YouTubeChannelProfile from './components/YouTubeChannelProfile';
 import YouTubePlaylistProfile from './components/YouTubePlaylistProfile';
 import PodcastSeriesProfile from './components/PodcastSeriesProfile';
+import TvShowProfile from './components/TvShowProfile';
 import CleanupManagementPage from './components/CleanupManagementPage';
 import WebsiteImportPage from './components/WebsiteImportPage';
 import WebsitesPage from './components/WebsitesPage';
@@ -171,6 +172,9 @@ function App() {
             } />
             <Route path="/podcast-series/:id" element={
               <ConditionalProtectedRoute><PodcastSeriesProfile /></ConditionalProtectedRoute>
+            } />
+            <Route path="/tv-show/:id" element={
+              <ConditionalProtectedRoute><TvShowProfile /></ConditionalProtectedRoute>
             } />
             <Route path="/podcast-episode/:id" element={
               <ConditionalProtectedRoute><MediaProfilePage /></ConditionalProtectedRoute>

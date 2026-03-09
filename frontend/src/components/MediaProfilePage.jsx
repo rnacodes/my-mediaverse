@@ -123,11 +123,16 @@ function MediaProfilePage() {
             console.warn('Could not fetch detailed movie data, using basic data:', movieError);
           }
         } else if (basicMedia.mediaType === 'TVShow') {
+          // Check if this is a TV show (not an episode) and redirect to dedicated profile
           try {
             const tvShowResponse = await getTvShowById(id);
-            detailedMedia = { ...basicMedia, ...tvShowResponse.data };
+            if (tvShowResponse.data) {
+              navigate(`/tv-show/${id}`, { replace: true });
+              return;
+            }
           } catch (tvShowError) {
-            console.warn('Could not fetch detailed TV show data, using basic data:', tvShowError);
+            // Not a TV show parent, might be an episode - continue with generic profile
+            console.warn('Could not fetch as TV show, using generic profile:', tvShowError);
           }
         } else if (basicMedia.mediaType === 'Video') {
           try {

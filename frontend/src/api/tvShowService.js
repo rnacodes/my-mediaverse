@@ -51,3 +51,37 @@ export const searchTvShowsFromTmdb = async (query, page = 1) => {
         throw error;
     }
 };
+
+// ============================================
+// TV Show Episode API calls
+// ============================================
+
+export const getEpisodesByShowId = async (showId) => {
+    try {
+        const response = await apiClient.get(`/tvshow/${showId}/episodes`);
+        return response;
+    } catch (error) {
+        console.error('Error fetching TV show episodes:', error);
+        throw error;
+    }
+};
+
+export const getTvShowEpisodeById = async (id) => {
+    try {
+        const response = await apiClient.get(`/tvshow/episodes/${id}`);
+        return response;
+    } catch (error) {
+        console.error('Error fetching TV show episode:', error);
+        throw error;
+    }
+};
+
+export const deleteTvShowEpisode = async (id) => {
+    try {
+        const response = await apiClient.delete(`/tvshow/episodes/${id}`);
+        return response;
+    } catch (error) {
+        console.error('Error deleting TV show episode:', error);
+        throw error;
+    }
+};
