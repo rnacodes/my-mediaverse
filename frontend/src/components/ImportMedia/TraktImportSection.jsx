@@ -39,7 +39,7 @@ function TraktImportSection({ expanded, onAccordionChange }) {
                             sx={{
                                 minWidth: 'auto',
                                 textTransform: 'none',
-                                color: '#ed1c24',
+                                color: '#FFFFFF',
                                 '&:hover': { backgroundColor: 'transparent', textDecoration: 'underline' }
                             }}
                             onClick={(e) => e.stopPropagation()}
@@ -51,15 +51,17 @@ function TraktImportSection({ expanded, onAccordionChange }) {
             </AccordionSummary>
             <AccordionDetails>
                 <Box sx={{ padding: 2 }}>
-                    <Typography variant="body1" paragraph>
+                <div className="trakt-attribution">
+      <a href="https://trakt.tv" target="_blank" rel="noopener noreferrer">
+      <img src="/trakt-logo-dark.svg" alt="Trakt logo" style={{ height: '40px', width: 'auto' }} />
+      </a>
+      <br />
+      <p style={{ fontSize: '13px', marginTop: '0px' }}>  Powered by <a href="https://trakt.tv" target="_blank" rel="noopener noreferrer" style={{ color: '#FFFFFF' }}>Trakt</a></p>
+      </div>
+      <Typography variant="body1" paragraph>
                         Sync your movie and TV show data from Trakt:
                     </Typography>
-                    <Box component="ul" sx={{ mb: 2, pl: 3 }}>
-                        <li>
-                            <Typography variant="body2">
-                                Import watch history with play counts and dates
-                            </Typography>
-                        </li>
+      <Box component="ul" sx={{ mb: 2, pl: 3 }}>
                         <li>
                             <Typography variant="body2">
                                 Sync your watchlist as new items to explore

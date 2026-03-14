@@ -403,7 +403,11 @@ const TraktSyncPage = () => {
 
       {/* Trakt attribution */}
       <div className="trakt-attribution">
-        Powered by <a href="https://trakt.tv" target="_blank" rel="noopener noreferrer">Trakt</a>
+      <a href="https://trakt.tv" target="_blank" rel="noopener noreferrer">
+      <img src="/trakt-logo-dark.svg" alt="Trakt logo" style={{ height: '50px', width: 'auto' }} />
+      </a>
+      <br />
+      <p style={{ fontSize: '20px' }}>  Powered by <a href="https://trakt.tv" target="_blank" rel="noopener noreferrer">Trakt</a></p>
       </div>
     </div>
   );
