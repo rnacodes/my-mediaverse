@@ -315,6 +315,152 @@ namespace ProjectLoopbreaker.Application.Services
             }
         }
 
+        // Episode methods
+
+        public async Task<IEnumerable<TvShowEpisode>> GetEpisodesByShowIdAsync(Guid showId)
+        {
+            try
+            {
+                return await _context.TvShowEpisodes
+                    .AsNoTracking()
+                    .Where(e => e.ShowId == showId)
+                    .Include(e => e.Show)
+                    .OrderBy(e => e.SeasonNumber)
+                    .ThenBy(e => e.EpisodeNumber)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while retrieving episodes for TV show {ShowId}", showId);
+                throw;
+            }
+        }
+
+        public async Task<TvShowEpisode?> GetTvShowEpisodeByIdAsync(Guid id)
+        {
+            try
+            {
+                return await _context.TvShowEpisodes
+                    .AsNoTracking()
+                    .Include(e => e.Show)
+                    .FirstOrDefaultAsync(e => e.Id == id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while retrieving TV show episode with ID {Id}", id);
+                throw;
+            }
+        }
+
+        public async Task<TvShowEpisode> CreateTvShowEpisodeAsync(CreateTvShowEpisodeDto dto)
+        {
+            try
+            {
+                if (dto == null)
+                {
+                    throw new ArgumentNullException(nameof(dto), "TV show episode data is required");
+                }
+
+                // Verify parent show exists
+                var showExists = await _context.TvShows.AnyAsync(s => s.Id == dto.ShowId);
+                if (!showExists)
+                {
+                    throw new ArgumentException($"TV show with ID {dto.ShowId} not found.", nameof(dto.ShowId));
+                }
+
+                // Check for duplicate episode
+                if (dto.SeasonNumber.HasValue && dto.EpisodeNumber.HasValue)
+                {
+                    if (await TvShowEpisodeExistsAsync(dto.ShowId, dto.SeasonNumber.Value, dto.EpisodeNumber.Value))
+                    {
+                        _logger.LogWarning("TV show episode already exists: S{Season}E{Episode} for show {ShowId}",
+                            dto.SeasonNumber, dto.EpisodeNumber, dto.ShowId);
+                        var existing = await _context.TvShowEpisodes
+                            .Include(e => e.Show)
+                            .FirstOrDefaultAsync(e => e.ShowId == dto.ShowId
+                                && e.SeasonNumber == dto.SeasonNumber
+                                && e.EpisodeNumber == dto.EpisodeNumber);
+                        if (existing != null) return existing;
+                    }
+                }
+
+                var episode = new TvShowEpisode
+                {
+                    Title = dto.Title,
+                    MediaType = MediaType.TVShow,
+                    Link = dto.Link,
+                    Notes = dto.Notes,
+                    Status = dto.Status,
+                    DateAdded = DateTime.UtcNow,
+                    DateCompleted = dto.DateCompleted,
+                    Rating = dto.Rating,
+                    OwnershipStatus = dto.OwnershipStatus,
+                    Description = dto.Description,
+                    RelatedNotes = dto.RelatedNotes,
+                    Thumbnail = dto.Thumbnail,
+                    ShowId = dto.ShowId,
+                    SeasonNumber = dto.SeasonNumber,
+                    EpisodeNumber = dto.EpisodeNumber,
+                    AirDate = dto.AirDate,
+                    DurationInMinutes = dto.DurationInMinutes,
+                    TmdbEpisodeId = dto.TmdbEpisodeId,
+                    StillPath = dto.StillPath
+                };
+
+                _context.Add(episode);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Successfully created TV show episode: {Title} ({Identifier}) for show {ShowId}",
+                    episode.Title, episode.GetEpisodeIdentifier(), episode.ShowId);
+                return episode;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while creating TV show episode");
+                throw;
+            }
+        }
+
+        public async Task<bool> DeleteTvShowEpisodeAsync(Guid id)
+        {
+            try
+            {
+                var episode = await _context.FindAsync<TvShowEpisode>(id);
+                if (episode == null)
+                {
+                    return false;
+                }
+
+                _context.Remove(episode);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Successfully deleted TV show episode with ID {Id}", id);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while deleting TV show episode with ID {Id}", id);
+                throw;
+            }
+        }
+
+        public async Task<bool> TvShowEpisodeExistsAsync(Guid showId, int seasonNumber, int episodeNumber)
+        {
+            try
+            {
+                return await _context.TvShowEpisodes
+                    .AnyAsync(e => e.ShowId == showId
+                        && e.SeasonNumber == seasonNumber
+                        && e.EpisodeNumber == episodeNumber);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking if TV show episode exists: S{Season}E{Episode} for show {ShowId}",
+                    seasonNumber, episodeNumber, showId);
+                throw;
+            }
+        }
+
         private async Task HandleTopicsAsync(TvShow tvShow, string[]? topics)
         {
             if (topics == null || topics.Length == 0)

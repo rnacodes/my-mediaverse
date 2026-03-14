@@ -28,6 +28,8 @@ namespace ProjectLoopbreaker.Domain.Interfaces
         IQueryable<MediaItemNote> MediaItemNotes { get; }
         IQueryable<MixlistNote> MixlistNotes { get; }
         IQueryable<MediaItemRelation> MediaItemRelations { get; }
+        IQueryable<TvShowEpisode> TvShowEpisodes { get; }
+        IQueryable<TraktToken> TraktTokens { get; }
 
         // Basic operations
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);

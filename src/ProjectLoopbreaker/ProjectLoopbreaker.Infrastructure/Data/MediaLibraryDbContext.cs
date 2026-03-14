@@ -31,6 +31,8 @@ namespace ProjectLoopbreaker.Infrastructure.Data
         public DbSet<MediaItemNote> MediaItemNotes { get; set; }
         public DbSet<MixlistNote> MixlistNotes { get; set; }
         public DbSet<MediaItemRelation> MediaItemRelations { get; set; }
+        public DbSet<TvShowEpisode> TvShowEpisodes { get; set; }
+        public DbSet<TraktToken> TraktTokens { get; set; }
 
         // IApplicationDbContext interface implementations
         IQueryable<BaseMediaItem> IApplicationDbContext.MediaItems => MediaItems;
@@ -54,6 +56,8 @@ namespace ProjectLoopbreaker.Infrastructure.Data
         IQueryable<MediaItemNote> IApplicationDbContext.MediaItemNotes => MediaItemNotes;
         IQueryable<MixlistNote> IApplicationDbContext.MixlistNotes => MixlistNotes;
         IQueryable<MediaItemRelation> IApplicationDbContext.MediaItemRelations => MediaItemRelations;
+        IQueryable<TvShowEpisode> IApplicationDbContext.TvShowEpisodes => TvShowEpisodes;
+        IQueryable<TraktToken> IApplicationDbContext.TraktTokens => TraktTokens;
 
 
         public MediaLibraryDbContext(DbContextOptions<MediaLibraryDbContext> options) : base(options) { }
@@ -293,6 +297,7 @@ namespace ProjectLoopbreaker.Infrastructure.Data
             modelBuilder.Entity<Article>().ToTable("Articles");
             modelBuilder.Entity<Website>().ToTable("Websites");
             modelBuilder.Entity<Document>().ToTable("Documents");
+            modelBuilder.Entity<TvShowEpisode>().ToTable("TvShowEpisodes");
 
             // Configure PodcastSeries specific properties
             modelBuilder.Entity<PodcastSeries>(entity =>
@@ -345,6 +350,40 @@ namespace ProjectLoopbreaker.Infrastructure.Data
                 
                 // Create index on ReleaseDate for chronological queries
                 entity.HasIndex(e => e.ReleaseDate);
+            });
+
+            // Configure TvShowEpisode specific properties
+            modelBuilder.Entity<TvShowEpisode>(entity =>
+            {
+                entity.Property(e => e.StillPath)
+                    .HasMaxLength(2000);
+
+                // Configure relationship with TvShow
+                entity.HasOne(e => e.Show)
+                    .WithMany(s => s.Episodes)
+                    .HasForeignKey(e => e.ShowId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                // Indexes for query performance
+                entity.HasIndex(e => e.ShowId);
+                entity.HasIndex(e => e.TmdbEpisodeId);
+                entity.HasIndex(e => e.AirDate);
+            });
+
+            // Configure TraktToken table (not a media item, standalone table)
+            modelBuilder.Entity<TraktToken>(entity =>
+            {
+                entity.ToTable("TraktTokens");
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.AccessToken)
+                    .IsRequired();
+
+                entity.Property(e => e.RefreshToken)
+                    .IsRequired();
+
+                entity.Property(e => e.TraktUsername)
+                    .HasMaxLength(200);
             });
 
             // Configure Book specific properties

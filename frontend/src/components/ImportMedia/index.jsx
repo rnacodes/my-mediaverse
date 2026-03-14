@@ -10,6 +10,7 @@ import BookImportSection from './BookImportSection';
 import TmdbImportSection from './TmdbImportSection';
 import PodcastImportSection from './PodcastImportSection';
 import ReadwiseImportSection from './ReadwiseImportSection';
+import TraktImportSection from './TraktImportSection';
 import WebsiteImportSection from './WebsiteImportSection';
 import YouTubeImportSection from './YouTubeImportSection';
 
@@ -64,6 +65,12 @@ function ImportMediaPage() {
 
             {/* Readwise Import Section */}
             <ReadwiseImportSection
+                expanded={expanded}
+                onAccordionChange={handleAccordionChange}
+            />
+
+            {/* Trakt Import Section */}
+            <TraktImportSection
                 expanded={expanded}
                 onAccordionChange={handleAccordionChange}
             />

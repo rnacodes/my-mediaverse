@@ -307,6 +307,123 @@ namespace ProjectLoopbreaker.Web.API.Controllers
             }
         }
 
+        // GET: api/tvshow/{showId}/episodes
+        [HttpGet("{showId}/episodes")]
+        public async Task<ActionResult<IEnumerable<TvShowEpisodeResponseDto>>> GetEpisodesByShowId(Guid showId)
+        {
+            try
+            {
+                var episodes = await _tvShowService.GetEpisodesByShowIdAsync(showId);
+
+                var response = episodes.Select(e => MapEpisodeToResponseDto(e));
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while retrieving episodes for TV show {ShowId}", showId);
+                return StatusCode(500, new { error = "Failed to retrieve TV show episodes", details = ex.Message });
+            }
+        }
+
+        // GET: api/tvshow/episodes/{id}
+        [HttpGet("episodes/{id}")]
+        public async Task<ActionResult<TvShowEpisodeResponseDto>> GetTvShowEpisode(Guid id)
+        {
+            try
+            {
+                var episode = await _tvShowService.GetTvShowEpisodeByIdAsync(id);
+
+                if (episode == null)
+                {
+                    return NotFound($"TV show episode with ID {id} not found.");
+                }
+
+                return Ok(MapEpisodeToResponseDto(episode));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while retrieving TV show episode with ID {Id}", id);
+                return StatusCode(500, new { error = "Failed to retrieve TV show episode", details = ex.Message });
+            }
+        }
+
+        // POST: api/tvshow/episodes
+        [HttpPost("episodes")]
+        public async Task<IActionResult> CreateTvShowEpisode([FromBody] CreateTvShowEpisodeDto dto)
+        {
+            try
+            {
+                if (dto == null)
+                {
+                    return BadRequest("TV show episode data is required");
+                }
+
+                var episode = await _tvShowService.CreateTvShowEpisodeAsync(dto);
+
+                return CreatedAtAction(nameof(GetTvShowEpisode), new { id = episode.Id }, MapEpisodeToResponseDto(episode));
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while creating TV show episode");
+                return StatusCode(500, new { error = "Failed to create TV show episode", details = ex.Message });
+            }
+        }
+
+        // DELETE: api/tvshow/episodes/{id}
+        [HttpDelete("episodes/{id}")]
+        public async Task<IActionResult> DeleteTvShowEpisode(Guid id)
+        {
+            try
+            {
+                var deleted = await _tvShowService.DeleteTvShowEpisodeAsync(id);
+
+                if (!deleted)
+                {
+                    return NotFound($"TV show episode with ID {id} not found.");
+                }
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while deleting TV show episode with ID {Id}", id);
+                return StatusCode(500, new { error = "Failed to delete TV show episode", details = ex.Message });
+            }
+        }
+
+        private static TvShowEpisodeResponseDto MapEpisodeToResponseDto(TvShowEpisode episode)
+        {
+            return new TvShowEpisodeResponseDto
+            {
+                Id = episode.Id,
+                Title = episode.Title,
+                Description = episode.Description,
+                MediaType = episode.MediaType,
+                Status = episode.Status,
+                DateAdded = episode.DateAdded,
+                DateCompleted = episode.DateCompleted,
+                Rating = episode.Rating,
+                Link = episode.Link,
+                Thumbnail = episode.GetEffectiveThumbnail(),
+                ShowId = episode.ShowId,
+                ShowTitle = episode.Show?.Title,
+                SeasonNumber = episode.SeasonNumber,
+                EpisodeNumber = episode.EpisodeNumber,
+                AirDate = episode.AirDate,
+                DurationInMinutes = episode.DurationInMinutes,
+                TmdbEpisodeId = episode.TmdbEpisodeId,
+                TraktEpisodeId = episode.TraktEpisodeId,
+                StillPath = episode.StillPath,
+                TraktPlays = episode.TraktPlays,
+                TraktLastWatchedAt = episode.TraktLastWatchedAt,
+                EpisodeIdentifier = episode.GetEpisodeIdentifier()
+            };
+        }
+
         // GET: api/tvshow/search-tmdb
         [HttpGet("search-tmdb")]
         public async Task<ActionResult<IEnumerable<TvShowSearchResultDto>>> SearchTmdbTvShows([FromQuery] string query, [FromQuery] int page = 1)

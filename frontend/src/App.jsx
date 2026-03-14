@@ -31,6 +31,7 @@ import DemoPage from './components/DemoPage';
 import UploadMediaPage from './components/UploadMediaPage';
 import YouTubeCallback from './pages/YouTubeCallback';
 import ReadwiseSyncPage from './components/ReadwiseSyncPage';
+import TraktSyncPage from './components/TraktSyncPage';
 import HighlightLinkingPage from './components/HighlightLinkingPage';
 import ArticlesPage from './components/ArticlesPage';
 import DocumentsPage from './components/DocumentsPage';
@@ -39,6 +40,7 @@ import YouTubeChannelList from './components/YouTubeChannelList';
 import YouTubeChannelProfile from './components/YouTubeChannelProfile';
 import YouTubePlaylistProfile from './components/YouTubePlaylistProfile';
 import PodcastSeriesProfile from './components/PodcastSeriesProfile';
+import TvShowProfile from './components/TvShowProfile';
 import CleanupManagementPage from './components/CleanupManagementPage';
 import WebsiteImportPage from './components/WebsiteImportPage';
 import WebsitesPage from './components/WebsitesPage';
@@ -144,6 +146,9 @@ function App() {
             <Route path="/readwise-sync" element={
               <ConditionalProtectedRoute><ReadwiseSyncPage /></ConditionalProtectedRoute>
             } />
+            <Route path="/trakt-sync" element={
+              <ConditionalProtectedRoute><TraktSyncPage /></ConditionalProtectedRoute>
+            } />
             <Route path="/highlight-linking" element={
               <ConditionalProtectedRoute><HighlightLinkingPage /></ConditionalProtectedRoute>
             } />
@@ -167,6 +172,9 @@ function App() {
             } />
             <Route path="/podcast-series/:id" element={
               <ConditionalProtectedRoute><PodcastSeriesProfile /></ConditionalProtectedRoute>
+            } />
+            <Route path="/tv-show/:id" element={
+              <ConditionalProtectedRoute><TvShowProfile /></ConditionalProtectedRoute>
             } />
             <Route path="/podcast-episode/:id" element={
               <ConditionalProtectedRoute><MediaProfilePage /></ConditionalProtectedRoute>

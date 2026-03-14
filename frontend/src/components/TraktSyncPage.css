@@ -1,0 +1,420 @@
+/* Trakt Sync Page - reuses ReadwiseSyncPage patterns */
+
+.trakt-sync-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+}
+
+.trakt-sync-page .page-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.trakt-sync-page .page-header h1 {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+  color: #ffffff;
+}
+
+.trakt-sync-page .subtitle {
+  font-size: 1rem;
+  color: #ffffff;
+  margin: 0;
+}
+
+.trakt-sync-page .sync-section {
+  margin-bottom: 2.5rem;
+  padding: 2rem;
+  border: 1px solid #4f3a7a;
+  border-radius: 12px;
+  background: #474350;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.trakt-sync-page .sync-section h2 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  color: #fcfafa;
+  font-size: 1.5rem;
+}
+
+.trakt-sync-page .sync-section p {
+  color: #fcfafa;
+  margin-bottom: 1.5rem;
+}
+
+.trakt-sync-page .sync-buttons {
+  display: flex;
+  gap: 1rem;
+  margin: 1.5rem 0;
+  flex-wrap: wrap;
+}
+
+.trakt-sync-page .btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.trakt-sync-page .btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  animation: trakt-pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.trakt-sync-page .btn-primary {
+  background-color: #362759;
+  color: #fcfafa;
+}
+
+.trakt-sync-page .btn-primary:hover:not(:disabled) {
+  background-color: #4f3a7a;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(54, 39, 89, 0.4);
+}
+
+.trakt-sync-page .btn-secondary {
+  background-color: #362759;
+  color: #fcfafa;
+}
+
+.trakt-sync-page .btn-secondary:hover:not(:disabled) {
+  background-color: #4f3a7a;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(54, 39, 89, 0.4);
+}
+
+.trakt-sync-page .btn-danger {
+  background-color: #c62828;
+  color: #fcfafa;
+}
+
+.trakt-sync-page .btn-danger:hover:not(:disabled) {
+  background-color: #e53935;
+  transform: translateY(-1px);
+}
+
+/* Connection Status */
+.trakt-sync-page .connection-status {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-weight: 500;
+}
+
+.trakt-sync-page .connection-status.connected {
+  background-color: rgba(76, 175, 80, 0.2);
+  color: #4caf50;
+  border: 1px solid #4caf50;
+}
+
+.trakt-sync-page .connection-status.disconnected {
+  background-color: rgba(244, 67, 54, 0.2);
+  color: #f44336;
+  border: 1px solid #f44336;
+}
+
+.trakt-sync-page .status-icon {
+  font-size: 1.5rem;
+}
+
+.trakt-sync-page .status-message {
+  flex: 1;
+}
+
+.trakt-sync-page .status-username {
+  font-weight: 600;
+  color: #fcfafa;
+}
+
+/* Device Auth */
+.trakt-sync-page .device-auth-panel {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  background: rgba(54, 39, 89, 0.3);
+  border-radius: 8px;
+  border: 1px solid #4f3a7a;
+  text-align: center;
+}
+
+.trakt-sync-page .device-code-display {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #ffc107;
+  letter-spacing: 0.2em;
+  margin: 1rem 0;
+  font-family: 'Courier New', monospace;
+}
+
+.trakt-sync-page .device-auth-panel p {
+  color: #fcfafa;
+  margin-bottom: 0.75rem;
+}
+
+.trakt-sync-page .device-auth-panel a {
+  color: #ffc107;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.trakt-sync-page .device-auth-panel a:hover {
+  color: #ffca28;
+}
+
+.trakt-sync-page .polling-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  color: #fcfafa;
+  opacity: 0.8;
+  font-size: 0.875rem;
+}
+
+/* Sync Results */
+.trakt-sync-page .sync-result {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  background: rgba(54, 39, 89, 0.3);
+  border-radius: 8px;
+  border-left: 4px solid #362759;
+}
+
+.trakt-sync-page .sync-result.success {
+  border-left-color: #4caf50;
+  background-color: rgba(76, 175, 80, 0.15);
+}
+
+.trakt-sync-page .sync-result.error {
+  border-left-color: #f44336;
+  background-color: rgba(244, 67, 54, 0.15);
+}
+
+.trakt-sync-page .sync-result h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: #fcfafa;
+  font-size: 1.125rem;
+}
+
+.trakt-sync-page .result-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.trakt-sync-page .result-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.trakt-sync-page .result-item.full-width {
+  grid-column: 1 / -1;
+}
+
+.trakt-sync-page .result-label {
+  font-size: 1rem;
+  color: #fcfafa;
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+.trakt-sync-page .result-value {
+  font-size: 1rem;
+  color: #fcfafa;
+  font-weight: 600;
+}
+
+/* Alerts */
+.trakt-sync-page .alert {
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.trakt-sync-page .alert-error {
+  background-color: rgba(244, 67, 54, 0.2);
+  color: #f44336;
+  border: 1px solid #f44336;
+}
+
+.trakt-sync-page .alert strong {
+  font-weight: 600;
+}
+
+/* Status Mapping Info */
+.trakt-sync-page .status-mapping-info {
+  background: rgba(54, 39, 89, 0.3);
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  color: #fcfafa;
+}
+
+.trakt-sync-page .status-mapping-info strong {
+  display: block;
+  margin-bottom: 0.75rem;
+  font-size: 1rem;
+}
+
+.trakt-sync-page .status-mapping-info ul {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.trakt-sync-page .status-mapping-info li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.trakt-sync-page .status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.trakt-sync-page .status-badge.completed {
+  background-color: rgba(76, 175, 80, 0.3);
+  color: #4caf50;
+  border: 1px solid #4caf50;
+}
+
+.trakt-sync-page .status-badge.uncharted {
+  background-color: rgba(255, 193, 7, 0.3);
+  color: #ffc107;
+  border: 1px solid #ffc107;
+}
+
+/* Info Box */
+.trakt-sync-page .info-box {
+  background: linear-gradient(135deg, #362759 0%, #4f3a7a 100%);
+  color: #fcfafa;
+  padding: 2rem;
+  border-radius: 12px;
+  margin-top: 3rem;
+  border: 1px solid #4f3a7a;
+}
+
+.trakt-sync-page .info-box h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  font-size: 1.25rem;
+}
+
+.trakt-sync-page .info-box ul {
+  margin: 0;
+  padding-left: 1.5rem;
+  list-style: none;
+}
+
+.trakt-sync-page .info-box li {
+  margin-bottom: 0.75rem;
+  position: relative;
+  padding-left: 0.5rem;
+}
+
+.trakt-sync-page .info-box li::before {
+  content: "\2192";
+  position: absolute;
+  left: -1rem;
+  font-weight: bold;
+}
+
+.trakt-sync-page .info-box strong {
+  font-weight: 600;
+}
+
+/* Error list */
+.trakt-sync-page .error-list {
+  margin-top: 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.trakt-sync-page .error-list li {
+  color: #f44336;
+  font-size: 0.875rem;
+  padding: 0.25rem 0;
+}
+
+/* Trakt attribution */
+.trakt-sync-page .trakt-attribution {
+  text-align: center;
+  margin-top: 2rem;
+  padding: 1rem;
+  color: #fcfafa;
+  opacity: 0.7;
+  font-size: 0.875rem;
+}
+
+.trakt-sync-page .trakt-attribution a {
+  color: #ed1c24;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.trakt-sync-page .trakt-attribution a:hover {
+  text-decoration: underline;
+}
+
+/* Animations */
+@keyframes trakt-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .trakt-sync-page {
+    padding: 1rem;
+  }
+
+  .trakt-sync-page .page-header h1 {
+    font-size: 2rem;
+  }
+
+  .trakt-sync-page .sync-section {
+    padding: 1.5rem;
+  }
+
+  .trakt-sync-page .sync-buttons {
+    flex-direction: column;
+  }
+
+  .trakt-sync-page .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .trakt-sync-page .result-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .trakt-sync-page .device-code-display {
+    font-size: 1.75rem;
+  }
+}

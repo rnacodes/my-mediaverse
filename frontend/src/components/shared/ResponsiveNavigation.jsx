@@ -60,7 +60,8 @@ import {
   FormatQuote,
   AddLink,
   LockOpen,
-  PlaylistAdd
+  PlaylistAdd,
+  Phonelink
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -136,7 +137,8 @@ const ResponsiveNavigation = () => {
     { text: 'Import Website', path: '/import-website', icon: <Language /> },
     { text: 'Bulk Upload', path: '/upload-media', icon: <Upload /> },
     { text: 'Create Mixlist', path: '/create-mixlist', icon: <PlaylistAdd /> },
-    { text: 'Readwise Sync', path: '/readwise-sync', icon: <Sync />, requiresAuth: true }
+    { text: 'Readwise Sync', path: '/readwise-sync', icon: <Sync />, requiresAuth: true },
+    { text: 'Trakt Sync', path: '/trakt-sync', icon: <Phonelink />, requiresAuth: true }
   ];
 
   const adminMenuItems = [
