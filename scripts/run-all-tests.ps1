@@ -9,7 +9,7 @@ if (!(Test-Path "logs")) {
     New-Item -ItemType Directory -Path "logs" -Force | Out-Null
 }
 
-Write-Host "Running All ProjectLoopbreaker Tests..." -ForegroundColor Green
+Write-Host "Running All MyMediaVerse Tests..." -ForegroundColor Green
 Write-Host "Master log file: $masterLogFile" -ForegroundColor Cyan
 
 # Function to log and display results
@@ -25,7 +25,7 @@ function Write-MasterResult {
 
 # Initialize master log
 Write-MasterResult "=========================================" "Green"
-Write-MasterResult "ProjectLoopbreaker Master Test Run Started" "Green"
+Write-MasterResult "MyMediaVerse Master Test Run Started" "Green"
 Write-MasterResult "Timestamp: $(Get-Date)" "Green"
 Write-MasterResult "=========================================" "Green"
 

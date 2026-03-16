@@ -1,5 +1,5 @@
 -- ============================================
--- Database Cleanup Scripts for ProjectLoopbreaker
+-- Database Cleanup Scripts for MyMediaVerse
 -- ============================================
 -- These scripts allow you to clean up test data from your database
 -- Run individual sections as needed during development/testing

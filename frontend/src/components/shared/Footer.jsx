@@ -53,7 +53,7 @@ const Footer = () => {
             }}
           >
             <Link
-              href="https://github.com/rnacodes/project-loopbreaker"
+              href="https://github.com/rnacodes/MyMediaVerse"
               target="_blank"
               rel="noopener noreferrer"
               sx={{

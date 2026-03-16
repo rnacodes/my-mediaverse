@@ -1,5 +1,5 @@
 -- ============================================================================
--- ProjectLoopbreaker Database - DELETE ALL DATA
+-- MyMediaVerse Database - DELETE ALL DATA
 -- ============================================================================
 -- WARNING: This script will DELETE ALL DATA from your database!
 -- Use this only when you want to completely reset your database.

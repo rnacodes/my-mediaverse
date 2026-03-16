@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     This script splits a large Goodreads CSV export into smaller chunks and uploads
-    them to the ProjectLoopbreaker API with configurable delays between batches.
+    them to the MyMediaVerse API with configurable delays between batches.
     This is useful for very large libraries (thousands of books) to avoid timeouts.
 
 .PARAMETER CsvPath
@@ -41,7 +41,7 @@
     Imports to a remote API endpoint.
 
 .NOTES
-    Author: ProjectLoopbreaker
+    Author: MyMediaVerse
     Requires: PowerShell 5.1 or later
 #>
 

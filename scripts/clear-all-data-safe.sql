@@ -1,5 +1,5 @@
 -- ============================================================================
--- ProjectLoopbreaker Database - DELETE ALL DATA (SAFE VERSION)
+-- MyMediaVerse Database - DELETE ALL DATA (SAFE VERSION)
 -- ============================================================================
 -- This version checks if tables exist before trying to delete from them
 -- ============================================================================

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Batch CSV Upload Script for ProjectLoopbreaker
+Batch CSV Upload Script for MyMediaVerse
 
 This script allows you to upload large CSV files in smaller batches
 to avoid timeouts and make the process more manageable.
@@ -31,7 +31,7 @@ from typing import List, Dict, Any
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
-        description='Batch CSV Upload for ProjectLoopbreaker',
+        description='Batch CSV Upload for MyMediaVerse',
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
     
@@ -117,7 +117,7 @@ def main():
     args = parse_args()
     
     print('=' * 60)
-    print('Batch CSV Upload for ProjectLoopbreaker')
+    print('Batch CSV Upload for MyMediaVerse')
     print('=' * 60)
     print(f"CSV File:       {args.csv_file}")
     print(f"Batch Size:     {args.batch_size} rows")

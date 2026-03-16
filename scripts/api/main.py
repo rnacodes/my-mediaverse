@@ -41,7 +41,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="ProjectLoopbreaker Script Runner",
+    title="MyMediaVerse Script Runner",
     description="API for executing and monitoring normalization scripts",
     version="1.0.0",
     lifespan=lifespan
@@ -72,7 +72,7 @@ app.include_router(ai_test.router, prefix="/ai-test", tags=["AI Testing"])
 async def root():
     """Root endpoint with basic API info."""
     return {
-        "service": "ProjectLoopbreaker Script Runner",
+        "service": "MyMediaVerse Script Runner",
         "version": "1.0.0",
         "docs": "/docs",
         "health": "/health"
