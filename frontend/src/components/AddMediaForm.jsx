@@ -634,7 +634,7 @@ function AddMediaForm() {
                                 color: '#ffffff'
                             }
                         }}
-                        helperText="Will auto-convert to PLB rating if not set manually"
+                        helperText="Will auto-convert to MMV rating if not set manually"
                     />
 
                     {/* Format */}

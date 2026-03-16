@@ -1,6 +1,6 @@
 # Batch CSV Upload Scripts
 
-These scripts allow you to upload large CSV files to ProjectLoopbreaker in smaller batches to avoid timeouts and make the process more manageable.
+These scripts allow you to upload large CSV files to MyMediaVerse in smaller batches to avoid timeouts and make the process more manageable.
 
 ## Available Scripts
 
@@ -103,7 +103,7 @@ node scripts/batch-csv-upload.js media.csv --auth-token "eyJhbGciOiJIUzI1NiIs...
 
 ```
 ============================================================
-Batch CSV Upload for ProjectLoopbreaker
+Batch CSV Upload for MyMediaVerse
 ============================================================
 CSV File:       books.csv
 Batch Size:     10 rows

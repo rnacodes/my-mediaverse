@@ -1,6 +1,6 @@
 # Database Cleanup Scripts
 
-This directory contains SQL cleanup scripts and backend API endpoints for managing test data in your ProjectLoopbreaker database.
+This directory contains SQL cleanup scripts and backend API endpoints for managing test data in your MyMediaVerse database.
 
 ## Overview
 
@@ -14,13 +14,13 @@ The easiest way to cleanup data is through the frontend UI:
 
 1. Start your backend API (if not running):
    ```powershell
-   cd C:\Users\rashi\source\repos\ProjectLoopbreaker\src\ProjectLoopbreaker\ProjectLoopbreaker.Web.API
+   cd C:\Users\rashi\source\repos\MyMediaVerse\src\MyMediaVerse\MyMediaVerse.Web.API
    dotnet run
    ```
 
 2. Start your frontend (if not running):
    ```powershell
-   cd C:\Users\rashi\source\repos\ProjectLoopbreaker\frontend
+   cd C:\Users\rashi\source\repos\MyMediaVerse\frontend
    npm start
    ```
 
@@ -99,7 +99,7 @@ For advanced users or direct database access, you can run the SQL scripts in `cl
 **To run a specific cleanup:**
 
 1. Open your PostgreSQL client (pgAdmin, DBeaver, etc.)
-2. Connect to your ProjectLoopbreaker database
+2. Connect to your MyMediaVerse database
 3. Copy the relevant section from `cleanup-scripts.sql`
 4. Execute the SQL code
 
@@ -221,6 +221,6 @@ If you encounter issues with cleanup operations:
 
 - `cleanup-scripts.sql` - Raw SQL scripts for direct database execution
 - `README-CLEANUP.md` - This documentation
-- Backend: `ProjectLoopbreaker.Web.API/Controllers/DevController.cs` - API endpoints
+- Backend: `MyMediaVerse.Web.API/Controllers/DevController.cs` - API endpoints
 - Frontend: `frontend/src/components/CleanupManagementPage.jsx` - UI page
 

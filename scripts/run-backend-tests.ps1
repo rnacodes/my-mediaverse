@@ -9,7 +9,7 @@ if (!(Test-Path "logs")) {
     New-Item -ItemType Directory -Path "logs" -Force | Out-Null
 }
 
-Write-Host "Running ProjectLoopbreaker Backend Tests..." -ForegroundColor Green
+Write-Host "Running MyMediaVerse Backend Tests..." -ForegroundColor Green
 Write-Host "Log file: $logFile" -ForegroundColor Cyan
 
 # Function to log and display results
@@ -116,7 +116,7 @@ Write-TestResult "=========================================" "Green"
 
 # Build the solution first
 Write-TestResult "`n=== Building Solution ===" "Yellow"
-$buildOutput = & dotnet build "src\ProjectLoopbreaker\ProjectLoopbreaker.sln" --verbosity minimal 2>&1
+$buildOutput = & dotnet build "src\MyMediaVerse\MyMediaVerse.sln" --verbosity minimal 2>&1
 $buildExitCode = $LASTEXITCODE
 
 $buildOutput | ForEach-Object { Add-Content -Path $logFile -Value $_ }
@@ -134,7 +134,7 @@ if ($buildExitCode -ne 0) {
 Set-Location "tests"
 
 # Run Unit Tests
-$unitTestResult = Invoke-TestRun -TestProject "ProjectLoopbreaker.UnitTests/ProjectLoopbreaker.UnitTests.csproj" -TestType "Unit Tests"
+$unitTestResult = Invoke-TestRun -TestProject "MyMediaVerse.UnitTests/MyMediaVerse.UnitTests.csproj" -TestType "Unit Tests"
 
 if ($unitTestResult -ne 0) {
     Write-TestResult "`nUnit tests failed!" "Red"
@@ -144,7 +144,7 @@ if ($unitTestResult -ne 0) {
 }
 
 # Run Integration Tests
-$integrationTestResult = Invoke-TestRun -TestProject "ProjectLoopbreaker.IntegrationTests/ProjectLoopbreaker.IntegrationTests.csproj" -TestType "Integration Tests"
+$integrationTestResult = Invoke-TestRun -TestProject "MyMediaVerse.IntegrationTests/MyMediaVerse.IntegrationTests.csproj" -TestType "Integration Tests"
 
 if ($integrationTestResult -ne 0) {
     Write-TestResult "`nIntegration tests failed!" "Red"

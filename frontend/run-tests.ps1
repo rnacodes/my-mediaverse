@@ -1,4 +1,4 @@
-Write-Host "Running ProjectLoopbreaker Frontend Tests..." -ForegroundColor Green
+Write-Host "Running MyMediaVerse Frontend Tests..." -ForegroundColor Green
 Write-Host ""
 
 Write-Host "Installing dependencies if needed..." -ForegroundColor Yellow

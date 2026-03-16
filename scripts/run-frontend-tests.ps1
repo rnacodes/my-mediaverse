@@ -8,7 +8,7 @@ $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
 $rootPath = Get-Location
 $logFile = "$rootPath\$LogDirectory\test-results-frontend-$timestamp.log"
 
-Write-Host "Running ProjectLoopbreaker Frontend Tests..." -ForegroundColor Green
+Write-Host "Running MyMediaVerse Frontend Tests..." -ForegroundColor Green
 Write-Host "Log file: $logFile" -ForegroundColor Cyan
 
 # Function to log and display results

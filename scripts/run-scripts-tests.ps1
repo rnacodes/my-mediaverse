@@ -9,7 +9,7 @@ if (!(Test-Path "logs")) {
     New-Item -ItemType Directory -Path "logs" -Force | Out-Null
 }
 
-Write-Host "Running ProjectLoopbreaker Scripts Tests..." -ForegroundColor Green
+Write-Host "Running MyMediaVerse Scripts Tests..." -ForegroundColor Green
 Write-Host "Log file: $logFile" -ForegroundColor Cyan
 
 # Function to log and display results

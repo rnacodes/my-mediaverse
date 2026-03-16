@@ -1,5 +1,5 @@
 /**
- * Batch CSV Upload Script for ProjectLoopbreaker
+ * Batch CSV Upload Script for MyMediaVerse
  * 
  * This script allows you to upload large CSV files in smaller batches
  * to avoid timeouts and make the process more manageable.
@@ -177,7 +177,7 @@ async function main() {
     const config = parseArgs();
     
     console.log('='.repeat(60));
-    console.log('Batch CSV Upload for ProjectLoopbreaker');
+    console.log('Batch CSV Upload for MyMediaVerse');
     console.log('='.repeat(60));
     console.log(`CSV File:       ${config.csvFile}`);
     console.log(`Batch Size:     ${config.batchSize} rows`);

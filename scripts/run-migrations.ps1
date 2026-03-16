@@ -19,8 +19,8 @@ $ErrorActionPreference = "Stop"
 
 # Paths
 $rootDir = (Split-Path $PSScriptRoot -Parent)
-$webApiDir = Join-Path $rootDir "src\ProjectLoopbreaker\ProjectLoopbreaker.Web.API"
-$infraProject = "..\ProjectLoopbreaker.Infrastructure"
+$webApiDir = Join-Path $rootDir "src\MyMediaVerse\MyMediaVerse.Web.API"
+$infraProject = "..\MyMediaVerse.Infrastructure"
 
 # Validate environment variables
 $productionConnection = $env:PRODUCTION_DB_CONNECTION
