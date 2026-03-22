@@ -4,8 +4,6 @@ using MyMediaVerse.Domain.Interfaces;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Application.Interfaces;
-using MyMediaVerse.Application.Helpers;
-using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.Application.Services
 {
@@ -13,16 +11,13 @@ namespace MyMediaVerse.Application.Services
     {
         private readonly IApplicationDbContext _context;
         private readonly ILogger<MovieService> _logger;
-        private readonly ITypeSenseService? _typeSenseService;
 
         public MovieService(
-            IApplicationDbContext context, 
-            ILogger<MovieService> logger,
-            ITypeSenseService? typeSenseService = null)
+            IApplicationDbContext context,
+            ILogger<MovieService> logger)
         {
             _context = context;
             _logger = logger;
-            _typeSenseService = typeSenseService;
         }
 
         public async Task<IEnumerable<Movie>> GetAllMoviesAsync()
@@ -153,12 +148,6 @@ namespace MyMediaVerse.Application.Services
                 _context.Add(movie);
                 await _context.SaveChangesAsync();
 
-                // Index in Typesense after successful creation
-                await TypesenseIndexingHelper.IndexMediaItemAsync(
-                    movie,
-                    _typeSenseService,
-                    TypesenseIndexingHelper.GetMovieFields(movie));
-
                 _logger.LogInformation("Successfully created movie: {Title} ({Year})", movie.Title, movie.ReleaseYear);
                 return movie;
             }
@@ -220,12 +209,6 @@ namespace MyMediaVerse.Application.Services
 
                 await _context.SaveChangesAsync();
 
-                // Re-index in Typesense after successful update
-                await TypesenseIndexingHelper.IndexMediaItemAsync(
-                    movie,
-                    _typeSenseService,
-                    TypesenseIndexingHelper.GetMovieFields(movie));
-
                 _logger.LogInformation("Successfully updated movie: {Title} ({Year})", movie.Title, movie.ReleaseYear);
                 return movie;
             }
@@ -252,9 +235,6 @@ namespace MyMediaVerse.Application.Services
 
                 _context.Remove(movie);
                 await _context.SaveChangesAsync();
-
-                // Delete from Typesense after successful deletion
-                await TypesenseIndexingHelper.DeleteMediaItemAsync(movieId, _typeSenseService);
 
                 _logger.LogInformation("Successfully deleted movie: {Title} ({Year})", movieTitle, movieYear);
                 return true;

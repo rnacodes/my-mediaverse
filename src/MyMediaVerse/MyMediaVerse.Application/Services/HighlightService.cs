@@ -14,18 +14,15 @@ namespace MyMediaVerse.Application.Services
         private readonly IApplicationDbContext _context;
         private readonly IReadwiseApiClient _readwiseClient;
         private readonly ILogger<HighlightService> _logger;
-        private readonly ITypeSenseService? _typeSenseService;
 
         public HighlightService(
             IApplicationDbContext context,
             IReadwiseApiClient readwiseClient,
-            ILogger<HighlightService> logger,
-            ITypeSenseService? typeSenseService = null)
+            ILogger<HighlightService> logger)
         {
             _context = context;
             _readwiseClient = readwiseClient;
             _logger = logger;
-            _typeSenseService = typeSenseService;
         }
 
         public async Task<IEnumerable<Highlight>> GetAllHighlightsAsync()
@@ -114,16 +111,6 @@ namespace MyMediaVerse.Application.Services
 
             _logger.LogInformation("Created highlight {HighlightId}", highlight.Id);
 
-            // Index in Typesense (reload to get linked media for title)
-            var createdHighlight = await _context.Highlights
-                .Include(h => h.Article)
-                .Include(h => h.Book)
-                .FirstOrDefaultAsync(h => h.Id == highlight.Id);
-            if (createdHighlight != null)
-            {
-                await IndexHighlightInTypesenseAsync(createdHighlight);
-            }
-
             return highlight;
         }
 
@@ -150,16 +137,6 @@ namespace MyMediaVerse.Application.Services
 
             _logger.LogInformation("Updated highlight {HighlightId}", highlight.Id);
 
-            // Re-index in Typesense (reload to get linked media)
-            var updatedHighlight = await _context.Highlights
-                .Include(h => h.Article)
-                .Include(h => h.Book)
-                .FirstOrDefaultAsync(h => h.Id == id);
-            if (updatedHighlight != null)
-            {
-                await IndexHighlightInTypesenseAsync(updatedHighlight);
-            }
-
             return highlight;
         }
 
@@ -176,19 +153,6 @@ namespace MyMediaVerse.Application.Services
             await _context.SaveChangesAsync();
 
             _logger.LogInformation("Deleted highlight {HighlightId}", id);
-
-            // Delete from Typesense
-            if (_typeSenseService != null)
-            {
-                try
-                {
-                    await _typeSenseService.DeleteHighlightAsync(id);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to delete highlight {HighlightId} from Typesense", id);
-                }
-            }
 
             return true;
         }
@@ -272,14 +236,11 @@ namespace MyMediaVerse.Application.Services
         /// <summary>
         /// Process a book with nested highlights from the export endpoint.
         /// Book data is already included, no separate API call needed.
-        /// Also indexes highlights in Typesense after saving.
         /// </summary>
         private async Task ProcessExportBookWithHighlightsAsync(
             Shared.DTOs.Readwise.ReadwiseExportBookDto bookDto,
             HighlightSyncResultDto result)
         {
-            var highlightsToIndex = new List<Highlight>();
-
             foreach (var highlightDto in bookDto.highlights)
             {
                 // Clean HTML/CSS from highlight text
@@ -305,7 +266,6 @@ namespace MyMediaVerse.Application.Services
                         : null;
                     existing.UpdatedAt = DateTime.UtcNow;
 
-                    highlightsToIndex.Add(existing);
                     result.UpdatedCount++;
                 }
                 else
@@ -426,76 +386,11 @@ namespace MyMediaVerse.Application.Services
                     }
 
                     _context.Add(highlight);
-                    highlightsToIndex.Add(highlight);
                     result.CreatedCount++;
                 }
             }
 
             await _context.SaveChangesAsync();
-
-            // Index all highlights in Typesense after saving
-            foreach (var highlight in highlightsToIndex)
-            {
-                await IndexHighlightInTypesenseAsync(highlight);
-            }
-        }
-
-        /// <summary>
-        /// Helper method to index a highlight in Typesense.
-        /// Handles null Typesense service gracefully.
-        /// </summary>
-        private async Task IndexHighlightInTypesenseAsync(Highlight highlight)
-        {
-            if (_typeSenseService == null)
-            {
-                return;
-            }
-
-            try
-            {
-                // Parse tags from comma-separated string
-                var tags = string.IsNullOrWhiteSpace(highlight.Tags)
-                    ? new List<string>()
-                    : highlight.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                        .Select(t => t.Trim())
-                        .Where(t => !string.IsNullOrWhiteSpace(t))
-                        .ToList();
-
-                // Get linked media title
-                string? linkedMediaTitle = null;
-                if (highlight.Article != null)
-                {
-                    linkedMediaTitle = highlight.Article.Title;
-                }
-                else if (highlight.Book != null)
-                {
-                    linkedMediaTitle = highlight.Book.Title;
-                }
-
-                await _typeSenseService.IndexHighlightAsync(
-                    id: highlight.Id,
-                    text: highlight.Text,
-                    note: highlight.Note,
-                    title: highlight.Title,
-                    author: highlight.Author,
-                    category: highlight.Category,
-                    tags: tags,
-                    sourceUrl: highlight.SourceUrl,
-                    sourceType: highlight.SourceType,
-                    isFavorite: highlight.IsFavorite,
-                    highlightedAt: highlight.HighlightedAt,
-                    createdAt: highlight.CreatedAt,
-                    articleId: highlight.ArticleId,
-                    bookId: highlight.BookId,
-                    linkedMediaTitle: linkedMediaTitle,
-                    location: highlight.Location,
-                    imageUrl: highlight.ImageUrl
-                );
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to index highlight {HighlightId} in Typesense", highlight.Id);
-            }
         }
 
         /// <summary>
@@ -548,7 +443,6 @@ namespace MyMediaVerse.Application.Services
         public async Task<BulkHighlightResultDto> BulkCreateHighlightsAsync(List<CreateHighlightDto> dtos)
         {
             var result = new BulkHighlightResultDto();
-            var highlightsToIndex = new List<Highlight>();
 
             foreach (var dto in dtos)
             {
@@ -640,7 +534,6 @@ namespace MyMediaVerse.Application.Services
                     }
 
                     _context.Add(highlight);
-                    highlightsToIndex.Add(highlight);
                     result.Created++;
                 }
                 catch (Exception ex)
@@ -664,12 +557,6 @@ namespace MyMediaVerse.Application.Services
 
             _logger.LogInformation("Bulk created {Created} highlights, linked {Linked}, errors {Errors}",
                 result.Created, result.Linked, result.Errors.Count);
-
-            // Index all highlights in Typesense
-            foreach (var highlight in highlightsToIndex)
-            {
-                await IndexHighlightInTypesenseAsync(highlight);
-            }
 
             return result;
         }

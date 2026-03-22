@@ -5,7 +5,6 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FluentAssertions;
-using MyMediaVerse.Application.Helpers;
 
 namespace MyMediaVerse.IntegrationTests.Controllers
 {
@@ -141,95 +140,6 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             var response = await _client.PostAsync("/api/search/reindex", null);
 
             response.StatusCode.Should().Be(HttpStatusCode.OK);
-            _client.DefaultRequestHeaders.Authorization = null;
-        }
-
-        #endregion
-
-        #region Real-Time Indexing Toggle
-
-        [Fact]
-        public async Task GetRealTimeIndexingStatus_ShouldReturnUnauthorized_WithoutToken()
-        {
-            _client.DefaultRequestHeaders.Authorization = null;
-
-            var response = await _client.GetAsync("/api/search/realtime-indexing");
-
-            response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-        }
-
-        [Fact]
-        public async Task SetRealTimeIndexingStatus_ShouldReturnUnauthorized_WithoutToken()
-        {
-            _client.DefaultRequestHeaders.Authorization = null;
-
-            var content = new StringContent(
-                JsonSerializer.Serialize(new { enabled = false }, _jsonOptions),
-                Encoding.UTF8,
-                "application/json");
-
-            var response = await _client.PostAsync("/api/search/realtime-indexing", content);
-
-            response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-        }
-
-        [Fact]
-        public async Task GetRealTimeIndexingStatus_ShouldReturnEnabled_ByDefault()
-        {
-            // Ensure default state
-            TypesenseIndexingHelper.IsRealTimeIndexingEnabled = true;
-
-            var token = await GetAccessTokenAsync();
-            _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-            var response = await _client.GetAsync("/api/search/realtime-indexing");
-
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
-            var responseContent = await response.Content.ReadAsStringAsync();
-            var result = JsonSerializer.Deserialize<JsonElement>(responseContent, _jsonOptions);
-            result.GetProperty("enabled").GetBoolean().Should().BeTrue();
-
-            _client.DefaultRequestHeaders.Authorization = null;
-        }
-
-        [Fact]
-        public async Task SetRealTimeIndexingStatus_ShouldToggleSuccessfully()
-        {
-            // Ensure default state
-            TypesenseIndexingHelper.IsRealTimeIndexingEnabled = true;
-
-            var token = await GetAccessTokenAsync();
-            _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-            // Disable
-            var disableContent = new StringContent(
-                JsonSerializer.Serialize(new { enabled = false }, _jsonOptions),
-                Encoding.UTF8,
-                "application/json");
-            var disableResponse = await _client.PostAsync("/api/search/realtime-indexing", disableContent);
-            disableResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-
-            var disableResult = JsonSerializer.Deserialize<JsonElement>(
-                await disableResponse.Content.ReadAsStringAsync(), _jsonOptions);
-            disableResult.GetProperty("enabled").GetBoolean().Should().BeFalse();
-
-            // Verify the static flag was updated
-            TypesenseIndexingHelper.IsRealTimeIndexingEnabled.Should().BeFalse();
-
-            // Re-enable
-            var enableContent = new StringContent(
-                JsonSerializer.Serialize(new { enabled = true }, _jsonOptions),
-                Encoding.UTF8,
-                "application/json");
-            var enableResponse = await _client.PostAsync("/api/search/realtime-indexing", enableContent);
-            enableResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-
-            var enableResult = JsonSerializer.Deserialize<JsonElement>(
-                await enableResponse.Content.ReadAsStringAsync(), _jsonOptions);
-            enableResult.GetProperty("enabled").GetBoolean().Should().BeTrue();
-
-            // Reset state
-            TypesenseIndexingHelper.IsRealTimeIndexingEnabled = true;
             _client.DefaultRequestHeaders.Authorization = null;
         }
 

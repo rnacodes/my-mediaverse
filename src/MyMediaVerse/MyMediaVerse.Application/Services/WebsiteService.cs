@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MyMediaVerse.Application.Interfaces;
-using MyMediaVerse.Application.Helpers;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Domain.Interfaces;
 using MyMediaVerse.DTOs;
@@ -19,20 +18,17 @@ namespace MyMediaVerse.Application.Services
         private readonly IWebsiteScraperService _scraperService;
         private readonly IWebsiteScreenshotService? _screenshotService;
         private readonly ILogger<WebsiteService> _logger;
-        private readonly ITypeSenseService? _typeSenseService;
 
         public WebsiteService(
             IApplicationDbContext context,
             IWebsiteScraperService scraperService,
             ILogger<WebsiteService> logger,
-            ITypeSenseService? typeSenseService = null,
             IWebsiteScreenshotService? screenshotService = null)
         {
             _context = context;
             _scraperService = scraperService;
             _screenshotService = screenshotService;
             _logger = logger;
-            _typeSenseService = typeSenseService;
         }
 
         public async Task<IEnumerable<Website>> GetAllWebsitesAsync()
@@ -123,12 +119,6 @@ namespace MyMediaVerse.Application.Services
             _context.Add(website);
             await _context.SaveChangesAsync();
 
-            // Index in Typesense after successful creation
-            await TypesenseIndexingHelper.IndexMediaItemAsync(
-                website,
-                _typeSenseService,
-                TypesenseIndexingHelper.GetWebsiteFields(website));
-
             _logger.LogInformation("Created website with ID: {Id}, Title: {Title}", website.Id, website.Title);
             return website;
         }
@@ -199,12 +189,6 @@ namespace MyMediaVerse.Application.Services
             _context.Update(website);
             await _context.SaveChangesAsync();
 
-            // Re-index in Typesense after successful update
-            await TypesenseIndexingHelper.IndexMediaItemAsync(
-                website,
-                _typeSenseService,
-                TypesenseIndexingHelper.GetWebsiteFields(website));
-
             _logger.LogInformation("Updated website with ID: {Id}", id);
             return website;
         }
@@ -219,9 +203,6 @@ namespace MyMediaVerse.Application.Services
 
             _context.Remove(website);
             await _context.SaveChangesAsync();
-
-            // Delete from Typesense after successful deletion
-            await TypesenseIndexingHelper.DeleteMediaItemAsync(websiteId, _typeSenseService);
 
             _logger.LogInformation("Deleted website with ID: {Id}", id);
             return true;

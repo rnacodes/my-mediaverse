@@ -8,7 +8,6 @@ using MyMediaVerse.Application.Utilities;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Domain.Interfaces;
 using MyMediaVerse.DTOs;
-using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.Application.Services
 {
@@ -16,16 +15,13 @@ namespace MyMediaVerse.Application.Services
     {
         private readonly IApplicationDbContext _context;
         private readonly ILogger<GoodreadsImportService> _logger;
-        private readonly ITypeSenseService? _typeSenseService;
 
         public GoodreadsImportService(
             IApplicationDbContext context,
-            ILogger<GoodreadsImportService> logger,
-            ITypeSenseService? typeSenseService = null)
+            ILogger<GoodreadsImportService> logger)
         {
             _context = context;
             _logger = logger;
-            _typeSenseService = typeSenseService;
         }
 
         public async Task<GoodreadsImportResultDto> ImportFromCsvAsync(Stream csvStream, bool updateExisting = true)
@@ -103,34 +99,6 @@ namespace MyMediaVerse.Application.Services
                         WasUpdated = true,
                         Thumbnail = existingBook.Thumbnail
                     });
-
-                    // Re-index in Typesense
-                    if (_typeSenseService != null)
-                    {
-                        try
-                        {
-                            await _typeSenseService.IndexMediaItemAsync(
-                                existingBook.Id,
-                                existingBook.Title,
-                                existingBook.MediaType.ToString(),
-                                existingBook.Description,
-                                existingBook.Topics?.Select(t => t.Name ?? "").Where(n => !string.IsNullOrEmpty(n)).ToList() ?? new List<string>(),
-                                existingBook.Genres?.Select(g => g.Name ?? "").Where(n => !string.IsNullOrEmpty(n)).ToList() ?? new List<string>(),
-                                existingBook.DateAdded,
-                                existingBook.Status.ToString(),
-                                existingBook.Rating?.ToString(),
-                                existingBook.Thumbnail,
-                                new Dictionary<string, object>
-                                {
-                                    ["author"] = existingBook.Author,
-                                    ["publisher"] = existingBook.Publisher ?? ""
-                                });
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "Failed to re-index book in Typesense: {Title}", existingBook.Title);
-                        }
-                    }
                 }
                 else
                 {
@@ -150,34 +118,6 @@ namespace MyMediaVerse.Application.Services
                     WasUpdated = false,
                     Thumbnail = newBook.Thumbnail
                 });
-
-                // Index in Typesense
-                if (_typeSenseService != null)
-                {
-                    try
-                    {
-                        await _typeSenseService.IndexMediaItemAsync(
-                            newBook.Id,
-                            newBook.Title,
-                            newBook.MediaType.ToString(),
-                            newBook.Description,
-                            new List<string>(), // New book has no topics yet
-                            new List<string>(), // New book has no genres yet
-                            newBook.DateAdded,
-                            newBook.Status.ToString(),
-                            newBook.Rating?.ToString(),
-                            newBook.Thumbnail,
-                            new Dictionary<string, object>
-                            {
-                                ["author"] = newBook.Author,
-                                ["publisher"] = newBook.Publisher ?? ""
-                            });
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to index book in Typesense: {Title}", newBook.Title);
-                    }
-                }
             }
         }
 

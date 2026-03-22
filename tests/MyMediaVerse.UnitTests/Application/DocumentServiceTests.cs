@@ -341,7 +341,7 @@ namespace MyMediaVerse.UnitTests.Application
             var mockPaperlessClient = new Mock<IPaperlessApiClient>();
             mockPaperlessClient.Setup(c => c.IsAvailableAsync()).ReturnsAsync(true);
             var service = new DocumentService(
-                Context, _mockLogger.Object, _mockMappingService.Object, null, mockPaperlessClient.Object);
+                Context, _mockLogger.Object, _mockMappingService.Object, mockPaperlessClient.Object);
 
             // Act
             var result = await service.IsPaperlessAvailableAsync();

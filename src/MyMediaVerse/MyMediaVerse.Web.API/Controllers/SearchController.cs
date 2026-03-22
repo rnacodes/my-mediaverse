@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MyMediaVerse.Application.Helpers;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Shared.Interfaces;
 
@@ -757,49 +756,6 @@ namespace MyMediaVerse.Web.API.Controllers
             }
         }
 
-        /// <summary>
-        /// Gets the current real-time indexing status.
-        /// GET /api/search/realtime-indexing
-        /// </summary>
-        [HttpGet("realtime-indexing")]
-        [Authorize]
-        public IActionResult GetRealTimeIndexingStatus()
-        {
-            return Ok(new
-            {
-                enabled = TypesenseIndexingHelper.IsRealTimeIndexingEnabled
-            });
-        }
-
-        /// <summary>
-        /// Enables or disables real-time Typesense indexing for individual CRUD operations.
-        /// Bulk reindex operations are not affected.
-        /// The setting resets to enabled on application restart.
-        /// POST /api/search/realtime-indexing
-        /// </summary>
-        [HttpPost("realtime-indexing")]
-        [Authorize]
-        public IActionResult SetRealTimeIndexingStatus([FromBody] RealTimeIndexingRequest request)
-        {
-            TypesenseIndexingHelper.IsRealTimeIndexingEnabled = request.Enabled;
-            _logger.LogInformation("Real-time Typesense indexing {Status} by admin.", request.Enabled ? "enabled" : "disabled");
-
-            return Ok(new
-            {
-                enabled = TypesenseIndexingHelper.IsRealTimeIndexingEnabled,
-                message = request.Enabled
-                    ? "Real-time indexing is now enabled. New media items will be indexed immediately."
-                    : "Real-time indexing is now paused. Use bulk reindex after completing your imports."
-            });
-        }
-    }
-
-    /// <summary>
-    /// Request model for toggling real-time indexing.
-    /// </summary>
-    public class RealTimeIndexingRequest
-    {
-        public bool Enabled { get; set; }
     }
 
     /// <summary>

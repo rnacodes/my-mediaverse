@@ -4,8 +4,6 @@ using MyMediaVerse.Domain.Interfaces;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Application.Interfaces;
-using MyMediaVerse.Application.Helpers;
-using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.Application.Services
 {
@@ -13,16 +11,13 @@ namespace MyMediaVerse.Application.Services
     {
         private readonly IApplicationDbContext _context;
         private readonly ILogger<TvShowService> _logger;
-        private readonly ITypeSenseService? _typeSenseService;
 
         public TvShowService(
-            IApplicationDbContext context, 
-            ILogger<TvShowService> logger,
-            ITypeSenseService? typeSenseService = null)
+            IApplicationDbContext context,
+            ILogger<TvShowService> logger)
         {
             _context = context;
             _logger = logger;
-            _typeSenseService = typeSenseService;
         }
 
         public async Task<IEnumerable<TvShow>> GetAllTvShowsAsync()
@@ -158,12 +153,6 @@ namespace MyMediaVerse.Application.Services
                 _context.Add(tvShow);
                 await _context.SaveChangesAsync();
 
-                // Index in Typesense after successful creation
-                await TypesenseIndexingHelper.IndexMediaItemAsync(
-                    tvShow,
-                    _typeSenseService,
-                    TypesenseIndexingHelper.GetTvShowFields(tvShow));
-
                 _logger.LogInformation("Successfully created TV show: {Title} ({Year})", tvShow.Title, tvShow.FirstAirYear);
                 return tvShow;
             }
@@ -226,12 +215,6 @@ namespace MyMediaVerse.Application.Services
 
                 await _context.SaveChangesAsync();
 
-                // Re-index in Typesense after successful update
-                await TypesenseIndexingHelper.IndexMediaItemAsync(
-                    tvShow,
-                    _typeSenseService,
-                    TypesenseIndexingHelper.GetTvShowFields(tvShow));
-
                 _logger.LogInformation("Successfully updated TV show: {Title} ({Year})", tvShow.Title, tvShow.FirstAirYear);
                 return tvShow;
             }
@@ -258,9 +241,6 @@ namespace MyMediaVerse.Application.Services
 
                 _context.Remove(tvShow);
                 await _context.SaveChangesAsync();
-
-                // Delete from Typesense after successful deletion
-                await TypesenseIndexingHelper.DeleteMediaItemAsync(tvShowId, _typeSenseService);
 
                 _logger.LogInformation("Successfully deleted TV show: {Title} ({Year})", tvShowTitle, tvShowYear);
                 return true;

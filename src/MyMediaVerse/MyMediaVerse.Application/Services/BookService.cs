@@ -5,8 +5,6 @@ using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Utilities;
-using MyMediaVerse.Application.Helpers;
-using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.Application.Services
 {
@@ -14,16 +12,13 @@ namespace MyMediaVerse.Application.Services
     {
         private readonly IApplicationDbContext _context;
         private readonly ILogger<BookService> _logger;
-        private readonly ITypeSenseService? _typeSenseService;
 
         public BookService(
-            IApplicationDbContext context, 
-            ILogger<BookService> logger,
-            ITypeSenseService? typeSenseService = null)
+            IApplicationDbContext context,
+            ILogger<BookService> logger)
         {
             _context = context;
             _logger = logger;
-            _typeSenseService = typeSenseService;
         }
 
         public async Task<IEnumerable<Book>> GetAllBooksAsync()
@@ -153,12 +148,6 @@ namespace MyMediaVerse.Application.Services
                 _context.Add(book);
                 await _context.SaveChangesAsync();
 
-                // Index in Typesense after successful creation
-                await TypesenseIndexingHelper.IndexMediaItemAsync(
-                    book,
-                    _typeSenseService,
-                    TypesenseIndexingHelper.GetBookFields(book));
-
                 _logger.LogInformation("Successfully created book: {Title} by {Author}", book.Title, book.Author);
                 return book;
             }
@@ -218,12 +207,6 @@ namespace MyMediaVerse.Application.Services
                 _context.Update(book);
                 await _context.SaveChangesAsync();
 
-                // Re-index in Typesense after successful update
-                await TypesenseIndexingHelper.IndexMediaItemAsync(
-                    book,
-                    _typeSenseService,
-                    TypesenseIndexingHelper.GetBookFields(book));
-
                 _logger.LogInformation("Successfully updated book: {Title} by {Author}", book.Title, book.Author);
                 return book;
             }
@@ -250,9 +233,6 @@ namespace MyMediaVerse.Application.Services
 
                 _context.Remove(book);
                 await _context.SaveChangesAsync();
-
-                // Delete from Typesense after successful deletion
-                await TypesenseIndexingHelper.DeleteMediaItemAsync(bookId, _typeSenseService);
 
                 _logger.LogInformation("Successfully deleted book: {Title} by {Author}", bookTitle, bookAuthor);
                 return true;
