@@ -75,7 +75,7 @@ namespace MyMediaVerse.Application.Services
                 return await _context.Articles
                     .AsNoTracking()
                     .AsSplitQuery()
-                    .Where(a => a.Author != null && EF.Functions.ILike(a.Author, $"%{author}%"))
+                    .Where(a => a.Author != null && a.Author.ToLower().Contains(author.ToLower()))
                     .Include(a => a.Topics)
                     .Include(a => a.Genres)
                     .ToListAsync();
