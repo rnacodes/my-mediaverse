@@ -1009,7 +1009,9 @@ app.UseAuthorization();
 app.MapControllers();
 
 Console.WriteLine($"Environment: {builder.Environment.EnvironmentName}");
-Console.WriteLine($"Connection string: {connectionString}");
+var maskedConnectionString = System.Text.RegularExpressions.Regex.Replace(connectionString, @"(Password|password)=([^;]+)", "$1=****");
+maskedConnectionString = System.Text.RegularExpressions.Regex.Replace(maskedConnectionString, @"://([^:]+):([^@]+)@", "://****:****@");
+Console.WriteLine($"Connection string: {maskedConnectionString}");
 
 app.Run();
 
