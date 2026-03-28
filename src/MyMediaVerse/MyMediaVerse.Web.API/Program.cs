@@ -227,6 +227,11 @@ if (string.IsNullOrEmpty(connectionString))
     }
 }
 
+// Skip connection string debug logging and parsing for Testing environment
+// (WebApplicationFactory replaces DbContext with in-memory, so this is unnecessary
+// and would leak real credentials from environment variables into test output)
+if (builder.Environment.EnvironmentName != "Testing")
+{
 // Debug connection string (safely)
 Console.WriteLine($"Connection string length: {connectionString.Length}");
 Console.WriteLine($"Connection string starts with: {connectionString.Substring(0, Math.Min(20, connectionString.Length))}...");
@@ -325,6 +330,7 @@ catch (Exception ex)
         }
     }
 }
+} // end: skip connection string debug logging for Testing
 
 // Register DbContext (skip for Testing environment - WebApplicationFactory will register InMemory)
 if (builder.Environment.EnvironmentName != "Testing")

@@ -8,7 +8,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyMediaVerse.Application.Interfaces;
-using MyMediaVerse.Application.Helpers;
 using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.Application.Services
@@ -19,20 +18,17 @@ namespace MyMediaVerse.Application.Services
         private readonly IListenNotesApiClient _listenNotesApiClient;
         private readonly IPodcastMappingService _podcastMappingService;
         private readonly ILogger<PodcastService> _logger;
-        private readonly ITypeSenseService? _typeSenseService;
 
         public PodcastService(
             IApplicationDbContext context,
             IListenNotesApiClient listenNotesApiClient,
             IPodcastMappingService podcastMappingService,
-            ILogger<PodcastService> logger,
-            ITypeSenseService? typeSenseService = null)
+            ILogger<PodcastService> logger)
         {
             _context = context;
             _listenNotesApiClient = listenNotesApiClient;
             _podcastMappingService = podcastMappingService;
             _logger = logger;
-            _typeSenseService = typeSenseService;
         }
 
         // Podcast Series methods
@@ -139,12 +135,6 @@ namespace MyMediaVerse.Application.Services
             _context.Add(series);
             await _context.SaveChangesAsync();
 
-            // Index in Typesense after successful creation
-            await TypesenseIndexingHelper.IndexMediaItemAsync(
-                series,
-                _typeSenseService,
-                TypesenseIndexingHelper.GetPodcastSeriesFields(series));
-
             return series;
         }
 
@@ -161,9 +151,6 @@ namespace MyMediaVerse.Application.Services
             // Cascade delete will automatically remove episodes
             _context.Remove(series);
             await _context.SaveChangesAsync();
-
-            // Delete from Typesense after successful deletion
-            await TypesenseIndexingHelper.DeleteMediaItemAsync(seriesId, _typeSenseService);
 
             return true;
         }
@@ -317,12 +304,6 @@ namespace MyMediaVerse.Application.Services
             _context.Add(episode);
             await _context.SaveChangesAsync();
 
-            // Index in Typesense after successful creation (podcast episodes are indexed as media items)
-            await TypesenseIndexingHelper.IndexMediaItemAsync(
-                episode,
-                _typeSenseService,
-                TypesenseIndexingHelper.GetPodcastEpisodeFields(episode));
-
             // Load the Series navigation property
             episode.Series = await _context.PodcastSeries
                 .FirstOrDefaultAsync(s => s.Id == episode.SeriesId);
@@ -342,9 +323,6 @@ namespace MyMediaVerse.Application.Services
 
             _context.Remove(episode);
             await _context.SaveChangesAsync();
-
-            // Delete from Typesense after successful deletion
-            await TypesenseIndexingHelper.DeleteMediaItemAsync(episodeId, _typeSenseService);
 
             return true;
         }
@@ -374,12 +352,6 @@ namespace MyMediaVerse.Application.Services
             series.IsSubscribed = true;
             await _context.SaveChangesAsync();
 
-            // Re-index in Typesense after subscription status update
-            await TypesenseIndexingHelper.IndexMediaItemAsync(
-                series,
-                _typeSenseService,
-                TypesenseIndexingHelper.GetPodcastSeriesFields(series));
-
             return series;
         }
 
@@ -394,12 +366,6 @@ namespace MyMediaVerse.Application.Services
 
             series.IsSubscribed = false;
             await _context.SaveChangesAsync();
-
-            // Re-index in Typesense after subscription status update
-            await TypesenseIndexingHelper.IndexMediaItemAsync(
-                series,
-                _typeSenseService,
-                TypesenseIndexingHelper.GetPodcastSeriesFields(series));
 
             return series;
         }

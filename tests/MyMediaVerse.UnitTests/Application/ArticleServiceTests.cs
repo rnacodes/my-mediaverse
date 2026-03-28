@@ -21,7 +21,7 @@ namespace MyMediaVerse.UnitTests.Application
         {
             _mockLogger = new Mock<ILogger<ArticleService>>();
             _mockConfiguration = new Mock<IConfiguration>();
-            _service = new ArticleService(Context, _mockLogger.Object, null, _mockConfiguration.Object, null);
+            _service = new ArticleService(Context, _mockLogger.Object, null, _mockConfiguration.Object);
         }
 
         #region GetAllArticlesAsync Tests

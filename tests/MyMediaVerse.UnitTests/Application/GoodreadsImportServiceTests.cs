@@ -16,7 +16,7 @@ namespace MyMediaVerse.UnitTests.Application
         public GoodreadsImportServiceTests()
         {
             _mockLogger = new Mock<ILogger<GoodreadsImportService>>();
-            _service = new GoodreadsImportService(Context, _mockLogger.Object, null);
+            _service = new GoodreadsImportService(Context, _mockLogger.Object);
         }
 
         #region MapShelfToStatus

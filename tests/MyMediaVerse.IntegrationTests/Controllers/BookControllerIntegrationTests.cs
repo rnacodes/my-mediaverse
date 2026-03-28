@@ -189,13 +189,14 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         [Fact]
         public async Task GetBooksByAuthor_ShouldReturnBooksByAuthor()
         {
-            // Arrange
-            var author = "Test Author";
+            // Arrange - use unique author to avoid collision with other tests sharing the in-memory DB
+            var uniqueSuffix = Guid.NewGuid().ToString()[..8];
+            var author = $"UniqueAuthor {uniqueSuffix}";
             var books = new[]
             {
-                TestDataFactory.CreateBookDto("Book 1", author),
-                TestDataFactory.CreateBookDto("Book 2", author),
-                TestDataFactory.CreateBookDto("Book 3", "Other Author")
+                TestDataFactory.CreateBookDto($"Book 1 {uniqueSuffix}", author),
+                TestDataFactory.CreateBookDto($"Book 2 {uniqueSuffix}", author),
+                TestDataFactory.CreateBookDto($"Book 3 {uniqueSuffix}", $"Other Author {uniqueSuffix}")
             };
 
             foreach (var book in books)

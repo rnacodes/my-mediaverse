@@ -20,7 +20,7 @@ namespace MyMediaVerse.UnitTests.Application
         {
             _mockReadwiseClient = new Mock<IReadwiseApiClient>();
             _mockLogger = new Mock<ILogger<ReadwiseService>>();
-            _service = new ReadwiseService(Context, _mockReadwiseClient.Object, _mockLogger.Object, null);
+            _service = new ReadwiseService(Context, _mockReadwiseClient.Object, _mockLogger.Object);
         }
 
         #region ValidateConnectionAsync

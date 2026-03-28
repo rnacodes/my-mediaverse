@@ -8,8 +8,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyMediaVerse.Application.Interfaces;
-using MyMediaVerse.Application.Helpers;
-using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.Application.Services
 {
@@ -17,16 +15,13 @@ namespace MyMediaVerse.Application.Services
     {
         private readonly IApplicationDbContext _context;
         private readonly ILogger<VideoService> _logger;
-        private readonly ITypeSenseService? _typeSenseService;
 
         public VideoService(
-            IApplicationDbContext context, 
-            ILogger<VideoService> logger,
-            ITypeSenseService? typeSenseService = null)
+            IApplicationDbContext context,
+            ILogger<VideoService> logger)
         {
             _context = context;
             _logger = logger;
-            _typeSenseService = typeSenseService;
         }
 
         // Standard CRUD operations
@@ -287,12 +282,6 @@ namespace MyMediaVerse.Application.Services
 
                 await _context.SaveChangesAsync();
 
-                // Re-index in Typesense after successful update
-                await TypesenseIndexingHelper.IndexMediaItemAsync(
-                    video,
-                    _typeSenseService,
-                    TypesenseIndexingHelper.GetVideoFields(video));
-
                 return video;
             }
             catch (Exception ex)
@@ -316,9 +305,6 @@ namespace MyMediaVerse.Application.Services
 
                 _context.Remove(video);
                 await _context.SaveChangesAsync();
-
-                // Delete from Typesense after successful deletion
-                await TypesenseIndexingHelper.DeleteMediaItemAsync(videoId, _typeSenseService);
 
                 return true;
             }
@@ -369,12 +355,6 @@ namespace MyMediaVerse.Application.Services
 
                     await _context.SaveChangesAsync();
 
-                    // Re-index in Typesense after update
-                    await TypesenseIndexingHelper.IndexMediaItemAsync(
-                        existingVideo,
-                        _typeSenseService,
-                        TypesenseIndexingHelper.GetVideoFields(existingVideo));
-
                     return existingVideo;
                 }
                 else
@@ -420,12 +400,6 @@ namespace MyMediaVerse.Application.Services
 
                 _context.Add(video);
                 await _context.SaveChangesAsync();
-
-                // Index in Typesense after creation
-                await TypesenseIndexingHelper.IndexMediaItemAsync(
-                    video,
-                    _typeSenseService,
-                    TypesenseIndexingHelper.GetVideoFields(video));
 
                 return video;
             }

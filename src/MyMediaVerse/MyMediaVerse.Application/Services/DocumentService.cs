@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using MyMediaVerse.Application.Helpers;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Domain.Interfaces;
@@ -17,7 +16,6 @@ namespace MyMediaVerse.Application.Services
     {
         private readonly IApplicationDbContext _context;
         private readonly ILogger<DocumentService> _logger;
-        private readonly ITypeSenseService? _typeSenseService;
         private readonly IPaperlessApiClient? _paperlessClient;
         private readonly IDocumentMappingService _mappingService;
 
@@ -25,13 +23,11 @@ namespace MyMediaVerse.Application.Services
             IApplicationDbContext context,
             ILogger<DocumentService> logger,
             IDocumentMappingService mappingService,
-            ITypeSenseService? typeSenseService = null,
             IPaperlessApiClient? paperlessClient = null)
         {
             _context = context;
             _logger = logger;
             _mappingService = mappingService;
-            _typeSenseService = typeSenseService;
             _paperlessClient = paperlessClient;
         }
 
@@ -140,12 +136,6 @@ namespace MyMediaVerse.Application.Services
                 _context.Add(document);
                 await _context.SaveChangesAsync();
 
-                // Index in Typesense
-                await TypesenseIndexingHelper.IndexMediaItemAsync(
-                    document,
-                    _typeSenseService,
-                    GetDocumentFields(document));
-
                 _logger.LogInformation("Successfully created document: {Title}", document.Title);
                 return document;
             }
@@ -209,12 +199,6 @@ namespace MyMediaVerse.Application.Services
 
                 await _context.SaveChangesAsync();
 
-                // Re-index in Typesense
-                await TypesenseIndexingHelper.IndexMediaItemAsync(
-                    document,
-                    _typeSenseService,
-                    GetDocumentFields(document));
-
                 _logger.LogInformation("Successfully updated document: {Title}", document.Title);
                 return document;
             }
@@ -240,9 +224,6 @@ namespace MyMediaVerse.Application.Services
 
                 _context.Remove(document);
                 await _context.SaveChangesAsync();
-
-                // Delete from Typesense
-                await TypesenseIndexingHelper.DeleteMediaItemAsync(documentId, _typeSenseService);
 
                 _logger.LogInformation("Successfully deleted document: {Title}", documentTitle);
                 return true;
@@ -573,29 +554,5 @@ namespace MyMediaVerse.Application.Services
             }
         }
 
-        private static Dictionary<string, object>? GetDocumentFields(Document document)
-        {
-            var fields = new Dictionary<string, object>();
-
-            if (!string.IsNullOrEmpty(document.DocumentType))
-                fields["document_type"] = document.DocumentType;
-
-            if (!string.IsNullOrEmpty(document.Correspondent))
-                fields["correspondent"] = document.Correspondent;
-
-            if (!string.IsNullOrEmpty(document.FileType))
-                fields["file_type"] = document.FileType;
-
-            if (!string.IsNullOrEmpty(document.OriginalFileName))
-                fields["original_file_name"] = document.OriginalFileName;
-
-            // Include OCR content for full-text search (truncated to avoid large payloads)
-            if (!string.IsNullOrEmpty(document.OcrContent))
-                fields["ocr_content"] = document.OcrContent.Length > 50000
-                    ? document.OcrContent.Substring(0, 50000)
-                    : document.OcrContent;
-
-            return fields.Count > 0 ? fields : null;
-        }
     }
 }
