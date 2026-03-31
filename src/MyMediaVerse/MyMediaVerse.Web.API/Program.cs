@@ -904,7 +904,7 @@ var app = builder.Build();
 // Apply any pending EF Core migrations on startup
 using (var scope = app.Services.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var db = scope.ServiceProvider.GetRequiredService<MediaLibraryDbContext>();
     db.Database.Migrate();
 }
 
