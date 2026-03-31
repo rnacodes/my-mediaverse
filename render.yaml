@@ -1,0 +1,8 @@
+databases:
+  - name: mmv-production-db
+    databaseName: mmvproductiondb
+    user: mmvproduser
+    plan: basic-256mb
+    postgresMajorVersion: '18'
+    region: ohio
+    ipAllowList: []
