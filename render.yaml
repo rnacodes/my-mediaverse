@@ -5,4 +5,3 @@ databases:
     plan: basic-256mb
     postgresMajorVersion: '18'
     region: ohio
-    ipAllowList: []

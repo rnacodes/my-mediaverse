@@ -73,10 +73,12 @@ describe('AddMediaForm', () => {
     podcastService.searchPodcastSeries.mockResolvedValue({ data: [] });
   });
 
-  it('should render the form with all core elements', () => {
+  it('should render the form with all core elements', async () => {
     renderWithRouter(<AddMediaForm />);
 
-    expect(screen.getByText('Add New Media')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Add New Media')).toBeInTheDocument();
+    });
     expect(screen.getByPlaceholderText('Enter media title...')).toBeInTheDocument();
     expect(screen.getByText('Save Media')).toBeInTheDocument();
     expect(screen.getByText('Status')).toBeInTheDocument();
@@ -84,10 +86,12 @@ describe('AddMediaForm', () => {
     expect(screen.getByLabelText('Completed')).toBeInTheDocument();
   });
 
-  it('should render optional form fields', () => {
+  it('should render optional form fields', async () => {
     renderWithRouter(<AddMediaForm />);
 
-    expect(screen.getByPlaceholderText('https://example.com')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('https://example.com')).toBeInTheDocument();
+    });
     expect(screen.getByPlaceholderText('Brief description of the media...')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('https://example.com/thumbnail.jpg')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Add any notes or thoughts about this media...')).toBeInTheDocument();
@@ -137,15 +141,20 @@ describe('AddMediaForm', () => {
   });
 
   describe('Status Selection', () => {
-    it('should default to Uncharted status', () => {
+    it('should default to Uncharted status', async () => {
       renderWithRouter(<AddMediaForm />);
 
-      const unchartedRadio = screen.getByLabelText('Uncharted');
-      expect(unchartedRadio).toBeChecked();
+      await waitFor(() => {
+        expect(screen.getByLabelText('Uncharted')).toBeChecked();
+      });
     });
 
-    it('should show Date Completed field when Completed status is selected', () => {
+    it('should show Date Completed field when Completed status is selected', async () => {
       renderWithRouter(<AddMediaForm />);
+
+      await waitFor(() => {
+        expect(screen.getByLabelText('Completed')).toBeInTheDocument();
+      });
 
       expect(screen.queryByLabelText('Date Completed')).not.toBeInTheDocument();
 
@@ -154,8 +163,12 @@ describe('AddMediaForm', () => {
       expect(screen.getByLabelText('Date Completed')).toBeInTheDocument();
     });
 
-    it('should hide Date Completed when switching away from Completed', () => {
+    it('should hide Date Completed when switching away from Completed', async () => {
       renderWithRouter(<AddMediaForm />);
+
+      await waitFor(() => {
+        expect(screen.getByLabelText('Completed')).toBeInTheDocument();
+      });
 
       fireEvent.click(screen.getByLabelText('Completed'));
       expect(screen.getByLabelText('Date Completed')).toBeInTheDocument();
@@ -166,8 +179,12 @@ describe('AddMediaForm', () => {
   });
 
   describe('Form Inputs', () => {
-    it('should accept title input', () => {
+    it('should accept title input', async () => {
       renderWithRouter(<AddMediaForm />);
+
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText('Enter media title...')).toBeInTheDocument();
+      });
 
       const titleInput = screen.getByPlaceholderText('Enter media title...');
       fireEvent.change(titleInput, { target: { value: 'My Test Media' } });
@@ -175,8 +192,12 @@ describe('AddMediaForm', () => {
       expect(titleInput.value).toBe('My Test Media');
     });
 
-    it('should accept link input', () => {
+    it('should accept link input', async () => {
       renderWithRouter(<AddMediaForm />);
+
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText('https://example.com')).toBeInTheDocument();
+      });
 
       const linkInput = screen.getByPlaceholderText('https://example.com');
       fireEvent.change(linkInput, { target: { value: 'https://example.com/test' } });
@@ -184,8 +205,12 @@ describe('AddMediaForm', () => {
       expect(linkInput.value).toBe('https://example.com/test');
     });
 
-    it('should accept description input', () => {
+    it('should accept description input', async () => {
       renderWithRouter(<AddMediaForm />);
+
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText('Brief description of the media...')).toBeInTheDocument();
+      });
 
       const descInput = screen.getByPlaceholderText('Brief description of the media...');
       fireEvent.change(descInput, { target: { value: 'A test description' } });
@@ -193,8 +218,12 @@ describe('AddMediaForm', () => {
       expect(descInput.value).toBe('A test description');
     });
 
-    it('should accept notes input', () => {
+    it('should accept notes input', async () => {
       renderWithRouter(<AddMediaForm />);
+
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText('Add any notes or thoughts about this media...')).toBeInTheDocument();
+      });
 
       const notesInput = screen.getByPlaceholderText('Add any notes or thoughts about this media...');
       fireEvent.change(notesInput, { target: { value: 'Some notes' } });
@@ -204,15 +233,21 @@ describe('AddMediaForm', () => {
   });
 
   describe('Mixlist Section', () => {
-    it('should render the Add to Mixlists section', () => {
+    it('should render the Add to Mixlists section', async () => {
       renderWithRouter(<AddMediaForm />);
 
-      expect(screen.getByText('Add to Mixlists')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText('Add to Mixlists')).toBeInTheDocument();
+      });
       expect(screen.getByText('+ New Mixlist')).toBeInTheDocument();
     });
 
-    it('should navigate to create mixlist page when clicking + New Mixlist', () => {
+    it('should navigate to create mixlist page when clicking + New Mixlist', async () => {
       renderWithRouter(<AddMediaForm />);
+
+      await waitFor(() => {
+        expect(screen.getByText('+ New Mixlist')).toBeInTheDocument();
+      });
 
       fireEvent.click(screen.getByText('+ New Mixlist'));
 

@@ -74,7 +74,7 @@ describe('HomePage', () => {
       mixlistService.getAllMixlists.mockImplementation(() =>
         new Promise(() => {}) // Never resolves
       );
-      mediaService.getAllMedia.mockResolvedValue({ data: [] });
+      mediaService.getAllMedia.mockImplementation(() => new Promise(() => {}));
 
       render(
         <BrowserRouter>

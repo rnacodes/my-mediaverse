@@ -80,7 +80,7 @@ describe('PodcastSeriesProfile', () => {
         it('should show loading spinner', () => {
             getPodcastSeriesById.mockImplementation(() => new Promise(() => {}));
             getEpisodesBySeriesId.mockImplementation(() => new Promise(() => {}));
-            getAllMixlists.mockResolvedValue({ data: [] });
+            getAllMixlists.mockImplementation(() => new Promise(() => {}));
 
             renderComponent();
 

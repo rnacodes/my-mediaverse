@@ -91,7 +91,7 @@ describe('YouTubePlaylistProfile', () => {
         it('should show loading spinner while fetching', () => {
             getYouTubePlaylistById.mockImplementation(() => new Promise(() => {}));
             getYouTubePlaylistVideos.mockImplementation(() => new Promise(() => {}));
-            getAllMixlists.mockResolvedValue({ data: [] });
+            getAllMixlists.mockImplementation(() => new Promise(() => {}));
 
             renderComponent();
 

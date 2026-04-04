@@ -41,26 +41,34 @@ describe('TraktSyncPage', () => {
     it('should render the page title and subtitle', async () => {
       renderWithRouter(<TraktSyncPage />);
 
-      expect(screen.getByText('Trakt Sync')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText('Trakt Sync')).toBeInTheDocument();
+      });
       expect(screen.getByText(/Sync your watch history, watchlist, and ratings from Trakt/)).toBeInTheDocument();
     });
 
     it('should render the connection status section', async () => {
       renderWithRouter(<TraktSyncPage />);
 
-      expect(screen.getByText('Connection Status')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText('Connection Status')).toBeInTheDocument();
+      });
     });
 
     it('should render how it works section', async () => {
       renderWithRouter(<TraktSyncPage />);
 
-      expect(screen.getByText('How It Works')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText('How It Works')).toBeInTheDocument();
+      });
     });
 
     it('should render Trakt attribution', async () => {
       renderWithRouter(<TraktSyncPage />);
 
-      expect(screen.getByText('Trakt')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText('Trakt')).toBeInTheDocument();
+      });
     });
   });
 
@@ -485,10 +493,12 @@ describe('TraktSyncPage', () => {
   });
 
   describe('How It Works Section', () => {
-    it('should display how it works information', () => {
+    it('should display how it works information', async () => {
       renderWithRouter(<TraktSyncPage />);
 
-      expect(screen.getByText(/Watch History/)).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText(/Watch History/)).toBeInTheDocument();
+      });
       expect(screen.getByText(/Watchlist/)).toBeInTheDocument();
       expect(screen.getByText(/Ratings/)).toBeInTheDocument();
       expect(screen.getByText(/Matching/)).toBeInTheDocument();

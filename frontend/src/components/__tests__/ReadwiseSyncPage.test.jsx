@@ -45,7 +45,9 @@ describe('ReadwiseSyncPage', () => {
     it('should render the page with all sections', async () => {
       renderWithRouter(<ReadwiseSyncPage />);
 
-      expect(screen.getByText('Readwise Sync')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText('Readwise Sync')).toBeInTheDocument();
+      });
       expect(screen.getByText('Connection Status')).toBeInTheDocument();
       expect(screen.getByText('Sync Articles & Highlights')).toBeInTheDocument();
       expect(screen.getByText('Fetch Article Content (Archival)')).toBeInTheDocument();
@@ -501,18 +503,20 @@ describe('ReadwiseSyncPage', () => {
   });
 
   describe('Accessibility', () => {
-    it('should have proper heading structure', () => {
+    it('should have proper heading structure', async () => {
       renderWithRouter(<ReadwiseSyncPage />);
 
-      const heading = screen.getByRole('heading', { level: 1 });
-      expect(heading).toHaveTextContent('Readwise Sync');
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Readwise Sync');
+      });
     });
 
-    it('should have proper button states initially', () => {
+    it('should have proper button states initially', async () => {
       renderWithRouter(<ReadwiseSyncPage />);
 
-      const validateButton = screen.getByText('Validate Connection');
-      expect(validateButton).not.toBeDisabled();
+      await waitFor(() => {
+        expect(screen.getByText('Validate Connection')).not.toBeDisabled();
+      });
 
       const fullSyncButton = screen.getByText('Full Sync');
       expect(fullSyncButton).not.toBeDisabled();
