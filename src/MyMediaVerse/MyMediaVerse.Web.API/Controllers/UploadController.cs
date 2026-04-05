@@ -675,7 +675,7 @@ namespace MyMediaVerse.Web.API.Controllers
             }
         }
 
-        private async Task<Book?> ProcessBookRow(CsvReader csv)
+        private Task<Book?> ProcessBookRow(CsvReader csv)
         {
             var book = new Book
             {
@@ -746,7 +746,7 @@ namespace MyMediaVerse.Web.API.Controllers
             // Note: Topics and Genres can be assigned later through the UI
             // For now, we'll just create the basic book entity
 
-            return book;
+            return Task.FromResult<Book?>(book);
         }
 
         // TODO: Update for new PodcastSeries/PodcastEpisode structure
@@ -808,7 +808,7 @@ namespace MyMediaVerse.Web.API.Controllers
         }
         */
 
-        private async Task<Movie?> ProcessMovieRow(CsvReader csv)
+        private Task<Movie?> ProcessMovieRow(CsvReader csv)
         {
             var movie = new Movie
             {
@@ -861,10 +861,10 @@ namespace MyMediaVerse.Web.API.Controllers
             if (!string.IsNullOrEmpty(dateCompletedStr) && DateTime.TryParse(dateCompletedStr, out DateTime dateCompleted))
                 movie.DateCompleted = DateTime.SpecifyKind(dateCompleted, DateTimeKind.Utc);
 
-            return movie;
+            return Task.FromResult<Movie?>(movie);
         }
 
-        private async Task<TvShow?> ProcessTvShowRow(CsvReader csv)
+        private Task<TvShow?> ProcessTvShowRow(CsvReader csv)
         {
             var tvShow = new TvShow
             {
@@ -924,10 +924,10 @@ namespace MyMediaVerse.Web.API.Controllers
             if (!string.IsNullOrEmpty(dateCompletedStr) && DateTime.TryParse(dateCompletedStr, out DateTime dateCompleted))
                 tvShow.DateCompleted = DateTime.SpecifyKind(dateCompleted, DateTimeKind.Utc);
 
-            return tvShow;
+            return Task.FromResult<TvShow?>(tvShow);
         }
 
-        private async Task<Article?> ProcessArticleRow(CsvReader csv)
+        private Task<Article?> ProcessArticleRow(CsvReader csv)
         {
             var article = new Article
             {
@@ -991,10 +991,10 @@ namespace MyMediaVerse.Web.API.Controllers
             if (!string.IsNullOrEmpty(ownershipStr) && Enum.TryParse<OwnershipStatus>(ownershipStr, true, out OwnershipStatus ownership))
                 article.OwnershipStatus = ownership;
 
-            return article;
+            return Task.FromResult<Article?>(article);
         }
 
-        private async Task<Video?> ProcessVideoRow(CsvReader csv)
+        private Task<Video?> ProcessVideoRow(CsvReader csv)
         {
             var video = new Video
             {
@@ -1038,10 +1038,10 @@ namespace MyMediaVerse.Web.API.Controllers
             if (!string.IsNullOrEmpty(ownershipStr) && Enum.TryParse<OwnershipStatus>(ownershipStr, true, out OwnershipStatus ownership))
                 video.OwnershipStatus = ownership;
 
-            return video;
+            return Task.FromResult<Video?>(video);
         }
 
-        private async Task<Website?> ProcessWebsiteRow(CsvReader csv)
+        private Task<Website?> ProcessWebsiteRow(CsvReader csv)
         {
             var website = new Website
             {
@@ -1080,7 +1080,7 @@ namespace MyMediaVerse.Web.API.Controllers
             if (!string.IsNullOrEmpty(ownershipStr) && Enum.TryParse<OwnershipStatus>(ownershipStr, true, out OwnershipStatus ownership))
                 website.OwnershipStatus = ownership;
 
-            return website;
+            return Task.FromResult<Website?>(website);
         }
 
         private static string? GetCsvValue(CsvReader csv, string fieldName)

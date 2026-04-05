@@ -25,7 +25,7 @@ namespace MyMediaVerse.Application.Interfaces
         Task<Video> SaveVideoWithEpisodesAsync(Video videoSeries, bool updateIfExists = true);
         Task<bool> VideoExistsAsync(string title, Guid? channelId = null);
         Task<bool> VideoEpisodeExistsAsync(Guid? parentVideoId, string episodeTitle);
-        Task<Video> GetVideoByTitleAsync(string title, Guid? channelId = null);
-        Task<Video> GetVideoEpisodeByTitleAsync(Guid? parentVideoId, string episodeTitle);
+        Task<Video?> GetVideoByTitleAsync(string title, Guid? channelId = null);
+        Task<Video?> GetVideoEpisodeByTitleAsync(Guid? parentVideoId, string episodeTitle);
     }
 }

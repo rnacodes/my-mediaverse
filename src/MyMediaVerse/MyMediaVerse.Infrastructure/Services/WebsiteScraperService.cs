@@ -85,13 +85,13 @@ namespace MyMediaVerse.Infrastructure.Services
             // Priority: og:title > twitter:title > title tag
             var ogTitle = htmlDoc.DocumentNode
                 .SelectSingleNode("//meta[@property='og:title']")
-                ?.GetAttributeValue("content", null);
+                ?.GetAttributeValue("content", null!);
             if (!string.IsNullOrWhiteSpace(ogTitle))
                 return WebUtility.HtmlDecode(ogTitle);
 
             var twitterTitle = htmlDoc.DocumentNode
                 .SelectSingleNode("//meta[@name='twitter:title']")
-                ?.GetAttributeValue("content", null);
+                ?.GetAttributeValue("content", null!);
             if (!string.IsNullOrWhiteSpace(twitterTitle))
                 return WebUtility.HtmlDecode(twitterTitle);
 
@@ -109,19 +109,19 @@ namespace MyMediaVerse.Infrastructure.Services
             // Priority: og:description > twitter:description > meta description
             var ogDescription = htmlDoc.DocumentNode
                 .SelectSingleNode("//meta[@property='og:description']")
-                ?.GetAttributeValue("content", null);
+                ?.GetAttributeValue("content", null!);
             if (!string.IsNullOrWhiteSpace(ogDescription))
                 return WebUtility.HtmlDecode(ogDescription);
 
             var twitterDescription = htmlDoc.DocumentNode
                 .SelectSingleNode("//meta[@name='twitter:description']")
-                ?.GetAttributeValue("content", null);
+                ?.GetAttributeValue("content", null!);
             if (!string.IsNullOrWhiteSpace(twitterDescription))
                 return WebUtility.HtmlDecode(twitterDescription);
 
             var metaDescription = htmlDoc.DocumentNode
                 .SelectSingleNode("//meta[@name='description']")
-                ?.GetAttributeValue("content", null);
+                ?.GetAttributeValue("content", null!);
             if (!string.IsNullOrWhiteSpace(metaDescription))
                 return WebUtility.HtmlDecode(metaDescription);
 
@@ -133,13 +133,13 @@ namespace MyMediaVerse.Infrastructure.Services
             // Priority: og:image > twitter:image > first img tag
             var ogImage = htmlDoc.DocumentNode
                 .SelectSingleNode("//meta[@property='og:image']")
-                ?.GetAttributeValue("content", null);
+                ?.GetAttributeValue("content", null!);
             if (!string.IsNullOrWhiteSpace(ogImage))
                 return ResolveUrl(ogImage, baseUri);
 
             var twitterImage = htmlDoc.DocumentNode
                 .SelectSingleNode("//meta[@name='twitter:image']")
-                ?.GetAttributeValue("content", null);
+                ?.GetAttributeValue("content", null!);
             if (!string.IsNullOrWhiteSpace(twitterImage))
                 return ResolveUrl(twitterImage, baseUri);
 
@@ -158,7 +158,7 @@ namespace MyMediaVerse.Infrastructure.Services
             // Look for RSS or Atom feed links
             var rssLink = htmlDoc.DocumentNode
                 .SelectSingleNode("//link[@type='application/rss+xml' or @type='application/atom+xml']")
-                ?.GetAttributeValue("href", null);
+                ?.GetAttributeValue("href", null!);
 
             if (!string.IsNullOrWhiteSpace(rssLink))
                 return ResolveUrl(rssLink, baseUri);
@@ -171,13 +171,13 @@ namespace MyMediaVerse.Infrastructure.Services
             // Try various common author meta tags
             var author = htmlDoc.DocumentNode
                 .SelectSingleNode("//meta[@name='author']")
-                ?.GetAttributeValue("content", null);
+                ?.GetAttributeValue("content", null!);
             if (!string.IsNullOrWhiteSpace(author))
                 return WebUtility.HtmlDecode(author);
 
             var ogAuthor = htmlDoc.DocumentNode
                 .SelectSingleNode("//meta[@property='article:author']")
-                ?.GetAttributeValue("content", null);
+                ?.GetAttributeValue("content", null!);
             if (!string.IsNullOrWhiteSpace(ogAuthor))
                 return WebUtility.HtmlDecode(ogAuthor);
 
@@ -189,13 +189,13 @@ namespace MyMediaVerse.Infrastructure.Services
             // Try og:site_name for publication name
             var siteName = htmlDoc.DocumentNode
                 .SelectSingleNode("//meta[@property='og:site_name']")
-                ?.GetAttributeValue("content", null);
+                ?.GetAttributeValue("content", null!);
             if (!string.IsNullOrWhiteSpace(siteName))
                 return WebUtility.HtmlDecode(siteName);
 
             var publisher = htmlDoc.DocumentNode
                 .SelectSingleNode("//meta[@property='og:publisher' or @name='publisher']")
-                ?.GetAttributeValue("content", null);
+                ?.GetAttributeValue("content", null!);
             if (!string.IsNullOrWhiteSpace(publisher))
                 return WebUtility.HtmlDecode(publisher);
 

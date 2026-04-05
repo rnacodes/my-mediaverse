@@ -90,9 +90,9 @@ namespace MyMediaVerse.Application.Services
             return tvShow;
         }
 
-        public async Task<TvShowResponseDto> MapToResponseDtoAsync(TvShow tvShow)
+        public Task<TvShowResponseDto> MapToResponseDtoAsync(TvShow tvShow)
         {
-            return new TvShowResponseDto
+            return Task.FromResult(new TvShowResponseDto
             {
                 Id = tvShow.Id,
                 Title = tvShow.Title,
@@ -126,10 +126,10 @@ namespace MyMediaVerse.Application.Services
                 TmdbPosterUrl = tvShow.GetTmdbPosterUrl(),
                 AirYears = tvShow.GetAirYears(),
                 EpisodeCount = tvShow.GetEpisodeCount()
-            };
+            });
         }
 
-        public async Task<TvShow> MapFromTmdbAsync(TmdbTvShowDto tmdbTvShow)
+        public Task<TvShow> MapFromTmdbAsync(TmdbTvShowDto tmdbTvShow)
         {
             var tvShow = new TvShow
             {
@@ -169,12 +169,12 @@ namespace MyMediaVerse.Application.Services
             // Handle genres from TMDB genre IDs (simplified - would need genre mapping service)
             // For now, we'll skip this as it would require a TMDB genre mapping service
 
-            return tvShow;
+            return Task.FromResult(tvShow);
         }
 
-        public async Task<TvShowSearchResultDto> MapToSearchResultDtoAsync(TmdbTvShowDto tmdbTvShow)
+        public Task<TvShowSearchResultDto> MapToSearchResultDtoAsync(TmdbTvShowDto tmdbTvShow)
         {
-            return new TvShowSearchResultDto
+            return Task.FromResult(new TvShowSearchResultDto
             {
                 Id = tmdbTvShow.Id,
                 Name = tmdbTvShow.Name,
@@ -196,10 +196,10 @@ namespace MyMediaVerse.Application.Services
                 PosterUrl = !string.IsNullOrEmpty(tmdbTvShow.PosterPath) 
                     ? $"https://image.tmdb.org/t/p/w500{tmdbTvShow.PosterPath}" 
                     : null,
-                BackdropUrl = !string.IsNullOrEmpty(tmdbTvShow.BackdropPath) 
-                    ? $"https://image.tmdb.org/t/p/w1280{tmdbTvShow.BackdropPath}" 
+                BackdropUrl = !string.IsNullOrEmpty(tmdbTvShow.BackdropPath)
+                    ? $"https://image.tmdb.org/t/p/w1280{tmdbTvShow.BackdropPath}"
                     : null
-            };
+            });
         }
     }
 }

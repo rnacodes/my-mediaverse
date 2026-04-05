@@ -7,25 +7,25 @@ namespace MyMediaVerse.Shared.DTOs.ListenNotes
     public class PodcastSeriesDto
     {
         [JsonPropertyName("id")]
-        public string Id { get; set; }
+        public string Id { get; set; } = string.Empty;
 
         [JsonPropertyName("title")]
-        public string Title { get; set; }
+        public string Title { get; set; } = string.Empty;
 
         [JsonPropertyName("publisher")]
-        public string Publisher { get; set; }
+        public string Publisher { get; set; } = string.Empty;
 
         [JsonPropertyName("image")]
-        public string Image { get; set; }
+        public string Image { get; set; } = string.Empty;
 
         [JsonPropertyName("thumbnail")]
-        public string Thumbnail { get; set; }
+        public string Thumbnail { get; set; } = string.Empty;
 
         [JsonPropertyName("description")]
-        public string Description { get; set; }
+        public string Description { get; set; } = string.Empty;
 
         [JsonPropertyName("episodes")]
-        public List<PodcastEpisodeDto> Episodes { get; set; }
+        public List<PodcastEpisodeDto> Episodes { get; set; } = new();
 
         [JsonPropertyName("website")]
         public string? Website { get; set; }

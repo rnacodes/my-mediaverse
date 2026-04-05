@@ -148,9 +148,9 @@ namespace MyMediaVerse.Application.Services
                 }
 
                 // Upload thumbnail to DigitalOcean Spaces if available
-                var originalThumbnailUrl = podcastDto.Image ?? podcastDto.Thumbnail;
+                var originalThumbnailUrl = podcastDto?.Image ?? podcastDto?.Thumbnail;
                 _logger.LogInformation("Processing thumbnail - Original URL: {OriginalUrl}", originalThumbnailUrl);
-                
+
                 var uploadedThumbnailUrl = await UploadImageFromUrlAsync(originalThumbnailUrl);
                 _logger.LogInformation("Thumbnail processing result - Original: {OriginalUrl}, Uploaded: {UploadedUrl}", originalThumbnailUrl, uploadedThumbnailUrl);
 
@@ -159,13 +159,13 @@ namespace MyMediaVerse.Application.Services
                     Title = podcastDto?.Title ?? string.Empty,
                     MediaType = MediaType.Podcast,
                     PodcastType = PodcastType.Series, // Default to Series for API imports
-                    Link = podcastDto.Website,
-                    Description = podcastDto.Description,
+                    Link = podcastDto?.Website,
+                    Description = podcastDto?.Description,
                     Thumbnail = uploadedThumbnailUrl,
                     DateAdded = DateTime.UtcNow,
                     Status = Status.Uncharted,
-                    ExternalId = podcastDto.Id,
-                    Publisher = podcastDto.Publisher
+                    ExternalId = podcastDto?.Id,
+                    Publisher = podcastDto?.Publisher
                 };
 
                 // Add genres to the new Genres collection
@@ -210,24 +210,24 @@ namespace MyMediaVerse.Application.Services
                 }
 
                 // Upload thumbnail to DigitalOcean Spaces if available
-                var originalThumbnailUrl = episodeDto.Image ?? episodeDto.Thumbnail;
+                var originalThumbnailUrl = episodeDto?.Image ?? episodeDto?.Thumbnail;
                 var uploadedThumbnailUrl = await UploadImageFromUrlAsync(originalThumbnailUrl);
 
                 var podcastEpisode = new Podcast
                 {
-                    Title = episodeDto.Title ?? string.Empty,
+                    Title = episodeDto?.Title ?? string.Empty,
                     MediaType = MediaType.Podcast,
                     PodcastType = PodcastType.Episode,
-                    Link = episodeDto.Link,
-                    Description = episodeDto.Description,
+                    Link = episodeDto?.Link,
+                    Description = episodeDto?.Description,
                     Thumbnail = uploadedThumbnailUrl,
                     DateAdded = DateTime.UtcNow,
                     Status = Status.Uncharted,
                     ParentPodcastId = parentPodcastId,
-                    AudioLink = episodeDto.AudioUrl,
-                    ReleaseDate = DateTimeOffset.FromUnixTimeMilliseconds(episodeDto.PublishDateMs).DateTime,
-                    DurationInSeconds = episodeDto.DurationInSeconds,
-                    ExternalId = episodeDto.Id
+                    AudioLink = episodeDto?.AudioUrl,
+                    ReleaseDate = episodeDto != null ? DateTimeOffset.FromUnixTimeMilliseconds(episodeDto.PublishDateMs).DateTime : DateTime.UtcNow,
+                    DurationInSeconds = episodeDto?.DurationInSeconds ?? 0,
+                    ExternalId = episodeDto?.Id
                 };
 
                 // Add topics to the new Topics collection
@@ -268,8 +268,8 @@ namespace MyMediaVerse.Application.Services
                             Title = firstResult.TitleOriginal ?? firstResult.TitleHighlighted ?? "Unknown Title",
                             Publisher = firstResult.PublisherOriginal ?? firstResult.PublisherHighlighted ?? "Unknown Publisher",
                             Description = firstResult.DescriptionOriginal ?? firstResult.DescriptionHighlighted ?? "No description available",
-                            Image = firstResult.Image,
-                            Thumbnail = firstResult.Thumbnail
+                            Image = firstResult.Image ?? string.Empty,
+                            Thumbnail = firstResult.Thumbnail ?? string.Empty
                         };
 
                         var mappingJson = JsonSerializer.Serialize(podcastForMapping, _jsonOptions);

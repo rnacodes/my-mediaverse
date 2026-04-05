@@ -880,12 +880,6 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
-// Apply any pending EF Core migrations on startup
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<MediaLibraryDbContext>();
-    db.Database.Migrate();
-}
 
 // Initialize Typesense collections on startup (only if Typesense is configured)
 try

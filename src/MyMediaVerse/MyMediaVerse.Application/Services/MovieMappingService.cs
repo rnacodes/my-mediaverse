@@ -89,9 +89,9 @@ namespace MyMediaVerse.Application.Services
             return movie;
         }
 
-        public async Task<MovieResponseDto> MapToResponseDtoAsync(Movie movie)
+        public Task<MovieResponseDto> MapToResponseDtoAsync(Movie movie)
         {
-            return new MovieResponseDto
+            return Task.FromResult(new MovieResponseDto
             {
                 Id = movie.Id,
                 Title = movie.Title,
@@ -123,10 +123,10 @@ namespace MyMediaVerse.Application.Services
                 OriginalTitle = movie.OriginalTitle,
                 TmdbBackdropUrl = movie.GetTmdbBackdropUrl(),
                 FormattedRuntime = FormatRuntime(movie.RuntimeMinutes)
-            };
+            });
         }
 
-        public async Task<Movie> MapFromTmdbAsync(TmdbMovieDto tmdbMovie)
+        public Task<Movie> MapFromTmdbAsync(TmdbMovieDto tmdbMovie)
         {
             var movie = new Movie
             {
@@ -159,12 +159,12 @@ namespace MyMediaVerse.Application.Services
             // Handle genres from TMDB genre IDs (simplified - would need genre mapping service)
             // For now, we'll skip this as it would require a TMDB genre mapping service
 
-            return movie;
+            return Task.FromResult(movie);
         }
 
-        public async Task<MovieSearchResultDto> MapToSearchResultDtoAsync(TmdbMovieDto tmdbMovie)
+        public Task<MovieSearchResultDto> MapToSearchResultDtoAsync(TmdbMovieDto tmdbMovie)
         {
-            return new MovieSearchResultDto
+            return Task.FromResult(new MovieSearchResultDto
             {
                 Id = tmdbMovie.Id,
                 Title = tmdbMovie.Title,
@@ -184,10 +184,10 @@ namespace MyMediaVerse.Application.Services
                 PosterUrl = !string.IsNullOrEmpty(tmdbMovie.PosterPath) 
                     ? $"https://image.tmdb.org/t/p/w500{tmdbMovie.PosterPath}" 
                     : null,
-                BackdropUrl = !string.IsNullOrEmpty(tmdbMovie.BackdropPath) 
-                    ? $"https://image.tmdb.org/t/p/w1280{tmdbMovie.BackdropPath}" 
+                BackdropUrl = !string.IsNullOrEmpty(tmdbMovie.BackdropPath)
+                    ? $"https://image.tmdb.org/t/p/w1280{tmdbMovie.BackdropPath}"
                     : null
-            };
+            });
         }
 
         private static string? FormatRuntime(int? runtimeMinutes)

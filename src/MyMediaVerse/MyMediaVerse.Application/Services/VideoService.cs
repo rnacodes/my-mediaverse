@@ -377,7 +377,7 @@ namespace MyMediaVerse.Application.Services
                             var normalizedName = topic.Name.Trim().ToLowerInvariant();
                             var existingTopic = await _context.Topics
                                 .FirstOrDefaultAsync(t => t.Name == normalizedName);
-                            video.Topics.Add(existingTopic ?? new Topic { Name = normalizedName });
+                            (video.Topics ??= new List<Topic>()).Add(existingTopic ?? new Topic { Name = normalizedName });
                         }
                     }
                 }
@@ -393,7 +393,7 @@ namespace MyMediaVerse.Application.Services
                             var normalizedName = genre.Name.Trim().ToLowerInvariant();
                             var existingGenre = await _context.Genres
                                 .FirstOrDefaultAsync(g => g.Name == normalizedName);
-                            video.Genres.Add(existingGenre ?? new Genre { Name = normalizedName });
+                            (video.Genres ??= new List<Genre>()).Add(existingGenre ?? new Genre { Name = normalizedName });
                         }
                     }
                 }
@@ -456,7 +456,7 @@ namespace MyMediaVerse.Application.Services
                     e.Title.ToLower() == episodeTitle.ToLower());
         }
 
-        public async Task<Video> GetVideoByTitleAsync(string title, Guid? channelId = null)
+        public async Task<Video?> GetVideoByTitleAsync(string title, Guid? channelId = null)
         {
             var query = _context.Videos.AsQueryable();
 
@@ -472,7 +472,7 @@ namespace MyMediaVerse.Application.Services
             return await query.FirstOrDefaultAsync();
         }
 
-        public async Task<Video> GetVideoEpisodeByTitleAsync(Guid? parentVideoId, string episodeTitle)
+        public async Task<Video?> GetVideoEpisodeByTitleAsync(Guid? parentVideoId, string episodeTitle)
         {
             return await _context.Videos
                 .FirstOrDefaultAsync(e =>

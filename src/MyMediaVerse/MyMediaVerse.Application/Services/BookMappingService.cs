@@ -98,9 +98,9 @@ namespace MyMediaVerse.Application.Services
             return book;
         }
 
-        public async Task<BookResponseDto> MapToResponseDtoAsync(Book book)
+        public Task<BookResponseDto> MapToResponseDtoAsync(Book book)
         {
-            return new BookResponseDto
+            return Task.FromResult(new BookResponseDto
             {
                 Id = book.Id,
                 Title = book.Title,
@@ -130,10 +130,10 @@ namespace MyMediaVerse.Application.Services
                 MyReview = book.MyReview,
                 Publisher = book.Publisher,
                 GoodreadsTags = book.GoodreadsTags ?? new List<string>()
-            };
+            });
         }
 
-        public async Task<Book> MapFromOpenLibraryAsync(OpenLibraryBookDto openLibraryBook)
+        public Task<Book> MapFromOpenLibraryAsync(OpenLibraryBookDto openLibraryBook)
         {
             var book = new Book
             {
@@ -157,7 +157,7 @@ namespace MyMediaVerse.Application.Services
             // Note: Topics and genres are NOT auto-imported from Open Library subjects
             // Users can add them manually after import if desired
 
-            return book;
+            return Task.FromResult(book);
         }
 
         public async Task<Book> MapFromOpenLibraryWorkAsync(OpenLibraryWorkDto openLibraryWork)
@@ -168,16 +168,16 @@ namespace MyMediaVerse.Application.Services
             {
                 Key = openLibraryWork.Key,
                 Title = openLibraryWork.Title,
-                AuthorName = openLibraryWork.Authors?.Select(a => a.Author?.Key?.Replace("/authors/", "")).ToArray(),
+                AuthorName = openLibraryWork.Authors?.Select(a => a.Author?.Key?.Replace("/authors/", "")).Where(a => a != null).ToArray()!,
                 CoverId = openLibraryWork.Covers?.FirstOrDefault()
             };
 
             return await MapFromOpenLibraryAsync(bookData);
         }
 
-        public async Task<BookSearchResultDto> MapToSearchResultDtoAsync(OpenLibraryBookDto openLibraryBook)
+        public Task<BookSearchResultDto> MapToSearchResultDtoAsync(OpenLibraryBookDto openLibraryBook)
         {
-            return new BookSearchResultDto
+            return Task.FromResult(new BookSearchResultDto
             {
                 Key = openLibraryBook.Key,
                 Title = openLibraryBook.Title,
@@ -195,7 +195,7 @@ namespace MyMediaVerse.Application.Services
                 RatingCount = openLibraryBook.RatingCount,
                 HasFulltext = openLibraryBook.HasFulltext,
                 EditionCount = openLibraryBook.EditionCount
-            };
+            });
         }
 
         private static string? ExtractDescription(OpenLibraryBookDto bookData)
@@ -213,7 +213,7 @@ namespace MyMediaVerse.Application.Services
         // Google Books Mapping Methods
         // ============================================
 
-        public async Task<Book> MapFromGoogleBooksAsync(GoogleBooksVolumeDto volume)
+        public Task<Book> MapFromGoogleBooksAsync(GoogleBooksVolumeDto volume)
         {
             var volumeInfo = volume.VolumeInfo;
 
@@ -238,14 +238,14 @@ namespace MyMediaVerse.Application.Services
             // Note: Topics and genres are NOT auto-imported from Google Books categories
             // Users can add them manually after import if desired
 
-            return book;
+            return Task.FromResult(book);
         }
 
-        public async Task<BookSearchResultDto> MapGoogleBooksToSearchResultDtoAsync(GoogleBooksVolumeDto volume)
+        public Task<BookSearchResultDto> MapGoogleBooksToSearchResultDtoAsync(GoogleBooksVolumeDto volume)
         {
             var volumeInfo = volume.VolumeInfo;
 
-            return new BookSearchResultDto
+            return Task.FromResult(new BookSearchResultDto
             {
                 Key = volume.Id, // Google Books Volume ID
                 Title = volumeInfo?.Title,
@@ -265,7 +265,7 @@ namespace MyMediaVerse.Application.Services
                 RatingCount = volumeInfo?.RatingsCount,
                 HasFulltext = null, // Not available in Google Books
                 EditionCount = null // Not available in Google Books
-            };
+            });
         }
 
         /// <summary>

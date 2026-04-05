@@ -5,10 +5,10 @@ namespace MyMediaVerse.Shared.DTOs.ListenNotes
     public class PodcastEpisodeDto
     {
         [JsonPropertyName("id")]
-        public string Id { get; set; }
+        public string Id { get; set; } = string.Empty;
 
         [JsonPropertyName("title")]
-        public string Title { get; set; }
+        public string Title { get; set; } = string.Empty;
 
         [JsonPropertyName("description")]
         public string? Description { get; set; }

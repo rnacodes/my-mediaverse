@@ -28,13 +28,13 @@ namespace MyMediaVerse.Web.API.Controllers
         }
 
         // Helper method to check if the current environment allows dev operations
-        private IActionResult CheckEnvironment()
+        private IActionResult? CheckEnvironment()
         {
             if (_environment.IsProduction())
             {
                 _logger.LogWarning("Attempted to access DevController in production environment");
-                return StatusCode(403, new 
-                { 
+                return StatusCode(403, new
+                {
                     error = "DevController endpoints are disabled in production",
                     message = "These endpoints are only available in Development and Staging environments for security reasons."
                 });

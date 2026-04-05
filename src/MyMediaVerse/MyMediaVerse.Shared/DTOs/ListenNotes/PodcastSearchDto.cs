@@ -5,7 +5,7 @@ namespace MyMediaVerse.Shared.DTOs.ListenNotes
     public class PodcastSearchDto
     {
         [JsonPropertyName("id")]
-        public string Id { get; set; }
+        public string Id { get; set; } = string.Empty;
 
         [JsonPropertyName("title_original")]
         public string? TitleOriginal { get; set; }
