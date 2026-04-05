@@ -263,6 +263,14 @@ namespace MyMediaVerse.Web.API.Controllers
                     CannedACL = S3CannedACL.PublicRead // Make the file publicly accessible
                 };
 
+                // Debug: log config values to help diagnose signature issues
+                var spacesRegion = spacesConfig["Region"];
+                var spacesAccessKey = spacesConfig["AccessKey"];
+                _logger.LogInformation("DO Spaces upload attempt - Bucket: {Bucket}, Endpoint: {Endpoint}, Region: {Region}, AccessKey starts with: {KeyPrefix}, Key: {Key}",
+                    bucketName, endpoint, spacesRegion,
+                    string.IsNullOrEmpty(spacesAccessKey) ? "EMPTY" : spacesAccessKey[..Math.Min(4, spacesAccessKey.Length)] + "***",
+                    uniqueFileName);
+
                 await _s3Client.PutObjectAsync(uploadRequest);
 
                 // Construct the public URL
@@ -274,8 +282,9 @@ namespace MyMediaVerse.Web.API.Controllers
             }
             catch (AmazonS3Exception ex)
             {
-                _logger.LogError(ex, "Error uploading thumbnail to DigitalOcean Spaces");
-                return StatusCode(500, $"Error uploading to DigitalOcean Spaces: {ex.Message}");
+                _logger.LogError(ex, "Error uploading thumbnail to DigitalOcean Spaces. StatusCode: {StatusCode}, ErrorCode: {ErrorCode}",
+                    ex.StatusCode, ex.ErrorCode);
+                return StatusCode(500, $"Error uploading to DigitalOcean Spaces: [{ex.StatusCode}] {ex.ErrorCode} - {ex.Message}");
             }
             catch (Exception ex)
             {
