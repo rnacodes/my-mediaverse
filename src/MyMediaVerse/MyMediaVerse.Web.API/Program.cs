@@ -753,32 +753,13 @@ builder.Services.AddSingleton<IAmazonS3>(sp =>
     var region = spacesConfig["Region"];
     var bucketName = spacesConfig["BucketName"];
 
-    // Enhanced debugging
-    Console.WriteLine("=== DigitalOcean Spaces Configuration Debug ===");
-    Console.WriteLine($"AccessKey: {(string.IsNullOrEmpty(accessKey) ? "MISSING" : "SET")}");
-    Console.WriteLine($"SecretKey: {(string.IsNullOrEmpty(secretKey) ? "MISSING" : "SET")}");
-    Console.WriteLine($"Endpoint: {(string.IsNullOrEmpty(endpoint) ? "MISSING" : endpoint)}");
-    Console.WriteLine($"Region: {(string.IsNullOrEmpty(region) ? "MISSING" : region)}");
-    Console.WriteLine($"BucketName: {(string.IsNullOrEmpty(bucketName) ? "MISSING" : bucketName)}");
-
-    // Check if any values are still placeholders or empty
-    var hasPlaceholders = accessKey == "SPACES_ACCESS_KEY" || secretKey == "SPACES_SECRET_KEY" || 
-                         endpoint == "SPACES_ENDPOINT" || region == "SPACES_REGION" ||
-                         bucketName == "SPACES_BUCKET_NAME";
-
-    if (string.IsNullOrEmpty(accessKey) || string.IsNullOrEmpty(secretKey) || 
-        string.IsNullOrEmpty(endpoint) || string.IsNullOrEmpty(region) || 
-        string.IsNullOrEmpty(bucketName) || hasPlaceholders)
+    if (string.IsNullOrEmpty(accessKey) || string.IsNullOrEmpty(secretKey) ||
+        string.IsNullOrEmpty(endpoint) || string.IsNullOrEmpty(region) ||
+        string.IsNullOrEmpty(bucketName))
     {
-        Console.WriteLine("WARNING: DigitalOcean Spaces configuration is incomplete or contains placeholder values.");
+        Console.WriteLine("WARNING: DigitalOcean Spaces configuration is incomplete.");
         Console.WriteLine("Thumbnail upload functionality will not be available until properly configured.");
-        Console.WriteLine("Expected environment variables:");
-        Console.WriteLine("  DIGITALOCEANSPACES__ACCESSKEY");
-        Console.WriteLine("  DIGITALOCEANSPACES__SECRETKEY");
-        Console.WriteLine("  DIGITALOCEANSPACES__ENDPOINT");
-        Console.WriteLine("  DIGITALOCEANSPACES__REGION");
-        Console.WriteLine("  DIGITALOCEANSPACES__BUCKETNAME");
-        
+
         // Return a null client - the UploadController will handle this gracefully
         return null!;
     }
@@ -789,8 +770,6 @@ builder.Services.AddSingleton<IAmazonS3>(sp =>
         ForcePathStyle = false // DigitalOcean Spaces uses virtual-hosted-style requests
     };
 
-    Console.WriteLine($"Configuring DigitalOcean Spaces client with endpoint: {endpoint}");
-    
     return new Amazon.S3.AmazonS3Client(accessKey, secretKey, config);
 });
 

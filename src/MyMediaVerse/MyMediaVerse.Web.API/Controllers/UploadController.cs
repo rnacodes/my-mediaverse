@@ -263,14 +263,6 @@ namespace MyMediaVerse.Web.API.Controllers
                     CannedACL = S3CannedACL.PublicRead // Make the file publicly accessible
                 };
 
-                // Debug: log config values to help diagnose signature issues
-                var spacesRegion = spacesConfig["Region"];
-                var spacesAccessKey = spacesConfig["AccessKey"];
-                _logger.LogInformation("DO Spaces upload attempt - Bucket: {Bucket}, Endpoint: {Endpoint}, Region: {Region}, AccessKey starts with: {KeyPrefix}, Key: {Key}",
-                    bucketName, endpoint, spacesRegion,
-                    string.IsNullOrEmpty(spacesAccessKey) ? "EMPTY" : spacesAccessKey[..Math.Min(4, spacesAccessKey.Length)] + "***",
-                    uniqueFileName);
-
                 await _s3Client.PutObjectAsync(uploadRequest);
 
                 // Construct the public URL
@@ -290,6 +282,63 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 _logger.LogError(ex, "Unexpected error during thumbnail upload");
                 return StatusCode(500, new { error = "Failed to upload thumbnail", details = ex.Message });
+            }
+        }
+
+        // GET: api/upload/spaces-status
+        [HttpGet("spaces-status")]
+        public async Task<IActionResult> CheckSpacesStatus()
+        {
+            try
+            {
+                if (_s3Client == null)
+                {
+                    return Ok(new { status = "not_configured", message = "S3 client is not configured" });
+                }
+
+                var spacesConfig = _configuration.GetSection("DigitalOceanSpaces");
+                var bucketName = spacesConfig["BucketName"];
+                var endpoint = spacesConfig["Endpoint"];
+                var region = spacesConfig["Region"];
+
+                if (string.IsNullOrEmpty(bucketName) || string.IsNullOrEmpty(endpoint))
+                {
+                    return Ok(new { status = "not_configured", message = "DigitalOcean Spaces configuration is incomplete" });
+                }
+
+                // Try listing objects with max 1 result to verify connectivity and auth
+                var listRequest = new ListObjectsV2Request
+                {
+                    BucketName = bucketName,
+                    MaxKeys = 1
+                };
+
+                var response = await _s3Client.ListObjectsV2Async(listRequest);
+
+                return Ok(new
+                {
+                    status = "connected",
+                    bucket = bucketName,
+                    endpoint = endpoint,
+                    region = region,
+                    objectCount = response.KeyCount
+                });
+            }
+            catch (AmazonS3Exception ex)
+            {
+                _logger.LogError(ex, "Spaces health check failed. StatusCode: {StatusCode}, ErrorCode: {ErrorCode}", ex.StatusCode, ex.ErrorCode);
+                return Ok(new
+                {
+                    status = "error",
+                    errorCode = ex.ErrorCode,
+                    statusCode = (int)ex.StatusCode,
+                    message = ex.Message
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error during Spaces health check");
+                return Ok(new { status = "error", message = ex.Message });
             }
         }
 
