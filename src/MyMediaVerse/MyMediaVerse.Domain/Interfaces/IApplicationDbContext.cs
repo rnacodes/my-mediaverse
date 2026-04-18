@@ -36,6 +36,7 @@ namespace MyMediaVerse.Domain.Interfaces
         
         // Entity tracking
         void Add<TEntity>(TEntity entity) where TEntity : class;
+        void AddRange<TEntity>(IEnumerable<TEntity> entities) where TEntity : class;
         void Update<TEntity>(TEntity entity) where TEntity : class;
         void Remove<TEntity>(TEntity entity) where TEntity : class;
         void ClearChangeTracker();

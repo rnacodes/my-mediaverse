@@ -967,6 +967,11 @@ namespace MyMediaVerse.Infrastructure.Data
             base.Add(entity);
         }
 
+        public void AddRange<TEntity>(IEnumerable<TEntity> entities) where TEntity : class
+        {
+            base.AddRange(entities);
+        }
+
         public new void Update<TEntity>(TEntity entity) where TEntity : class
         {
             base.Update(entity);
