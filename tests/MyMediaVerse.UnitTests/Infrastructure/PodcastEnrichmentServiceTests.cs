@@ -2,7 +2,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
 using MyMediaVerse.Domain.Entities;
-using MyMediaVerse.Infrastructure.Services;
+using MyMediaVerse.Infrastructure.Services.Enrichment;
 using MyMediaVerse.Shared.DTOs.ListenNotes;
 using MyMediaVerse.Shared.Interfaces;
 using MyMediaVerse.UnitTests.TestHelpers;

@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Shared.Interfaces;
 
-namespace MyMediaVerse.Infrastructure.Services
+namespace MyMediaVerse.Infrastructure.Services.Enrichment
 {
     /// <summary>
     /// Service for enriching book descriptions from Google Books API.

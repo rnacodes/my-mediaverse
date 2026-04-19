@@ -4,7 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using MyMediaVerse.Shared.Interfaces;
 
-namespace MyMediaVerse.Infrastructure.Services
+namespace MyMediaVerse.Infrastructure.Services.Web
 {
     /// <summary>
     /// Service for capturing screenshots of websites using thum.io (free tier: 500/month).

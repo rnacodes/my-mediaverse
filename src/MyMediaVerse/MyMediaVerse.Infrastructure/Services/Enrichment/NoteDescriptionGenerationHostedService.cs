@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MyMediaVerse.Application.Interfaces;
 
-namespace MyMediaVerse.Infrastructure.Services
+namespace MyMediaVerse.Infrastructure.Services.Enrichment
 {
     /// <summary>
     /// Background hosted service that periodically generates AI descriptions

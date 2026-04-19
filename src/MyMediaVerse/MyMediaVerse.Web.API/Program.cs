@@ -1,5 +1,3 @@
-using System.Text;
-using System.Text.RegularExpressions;
 using MyMediaVerse.Web.API.Extensions;
 using MyMediaVerse.Web.API.Middleware;
 
@@ -60,68 +58,16 @@ await app.InitializeTypesenseCollectionsAsync();
 // Global exception handler first so it catches everything downstream.
 app.UseGlobalExceptionHandler();
 
-// Protect Swagger UI with Basic Authentication in non-development environments
+// Protect Swagger UI with Basic Authentication in non-development environments.
 if (!app.Environment.IsDevelopment())
 {
-    app.Use(async (context, next) =>
-    {
-        var path = context.Request.Path.Value?.TrimEnd('/') ?? "";
-
-        var isSwaggerPath = path == ""
-            || path.Equals("/index.html", StringComparison.OrdinalIgnoreCase)
-            || path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase);
-
-        if (isSwaggerPath)
-        {
-            string? authHeader = context.Request.Headers.Authorization;
-
-            if (authHeader != null && authHeader.StartsWith("Basic ", StringComparison.OrdinalIgnoreCase))
-            {
-                try
-                {
-                    var encoded = authHeader["Basic ".Length..].Trim();
-                    var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(encoded));
-                    var separatorIndex = decoded.IndexOf(':');
-
-                    if (separatorIndex > 0)
-                    {
-                        var username = decoded[..separatorIndex];
-                        var password = decoded[(separatorIndex + 1)..];
-
-                        var expectedUsername = Environment.GetEnvironmentVariable("AUTH_USERNAME")
-                            ?? app.Configuration["Auth:Username"];
-                        var expectedPassword = Environment.GetEnvironmentVariable("AUTH_PASSWORD")
-                            ?? app.Configuration["Auth:Password"];
-
-                        if (!string.IsNullOrEmpty(expectedUsername)
-                            && !string.IsNullOrEmpty(expectedPassword)
-                            && username == expectedUsername
-                            && password == expectedPassword)
-                        {
-                            await next();
-                            return;
-                        }
-                    }
-                }
-                catch (FormatException)
-                {
-                    // Invalid base64, fall through to 401
-                }
-            }
-
-            context.Response.StatusCode = 401;
-            context.Response.Headers.WWWAuthenticate = "Basic realm=\"Project Loopbreaker API\"";
-            return;
-        }
-
-        await next();
-    });
+    app.UseSwaggerBasicAuth();
 }
 
 app.UseSwagger();
 app.UseSwaggerUI(options =>
 {
-    options.SwaggerEndpoint("/swagger/v1/swagger.json", "Project Loopbreaker API V1");
+    options.SwaggerEndpoint("/swagger/v1/swagger.json", "My MediaVerse API V1");
     options.RoutePrefix = string.Empty;
 });
 
@@ -135,10 +81,8 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-var maskedConnectionString = Regex.Replace(connectionString, @"(Password|password)=([^;]+)", "$1=****");
-maskedConnectionString = Regex.Replace(maskedConnectionString, @"://([^:]+):([^@]+)@", "://****:****@");
 app.Logger.LogInformation("Environment: {Environment}", builder.Environment.EnvironmentName);
-app.Logger.LogInformation("Connection string: {ConnectionString}", maskedConnectionString);
+app.Logger.LogInformation("Connection string: {ConnectionString}", DatabaseExtensions.MaskConnectionString(connectionString));
 
 app.Run();
 

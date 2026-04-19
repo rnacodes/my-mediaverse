@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Options;
 using MyMediaVerse.Shared.Interfaces;
-using MyMediaVerse.Infrastructure.Services;
+using MyMediaVerse.Infrastructure.Services.Search;
 using Typesense;
 using Typesense.Setup;
 
@@ -15,20 +15,11 @@ public static class SearchExtensions
             var configuration = sp.GetRequiredService<IConfiguration>();
             var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("Startup.Typesense");
 
-            var apiKey = Environment.GetEnvironmentVariable("TYPESENSE_ADMIN_API_KEY") ??
-                         configuration["Typesense:AdminApiKey"];
-            var host = Environment.GetEnvironmentVariable("TYPESENSE_HOST") ??
-                       configuration["Typesense:Host"];
-            var portString = Environment.GetEnvironmentVariable("TYPESENSE_PORT") ??
-                             configuration["Typesense:Port"] ?? "443";
-            var protocol = Environment.GetEnvironmentVariable("TYPESENSE_PROTOCOL") ??
-                           configuration["Typesense:Protocol"] ?? "https";
-
-            var collectionPrefixEnv = Environment.GetEnvironmentVariable("TYPESENSE_COLLECTION_PREFIX");
-            var collectionPrefixConfig = configuration["Typesense:CollectionPrefix"];
-            var effectivePrefix = !string.IsNullOrEmpty(collectionPrefixEnv)
-                ? collectionPrefixEnv
-                : collectionPrefixConfig ?? "";
+            var apiKey = configuration.GetEnvOrConfig("Typesense:AdminApiKey", "TYPESENSE_ADMIN_API_KEY");
+            var host = configuration.GetEnvOrConfig("Typesense:Host", "TYPESENSE_HOST");
+            var portString = configuration.GetEnvOrConfigOrDefault("Typesense:Port", "443", "TYPESENSE_PORT");
+            var protocol = configuration.GetEnvOrConfigOrDefault("Typesense:Protocol", "https", "TYPESENSE_PROTOCOL");
+            var effectivePrefix = configuration.GetEnvOrConfigOrDefault("Typesense:CollectionPrefix", string.Empty, "TYPESENSE_COLLECTION_PREFIX");
 
             logger.LogDebug(
                 "Typesense config — ApiKey:{ApiKeyStatus}, Host:{Host}, Port:{Port}, Protocol:{Protocol}, CollectionPrefix:{Prefix}",
@@ -41,12 +32,7 @@ public static class SearchExtensions
             if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(host))
             {
                 logger.LogWarning("Typesense configuration is incomplete. Search functionality unavailable. Expected env vars: TYPESENSE_ADMIN_API_KEY, TYPESENSE_HOST (optional: TYPESENSE_PORT, TYPESENSE_PROTOCOL).");
-
-                // Dummy client prevents crashes when Typesense is not configured.
-                var dummyNodes = new List<Node> { new Node("localhost", "8108", "http") };
-                var dummyConfig = new Config(dummyNodes, "dummy-key");
-                var dummyHttpClient = new HttpClient();
-                return new TypesenseClient(Options.Create(dummyConfig), dummyHttpClient);
+                return CreateDisabledTypesenseClient();
             }
 
             if (!int.TryParse(portString, out int port))
@@ -71,6 +57,17 @@ public static class SearchExtensions
         services.AddScoped<ITypeSenseService, TypeSenseService>();
 
         return services;
+    }
+
+    // Returned when Typesense is unconfigured so DI resolution doesn't fail.
+    // Points at an unreachable localhost endpoint — any real search call raises a
+    // connection error caught by TypeSenseService's try/catch blocks, and the app
+    // continues to run with search disabled.
+    private static ITypesenseClient CreateDisabledTypesenseClient()
+    {
+        var unreachableNode = new Node(host: "localhost", port: "8108", protocol: "http");
+        var disabledConfig = new Config(new List<Node> { unreachableNode }, apiKey: "disabled");
+        return new TypesenseClient(Options.Create(disabledConfig), new HttpClient());
     }
 
     /// <summary>

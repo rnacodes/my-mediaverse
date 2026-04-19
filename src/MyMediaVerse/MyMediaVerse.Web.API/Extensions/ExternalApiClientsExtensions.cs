@@ -8,7 +8,7 @@ using MyMediaVerse.Infrastructure.Clients.Readwise;
 using MyMediaVerse.Infrastructure.Clients.TMDB;
 using MyMediaVerse.Infrastructure.Clients.Trakt;
 using MyMediaVerse.Infrastructure.Clients.YouTube;
-using MyMediaVerse.Infrastructure.Services;
+using MyMediaVerse.Infrastructure.Services.Web;
 using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.Web.API.Extensions;
@@ -42,11 +42,8 @@ public static class ExternalApiClientsExtensions
 
     private static void AddScriptRunnerClient(this IServiceCollection services, IConfiguration configuration, ILogger logger)
     {
-        var baseUrl = Environment.GetEnvironmentVariable("SCRIPT_RUNNER_URL")
-            ?? configuration["ScriptRunner:BaseUrl"]
-            ?? "http://localhost:8001";
-        var apiKey = Environment.GetEnvironmentVariable("SCRIPT_RUNNER_API_KEY")
-            ?? configuration["ScriptRunner:ApiKey"];
+        var baseUrl = configuration.GetEnvOrConfigOrDefault("ScriptRunner:BaseUrl", "http://localhost:8001", "SCRIPT_RUNNER_URL");
+        var apiKey = configuration.GetEnvOrConfig("ScriptRunner:ApiKey", "SCRIPT_RUNNER_API_KEY");
 
         if (!string.IsNullOrEmpty(apiKey))
         {
@@ -81,8 +78,7 @@ public static class ExternalApiClientsExtensions
 
     private static void AddListenNotesApiClient(this IServiceCollection services, IConfiguration configuration, ILogger logger)
     {
-        var apiKey = Environment.GetEnvironmentVariable("LISTENNOTES_API_KEY") ??
-                     configuration["ApiKeys:ListenNotes"];
+        var apiKey = configuration.GetEnvOrConfig("ApiKeys:ListenNotes", "LISTENNOTES_API_KEY");
         var hasApiKey = !string.IsNullOrEmpty(apiKey) && apiKey != "LISTENNOTES_API_KEY";
 
         if (!hasApiKey)
@@ -104,9 +100,7 @@ public static class ExternalApiClientsExtensions
 
     private static void AddReadwiseClients(this IServiceCollection services, IConfiguration configuration, ILogger logger)
     {
-        var apiKey = Environment.GetEnvironmentVariable("READWISE_API_KEY") ??
-                     Environment.GetEnvironmentVariable("READWISE_API_TOKEN") ??
-                     configuration["ApiKeys:Readwise"];
+        var apiKey = configuration.GetEnvOrConfig("ApiKeys:Readwise", "READWISE_API_KEY", "READWISE_API_TOKEN");
         var hasApiKey = !string.IsNullOrEmpty(apiKey) && apiKey != "READWISE_API_TOKEN";
 
         if (!hasApiKey)
@@ -142,10 +136,8 @@ public static class ExternalApiClientsExtensions
 
     private static void AddPaperlessApiClient(this IServiceCollection services, IConfiguration configuration, ILogger logger)
     {
-        var apiUrl = Environment.GetEnvironmentVariable("PAPERLESS_API_URL") ??
-                     configuration["Paperless:ApiUrl"];
-        var apiToken = Environment.GetEnvironmentVariable("PAPERLESS_API_TOKEN") ??
-                       configuration["Paperless:ApiToken"];
+        var apiUrl = configuration.GetEnvOrConfig("Paperless:ApiUrl", "PAPERLESS_API_URL");
+        var apiToken = configuration.GetEnvOrConfig("Paperless:ApiToken", "PAPERLESS_API_TOKEN");
         var isConfigured = !string.IsNullOrEmpty(apiUrl) && !string.IsNullOrEmpty(apiToken);
 
         if (!isConfigured)
@@ -163,15 +155,13 @@ public static class ExternalApiClientsExtensions
 
         services.AddHttpClient<IPaperlessApiClient, PaperlessApiClient>(client =>
         {
+            // When unconfigured, BaseAddress stays null — HttpClient throws
+            // InvalidOperationException on first call, which surfaces as a clear error
+            // rather than a silent request to a placeholder URL.
             if (isConfigured)
             {
                 client.BaseAddress = new Uri(apiUrl!);
                 client.DefaultRequestHeaders.Add("Authorization", $"Token {apiToken}");
-            }
-            else
-            {
-                // Placeholder so DI consumers don't NRE; real calls will fail loudly.
-                client.BaseAddress = new Uri("http://localhost:8000/api/");
             }
 
             client.DefaultRequestHeaders.Add("User-Agent", "MyMediaVerse/1.0");
@@ -199,13 +189,12 @@ public static class ExternalApiClientsExtensions
 
     private static void AddOpenAIEmbeddingsClient(this IServiceCollection services, IConfiguration configuration, ILogger logger)
     {
-        var openAIApiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY") ??
-                           configuration["OpenAI:ApiKey"];
+        var openAIApiKey = configuration.GetEnvOrConfig("OpenAI:ApiKey", "OPENAI_API_KEY");
 
         if (!string.IsNullOrEmpty(openAIApiKey))
         {
-            var embeddingModel = Environment.GetEnvironmentVariable("OPENAI_EMBEDDING_MODEL") ?? "text-embedding-3-large";
-            var dimensions = Environment.GetEnvironmentVariable("OPENAI_DIMENSIONS") ?? "1024";
+            var embeddingModel = configuration.GetEnvOrConfigOrDefault("OpenAI:EmbeddingModel", "text-embedding-3-large", "OPENAI_EMBEDDING_MODEL");
+            var dimensions = configuration.GetEnvOrConfigOrDefault("OpenAI:Dimensions", "1024", "OPENAI_DIMENSIONS");
             logger.LogInformation("OpenAI embeddings configured. Model={Model}, Dimensions={Dimensions}", embeddingModel, dimensions);
         }
         else
@@ -228,11 +217,8 @@ public static class ExternalApiClientsExtensions
 
     private static void AddGradientAIClient(this IServiceCollection services, IConfiguration configuration, ILogger logger)
     {
-        var baseUrl = Environment.GetEnvironmentVariable("GRADIENT_BASE_URL") ??
-                      configuration["GradientAI:BaseUrl"] ??
-                      "https://api.gradient.ai/api/v1/";
-        var gradientApiKey = Environment.GetEnvironmentVariable("GRADIENT_API_KEY") ??
-                             configuration["GradientAI:ApiKey"];
+        var baseUrl = configuration.GetEnvOrConfigOrDefault("GradientAI:BaseUrl", "https://api.gradient.ai/api/v1/", "GRADIENT_BASE_URL");
+        var gradientApiKey = configuration.GetEnvOrConfig("GradientAI:ApiKey", "GRADIENT_API_KEY");
 
         if (!string.IsNullOrEmpty(gradientApiKey))
         {
@@ -282,8 +268,7 @@ public static class ExternalApiClientsExtensions
 
     private static void AddTmdbClient(this IServiceCollection services, IConfiguration configuration, ILogger logger)
     {
-        var apiKey = Environment.GetEnvironmentVariable("TMDB_API_KEY") ??
-                     configuration["ApiKeys:TMDB"];
+        var apiKey = configuration.GetEnvOrConfig("ApiKeys:TMDB", "TMDB_API_KEY");
         var hasApiKey = !string.IsNullOrEmpty(apiKey) && apiKey != "TMDB_API_KEY";
 
         if (!hasApiKey)
@@ -291,7 +276,7 @@ public static class ExternalApiClientsExtensions
             logger.LogWarning("No valid TMDB API key found. TMDB functionality will be limited. Set TMDB_API_KEY env var or ApiKeys:TMDB in configuration.");
         }
 
-        services.AddHttpClient<TmdbApiClient>(client =>
+        services.AddHttpClient<ITmdbApiClient, TmdbApiClient>(client =>
         {
             client.BaseAddress = new Uri("https://api.themoviedb.org/3/");
             if (hasApiKey)
@@ -299,8 +284,6 @@ public static class ExternalApiClientsExtensions
                 client.DefaultRequestHeaders.Add("User-Agent", "MyMediaVerse/1.0 (https://github.com/yourrepo/projectloopbreaker)");
             }
         });
-
-        services.AddScoped<ITmdbApiClient>(provider => provider.GetRequiredService<TmdbApiClient>());
     }
 
     private static void AddTraktClient(this IServiceCollection services)

@@ -7,7 +7,7 @@ using MyMediaVerse.Shared.Interfaces;
 using Typesense;
 using Typesense.Setup;
 
-namespace MyMediaVerse.Infrastructure.Services
+namespace MyMediaVerse.Infrastructure.Services.Search
 {
     /// <summary>
     /// Service for managing Typesense search indexing and querying.

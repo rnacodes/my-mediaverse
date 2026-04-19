@@ -4,7 +4,7 @@ using MyMediaVerse.Shared.DTOs.WebsiteScraper;
 using MyMediaVerse.Shared.Interfaces;
 using System.Net;
 
-namespace MyMediaVerse.Infrastructure.Services
+namespace MyMediaVerse.Infrastructure.Services.Web
 {
     /// <summary>
     /// Service for scraping metadata from websites using HtmlAgilityPack.

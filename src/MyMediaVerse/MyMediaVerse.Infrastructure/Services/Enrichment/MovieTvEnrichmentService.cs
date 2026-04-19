@@ -5,7 +5,7 @@ using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Shared.DTOs.TMDB;
 using MyMediaVerse.Shared.Interfaces;
 
-namespace MyMediaVerse.Infrastructure.Services
+namespace MyMediaVerse.Infrastructure.Services.Enrichment
 {
     /// <summary>
     /// Service for enriching movies and TV shows from TMDB API.

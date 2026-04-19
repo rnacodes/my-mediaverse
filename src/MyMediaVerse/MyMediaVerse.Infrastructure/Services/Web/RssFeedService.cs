@@ -3,7 +3,7 @@ using System.Xml;
 using Microsoft.Extensions.Logging;
 using MyMediaVerse.Shared.Interfaces;
 
-namespace MyMediaVerse.Infrastructure.Services
+namespace MyMediaVerse.Infrastructure.Services.Web
 {
     /// <summary>
     /// Service for fetching and parsing RSS/Atom feeds.

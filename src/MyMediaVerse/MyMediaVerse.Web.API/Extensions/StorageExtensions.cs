@@ -6,7 +6,15 @@ public static class StorageExtensions
 {
     /// <summary>
     /// Registers the DigitalOcean Spaces S3 client. When config is incomplete, returns null so
-    /// consumers (e.g. UploadController) can handle the disabled state gracefully.
+    /// consumers (e.g. UploadController) can handle the disabled state gracefully by injecting
+    /// <c>IAmazonS3?</c> and null-checking before use.
+    ///
+    /// The <c>null!</c> return is intentional: ASP.NET Core DI does not treat nullable reference
+    /// type annotations as "optional service" — a consumer taking <c>IAmazonS3?</c> still requires
+    /// a registration, and the factory is the only mechanism that can inject null. Alternatives
+    /// (Null Object implementing IAmazonS3, or a wrapping IThumbnailStorage abstraction) are
+    /// impractical here: IAmazonS3 has 100+ members and ~8 consumers would need migration. A
+    /// proper domain-level abstraction is tracked as a separate refactor.
     /// </summary>
     public static IServiceCollection AddS3Storage(this IServiceCollection services)
     {

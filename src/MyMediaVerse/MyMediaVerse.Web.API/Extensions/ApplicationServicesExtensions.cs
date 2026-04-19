@@ -1,7 +1,7 @@
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Infrastructure.Repositories;
-using MyMediaVerse.Infrastructure.Services;
+using MyMediaVerse.Infrastructure.Services.Sync;
 using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.Web.API.Extensions;

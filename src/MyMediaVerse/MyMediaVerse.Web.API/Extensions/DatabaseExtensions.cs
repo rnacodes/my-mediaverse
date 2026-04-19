@@ -9,146 +9,139 @@ namespace MyMediaVerse.Web.API.Extensions;
 public static class DatabaseExtensions
 {
     /// <summary>
+    /// Replaces passwords and URL-form credentials with <c>****</c> so a connection string
+    /// can be safely logged.
+    /// </summary>
+    public static string MaskConnectionString(string connectionString)
+    {
+        var masked = Regex.Replace(connectionString, @"(Password|password)=([^;]+)", "$1=****");
+        return Regex.Replace(masked, @"://([^:]+):([^@]+)@", "://****:****@");
+    }
+
+    /// <summary>
     /// Resolves the PostgreSQL connection string from (in priority order):
     /// 1. Configuration "DefaultConnection" (respects appsettings.{Env}.json)
     /// 2. DATABASE_URL env var (Render.com standard)
     /// 3. ConnectionStrings__DefaultConnection env var
     ///
-    /// Applies best-effort fixes (URL decoding, postgres:// -> postgresql://, rebuild as key/value) so
-    /// Render-style URLs parse cleanly through NpgsqlConnectionStringBuilder.
+    /// Normalizes Render-style postgres:// URLs to key-value form so
+    /// NpgsqlConnectionStringBuilder can parse them cleanly. If normalization fails, throws —
+    /// no silent fallbacks.
     /// </summary>
     public static string ResolveConnectionString(IConfiguration configuration, IWebHostEnvironment environment, ILogger logger)
     {
-        var configConnectionString = configuration.GetConnectionString("DefaultConnection");
-        var connectionString = (!string.IsNullOrEmpty(configConnectionString) ? configConnectionString : null) ??
-                              Environment.GetEnvironmentVariable("DATABASE_URL") ??
-                              Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
-
-        string connectionSource;
-        if (!string.IsNullOrEmpty(configConnectionString))
-            connectionSource = $"appsettings.{environment.EnvironmentName}.json";
-        else if (Environment.GetEnvironmentVariable("DATABASE_URL") != null)
-            connectionSource = "DATABASE_URL env var";
-        else if (Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection") != null)
-            connectionSource = "ConnectionStrings__DefaultConnection env var";
-        else
-            connectionSource = "none";
-        logger.LogInformation("Connection string source: {Source}", connectionSource);
+        var (connectionString, source) = ReadConnectionString(configuration);
+        logger.LogInformation("Connection string source: {Source}", source);
 
         if (string.IsNullOrEmpty(connectionString))
         {
-            if (environment.IsDevelopment())
-            {
-                logger.LogWarning("No database connection string configured for development. Using placeholder; database operations will fail.");
-                connectionString = "Host=localhost;Database=projectloopbreaker;Username=postgres;Password=password";
-            }
-            else if (environment.EnvironmentName == "Testing")
-            {
-                connectionString = "Host=localhost;Database=test;Username=test;Password=test";
-            }
-            else
-            {
-                throw new InvalidOperationException("Database connection string is required but not configured. Please set DATABASE_URL environment variable or configure DefaultConnection in appsettings.json");
-            }
+            connectionString = HandleMissingConnectionString(environment, logger);
         }
 
-        if (environment.EnvironmentName == "Testing")
+        // Testing uses an in-memory DB registered by WebApplicationFactory; skip parsing.
+        if (environment.IsTesting())
         {
             return connectionString;
         }
 
-        logger.LogDebug("Connection string length: {Length}", connectionString.Length);
-        logger.LogDebug("Connection string starts with: {Prefix}...",
-            connectionString.Substring(0, Math.Min(20, connectionString.Length)));
+        var normalized = NormalizePostgresUrl(connectionString);
 
-        var pattern = Regex.Replace(connectionString, @"://([^:]+):([^@]+)@", "://[USER]:[PASSWORD]@");
-        logger.LogDebug("Connection string pattern: {Pattern}", pattern);
-
-        try
-        {
-            var testBuilder = new Npgsql.NpgsqlConnectionStringBuilder(connectionString);
-            logger.LogInformation("Connection string parsed successfully. Host: {Host}, Database: {Database}",
-                testBuilder.Host, testBuilder.Database);
-            return connectionString;
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to parse connection string. Attempting fixes.");
-            return TryFixConnectionString(connectionString, pattern, ex, logger);
-        }
+        var builder = new Npgsql.NpgsqlConnectionStringBuilder(normalized);
+        logger.LogInformation("Connection string parsed. Host: {Host}, Database: {Database}",
+            builder.Host, builder.Database);
+        return normalized;
     }
 
-    private static string TryFixConnectionString(string connectionString, string pattern, Exception originalException, ILogger logger)
+    private static (string? connectionString, string source) ReadConnectionString(IConfiguration configuration)
     {
-        var fixedConnectionString = connectionString.Trim();
+        var configConnection = configuration.GetConnectionString("DefaultConnection");
+        if (!string.IsNullOrEmpty(configConnection))
+            return (configConnection, "appsettings / DefaultConnection");
 
-        if (fixedConnectionString.Contains('%'))
+        var dbUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+        if (!string.IsNullOrEmpty(dbUrl))
+            return (dbUrl, "DATABASE_URL env var");
+
+        var csEnv = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
+        if (!string.IsNullOrEmpty(csEnv))
+            return (csEnv, "ConnectionStrings__DefaultConnection env var");
+
+        return (null, "none");
+    }
+
+    private static string HandleMissingConnectionString(IWebHostEnvironment environment, ILogger logger)
+    {
+        if (environment.IsDevelopment())
         {
-            fixedConnectionString = Uri.UnescapeDataString(fixedConnectionString);
-            logger.LogInformation("URL-decoded the connection string.");
+            logger.LogWarning("No database connection string configured for development. Using placeholder; database operations will fail.");
+            return "Host=localhost;Database=projectloopbreaker;Username=postgres;Password=password";
         }
 
-        if (fixedConnectionString.StartsWith("postgres://"))
+        if (environment.IsTesting())
         {
-            fixedConnectionString = fixedConnectionString.Replace("postgres://", "postgresql://");
-            logger.LogInformation("Converted postgres:// to postgresql://.");
+            return "Host=localhost;Database=test;Username=test;Password=test";
         }
 
-        var uriMatch = Regex.Match(fixedConnectionString, @"^postgresql://([^:]+):([^@]+)@([^/]+)/([^?]+)");
-        if (!uriMatch.Success)
-        {
-            logger.LogError("Connection string doesn't match expected PostgreSQL URL format: postgresql://user:password@host/database. Length: {Length}, ends with: ...{Suffix}",
-                fixedConnectionString.Length,
-                fixedConnectionString.Substring(Math.Max(0, fixedConnectionString.Length - 20)));
+        throw new InvalidOperationException(
+            "Database connection string is required but not configured. " +
+            "Please set DATABASE_URL environment variable or configure DefaultConnection in appsettings.json");
+    }
 
-            if (fixedConnectionString.EndsWith("/"))
-            {
-                logger.LogError("Connection string ends with '/' but has no database name.");
-            }
-            else if (!fixedConnectionString.Contains("/") || fixedConnectionString.LastIndexOf("/") == fixedConnectionString.IndexOf("//") + 1)
-            {
-                logger.LogError("Connection string is missing database name part.");
-            }
+    /// <summary>
+    /// Normalizes Render/DigitalOcean style <c>postgres://user:pass@host[:port]/db[?sslmode=...]</c>
+    /// URLs into Npgsql key-value form. Accepts an already-formatted key-value string unchanged.
+    /// Throws <see cref="InvalidOperationException"/> if the input is not parseable.
+    /// </summary>
+    internal static string NormalizePostgresUrl(string raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            throw new InvalidOperationException("Connection string is empty.");
 
-            throw new InvalidOperationException($"Connection string format is invalid. Expected format: postgresql://user:password@host/database. Got: {pattern}", originalException);
-        }
+        var s = raw.Trim();
 
-        logger.LogInformation("Connection string parsed as URL. user={User}, host={Host}, database={Database}",
-            uriMatch.Groups[1].Value, uriMatch.Groups[3].Value, uriMatch.Groups[4].Value);
+        if (s.Contains('%'))
+            s = Uri.UnescapeDataString(s);
 
+        if (s.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase))
+            s = "postgresql://" + s["postgres://".Length..];
+
+        // Already key-value form? Hand off to Npgsql as-is.
+        if (!s.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
+            return s;
+
+        Uri uri;
         try
         {
-            var testBuilder2 = new Npgsql.NpgsqlConnectionStringBuilder(fixedConnectionString);
-            logger.LogInformation("Fixed connection string parsed successfully. Host: {Host}, Database: {Database}",
-                testBuilder2.Host, testBuilder2.Database);
-            return fixedConnectionString;
+            uri = new Uri(s);
         }
-        catch (Exception ex2)
+        catch (UriFormatException ex)
         {
-            logger.LogError(ex2, "Even after fixes, connection string still invalid. Attempting manual rebuild.");
-
-            try
-            {
-                var user = uriMatch.Groups[1].Value;
-                var password = uriMatch.Groups[2].Value;
-                var host = uriMatch.Groups[3].Value;
-                var database = uriMatch.Groups[4].Value;
-
-                var rebuiltConnectionString = $"Host={host};Database={database};Username={user};Password={password};SSL Mode=Require;Trust Server Certificate=true";
-                logger.LogInformation("Rebuilt connection string as key/value format. Host={Host}, Database={Database}, Username={User}",
-                    host, database, user);
-
-                var testBuilder3 = new Npgsql.NpgsqlConnectionStringBuilder(rebuiltConnectionString);
-                logger.LogInformation("Rebuilt connection string parsed successfully. Host: {Host}, Database: {Database}",
-                    testBuilder3.Host, testBuilder3.Database);
-                return rebuiltConnectionString;
-            }
-            catch (Exception ex3)
-            {
-                logger.LogError(ex3, "Manual rebuild also failed.");
-                throw new InvalidOperationException($"Database connection string format is invalid and cannot be fixed. Original error: {originalException.Message}. After fixes: {ex2.Message}. After rebuild: {ex3.Message}", originalException);
-            }
+            throw new InvalidOperationException(
+                "Connection string looked like a PostgreSQL URL but was not parseable. " +
+                "Expected: postgresql://user:password@host[:port]/database[?sslmode=require]",
+                ex);
         }
+
+        var database = uri.AbsolutePath.TrimStart('/');
+        if (string.IsNullOrEmpty(database))
+            throw new InvalidOperationException(
+                "PostgreSQL URL is missing the database name. Expected: postgresql://user:password@host/database");
+
+        var userInfo = (uri.UserInfo ?? string.Empty).Split(':', 2);
+        var user = Uri.UnescapeDataString(userInfo[0]);
+        var password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : string.Empty;
+
+        var builder = new Npgsql.NpgsqlConnectionStringBuilder
+        {
+            Host = uri.Host,
+            Port = uri.IsDefaultPort ? 5432 : uri.Port,
+            Database = database,
+            Username = user,
+            Password = password,
+            SslMode = Npgsql.SslMode.Require
+        };
+
+        return builder.ToString();
     }
 
     /// <summary>
@@ -160,7 +153,7 @@ public static class DatabaseExtensions
         string connectionString,
         IWebHostEnvironment environment)
     {
-        if (environment.EnvironmentName == "Testing")
+        if (environment.IsTesting())
         {
             return services;
         }

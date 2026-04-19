@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using MyMediaVerse.Application.Interfaces;
-using MyMediaVerse.Infrastructure.Clients.TMDB;
+using MyMediaVerse.Shared.Interfaces;
 using MyMediaVerse.Shared.DTOs.TMDB;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Domain.Entities;
@@ -17,7 +17,7 @@ namespace MyMediaVerse.Web.API.Controllers
         private readonly ITvShowService _tvShowService;
         private readonly ITvShowMappingService _tvShowMappingService;
         private readonly ILogger<TvShowController> _logger;
-        private readonly TmdbApiClient _tmdbClient;
+        private readonly ITmdbApiClient _tmdbClient;
         private readonly IAmazonS3? _s3Client;
         private readonly IConfiguration _configuration;
 
@@ -25,7 +25,7 @@ namespace MyMediaVerse.Web.API.Controllers
             ITvShowService tvShowService,
             ITvShowMappingService tvShowMappingService,
             ILogger<TvShowController> logger,
-            TmdbApiClient tmdbClient,
+            ITmdbApiClient tmdbClient,
             IAmazonS3? s3Client,
             IConfiguration configuration)
         {

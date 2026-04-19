@@ -65,20 +65,20 @@ public static class CorsExtensions
                         allowedOrigins.AddRange(configuredOrigins);
                     }
 
-                    if (allowedOrigins.Any())
+                    if (!allowedOrigins.Any())
                     {
-                        policy.WithOrigins(allowedOrigins.ToArray())
-                              .AllowAnyHeader()
-                              .AllowAnyMethod()
-                              .AllowCredentials();
+                        // Refuse to start with a wide-open CORS policy in non-dev environments.
+                        // Set FRONTEND_URL or AllowedOrigins in configuration.
+                        logger.LogCritical("No CORS origins configured for environment '{Environment}'. Refusing to start with AllowAnyOrigin.", environment.EnvironmentName);
+                        throw new InvalidOperationException(
+                            $"CORS misconfiguration: no allowed origins found for environment '{environment.EnvironmentName}'. " +
+                            "Configure FRONTEND_URL env var or AllowedOrigins in configuration.");
                     }
-                    else
-                    {
-                        logger.LogWarning("No specific frontend origins configured. Allowing all origins for CORS.");
-                        policy.AllowAnyOrigin()
-                              .AllowAnyHeader()
-                              .AllowAnyMethod();
-                    }
+
+                    policy.WithOrigins(allowedOrigins.ToArray())
+                          .AllowAnyHeader()
+                          .AllowAnyMethod()
+                          .AllowCredentials();
                 }
             });
         });

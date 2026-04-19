@@ -1,4 +1,5 @@
-using MyMediaVerse.Infrastructure.Services;
+using MyMediaVerse.Infrastructure.Services.Enrichment;
+using MyMediaVerse.Infrastructure.Services.Sync;
 using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.Web.API.Extensions;
@@ -11,57 +12,56 @@ public static class BackgroundServicesExtensions
         IWebHostEnvironment environment,
         ILogger logger)
     {
-        var isTesting = environment.EnvironmentName == "Testing";
+        var isTesting = environment.IsTesting();
 
-        services.Configure<NoteDescriptionGenerationOptions>(
-            configuration.GetSection(NoteDescriptionGenerationOptions.SectionName));
-        if (!isTesting)
-        {
-            services.AddHostedService<NoteDescriptionGenerationHostedService>();
-            logger.LogInformation("Note description generation background service registered.");
-        }
+        services.AddEnrichmentWorker<NoteDescriptionGenerationHostedService, NoteDescriptionGenerationOptions>(
+            configuration, NoteDescriptionGenerationOptions.SectionName, isTesting, logger,
+            "Note description generation");
 
-        services.Configure<EmbeddingGenerationOptions>(
-            configuration.GetSection(EmbeddingGenerationOptions.SectionName));
-        if (!isTesting)
-        {
-            services.AddHostedService<EmbeddingGenerationHostedService>();
-            logger.LogInformation("Embedding generation background service registered.");
-        }
+        services.AddEnrichmentWorker<EmbeddingGenerationHostedService, EmbeddingGenerationOptions>(
+            configuration, EmbeddingGenerationOptions.SectionName, isTesting, logger,
+            "Embedding generation");
 
-        services.Configure<ObsidianNoteSyncOptions>(
-            configuration.GetSection(ObsidianNoteSyncOptions.SectionName));
-        if (!isTesting)
-        {
-            services.AddHostedService<ObsidianNoteSyncHostedService>();
-            logger.LogInformation("Obsidian note sync background service registered.");
-        }
+        services.AddEnrichmentWorker<ObsidianNoteSyncHostedService, ObsidianNoteSyncOptions>(
+            configuration, ObsidianNoteSyncOptions.SectionName, isTesting, logger,
+            "Obsidian note sync");
 
-        services.Configure<BookDescriptionEnrichmentOptions>(
-            configuration.GetSection(BookDescriptionEnrichmentOptions.SectionName));
         services.AddScoped<IBookDescriptionEnrichmentService, BookDescriptionEnrichmentService>();
-        if (!isTesting)
-        {
-            services.AddHostedService<BookDescriptionEnrichmentHostedService>();
-            logger.LogInformation("Book description enrichment background service registered.");
-        }
+        services.AddEnrichmentWorker<BookDescriptionEnrichmentHostedService, BookDescriptionEnrichmentOptions>(
+            configuration, BookDescriptionEnrichmentOptions.SectionName, isTesting, logger,
+            "Book description enrichment");
 
-        services.Configure<MovieTvEnrichmentOptions>(
-            configuration.GetSection(MovieTvEnrichmentOptions.SectionName));
         services.AddScoped<IMovieTvEnrichmentService, MovieTvEnrichmentService>();
-        if (!isTesting)
-        {
-            services.AddHostedService<MovieTvEnrichmentHostedService>();
-            logger.LogInformation("Movie/TV TMDB enrichment background service registered.");
-        }
+        services.AddEnrichmentWorker<MovieTvEnrichmentHostedService, MovieTvEnrichmentOptions>(
+            configuration, MovieTvEnrichmentOptions.SectionName, isTesting, logger,
+            "Movie/TV TMDB enrichment");
 
-        services.Configure<PodcastEnrichmentOptions>(
-            configuration.GetSection(PodcastEnrichmentOptions.SectionName));
         services.AddScoped<IPodcastEnrichmentService, PodcastEnrichmentService>();
+        services.AddEnrichmentWorker<PodcastEnrichmentHostedService, PodcastEnrichmentOptions>(
+            configuration, PodcastEnrichmentOptions.SectionName, isTesting, logger,
+            "Podcast ListenNotes enrichment");
+
+        return services;
+    }
+
+    // Binds <typeparamref name="TOptions"/> from configuration and registers
+    // <typeparamref name="THostedService"/> unless the host is running under integration tests.
+    private static IServiceCollection AddEnrichmentWorker<THostedService, TOptions>(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        string optionsSectionName,
+        bool isTesting,
+        ILogger logger,
+        string description)
+        where THostedService : class, IHostedService
+        where TOptions : class
+    {
+        services.Configure<TOptions>(configuration.GetSection(optionsSectionName));
+
         if (!isTesting)
         {
-            services.AddHostedService<PodcastEnrichmentHostedService>();
-            logger.LogInformation("Podcast ListenNotes enrichment background service registered.");
+            services.AddHostedService<THostedService>();
+            logger.LogInformation("{Description} background service registered.", description);
         }
 
         return services;

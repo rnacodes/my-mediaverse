@@ -5,7 +5,7 @@ using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Shared.DTOs.Trakt;
 using MyMediaVerse.Shared.Interfaces;
 
-namespace MyMediaVerse.Infrastructure.Services
+namespace MyMediaVerse.Infrastructure.Services.Sync
 {
     public class TraktSyncService : ITraktSyncService
     {
