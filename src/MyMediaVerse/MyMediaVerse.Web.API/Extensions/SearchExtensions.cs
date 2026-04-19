@@ -13,6 +13,7 @@ public static class SearchExtensions
         services.AddSingleton<ITypesenseClient>(sp =>
         {
             var configuration = sp.GetRequiredService<IConfiguration>();
+            var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("Startup.Typesense");
 
             var apiKey = Environment.GetEnvironmentVariable("TYPESENSE_ADMIN_API_KEY") ??
                          configuration["Typesense:AdminApiKey"];
@@ -25,25 +26,21 @@ public static class SearchExtensions
 
             var collectionPrefixEnv = Environment.GetEnvironmentVariable("TYPESENSE_COLLECTION_PREFIX");
             var collectionPrefixConfig = configuration["Typesense:CollectionPrefix"];
+            var effectivePrefix = !string.IsNullOrEmpty(collectionPrefixEnv)
+                ? collectionPrefixEnv
+                : collectionPrefixConfig ?? "";
 
-            Console.WriteLine("=== Typesense Configuration Debug ===");
-            Console.WriteLine($"API Key: {(string.IsNullOrEmpty(apiKey) ? "MISSING" : "SET")}");
-            Console.WriteLine($"Host: {(string.IsNullOrEmpty(host) ? "MISSING" : host)}");
-            Console.WriteLine($"Port: {portString}");
-            Console.WriteLine($"Protocol: {protocol}");
-            Console.WriteLine($"Collection Prefix (env var): {(collectionPrefixEnv == null ? "NOT SET" : $"'{collectionPrefixEnv}'")}");
-            Console.WriteLine($"Collection Prefix (appsettings): {(collectionPrefixConfig == null ? "NOT SET" : $"'{collectionPrefixConfig}'")}");
-            Console.WriteLine($"Effective Prefix: '{(!string.IsNullOrEmpty(collectionPrefixEnv) ? collectionPrefixEnv : collectionPrefixConfig ?? "")}'");
+            logger.LogDebug(
+                "Typesense config — ApiKey:{ApiKeyStatus}, Host:{Host}, Port:{Port}, Protocol:{Protocol}, CollectionPrefix:{Prefix}",
+                string.IsNullOrEmpty(apiKey) ? "MISSING" : "SET",
+                string.IsNullOrEmpty(host) ? "MISSING" : host,
+                portString,
+                protocol,
+                effectivePrefix);
 
             if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(host))
             {
-                Console.WriteLine("WARNING: Typesense configuration is incomplete.");
-                Console.WriteLine("Search functionality will not be available until properly configured.");
-                Console.WriteLine("Expected environment variables:");
-                Console.WriteLine("  TYPESENSE_ADMIN_API_KEY");
-                Console.WriteLine("  TYPESENSE_HOST (e.g., search.mymediaverseuniverse.com)");
-                Console.WriteLine("  TYPESENSE_PORT (default: 443)");
-                Console.WriteLine("  TYPESENSE_PROTOCOL (default: https)");
+                logger.LogWarning("Typesense configuration is incomplete. Search functionality unavailable. Expected env vars: TYPESENSE_ADMIN_API_KEY, TYPESENSE_HOST (optional: TYPESENSE_PORT, TYPESENSE_PROTOCOL).");
 
                 // Dummy client prevents crashes when Typesense is not configured.
                 var dummyNodes = new List<Node> { new Node("localhost", "8108", "http") };
@@ -54,7 +51,7 @@ public static class SearchExtensions
 
             if (!int.TryParse(portString, out int port))
             {
-                Console.WriteLine($"WARNING: Invalid Typesense port '{portString}', defaulting to 443");
+                logger.LogWarning("Invalid Typesense port '{PortString}', defaulting to 443.", portString);
                 port = 443;
             }
 
@@ -65,7 +62,7 @@ public static class SearchExtensions
 
             var config = new Config(nodes, apiKey);
 
-            Console.WriteLine("Typesense client configured successfully.");
+            logger.LogInformation("Typesense client configured successfully.");
 
             var httpClient = new HttpClient();
             return new TypesenseClient(Options.Create(config), httpClient);
@@ -82,32 +79,29 @@ public static class SearchExtensions
     /// </summary>
     public static async Task InitializeTypesenseCollectionsAsync(this WebApplication app)
     {
+        var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup.Typesense");
+
         try
         {
             using var scope = app.Services.CreateScope();
             var typeSenseService = scope.ServiceProvider.GetService<ITypeSenseService>();
             if (typeSenseService != null)
             {
-                Console.WriteLine("Initializing Typesense collections...");
+                logger.LogInformation("Initializing Typesense collections...");
                 await typeSenseService.EnsureCollectionExistsAsync();
-                Console.WriteLine("Typesense media_items collection initialized.");
                 await typeSenseService.EnsureMixlistCollectionExistsAsync();
-                Console.WriteLine("Typesense mixlists collection initialized.");
                 await typeSenseService.EnsureNotesCollectionExistsAsync();
-                Console.WriteLine("Typesense obsidian_notes collection initialized.");
                 await typeSenseService.EnsureHighlightsCollectionExistsAsync();
-                Console.WriteLine("Typesense highlights collection initialized.");
-                Console.WriteLine("Typesense collection initialization complete.");
+                logger.LogInformation("Typesense collection initialization complete (media_items, mixlists, obsidian_notes, highlights).");
             }
             else
             {
-                Console.WriteLine("Typesense service not available. Skipping collection initialization.");
+                logger.LogInformation("Typesense service not available. Skipping collection initialization.");
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"WARNING: Failed to initialize Typesense collections: {ex.Message}");
-            Console.WriteLine("Application will continue, but search functionality may not work.");
+            logger.LogWarning(ex, "Failed to initialize Typesense collections. Application will continue, but search functionality may not work.");
         }
     }
 }

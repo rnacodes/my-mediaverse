@@ -5,7 +5,7 @@ using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using MyMediaVerse.Shared.Interfaces;
 
-namespace MyMediaVerse.Infrastructure.Clients
+namespace MyMediaVerse.Infrastructure.Clients.AI
 {
     /// <summary>
     /// HTTP client for AI operations using multiple providers:

@@ -6,7 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Moq.Protected;
-using MyMediaVerse.Infrastructure.Clients;
+using MyMediaVerse.Infrastructure.Clients.ListenNotes;
 using MyMediaVerse.Shared.DTOs.ListenNotes;
 
 namespace MyMediaVerse.UnitTests.Infrastructure

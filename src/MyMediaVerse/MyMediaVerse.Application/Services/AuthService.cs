@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using MyMediaVerse.Domain.Entities;
-using MyMediaVerse.Domain.Interfaces;
+using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Shared.Interfaces;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;

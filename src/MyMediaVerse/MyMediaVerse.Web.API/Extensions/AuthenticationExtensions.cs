@@ -11,15 +11,15 @@ public static class AuthenticationExtensions
 
     public static IServiceCollection AddJwtAndApiKeyAuthentication(
         this IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        ILogger logger)
     {
         var jwtSettings = configuration.GetSection("JwtSettings");
         var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET") ?? jwtSettings["Secret"];
 
         if (string.IsNullOrEmpty(jwtSecret))
         {
-            Console.WriteLine("WARNING: No JWT secret configured. Authentication will not work.");
-            Console.WriteLine("Please set JWT_SECRET environment variable or configure JwtSettings:Secret in appsettings.json");
+            logger.LogWarning("No JWT secret configured. Authentication will not work. Set JWT_SECRET env var or JwtSettings:Secret in appsettings.json.");
             return services;
         }
 
@@ -62,18 +62,17 @@ public static class AuthenticationExtensions
 
         services.AddAuthorization();
 
-        Console.WriteLine("JWT Authentication configured successfully.");
-        Console.WriteLine($"JWT Issuer: {jwtSettings["Issuer"]}");
-        Console.WriteLine($"JWT Audience: {jwtSettings["Audience"]}");
+        logger.LogInformation("JWT authentication configured. Issuer: {Issuer}, Audience: {Audience}",
+            jwtSettings["Issuer"], jwtSettings["Audience"]);
 
         var n8nApiKey = Environment.GetEnvironmentVariable("N8N_API_KEY");
         if (!string.IsNullOrEmpty(n8nApiKey))
         {
-            Console.WriteLine("API Key authentication configured for N8N.");
+            logger.LogInformation("API Key authentication configured for N8N.");
         }
         else
         {
-            Console.WriteLine("INFO: N8N_API_KEY not configured. API key authentication is disabled.");
+            logger.LogInformation("N8N_API_KEY not configured. API key authentication is disabled.");
         }
 
         return services;

@@ -4,7 +4,7 @@ using Microsoft.Extensions.Configuration;
 using MyMediaVerse.Shared.DTOs.ListenNotes;
 using MyMediaVerse.Shared.Interfaces;
 
-namespace MyMediaVerse.Infrastructure.Clients
+namespace MyMediaVerse.Infrastructure.Clients.ListenNotes
 {
     public class ListenNotesApiClient : IListenNotesApiClient
     {

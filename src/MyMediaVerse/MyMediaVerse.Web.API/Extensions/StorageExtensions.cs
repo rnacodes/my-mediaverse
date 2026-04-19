@@ -13,6 +13,7 @@ public static class StorageExtensions
         services.AddSingleton<IAmazonS3>(sp =>
         {
             var configuration = sp.GetRequiredService<IConfiguration>();
+            var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("Startup.Storage");
 
             var spacesConfig = configuration.GetSection("DigitalOceanSpaces");
             var accessKey = spacesConfig["AccessKey"];
@@ -25,8 +26,7 @@ public static class StorageExtensions
                 string.IsNullOrEmpty(endpoint) || string.IsNullOrEmpty(region) ||
                 string.IsNullOrEmpty(bucketName))
             {
-                Console.WriteLine("WARNING: DigitalOcean Spaces configuration is incomplete.");
-                Console.WriteLine("Thumbnail upload functionality will not be available until properly configured.");
+                logger.LogWarning("DigitalOcean Spaces configuration is incomplete. Thumbnail upload functionality will not be available until properly configured.");
                 return null!;
             }
 

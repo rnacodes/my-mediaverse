@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Domain.Entities;
-using MyMediaVerse.Domain.Interfaces;
 using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.Application.Services

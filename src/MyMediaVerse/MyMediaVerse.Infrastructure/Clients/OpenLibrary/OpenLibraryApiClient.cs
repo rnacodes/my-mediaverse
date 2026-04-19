@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 using MyMediaVerse.Shared.DTOs.OpenLibrary;
 using MyMediaVerse.Shared.Interfaces;
 
-namespace MyMediaVerse.Infrastructure.Clients
+namespace MyMediaVerse.Infrastructure.Clients.OpenLibrary
 {
     public class OpenLibraryApiClient : IOpenLibraryApiClient
     {

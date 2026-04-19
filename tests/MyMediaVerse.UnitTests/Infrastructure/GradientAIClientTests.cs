@@ -6,7 +6,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Moq.Protected;
-using MyMediaVerse.Infrastructure.Clients;
+using MyMediaVerse.Infrastructure.Clients.AI;
 
 namespace MyMediaVerse.UnitTests.Infrastructure
 {

@@ -5,7 +5,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Moq.Protected;
-using MyMediaVerse.Infrastructure.Clients;
+using MyMediaVerse.Infrastructure.Clients.Paperless;
 using MyMediaVerse.Shared.DTOs.Paperless;
 
 namespace MyMediaVerse.UnitTests.Infrastructure

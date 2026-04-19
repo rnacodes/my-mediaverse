@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 using MyMediaVerse.Shared.DTOs.Paperless;
 using MyMediaVerse.Shared.Interfaces;
 
-namespace MyMediaVerse.Infrastructure.Clients
+namespace MyMediaVerse.Infrastructure.Clients.Paperless
 {
     /// <summary>
     /// HTTP client for Paperless-ngx REST API.

@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MyMediaVerse.Domain.Entities;
-using MyMediaVerse.Domain.Interfaces;
+using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Shared.DTOs.ListenNotes;
 using MyMediaVerse.Shared.Interfaces;
 

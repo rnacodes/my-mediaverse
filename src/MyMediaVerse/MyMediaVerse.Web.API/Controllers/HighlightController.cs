@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MyMediaVerse.Application.Interfaces;
-using MyMediaVerse.Domain.Interfaces;
 using MyMediaVerse.DTOs;
 
 namespace MyMediaVerse.Web.API.Controllers

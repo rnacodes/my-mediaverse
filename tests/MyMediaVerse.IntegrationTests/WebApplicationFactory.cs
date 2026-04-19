@@ -100,7 +100,7 @@ namespace MyMediaVerse.IntegrationTests
                 }
 
                 // Also remove IApplicationDbContext if it exists
-                var appDbContextDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(MyMediaVerse.Domain.Interfaces.IApplicationDbContext));
+                var appDbContextDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(MyMediaVerse.Application.Interfaces.IApplicationDbContext));
                 if (appDbContextDescriptor != null)
                 {
                     services.Remove(appDbContextDescriptor);
@@ -118,7 +118,7 @@ namespace MyMediaVerse.IntegrationTests
                 });
 
                 // Register IApplicationDbContext (Testing environment needs this)
-                services.AddScoped<MyMediaVerse.Domain.Interfaces.IApplicationDbContext>(provider =>
+                services.AddScoped<MyMediaVerse.Application.Interfaces.IApplicationDbContext>(provider =>
                 {
                     var context = provider.GetRequiredService<MediaLibraryDbContext>();
                     return context;
@@ -159,7 +159,7 @@ namespace MyMediaVerse.IntegrationTests
 
                 // Re-add ListenNotes API client with mock server URL
                 services.AddHttpClient<MyMediaVerse.Shared.Interfaces.IListenNotesApiClient, 
-                    MyMediaVerse.Infrastructure.Clients.ListenNotesApiClient>(client =>
+                    MyMediaVerse.Infrastructure.Clients.ListenNotes.ListenNotesApiClient>(client =>
                 {
                     // Mock server returns fake data for testing - no API key required
                     client.BaseAddress = new Uri("https://listen-api-test.listennotes.com/api/v2/");

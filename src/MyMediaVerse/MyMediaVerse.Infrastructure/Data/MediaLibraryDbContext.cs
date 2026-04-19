@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Pgvector;
 using MyMediaVerse.Domain.Entities;
-using MyMediaVerse.Domain.Interfaces;
+using MyMediaVerse.Application.Interfaces;
 using System.Collections.Generic;
 
 namespace MyMediaVerse.Infrastructure.Data

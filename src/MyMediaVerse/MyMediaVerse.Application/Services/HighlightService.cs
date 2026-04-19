@@ -3,7 +3,6 @@ using Microsoft.Extensions.Logging;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Utilities;
 using MyMediaVerse.Domain.Entities;
-using MyMediaVerse.Domain.Interfaces;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Shared.Interfaces;
 

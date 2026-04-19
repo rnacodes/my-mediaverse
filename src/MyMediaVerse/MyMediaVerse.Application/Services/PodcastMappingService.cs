@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MyMediaVerse.Domain.Interfaces;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Shared.DTOs.ListenNotes;
 using MyMediaVerse.Application.Interfaces;

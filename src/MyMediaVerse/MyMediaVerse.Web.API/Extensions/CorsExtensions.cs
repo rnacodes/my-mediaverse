@@ -7,7 +7,8 @@ public static class CorsExtensions
     public static IServiceCollection AddCorsPolicies(
         this IServiceCollection services,
         IConfiguration configuration,
-        IWebHostEnvironment environment)
+        IWebHostEnvironment environment,
+        ILogger logger)
     {
         services.AddCors(options =>
         {
@@ -73,7 +74,7 @@ public static class CorsExtensions
                     }
                     else
                     {
-                        Console.WriteLine("WARNING: No specific frontend origins configured. Allowing all origins for CORS.");
+                        logger.LogWarning("No specific frontend origins configured. Allowing all origins for CORS.");
                         policy.AllowAnyOrigin()
                               .AllowAnyHeader()
                               .AllowAnyMethod();

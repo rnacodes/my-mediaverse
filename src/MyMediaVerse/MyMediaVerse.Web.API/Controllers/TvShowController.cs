@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using MyMediaVerse.Application.Interfaces;
-using MyMediaVerse.Infrastructure.Clients;
+using MyMediaVerse.Infrastructure.Clients.TMDB;
 using MyMediaVerse.Shared.DTOs.TMDB;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Domain.Entities;

@@ -4,7 +4,7 @@ using Microsoft.Extensions.Configuration;
 using MyMediaVerse.Shared.DTOs.TMDB;
 using MyMediaVerse.Shared.Interfaces;
 
-namespace MyMediaVerse.Infrastructure.Clients
+namespace MyMediaVerse.Infrastructure.Clients.TMDB
 {
     public class TmdbApiClient : ITmdbApiClient
     {

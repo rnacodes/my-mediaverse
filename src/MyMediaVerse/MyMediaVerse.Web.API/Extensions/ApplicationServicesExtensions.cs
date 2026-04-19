@@ -1,6 +1,5 @@
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Services;
-using MyMediaVerse.Domain.Interfaces;
 using MyMediaVerse.Infrastructure.Repositories;
 using MyMediaVerse.Infrastructure.Services;
 using MyMediaVerse.Shared.Interfaces;

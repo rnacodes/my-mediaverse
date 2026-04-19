@@ -6,7 +6,6 @@ using NpgsqlTypes;
 using Pgvector;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Domain.Entities;
-using MyMediaVerse.Domain.Interfaces;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Shared.Interfaces;
 

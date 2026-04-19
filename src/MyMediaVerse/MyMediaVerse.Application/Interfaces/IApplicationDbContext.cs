@@ -1,8 +1,6 @@
 using MyMediaVerse.Domain.Entities;
-using System.Threading;
-using System.Threading.Tasks;
 
-namespace MyMediaVerse.Domain.Interfaces
+namespace MyMediaVerse.Application.Interfaces
 {
     public interface IApplicationDbContext
     {
@@ -33,14 +31,14 @@ namespace MyMediaVerse.Domain.Interfaces
 
         // Basic operations
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
-        
+
         // Entity tracking
         void Add<TEntity>(TEntity entity) where TEntity : class;
         void AddRange<TEntity>(IEnumerable<TEntity> entities) where TEntity : class;
         void Update<TEntity>(TEntity entity) where TEntity : class;
         void Remove<TEntity>(TEntity entity) where TEntity : class;
         void ClearChangeTracker();
-        
+
         // Entity finding
         Task<TEntity?> FindAsync<TEntity>(params object[] keyValues) where TEntity : class;
     }

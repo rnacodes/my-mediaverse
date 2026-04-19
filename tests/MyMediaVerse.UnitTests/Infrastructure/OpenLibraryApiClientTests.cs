@@ -4,7 +4,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Moq.Protected;
-using MyMediaVerse.Infrastructure.Clients;
+using MyMediaVerse.Infrastructure.Clients.OpenLibrary;
 using MyMediaVerse.Shared.DTOs.OpenLibrary;
 using MyMediaVerse.Shared.Interfaces;
 using Xunit;

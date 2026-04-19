@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 using MyMediaVerse.Shared.DTOs.GoogleBooks;
 using MyMediaVerse.Shared.Interfaces;
 
-namespace MyMediaVerse.Infrastructure.Clients
+namespace MyMediaVerse.Infrastructure.Clients.Google
 {
     /// <summary>
     /// Client for Google Books API.

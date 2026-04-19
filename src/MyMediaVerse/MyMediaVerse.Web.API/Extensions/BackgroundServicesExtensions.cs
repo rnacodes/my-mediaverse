@@ -8,7 +8,8 @@ public static class BackgroundServicesExtensions
     public static IServiceCollection AddBackgroundServices(
         this IServiceCollection services,
         IConfiguration configuration,
-        IWebHostEnvironment environment)
+        IWebHostEnvironment environment,
+        ILogger logger)
     {
         var isTesting = environment.EnvironmentName == "Testing";
 
@@ -17,7 +18,7 @@ public static class BackgroundServicesExtensions
         if (!isTesting)
         {
             services.AddHostedService<NoteDescriptionGenerationHostedService>();
-            Console.WriteLine("Note description generation background service registered.");
+            logger.LogInformation("Note description generation background service registered.");
         }
 
         services.Configure<EmbeddingGenerationOptions>(
@@ -25,7 +26,7 @@ public static class BackgroundServicesExtensions
         if (!isTesting)
         {
             services.AddHostedService<EmbeddingGenerationHostedService>();
-            Console.WriteLine("Embedding generation background service registered.");
+            logger.LogInformation("Embedding generation background service registered.");
         }
 
         services.Configure<ObsidianNoteSyncOptions>(
@@ -33,7 +34,7 @@ public static class BackgroundServicesExtensions
         if (!isTesting)
         {
             services.AddHostedService<ObsidianNoteSyncHostedService>();
-            Console.WriteLine("Obsidian note sync background service registered.");
+            logger.LogInformation("Obsidian note sync background service registered.");
         }
 
         services.Configure<BookDescriptionEnrichmentOptions>(
@@ -42,7 +43,7 @@ public static class BackgroundServicesExtensions
         if (!isTesting)
         {
             services.AddHostedService<BookDescriptionEnrichmentHostedService>();
-            Console.WriteLine("Book description enrichment background service registered.");
+            logger.LogInformation("Book description enrichment background service registered.");
         }
 
         services.Configure<MovieTvEnrichmentOptions>(
@@ -51,7 +52,7 @@ public static class BackgroundServicesExtensions
         if (!isTesting)
         {
             services.AddHostedService<MovieTvEnrichmentHostedService>();
-            Console.WriteLine("Movie/TV TMDB enrichment background service registered.");
+            logger.LogInformation("Movie/TV TMDB enrichment background service registered.");
         }
 
         services.Configure<PodcastEnrichmentOptions>(
@@ -60,7 +61,7 @@ public static class BackgroundServicesExtensions
         if (!isTesting)
         {
             services.AddHostedService<PodcastEnrichmentHostedService>();
-            Console.WriteLine("Podcast ListenNotes enrichment background service registered.");
+            logger.LogInformation("Podcast ListenNotes enrichment background service registered.");
         }
 
         return services;

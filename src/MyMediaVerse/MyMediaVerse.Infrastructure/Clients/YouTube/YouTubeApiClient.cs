@@ -4,7 +4,7 @@ using Microsoft.Extensions.Configuration;
 using MyMediaVerse.Shared.DTOs.YouTube;
 using MyMediaVerse.Shared.Interfaces;
 
-namespace MyMediaVerse.Infrastructure.Clients
+namespace MyMediaVerse.Infrastructure.Clients.YouTube
 {
     public class YouTubeApiClient : IYouTubeApiClient
     {

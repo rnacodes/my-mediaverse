@@ -5,8 +5,17 @@ using MyMediaVerse.Web.API.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Bootstrap logger for startup code (registration runs before app.Services is built).
+// Uses the same Logging config as the final app, and is disposed at shutdown.
+using var startupLoggerFactory = LoggerFactory.Create(logging =>
+{
+    logging.AddConfiguration(builder.Configuration.GetSection("Logging"));
+    logging.AddConsole();
+});
+var startupLogger = startupLoggerFactory.CreateLogger("Startup");
+
 // --- CORS ---
-builder.Services.AddCorsPolicies(builder.Configuration, builder.Environment);
+builder.Services.AddCorsPolicies(builder.Configuration, builder.Environment, startupLogger);
 
 // --- Controllers + JSON options ---
 builder.Services.AddControllers(options =>
@@ -23,16 +32,16 @@ builder.Services.AddControllers(options =>
     });
 
 // --- Authentication (JWT + API Key) ---
-builder.Services.AddJwtAndApiKeyAuthentication(builder.Configuration);
+builder.Services.AddJwtAndApiKeyAuthentication(builder.Configuration, startupLogger);
 
 // --- Database (EF Core + PostgreSQL + pgvector) ---
-var connectionString = DatabaseExtensions.ResolveConnectionString(builder.Configuration, builder.Environment);
+var connectionString = DatabaseExtensions.ResolveConnectionString(builder.Configuration, builder.Environment, startupLogger);
 builder.Services.AddDatabase(connectionString, builder.Environment);
 
 // --- Application services, external API clients, background workers ---
 builder.Services.AddApplicationServices();
-builder.Services.AddExternalApiClients(builder.Configuration);
-builder.Services.AddBackgroundServices(builder.Configuration, builder.Environment);
+builder.Services.AddExternalApiClients(builder.Configuration, startupLogger);
+builder.Services.AddBackgroundServices(builder.Configuration, builder.Environment, startupLogger);
 
 // --- Storage + Search ---
 builder.Services.AddS3Storage();
@@ -126,10 +135,10 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-Console.WriteLine($"Environment: {builder.Environment.EnvironmentName}");
 var maskedConnectionString = Regex.Replace(connectionString, @"(Password|password)=([^;]+)", "$1=****");
 maskedConnectionString = Regex.Replace(maskedConnectionString, @"://([^:]+):([^@]+)@", "://****:****@");
-Console.WriteLine($"Connection string: {maskedConnectionString}");
+app.Logger.LogInformation("Environment: {Environment}", builder.Environment.EnvironmentName);
+app.Logger.LogInformation("Connection string: {ConnectionString}", maskedConnectionString);
 
 app.Run();
 

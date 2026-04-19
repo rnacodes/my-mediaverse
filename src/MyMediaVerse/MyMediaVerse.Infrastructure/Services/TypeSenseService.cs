@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using MyMediaVerse.Domain.Interfaces;
+using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Infrastructure.Models;
 using MyMediaVerse.Shared.Interfaces;
 using Typesense;

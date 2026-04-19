@@ -6,7 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Moq.Protected;
-using MyMediaVerse.Infrastructure.Clients;
+using MyMediaVerse.Infrastructure.Clients.TMDB;
 using MyMediaVerse.Shared.DTOs.TMDB;
 using MyMediaVerse.UnitTests.TestData;
 

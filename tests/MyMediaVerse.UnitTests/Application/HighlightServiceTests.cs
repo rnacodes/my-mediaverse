@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
-using MyMediaVerse.Domain.Interfaces;
+using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Shared.Interfaces;
 using MyMediaVerse.UnitTests.TestHelpers;

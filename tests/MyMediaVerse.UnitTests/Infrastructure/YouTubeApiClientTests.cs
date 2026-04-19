@@ -6,7 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Moq.Protected;
-using MyMediaVerse.Infrastructure.Clients;
+using MyMediaVerse.Infrastructure.Clients.YouTube;
 using MyMediaVerse.Shared.DTOs.YouTube;
 
 namespace MyMediaVerse.UnitTests.Infrastructure

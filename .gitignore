@@ -700,3 +700,4 @@ CLAUDE.md
 temp-docs/
 docs/
 official-documentation/
+.claude/scheduled_tasks.lock

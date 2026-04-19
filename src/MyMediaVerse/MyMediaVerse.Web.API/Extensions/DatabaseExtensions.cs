@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
-using MyMediaVerse.Domain.Interfaces;
+using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Infrastructure.Data;
 using Pgvector.EntityFrameworkCore;
 
@@ -17,7 +17,7 @@ public static class DatabaseExtensions
     /// Applies best-effort fixes (URL decoding, postgres:// -> postgresql://, rebuild as key/value) so
     /// Render-style URLs parse cleanly through NpgsqlConnectionStringBuilder.
     /// </summary>
-    public static string ResolveConnectionString(IConfiguration configuration, IWebHostEnvironment environment)
+    public static string ResolveConnectionString(IConfiguration configuration, IWebHostEnvironment environment, ILogger logger)
     {
         var configConnectionString = configuration.GetConnectionString("DefaultConnection");
         var connectionString = (!string.IsNullOrEmpty(configConnectionString) ? configConnectionString : null) ??
@@ -33,14 +33,13 @@ public static class DatabaseExtensions
             connectionSource = "ConnectionStrings__DefaultConnection env var";
         else
             connectionSource = "none";
-        Console.WriteLine($"Connection string source: {connectionSource}");
+        logger.LogInformation("Connection string source: {Source}", connectionSource);
 
         if (string.IsNullOrEmpty(connectionString))
         {
             if (environment.IsDevelopment())
             {
-                Console.WriteLine("WARNING: No database connection string configured for development.");
-                Console.WriteLine("Using placeholder connection string. Database operations will fail.");
+                logger.LogWarning("No database connection string configured for development. Using placeholder; database operations will fail.");
                 connectionString = "Host=localhost;Database=projectloopbreaker;Username=postgres;Password=password";
             }
             else if (environment.EnvironmentName == "Testing")
@@ -58,90 +57,95 @@ public static class DatabaseExtensions
             return connectionString;
         }
 
-        Console.WriteLine($"Connection string length: {connectionString.Length}");
-        Console.WriteLine($"Connection string starts with: {connectionString.Substring(0, Math.Min(20, connectionString.Length))}...");
+        logger.LogDebug("Connection string length: {Length}", connectionString.Length);
+        logger.LogDebug("Connection string starts with: {Prefix}...",
+            connectionString.Substring(0, Math.Min(20, connectionString.Length)));
 
         var pattern = Regex.Replace(connectionString, @"://([^:]+):([^@]+)@", "://[USER]:[PASSWORD]@");
-        Console.WriteLine($"Connection string pattern: {pattern}");
+        logger.LogDebug("Connection string pattern: {Pattern}", pattern);
 
         try
         {
             var testBuilder = new Npgsql.NpgsqlConnectionStringBuilder(connectionString);
-            Console.WriteLine($"Connection string parsed successfully. Host: {testBuilder.Host}, Database: {testBuilder.Database}");
+            logger.LogInformation("Connection string parsed successfully. Host: {Host}, Database: {Database}",
+                testBuilder.Host, testBuilder.Database);
             return connectionString;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"ERROR: Failed to parse connection string: {ex.Message}");
-            return TryFixConnectionString(connectionString, pattern, ex);
+            logger.LogError(ex, "Failed to parse connection string. Attempting fixes.");
+            return TryFixConnectionString(connectionString, pattern, ex, logger);
         }
     }
 
-    private static string TryFixConnectionString(string connectionString, string pattern, Exception originalException)
+    private static string TryFixConnectionString(string connectionString, string pattern, Exception originalException, ILogger logger)
     {
         var fixedConnectionString = connectionString.Trim();
 
         if (fixedConnectionString.Contains('%'))
         {
             fixedConnectionString = Uri.UnescapeDataString(fixedConnectionString);
-            Console.WriteLine("Attempted to URL-decode the connection string");
+            logger.LogInformation("URL-decoded the connection string.");
         }
 
         if (fixedConnectionString.StartsWith("postgres://"))
         {
             fixedConnectionString = fixedConnectionString.Replace("postgres://", "postgresql://");
-            Console.WriteLine("Converted postgres:// to postgresql://");
+            logger.LogInformation("Converted postgres:// to postgresql://.");
         }
 
         var uriMatch = Regex.Match(fixedConnectionString, @"^postgresql://([^:]+):([^@]+)@([^/]+)/([^?]+)");
         if (!uriMatch.Success)
         {
-            Console.WriteLine("ERROR: Connection string doesn't match expected PostgreSQL URL format: postgresql://user:password@host/database");
-            Console.WriteLine($"Full connection string length: {fixedConnectionString.Length}");
-            Console.WriteLine($"Connection string ends with: ...{fixedConnectionString.Substring(Math.Max(0, fixedConnectionString.Length - 20))}");
+            logger.LogError("Connection string doesn't match expected PostgreSQL URL format: postgresql://user:password@host/database. Length: {Length}, ends with: ...{Suffix}",
+                fixedConnectionString.Length,
+                fixedConnectionString.Substring(Math.Max(0, fixedConnectionString.Length - 20)));
 
             if (fixedConnectionString.EndsWith("/"))
             {
-                Console.WriteLine("ERROR: Connection string ends with '/' but has no database name");
+                logger.LogError("Connection string ends with '/' but has no database name.");
             }
             else if (!fixedConnectionString.Contains("/") || fixedConnectionString.LastIndexOf("/") == fixedConnectionString.IndexOf("//") + 1)
             {
-                Console.WriteLine("ERROR: Connection string is missing database name part");
+                logger.LogError("Connection string is missing database name part.");
             }
 
             throw new InvalidOperationException($"Connection string format is invalid. Expected format: postgresql://user:password@host/database. Got: {pattern}", originalException);
         }
 
-        Console.WriteLine($"Connection string appears to have correct format: user={uriMatch.Groups[1].Value}, host={uriMatch.Groups[3].Value}, database={uriMatch.Groups[4].Value}");
+        logger.LogInformation("Connection string parsed as URL. user={User}, host={Host}, database={Database}",
+            uriMatch.Groups[1].Value, uriMatch.Groups[3].Value, uriMatch.Groups[4].Value);
 
         try
         {
             var testBuilder2 = new Npgsql.NpgsqlConnectionStringBuilder(fixedConnectionString);
-            Console.WriteLine($"Fixed connection string parsed successfully! Host: {testBuilder2.Host}, Database: {testBuilder2.Database}");
+            logger.LogInformation("Fixed connection string parsed successfully. Host: {Host}, Database: {Database}",
+                testBuilder2.Host, testBuilder2.Database);
             return fixedConnectionString;
         }
         catch (Exception ex2)
         {
-            Console.WriteLine($"ERROR: Even after fixes, connection string still invalid: {ex2.Message}");
+            logger.LogError(ex2, "Even after fixes, connection string still invalid. Attempting manual rebuild.");
 
             try
             {
-                Console.WriteLine("Attempting to manually parse and rebuild connection string...");
                 var user = uriMatch.Groups[1].Value;
                 var password = uriMatch.Groups[2].Value;
                 var host = uriMatch.Groups[3].Value;
                 var database = uriMatch.Groups[4].Value;
 
                 var rebuiltConnectionString = $"Host={host};Database={database};Username={user};Password={password};SSL Mode=Require;Trust Server Certificate=true";
-                Console.WriteLine($"Rebuilt connection string format: Host={host};Database={database};Username={user};Password=[HIDDEN];SSL Mode=Require;Trust Server Certificate=true");
+                logger.LogInformation("Rebuilt connection string as key/value format. Host={Host}, Database={Database}, Username={User}",
+                    host, database, user);
 
                 var testBuilder3 = new Npgsql.NpgsqlConnectionStringBuilder(rebuiltConnectionString);
-                Console.WriteLine($"Rebuilt connection string parsed successfully! Host: {testBuilder3.Host}, Database: {testBuilder3.Database}");
+                logger.LogInformation("Rebuilt connection string parsed successfully. Host: {Host}, Database: {Database}",
+                    testBuilder3.Host, testBuilder3.Database);
                 return rebuiltConnectionString;
             }
             catch (Exception ex3)
             {
-                Console.WriteLine($"ERROR: Manual rebuild also failed: {ex3.Message}");
+                logger.LogError(ex3, "Manual rebuild also failed.");
                 throw new InvalidOperationException($"Database connection string format is invalid and cannot be fixed. Original error: {originalException.Message}. After fixes: {ex2.Message}. After rebuild: {ex3.Message}", originalException);
             }
         }

@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using MyMediaVerse.Domain.Interfaces;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Shared.DTOs.GoogleBooks;
 using MyMediaVerse.Shared.DTOs.OpenLibrary;

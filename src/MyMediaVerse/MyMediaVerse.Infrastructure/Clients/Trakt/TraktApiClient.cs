@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 using MyMediaVerse.Shared.DTOs.Trakt;
 using MyMediaVerse.Shared.Interfaces;
 
-namespace MyMediaVerse.Infrastructure.Clients
+namespace MyMediaVerse.Infrastructure.Clients.Trakt
 {
     public class TraktApiClient : ITraktApiClient
     {

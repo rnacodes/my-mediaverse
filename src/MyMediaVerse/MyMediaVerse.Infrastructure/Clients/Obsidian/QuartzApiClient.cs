@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using MyMediaVerse.Shared.DTOs.Obsidian;
 using MyMediaVerse.Shared.Interfaces;
 
-namespace MyMediaVerse.Infrastructure.Clients
+namespace MyMediaVerse.Infrastructure.Clients.Obsidian
 {
     /// <summary>
     /// HTTP client for fetching content from Quartz-published Obsidian vaults.

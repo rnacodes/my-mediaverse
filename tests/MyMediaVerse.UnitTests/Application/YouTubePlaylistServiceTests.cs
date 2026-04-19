@@ -4,7 +4,6 @@ using Moq;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
-using MyMediaVerse.Domain.Interfaces;
 using MyMediaVerse.Shared.DTOs.YouTube;
 using MyMediaVerse.Shared.Interfaces;
 using MyMediaVerse.UnitTests.TestHelpers;
