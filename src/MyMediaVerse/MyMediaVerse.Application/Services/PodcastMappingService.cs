@@ -3,121 +3,26 @@ using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Shared.DTOs.ListenNotes;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.DTOs;
-using Amazon.S3;
-using Amazon.S3.Model;
-using Microsoft.Extensions.Configuration;
+using MyMediaVerse.Shared.Interfaces;
 using Microsoft.Extensions.Logging;
 
 namespace MyMediaVerse.Application.Services
 {
     public class PodcastMappingService : IPodcastMappingService
     {
+        private const string ThumbnailKeyPrefix = "thumbnails/imported_";
+
         private readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true
         };
-        private readonly IAmazonS3? _s3Client;
-        private readonly IConfiguration _configuration;
+        private readonly IThumbnailStorageService _thumbnailStorage;
         private readonly ILogger<PodcastMappingService> _logger;
 
-        public PodcastMappingService(IAmazonS3? s3Client, IConfiguration configuration, ILogger<PodcastMappingService> logger)
+        public PodcastMappingService(IThumbnailStorageService thumbnailStorage, ILogger<PodcastMappingService> logger)
         {
-            _s3Client = s3Client;
-            _configuration = configuration;
+            _thumbnailStorage = thumbnailStorage;
             _logger = logger;
-        }
-
-        private async Task<string?> UploadImageFromUrlAsync(string? imageUrl)
-        {
-            if (string.IsNullOrEmpty(imageUrl))
-            {
-                _logger.LogWarning("Image URL is null or empty, skipping upload");
-                return imageUrl;
-            }
-
-            if (_s3Client == null)
-            {
-                _logger.LogWarning("S3 client is null - DigitalOcean Spaces not configured properly");
-                return imageUrl; // Return original URL if S3 not configured
-            }
-
-            _logger.LogInformation("Attempting to upload image from URL: {ImageUrl}", imageUrl);
-
-            try
-            {
-                // Get DigitalOcean Spaces configuration
-                var spacesConfig = _configuration.GetSection("DigitalOceanSpaces");
-                var bucketName = spacesConfig["BucketName"];
-                var endpoint = spacesConfig["Endpoint"];
-
-                _logger.LogInformation("DigitalOcean Spaces config - Bucket: {BucketName}, Endpoint: {Endpoint}", bucketName, endpoint);
-
-                if (string.IsNullOrEmpty(bucketName) || string.IsNullOrEmpty(endpoint))
-                {
-                    _logger.LogWarning("DigitalOcean Spaces configuration incomplete, keeping original image URL");
-                    return imageUrl;
-                }
-
-                // Download the image from the URL
-                _logger.LogInformation("Downloading image from URL: {ImageUrl}", imageUrl);
-                using var httpClient = new HttpClient();
-                httpClient.DefaultRequestHeaders.Add("User-Agent", "MyMediaVerse/1.0");
-                
-                var response = await httpClient.GetAsync(imageUrl);
-                _logger.LogInformation("Download response status: {StatusCode}", response.StatusCode);
-                
-                if (!response.IsSuccessStatusCode)
-                {
-                    _logger.LogWarning("Failed to download image from URL {ImageUrl}: {StatusCode}", imageUrl, response.StatusCode);
-                    return imageUrl;
-                }
-
-                var contentType = response.Content.Headers.ContentType?.MediaType ?? "image/jpeg";
-                
-                // Get file extension from content type
-                var extension = contentType.ToLower() switch
-                {
-                    "image/jpeg" => ".jpg",
-                    "image/jpg" => ".jpg", 
-                    "image/png" => ".png",
-                    "image/gif" => ".gif",
-                    "image/webp" => ".webp",
-                    _ => ".jpg"
-                };
-
-                // Generate a unique file name
-                var uniqueFileName = $"thumbnails/imported_{Guid.NewGuid()}{extension}";
-
-                // Upload to DigitalOcean Spaces
-                _logger.LogInformation("Uploading image to DigitalOcean Spaces - Bucket: {BucketName}, Key: {Key}", bucketName, uniqueFileName);
-                using var imageStream = await response.Content.ReadAsStreamAsync();
-                
-                var uploadRequest = new PutObjectRequest
-                {
-                    BucketName = bucketName,
-                    Key = uniqueFileName,
-                    InputStream = imageStream,
-                    ContentType = contentType,
-                    CannedACL = S3CannedACL.PublicRead // Make the file publicly accessible
-                };
-
-                _logger.LogInformation("Starting S3 upload...");
-                await _s3Client.PutObjectAsync(uploadRequest);
-                _logger.LogInformation("S3 upload completed successfully");
-
-                // Construct the public URL
-                var publicUrl = $"https://{bucketName}.{endpoint}/{uniqueFileName}";
-                _logger.LogInformation("Constructed public URL: {PublicUrl}", publicUrl);
-
-                _logger.LogInformation("Successfully uploaded imported image to DigitalOcean Spaces: {OriginalUrl} -> {PublicUrl}", imageUrl, publicUrl);
-
-                return publicUrl;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error uploading image from URL {ImageUrl}, keeping original URL", imageUrl);
-                return imageUrl; // Return original URL if upload fails
-            }
         }
 
         public async Task<Podcast> MapToPodcastAsync(string jsonResponse)
@@ -150,7 +55,7 @@ namespace MyMediaVerse.Application.Services
                 var originalThumbnailUrl = podcastDto?.Image ?? podcastDto?.Thumbnail;
                 _logger.LogInformation("Processing thumbnail - Original URL: {OriginalUrl}", originalThumbnailUrl);
 
-                var uploadedThumbnailUrl = await UploadImageFromUrlAsync(originalThumbnailUrl);
+                var uploadedThumbnailUrl = await _thumbnailStorage.UploadFromUrlAsync(originalThumbnailUrl, ThumbnailKeyPrefix);
                 _logger.LogInformation("Thumbnail processing result - Original: {OriginalUrl}, Uploaded: {UploadedUrl}", originalThumbnailUrl, uploadedThumbnailUrl);
 
                 var podcast = new Podcast
@@ -210,7 +115,7 @@ namespace MyMediaVerse.Application.Services
 
                 // Upload thumbnail to DigitalOcean Spaces if available
                 var originalThumbnailUrl = episodeDto?.Image ?? episodeDto?.Thumbnail;
-                var uploadedThumbnailUrl = await UploadImageFromUrlAsync(originalThumbnailUrl);
+                var uploadedThumbnailUrl = await _thumbnailStorage.UploadFromUrlAsync(originalThumbnailUrl, ThumbnailKeyPrefix);
 
                 var podcastEpisode = new Podcast
                 {

@@ -1,27 +1,30 @@
 using System.Text.Json;
 using FluentAssertions;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Moq;
-using Amazon.S3;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Shared.DTOs.ListenNotes;
+using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.UnitTests.Application
 {
     public class PodcastMappingServiceTests
     {
-        private readonly Mock<IConfiguration> _mockConfiguration;
+        private readonly Mock<IThumbnailStorageService> _mockThumbnailStorage;
         private readonly Mock<ILogger<PodcastMappingService>> _mockLogger;
         private readonly PodcastMappingService _service;
 
         public PodcastMappingServiceTests()
         {
-            _mockConfiguration = new Mock<IConfiguration>();
+            _mockThumbnailStorage = new Mock<IThumbnailStorageService>();
             _mockLogger = new Mock<ILogger<PodcastMappingService>>();
-            // Pass null for S3 client - image uploads will return original URLs
-            _service = new PodcastMappingService(null, _mockConfiguration.Object, _mockLogger.Object);
+            // Default: pass-through -- UploadFromUrlAsync returns the input URL unchanged,
+            // matching the original "no S3 configured" fallback behavior the tests assume.
+            _mockThumbnailStorage
+                .Setup(s => s.UploadFromUrlAsync(It.IsAny<string?>(), It.IsAny<string>()))
+                .ReturnsAsync((string? url, string _) => url);
+            _service = new PodcastMappingService(_mockThumbnailStorage.Object, _mockLogger.Object);
         }
 
         #region MapToPodcastAsync

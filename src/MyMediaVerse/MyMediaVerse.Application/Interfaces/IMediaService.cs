@@ -16,8 +16,8 @@ namespace MyMediaVerse.Application.Interfaces
         // Mutations
         Task<MediaItemResponseDto> CreateMediaItemAsync(CreateMediaItemDto dto);
         Task<MediaItemResponseDto> UpdateMediaItemAsync(Guid id, CreateMediaItemDto dto);
-        Task<bool> DeleteMediaItemAsync(Guid id, string? baseUrl = null);
-        Task<(int deletedCount, List<string> thumbnailErrors)> BulkDeleteMediaItemsAsync(List<Guid> ids, string? baseUrl = null);
+        Task<bool> DeleteMediaItemAsync(Guid id);
+        Task<(int deletedCount, List<string> thumbnailErrors)> BulkDeleteMediaItemsAsync(List<Guid> ids);
 
         // Export
         Task<(byte[] content, string fileName)?> ExportMediaItemAsync(Guid id);

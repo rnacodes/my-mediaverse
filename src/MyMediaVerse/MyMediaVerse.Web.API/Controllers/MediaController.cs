@@ -100,8 +100,7 @@ namespace MyMediaVerse.Web.API.Controllers
         {
             try
             {
-                var baseUrl = $"{Request.Scheme}://{Request.Host}";
-                var deleted = await _mediaService.DeleteMediaItemAsync(id, baseUrl);
+                var deleted = await _mediaService.DeleteMediaItemAsync(id);
 
                 if (!deleted)
                 {
@@ -127,8 +126,7 @@ namespace MyMediaVerse.Web.API.Controllers
                     return BadRequest("No media IDs provided for deletion.");
                 }
 
-                var baseUrl = $"{Request.Scheme}://{Request.Host}";
-                var (deletedCount, thumbnailErrors) = await _mediaService.BulkDeleteMediaItemsAsync(request.Ids, baseUrl);
+                var (deletedCount, thumbnailErrors) = await _mediaService.BulkDeleteMediaItemsAsync(request.Ids);
 
                 if (deletedCount == 0)
                 {

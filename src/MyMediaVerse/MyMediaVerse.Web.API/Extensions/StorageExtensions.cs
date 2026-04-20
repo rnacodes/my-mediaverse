@@ -1,20 +1,20 @@
 using Amazon.S3;
+using MyMediaVerse.Infrastructure.Services.Storage;
+using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.Web.API.Extensions;
 
 public static class StorageExtensions
 {
     /// <summary>
-    /// Registers the DigitalOcean Spaces S3 client. When config is incomplete, returns null so
-    /// consumers (e.g. UploadController) can handle the disabled state gracefully by injecting
-    /// <c>IAmazonS3?</c> and null-checking before use.
+    /// Registers the DigitalOcean Spaces S3 client plus the IThumbnailStorageService
+    /// abstraction most consumers should use. UploadController still injects IAmazonS3?
+    /// directly for its raw multipart/file endpoints.
     ///
-    /// The <c>null!</c> return is intentional: ASP.NET Core DI does not treat nullable reference
-    /// type annotations as "optional service" — a consumer taking <c>IAmazonS3?</c> still requires
-    /// a registration, and the factory is the only mechanism that can inject null. Alternatives
-    /// (Null Object implementing IAmazonS3, or a wrapping IThumbnailStorage abstraction) are
-    /// impractical here: IAmazonS3 has 100+ members and ~8 consumers would need migration. A
-    /// proper domain-level abstraction is tracked as a separate refactor.
+    /// The <c>null!</c> return on IAmazonS3 is intentional: ASP.NET Core DI does not
+    /// treat nullable reference type annotations as "optional service" — a consumer
+    /// taking <c>IAmazonS3?</c> still requires a registration, and the factory is the
+    /// only mechanism that can inject null.
     /// </summary>
     public static IServiceCollection AddS3Storage(this IServiceCollection services)
     {
@@ -46,6 +46,8 @@ public static class StorageExtensions
 
             return new AmazonS3Client(accessKey, secretKey, config);
         });
+
+        services.AddScoped<IThumbnailStorageService, ThumbnailStorageService>();
 
         return services;
     }

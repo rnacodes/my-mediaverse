@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
+using MyMediaVerse.Shared.Interfaces;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -14,16 +15,16 @@ namespace MyMediaVerse.Application.Services
     {
         private readonly IApplicationDbContext _context;
         private readonly ILogger<MediaService> _logger;
-        private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IThumbnailStorageService _thumbnailStorage;
 
         public MediaService(
             IApplicationDbContext context,
             ILogger<MediaService> logger,
-            IHttpClientFactory httpClientFactory)
+            IThumbnailStorageService thumbnailStorage)
         {
             _context = context;
             _logger = logger;
-            _httpClientFactory = httpClientFactory;
+            _thumbnailStorage = thumbnailStorage;
         }
 
         public async Task<IEnumerable<MediaItemResponseDto>> GetAllMediaAsync()
@@ -242,7 +243,7 @@ namespace MyMediaVerse.Application.Services
             return MapToResponseDto(updatedItem!);
         }
 
-        public async Task<bool> DeleteMediaItemAsync(Guid id, string? baseUrl = null)
+        public async Task<bool> DeleteMediaItemAsync(Guid id)
         {
             var mediaItem = await _context.MediaItems
                 .Include(m => m.Mixlists)
@@ -253,13 +254,11 @@ namespace MyMediaVerse.Application.Services
             if (mediaItem == null)
                 return false;
 
-            // Delete thumbnail from S3 if it exists
-            if (!string.IsNullOrEmpty(mediaItem.Thumbnail) && !string.IsNullOrEmpty(baseUrl))
+            if (!string.IsNullOrEmpty(mediaItem.Thumbnail))
             {
-                await DeleteThumbnailFromS3(mediaItem.Thumbnail, baseUrl);
+                await _thumbnailStorage.DeleteAsync(mediaItem.Thumbnail);
             }
 
-            // Remove from all mixlists
             mediaItem.Mixlists.Clear();
             mediaItem.Topics.Clear();
             mediaItem.Genres.Clear();
@@ -270,7 +269,7 @@ namespace MyMediaVerse.Application.Services
             return true;
         }
 
-        public async Task<(int deletedCount, List<string> thumbnailErrors)> BulkDeleteMediaItemsAsync(List<Guid> ids, string? baseUrl = null)
+        public async Task<(int deletedCount, List<string> thumbnailErrors)> BulkDeleteMediaItemsAsync(List<Guid> ids)
         {
             var mediaItems = await _context.MediaItems
                 .Include(m => m.Mixlists)
@@ -284,11 +283,11 @@ namespace MyMediaVerse.Application.Services
 
             foreach (var mediaItem in mediaItems)
             {
-                if (!string.IsNullOrEmpty(mediaItem.Thumbnail) && !string.IsNullOrEmpty(baseUrl))
+                if (!string.IsNullOrEmpty(mediaItem.Thumbnail))
                 {
                     try
                     {
-                        await DeleteThumbnailFromS3(mediaItem.Thumbnail, baseUrl);
+                        await _thumbnailStorage.DeleteAsync(mediaItem.Thumbnail);
                     }
                     catch (Exception ex)
                     {
@@ -662,27 +661,5 @@ namespace MyMediaVerse.Application.Services
             };
         }
 
-        private async Task DeleteThumbnailFromS3(string thumbnailUrl, string baseUrl)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(thumbnailUrl))
-                    return;
-
-                var httpClient = _httpClientFactory.CreateClient();
-                httpClient.BaseAddress = new Uri(baseUrl);
-
-                var response = await httpClient.DeleteAsync($"/api/upload/thumbnail?url={Uri.EscapeDataString(thumbnailUrl)}");
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    _logger.LogWarning("Failed to delete thumbnail: {ThumbnailUrl}. Status: {StatusCode}", thumbnailUrl, response.StatusCode);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Error deleting thumbnail {ThumbnailUrl}", thumbnailUrl);
-            }
-        }
     }
 }
