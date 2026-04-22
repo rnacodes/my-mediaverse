@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
 using MyMediaVerse.Application.Interfaces;
-using MyMediaVerse.Shared.Interfaces;
 using MyMediaVerse.Shared.DTOs.TMDB;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Domain.Entities;
@@ -15,18 +14,18 @@ namespace MyMediaVerse.Web.API.Controllers
         private readonly ITvShowService _tvShowService;
         private readonly ITvShowMappingService _tvShowMappingService;
         private readonly ILogger<TvShowController> _logger;
-        private readonly ITmdbApiClient _tmdbClient;
+        private readonly ITmdbService _tmdbService;
 
         public TvShowController(
             ITvShowService tvShowService,
             ITvShowMappingService tvShowMappingService,
             ILogger<TvShowController> logger,
-            ITmdbApiClient tmdbClient)
+            ITmdbService tmdbService)
         {
             _tvShowService = tvShowService;
             _tvShowMappingService = tvShowMappingService;
             _logger = logger;
-            _tmdbClient = tmdbClient;
+            _tmdbService = tmdbService;
         }
 
         // GET: api/tvshow
@@ -183,7 +182,7 @@ namespace MyMediaVerse.Web.API.Controllers
                 _logger.LogInformation("Starting TV show import from TMDB for ID: {TvShowId}", tvShowId);
 
                 // Get TV show data from TMDB API
-                var tmdbTvShow = await _tmdbClient.GetTvShowDetailsAsync(tvShowId);
+                var tmdbTvShow = await _tmdbService.GetTvShowDetailsAsync(tvShowId);
                 _logger.LogInformation("Retrieved TV show data from TMDB for ID: {TvShowId}", tvShowId);
 
                 // Map TMDB data to domain entity
@@ -354,7 +353,7 @@ namespace MyMediaVerse.Web.API.Controllers
 
                 _logger.LogInformation("Searching TMDB for TV shows with query: {Query}", query);
 
-                var searchResults = await _tmdbClient.SearchTvShowsAsync(query, page);
+                var searchResults = await _tmdbService.SearchTvShowsAsync(query, page);
                 var response = await Task.WhenAll(searchResults.Results.Select(t => _tvShowMappingService.MapToSearchResultDtoAsync(t)));
 
                 return Ok(response);

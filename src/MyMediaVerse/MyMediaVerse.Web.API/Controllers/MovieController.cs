@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
 using MyMediaVerse.Application.Interfaces;
-using MyMediaVerse.Shared.Interfaces;
 using MyMediaVerse.Shared.DTOs.TMDB;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Domain.Entities;
@@ -15,18 +14,18 @@ namespace MyMediaVerse.Web.API.Controllers
         private readonly IMovieService _movieService;
         private readonly IMovieMappingService _movieMappingService;
         private readonly ILogger<MovieController> _logger;
-        private readonly ITmdbApiClient _tmdbClient;
+        private readonly ITmdbService _tmdbService;
 
         public MovieController(
             IMovieService movieService,
             IMovieMappingService movieMappingService,
             ILogger<MovieController> logger,
-            ITmdbApiClient tmdbClient)
+            ITmdbService tmdbService)
         {
             _movieService = movieService;
             _movieMappingService = movieMappingService;
             _logger = logger;
-            _tmdbClient = tmdbClient;
+            _tmdbService = tmdbService;
         }
 
         // GET: api/movie
@@ -183,7 +182,7 @@ namespace MyMediaVerse.Web.API.Controllers
                 _logger.LogInformation("Starting movie import from TMDB for ID: {MovieId}", movieId);
 
                 // Get movie data from TMDB API
-                var tmdbMovie = await _tmdbClient.GetMovieDetailsAsync(movieId);
+                var tmdbMovie = await _tmdbService.GetMovieDetailsAsync(movieId);
                 _logger.LogInformation("Retrieved movie data from TMDB for ID: {MovieId}", movieId);
 
                 // Map TMDB data to domain entity
@@ -236,7 +235,7 @@ namespace MyMediaVerse.Web.API.Controllers
 
                 _logger.LogInformation("Searching TMDB for movies with query: {Query}", query);
 
-                var searchResults = await _tmdbClient.SearchMoviesAsync(query, page);
+                var searchResults = await _tmdbService.SearchMoviesAsync(query, page);
                 var response = await Task.WhenAll(searchResults.Results.Select(m => _movieMappingService.MapToSearchResultDtoAsync(m)));
 
                 return Ok(response);

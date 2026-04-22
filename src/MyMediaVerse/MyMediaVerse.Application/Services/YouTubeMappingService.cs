@@ -52,6 +52,7 @@ namespace MyMediaVerse.Application.Services
 
         public Video MapChannelToEntity(YouTubeChannelDto channelDto)
         {
+            //TODO: Remove this method in a future version
             // NOTE: This method is deprecated and will be removed in a future version
             // Use MapChannelToYouTubeChannelEntity instead
             if (channelDto?.Snippet == null)
