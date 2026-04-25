@@ -20,9 +20,15 @@ public static class DatabaseExtensions
 
     /// <summary>
     /// Resolves the PostgreSQL connection string from (in priority order):
-    /// 1. Configuration "DefaultConnection" (respects appsettings.{Env}.json)
-    /// 2. DATABASE_URL env var (Render.com standard)
-    /// 3. ConnectionStrings__DefaultConnection env var
+    /// 1. Configuration "DefaultConnection" — merged by IConfiguration from appsettings.{Env}.json
+    ///    AND the <c>ConnectionStrings__DefaultConnection</c> env var (env var wins over appsettings).
+    /// 2. <c>DATABASE_URL</c> env var (Render.com standard).
+    /// 3. <c>ConnectionStrings__DefaultConnection</c> env var (rarely reached — step 1 normally
+    ///    grabs it first via IConfiguration; kept as a safety net for non-standard config setups).
+    ///
+    /// Gotcha: overriding only <c>DATABASE_URL</c> at runtime won't switch databases if
+    /// <c>ConnectionStrings__DefaultConnection</c> is also set, because step 1 picks that up first.
+    /// Override both (or clear the other) when pointing a local run at a different database.
     ///
     /// Normalizes Render-style postgres:// URLs to key-value form so
     /// NpgsqlConnectionStringBuilder can parse them cleanly. If normalization fails, throws —
@@ -54,9 +60,12 @@ public static class DatabaseExtensions
 
     private static (string? connectionString, string source) ReadConnectionString(IConfiguration configuration)
     {
+        // GetConnectionString("DefaultConnection") merges values from appsettings.{Env}.json
+        // and the ConnectionStrings__DefaultConnection env var — so a hit here may have come
+        // from either source. The label below intentionally names both.
         var configConnection = configuration.GetConnectionString("DefaultConnection");
         if (!string.IsNullOrEmpty(configConnection))
-            return (configConnection, "appsettings / DefaultConnection");
+            return (configConnection, "appsettings or ConnectionStrings__DefaultConnection (via IConfiguration)");
 
         var dbUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
         if (!string.IsNullOrEmpty(dbUrl))
