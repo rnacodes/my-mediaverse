@@ -1,11 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using MyMediaVerse.Domain.Entities;
-using MyMediaVerse.Infrastructure.Data;
+using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.DTOs;
-using System.Globalization;
-using CsvHelper;
-using CsvHelper.Configuration;
 
 namespace MyMediaVerse.Web.API.Controllers
 {
@@ -13,11 +8,13 @@ namespace MyMediaVerse.Web.API.Controllers
     [Route("api/[controller]")]
     public class TopicsController : ControllerBase
     {
-        private readonly MediaLibraryDbContext _context;
+        private readonly ITopicsService _topicsService;
+        private readonly ILogger<TopicsController> _logger;
 
-        public TopicsController(MediaLibraryDbContext context)
+        public TopicsController(ITopicsService topicsService, ILogger<TopicsController> logger)
         {
-            _context = context;
+            _topicsService = topicsService;
+            _logger = logger;
         }
 
         // GET: api/topics
@@ -26,33 +23,12 @@ namespace MyMediaVerse.Web.API.Controllers
         {
             try
             {
-                // Get all topics in a single query
-                var topics = await _context.Topics
-                    .AsNoTracking()
-                    .OrderBy(t => t.Name)
-                    .ToListAsync();
-
-                // Get all media item counts using LINQ navigation properties
-                var topicCounts = await _context.Topics
-                    .Select(t => new { TopicId = t.Id, Count = t.MediaItems.Count })
-                    .ToListAsync();
-                var countsByTopicId = topicCounts.ToDictionary(tc => tc.TopicId, tc => tc.Count);
-
-                // Build response with counts (no need for individual queries)
-                var response = topics.Select(topic => new TopicResponseDto
-                {
-                    Id = topic.Id,
-                    Name = topic.Name,
-                    MediaItemIds = Array.Empty<Guid>(), // Not needed for list view
-                    MediaItemCount = countsByTopicId.GetValueOrDefault(topic.Id, 0)
-                }).ToList();
-
-                return Ok(response);
+                var topics = await _topicsService.GetAllTopicsAsync();
+                return Ok(topics);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error in GetAllTopics: {ex.Message}");
-                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                _logger.LogError(ex, "Error retrieving topics");
                 return StatusCode(500, new { error = "Failed to retrieve topics", details = ex.Message });
             }
         }
@@ -61,42 +37,14 @@ namespace MyMediaVerse.Web.API.Controllers
         [HttpGet("search")]
         public async Task<ActionResult<IEnumerable<TopicResponseDto>>> SearchTopics([FromQuery] string query)
         {
-            if (string.IsNullOrWhiteSpace(query))
-            {
-                return await GetAllTopics();
-            }
-
             try
             {
-                var normalizedQuery = query.ToLowerInvariant();
-                var topics = await _context.Topics
-                    .AsNoTracking()
-                    .Where(t => t.Name.ToLower().Contains(normalizedQuery))
-                    .OrderBy(t => t.Name)
-                    .ToListAsync();
-
-                // Get topic IDs for the filtered topics
-                var topicIds = topics.Select(t => t.Id).ToList();
-
-                // Get counts for the filtered topics using LINQ
-                var topicCounts = await _context.Topics
-                    .Select(t => new { TopicId = t.Id, Count = t.MediaItems.Count })
-                    .ToListAsync();
-                var countsByTopicId = topicCounts.ToDictionary(tc => tc.TopicId, tc => tc.Count);
-
-                var response = topics.Select(topic => new TopicResponseDto
-                {
-                    Id = topic.Id,
-                    Name = topic.Name,
-                    MediaItemIds = Array.Empty<Guid>(),
-                    MediaItemCount = countsByTopicId.GetValueOrDefault(topic.Id, 0)
-                }).ToList();
-
-                return Ok(response);
+                var topics = await _topicsService.SearchTopicsAsync(query);
+                return Ok(topics);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error in SearchTopics: {ex.Message}");
+                _logger.LogError(ex, "Error searching topics");
                 return StatusCode(500, new { error = "Failed to search topics", details = ex.Message });
             }
         }
@@ -107,34 +55,16 @@ namespace MyMediaVerse.Web.API.Controllers
         {
             try
             {
-                var topic = await _context.Topics
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(t => t.Id == id);
-
+                var topic = await _topicsService.GetTopicAsync(id);
                 if (topic == null)
                 {
                     return NotFound($"Topic with ID {id} not found.");
                 }
-
-                // Get media item IDs using LINQ navigation properties
-                var mediaItemIds = await _context.MediaItems
-                    .Where(m => m.Topics.Any(t => t.Id == id))
-                    .Select(m => m.Id)
-                    .ToListAsync();
-
-                var response = new TopicResponseDto
-                {
-                    Id = topic.Id,
-                    Name = topic.Name,
-                    MediaItemIds = mediaItemIds.ToArray(),
-                    MediaItemCount = mediaItemIds.Count
-                };
-
-                return Ok(response);
+                return Ok(topic);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error in GetTopic: {ex.Message}");
+                _logger.LogError(ex, "Error retrieving topic {Id}", id);
                 return StatusCode(500, new { error = "Failed to retrieve topic", details = ex.Message });
             }
         }
@@ -148,44 +78,10 @@ namespace MyMediaVerse.Web.API.Controllers
                 return BadRequest("Topic name is required.");
             }
 
-            var normalizedTopicName = dto.Name.Trim().ToLowerInvariant();
-
-            // Check if topic already exists
-            var existingTopic = await _context.Topics
-                .AsNoTracking()
-                .FirstOrDefaultAsync(t => t.Name == normalizedTopicName);
-
-            if (existingTopic != null)
-            {
-                // Get media item IDs using LINQ navigation properties
-                var mediaItemIds = await _context.MediaItems
-                    .Where(m => m.Topics.Any(t => t.Id == existingTopic.Id))
-                    .Select(m => m.Id)
-                    .ToListAsync();
-
-                var existingResponse = new TopicResponseDto
-                {
-                    Id = existingTopic.Id,
-                    Name = existingTopic.Name,
-                    MediaItemIds = mediaItemIds.ToArray(),
-                    MediaItemCount = mediaItemIds.Count
-                };
-                return Ok(existingResponse);
-            }
-
-            var topic = new Topic { Name = normalizedTopicName };
-            _context.Topics.Add(topic);
-            await _context.SaveChangesAsync();
-
-            var response = new TopicResponseDto
-            {
-                Id = topic.Id,
-                Name = topic.Name,
-                MediaItemIds = Array.Empty<Guid>(),
-                MediaItemCount = 0
-            };
-
-            return CreatedAtAction(nameof(GetTopic), new { id = topic.Id }, response);
+            var (topic, created) = await _topicsService.CreateTopicAsync(dto);
+            return created
+                ? CreatedAtAction(nameof(GetTopic), new { id = topic.Id }, topic)
+                : Ok(topic);
         }
 
         // PUT: api/topics/{id}
@@ -197,61 +93,30 @@ namespace MyMediaVerse.Web.API.Controllers
                 return BadRequest("Topic name is required.");
             }
 
-            var topic = await _context.Topics.FirstOrDefaultAsync(t => t.Id == id);
-            if (topic == null)
+            try
             {
-                return NotFound($"Topic with ID {id} not found.");
+                var topic = await _topicsService.UpdateTopicAsync(id, dto);
+                if (topic == null)
+                {
+                    return NotFound($"Topic with ID {id} not found.");
+                }
+                return Ok(topic);
             }
-
-            var normalizedTopicName = dto.Name.Trim().ToLowerInvariant();
-
-            // Check if another topic with the new name already exists
-            var existingTopic = await _context.Topics
-                .AsNoTracking()
-                .FirstOrDefaultAsync(t => t.Name == normalizedTopicName && t.Id != id);
-
-            if (existingTopic != null)
+            catch (InvalidOperationException ex)
             {
-                return BadRequest($"A topic with the name '{dto.Name}' already exists.");
+                return BadRequest(ex.Message);
             }
-
-            topic.Name = normalizedTopicName;
-            await _context.SaveChangesAsync();
-
-            // Get media item IDs using LINQ navigation properties
-            var mediaItemIds = await _context.MediaItems
-                .Where(m => m.Topics.Any(t => t.Id == id))
-                .Select(m => m.Id)
-                .ToListAsync();
-
-            var response = new TopicResponseDto
-            {
-                Id = topic.Id,
-                Name = topic.Name,
-                MediaItemIds = mediaItemIds.ToArray(),
-                MediaItemCount = mediaItemIds.Count
-            };
-
-            return Ok(response);
         }
 
         // DELETE: api/topics/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteTopic(Guid id)
         {
-            var topic = await _context.Topics
-                .FirstOrDefaultAsync(t => t.Id == id);
-
-            if (topic == null)
+            var deleted = await _topicsService.DeleteTopicAsync(id);
+            if (!deleted)
             {
                 return NotFound($"Topic with ID {id} not found.");
             }
-
-            // The database is configured with cascade delete, so removing the topic
-            // will automatically remove all associations in the MediaItemTopics join table
-            _context.Topics.Remove(topic);
-            await _context.SaveChangesAsync();
-
             return NoContent();
         }
 
@@ -259,59 +124,12 @@ namespace MyMediaVerse.Web.API.Controllers
         [HttpPost("import/json")]
         public async Task<ActionResult<BulkImportResultDto>> ImportTopicsFromJson([FromBody] List<CreateTopicDto> topics)
         {
-            var result = new BulkImportResultDto();
-
             if (topics == null || !topics.Any())
             {
                 return BadRequest("No topics provided for import.");
             }
 
-            foreach (var topicDto in topics)
-            {
-                result.TotalProcessed++;
-
-                try
-                {
-                    if (string.IsNullOrWhiteSpace(topicDto.Name))
-                    {
-                        result.Errors.Add($"Topic at index {result.TotalProcessed - 1}: Name is required");
-                        result.ErrorCount++;
-                        continue;
-                    }
-
-                    var normalizedTopicName = topicDto.Name.Trim().ToLowerInvariant();
-
-                    // Check if topic already exists
-                    var existingTopic = await _context.Topics
-                        .FirstOrDefaultAsync(t => t.Name == normalizedTopicName);
-
-                    if (existingTopic != null)
-                    {
-                        result.Skipped.Add($"Topic '{topicDto.Name}' already exists");
-                        result.SkippedCount++;
-                        continue;
-                    }
-
-                    var topic = new Topic { Name = normalizedTopicName };
-                    _context.Topics.Add(topic);
-                    await _context.SaveChangesAsync();
-
-                    result.Imported.Add(new TopicResponseDto
-                    {
-                        Id = topic.Id,
-                        Name = topic.Name,
-                        MediaItemIds = Array.Empty<Guid>(),
-                        MediaItemCount = 0
-                    });
-                    result.SuccessCount++;
-                }
-                catch (Exception ex)
-                {
-                    result.Errors.Add($"Topic '{topicDto.Name}': {ex.Message}");
-                    result.ErrorCount++;
-                }
-            }
-
+            var result = await _topicsService.ImportTopicsFromJsonAsync(topics);
             return Ok(result);
         }
 
@@ -319,8 +137,6 @@ namespace MyMediaVerse.Web.API.Controllers
         [HttpPost("import/csv")]
         public async Task<ActionResult<BulkImportResultDto>> ImportTopicsFromCsv(IFormFile file)
         {
-            var result = new BulkImportResultDto();
-
             if (file == null || file.Length == 0)
             {
                 return BadRequest("No file uploaded");
@@ -333,74 +149,17 @@ namespace MyMediaVerse.Web.API.Controllers
 
             try
             {
-                using var reader = new StreamReader(file.OpenReadStream());
-                var csvConfig = new CsvHelper.Configuration.CsvConfiguration(CultureInfo.InvariantCulture)
-                {
-                    PrepareHeaderForMatch = args => args.Header.ToLowerInvariant()
-                };
-                using var csv = new CsvReader(reader, csvConfig);
-
-                csv.Read();
-                csv.ReadHeader();
-                var headers = csv.HeaderRecord;
-
-                if (headers == null || !headers.Any(h => h.Equals("Name", StringComparison.OrdinalIgnoreCase)))
-                {
-                    return BadRequest("CSV file must have a 'Name' column");
-                }
-
-                while (csv.Read())
-                {
-                    result.TotalProcessed++;
-
-                    try
-                    {
-                        var name = csv.GetField("name");
-
-                        if (string.IsNullOrWhiteSpace(name))
-                        {
-                            result.Errors.Add($"Row {csv.CurrentIndex}: Name is required");
-                            result.ErrorCount++;
-                            continue;
-                        }
-
-                        var normalizedTopicName = name.Trim().ToLowerInvariant();
-
-                        // Check if topic already exists
-                        var existingTopic = await _context.Topics
-                            .FirstOrDefaultAsync(t => t.Name == normalizedTopicName);
-
-                        if (existingTopic != null)
-                        {
-                            result.Skipped.Add($"Topic '{name}' already exists");
-                            result.SkippedCount++;
-                            continue;
-                        }
-
-                        var topic = new Topic { Name = normalizedTopicName };
-                        _context.Topics.Add(topic);
-                        await _context.SaveChangesAsync();
-
-                        result.Imported.Add(new TopicResponseDto
-                        {
-                            Id = topic.Id,
-                            Name = topic.Name,
-                            MediaItemIds = Array.Empty<Guid>(),
-                            MediaItemCount = 0
-                        });
-                        result.SuccessCount++;
-                    }
-                    catch (Exception ex)
-                    {
-                        result.Errors.Add($"Row {csv.CurrentIndex}: {ex.Message}");
-                        result.ErrorCount++;
-                    }
-                }
-
+                using var stream = file.OpenReadStream();
+                var result = await _topicsService.ImportTopicsFromCsvAsync(stream);
                 return Ok(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error processing CSV file");
                 return StatusCode(500, $"Error processing CSV file: {ex.Message}");
             }
         }

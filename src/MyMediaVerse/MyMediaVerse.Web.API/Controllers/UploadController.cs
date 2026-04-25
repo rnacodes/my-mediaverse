@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Infrastructure.Data;
 using MyMediaVerse.Application.Interfaces;
+using MyMediaVerse.Shared.Interfaces;
 using MyMediaVerse.DTOs;
 using System.Globalization;
 using CsvHelper;
@@ -19,8 +20,13 @@ namespace MyMediaVerse.Web.API.Controllers
     [Route("api/[controller]")]
     public class UploadController : ControllerBase
     {
+        private const string ThumbnailKeyPrefix = "thumbnails/";
+        private static readonly string[] AllowedImageContentTypes =
+            { "image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp" };
+
         private readonly MediaLibraryDbContext _context;
         private readonly ILogger<UploadController> _logger;
+        private readonly IThumbnailStorageService _thumbnailStorage;
         private readonly IAmazonS3? _s3Client;
         private readonly IConfiguration _configuration;
         private readonly IGoodreadsImportService _goodreadsImportService;
@@ -28,12 +34,14 @@ namespace MyMediaVerse.Web.API.Controllers
         public UploadController(
             MediaLibraryDbContext context,
             ILogger<UploadController> logger,
+            IThumbnailStorageService thumbnailStorage,
             IAmazonS3? s3Client,
             IConfiguration configuration,
             IGoodreadsImportService goodreadsImportService)
         {
             _context = context;
             _logger = logger;
+            _thumbnailStorage = thumbnailStorage;
             _s3Client = s3Client;
             _configuration = configuration;
             _goodreadsImportService = goodreadsImportService;
@@ -43,82 +51,38 @@ namespace MyMediaVerse.Web.API.Controllers
         [HttpPost("thumbnail-from-url")]
         public async Task<IActionResult> UploadThumbnailFromUrl([FromBody] UploadFromUrlRequest request)
         {
+            if (string.IsNullOrEmpty(request.Url))
+            {
+                return BadRequest("URL is required.");
+            }
+
             try
             {
-                // Check if S3 client is configured
-                if (_s3Client == null)
-                {
-                    return StatusCode(500, "DigitalOcean Spaces is not configured. Please configure DigitalOceanSpaces environment variables.");
-                }
-
-                if (string.IsNullOrEmpty(request.Url))
-                {
-                    return BadRequest("URL is required.");
-                }
-
-                // Download the image from the URL
                 using var httpClient = new HttpClient();
                 httpClient.DefaultRequestHeaders.Add("User-Agent", "MyMediaVerse/1.0");
-                
-                var response = await httpClient.GetAsync(request.Url);
+
+                using var response = await httpClient.GetAsync(request.Url);
                 if (!response.IsSuccessStatusCode)
                 {
                     return BadRequest($"Failed to download image from URL: {response.StatusCode}");
                 }
 
                 var contentType = response.Content.Headers.ContentType?.MediaType ?? "image/jpeg";
-                
-                // Validate content type
-                var allowedTypes = new[] { "image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp" };
-                if (!allowedTypes.Contains(contentType.ToLower()))
+                if (!AllowedImageContentTypes.Contains(contentType.ToLowerInvariant()))
                 {
                     return BadRequest("URL must point to an image (JPEG, PNG, GIF, or WebP).");
                 }
 
-                // Get file extension from content type
-                var extension = contentType.ToLower() switch
-                {
-                    "image/jpeg" => ".jpg",
-                    "image/jpg" => ".jpg", 
-                    "image/png" => ".png",
-                    "image/gif" => ".gif",
-                    "image/webp" => ".webp",
-                    _ => ".jpg"
-                };
+                using var imageStream = await response.Content.ReadAsStreamAsync();
+                var uploadResult = await _thumbnailStorage.UploadStreamAsync(imageStream, contentType, ThumbnailKeyPrefix);
 
-                // Get DigitalOcean Spaces configuration
-                var spacesConfig = _configuration.GetSection("DigitalOceanSpaces");
-                var bucketName = spacesConfig["BucketName"];
-                var endpoint = spacesConfig["Endpoint"];
-
-                if (string.IsNullOrEmpty(bucketName) || string.IsNullOrEmpty(endpoint))
+                if (uploadResult == null)
                 {
-                    return StatusCode(500, "DigitalOcean Spaces configuration is incomplete.");
+                    return StatusCode(500, "DigitalOcean Spaces is not configured. Please configure DigitalOceanSpaces environment variables.");
                 }
 
-                // Generate a unique file name
-                var uniqueFileName = $"thumbnails/{Guid.NewGuid()}{extension}";
-
-                // Upload to DigitalOcean Spaces
-                using var imageStream = await response.Content.ReadAsStreamAsync();
-                
-                var uploadRequest = new PutObjectRequest
-                {
-                    BucketName = bucketName,
-                    Key = uniqueFileName,
-                    InputStream = imageStream,
-                    ContentType = contentType,
-                    CannedACL = S3CannedACL.PublicRead // Make the file publicly accessible
-                };
-
-                await _s3Client.PutObjectAsync(uploadRequest);
-
-                // Construct the public URL
-                var publicUrl = $"https://{bucketName}.{endpoint}/{uniqueFileName}";
-
-                _logger.LogInformation("Successfully uploaded thumbnail from URL to DigitalOcean Spaces: {Url} -> {PublicUrl}", request.Url, publicUrl);
-
-                return Ok(new { url = publicUrl, fileName = uniqueFileName, originalUrl = request.Url });
+                _logger.LogInformation("Successfully uploaded thumbnail from URL: {Url} -> {PublicUrl}", request.Url, uploadResult.PublicUrl);
+                return Ok(new { url = uploadResult.PublicUrl, fileName = uploadResult.Key, originalUrl = request.Url });
             }
             catch (HttpRequestException ex)
             {
@@ -141,136 +105,49 @@ namespace MyMediaVerse.Web.API.Controllers
         [HttpDelete("thumbnail")]
         public async Task<IActionResult> DeleteThumbnail([FromQuery] string url)
         {
-            try
+            if (string.IsNullOrEmpty(url))
             {
-                // Check if S3 client is configured
-                if (_s3Client == null)
-                {
-                    _logger.LogWarning("S3 client not configured, skipping thumbnail deletion");
-                    return Ok(new { message = "S3 client not configured, thumbnail not deleted" });
-                }
-
-                if (string.IsNullOrEmpty(url))
-                {
-                    return BadRequest("Thumbnail URL is required.");
-                }
-
-                // Get DigitalOcean Spaces configuration
-                var spacesConfig = _configuration.GetSection("DigitalOceanSpaces");
-                var bucketName = spacesConfig["BucketName"];
-                var endpoint = spacesConfig["Endpoint"];
-
-                if (string.IsNullOrEmpty(bucketName) || string.IsNullOrEmpty(endpoint))
-                {
-                    _logger.LogWarning("S3 configuration incomplete, skipping thumbnail deletion");
-                    return Ok(new { message = "S3 configuration incomplete, thumbnail not deleted" });
-                }
-
-                // Extract the key from the URL
-                // URL format: https://{bucketName}.{endpoint}/{key}
-                var expectedPrefix = $"https://{bucketName}.{endpoint}/";
-                if (!url.StartsWith(expectedPrefix))
-                {
-                    _logger.LogWarning("Thumbnail URL doesn't match expected format: {Url}", url);
-                    return Ok(new { message = "Thumbnail URL doesn't match expected format, skipping deletion" });
-                }
-
-                var key = url.Substring(expectedPrefix.Length);
-
-                // Delete the object from S3
-                var deleteRequest = new DeleteObjectRequest
-                {
-                    BucketName = bucketName,
-                    Key = key
-                };
-
-                await _s3Client.DeleteObjectAsync(deleteRequest);
-
-                _logger.LogInformation("Successfully deleted thumbnail from DigitalOcean Spaces: {Url}", url);
-
-                return Ok(new { message = "Thumbnail deleted successfully", url = url });
+                return BadRequest("Thumbnail URL is required.");
             }
-            catch (AmazonS3Exception ex)
-            {
-                _logger.LogError(ex, "Error deleting thumbnail from DigitalOcean Spaces: {Url}", url);
-                // Don't fail the entire operation if thumbnail deletion fails
-                return Ok(new { message = "Failed to delete thumbnail but operation continued", error = ex.Message });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Unexpected error during thumbnail deletion: {Url}", url);
-                // Don't fail the entire operation if thumbnail deletion fails
-                return Ok(new { message = "Failed to delete thumbnail but operation continued", error = ex.Message });
-            }
+
+            await _thumbnailStorage.DeleteAsync(url);
+            return Ok(new { message = "Thumbnail deletion processed", url });
         }
 
         // POST: api/upload/thumbnail
         [HttpPost("thumbnail")]
         public async Task<IActionResult> UploadThumbnail(IFormFile file)
         {
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest("No file uploaded.");
+            }
+
+            if (!AllowedImageContentTypes.Contains(file.ContentType.ToLowerInvariant()))
+            {
+                return BadRequest("File must be an image (JPEG, PNG, GIF, or WebP).");
+            }
+
+            const int maxFileSize = 5 * 1024 * 1024; // 5MB
+            if (file.Length > maxFileSize)
+            {
+                return BadRequest("File size must be less than 5MB.");
+            }
+
             try
             {
-                // Check if S3 client is configured
-                if (_s3Client == null)
-                {
-                    return StatusCode(500, "DigitalOcean Spaces is not configured. Please configure DigitalOceanSpaces environment variables.");
-                }
-
-                if (file == null || file.Length == 0)
-                {
-                    return BadRequest("No file uploaded.");
-                }
-
-                // Validate file type (allow common image formats)
-                var allowedTypes = new[] { "image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp" };
-                if (!allowedTypes.Contains(file.ContentType.ToLower()))
-                {
-                    return BadRequest("File must be an image (JPEG, PNG, GIF, or WebP).");
-                }
-
-                // Validate file size (max 5MB)
-                const int maxFileSize = 5 * 1024 * 1024; // 5MB
-                if (file.Length > maxFileSize)
-                {
-                    return BadRequest("File size must be less than 5MB.");
-                }
-
-                // Get DigitalOcean Spaces configuration
-                var spacesConfig = _configuration.GetSection("DigitalOceanSpaces");
-                var bucketName = spacesConfig["BucketName"];
-                var endpoint = spacesConfig["Endpoint"];
-
-                if (string.IsNullOrEmpty(bucketName) || string.IsNullOrEmpty(endpoint))
-                {
-                    return StatusCode(500, "DigitalOcean Spaces configuration is incomplete.");
-                }
-
-                // Generate a unique file name
-                var fileExtension = Path.GetExtension(file.FileName);
-                var uniqueFileName = $"thumbnails/{Guid.NewGuid()}{fileExtension}";
-
-                // Upload to DigitalOcean Spaces
                 using var memoryStream = new MemoryStream();
                 await file.CopyToAsync(memoryStream);
                 memoryStream.Position = 0;
 
-                var uploadRequest = new PutObjectRequest
+                var uploadResult = await _thumbnailStorage.UploadStreamAsync(memoryStream, file.ContentType, ThumbnailKeyPrefix);
+                if (uploadResult == null)
                 {
-                    BucketName = bucketName,
-                    Key = uniqueFileName,
-                    InputStream = memoryStream,
-                    ContentType = file.ContentType,
-                    CannedACL = S3CannedACL.PublicRead // Make the file publicly accessible
-                };
+                    return StatusCode(500, "DigitalOcean Spaces is not configured. Please configure DigitalOceanSpaces environment variables.");
+                }
 
-                await _s3Client.PutObjectAsync(uploadRequest);
-
-                // Construct the public URL
-                var publicUrl = $"https://{bucketName}.{endpoint}/{uniqueFileName}";
-
-                _logger.LogInformation("Successfully uploaded thumbnail to DigitalOcean Spaces: {Url}", publicUrl);
-
-                return Ok(new { url = publicUrl, fileName = uniqueFileName });
+                _logger.LogInformation("Successfully uploaded thumbnail: {Url}", uploadResult.PublicUrl);
+                return Ok(new { url = uploadResult.PublicUrl, fileName = uploadResult.Key });
             }
             catch (AmazonS3Exception ex)
             {

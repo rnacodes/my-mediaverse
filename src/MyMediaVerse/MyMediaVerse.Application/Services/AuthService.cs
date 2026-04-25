@@ -140,6 +140,25 @@ namespace MyMediaVerse.Application.Services
 
             await _context.SaveChangesAsync();
         }
+
+        public async Task<TokenCleanupResult> CleanupExpiredAndRevokedTokensAsync()
+        {
+            var now = DateTime.UtcNow;
+            var tokensToDelete = await _context.RefreshTokens
+                .Where(rt => rt.ExpiresAt < now || rt.IsRevoked)
+                .ToListAsync();
+
+            var expiredCount = tokensToDelete.Count(rt => rt.ExpiresAt < now && !rt.IsRevoked);
+            var revokedCount = tokensToDelete.Count(rt => rt.IsRevoked);
+
+            foreach (var token in tokensToDelete)
+            {
+                _context.Remove(token);
+            }
+            await _context.SaveChangesAsync();
+
+            return new TokenCleanupResult(expiredCount, revokedCount, tokensToDelete.Count);
+        }
     }
 }
 

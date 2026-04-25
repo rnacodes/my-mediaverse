@@ -33,6 +33,10 @@ public static class ApplicationServicesExtensions
         services.AddScoped<IWebsiteMappingService, WebsiteMappingService>();
         services.AddScoped<IGoodreadsImportService, GoodreadsImportService>();
         services.AddScoped<IMediaService, MediaService>();
+        services.AddScoped<ITopicsService, TopicsService>();
+        services.AddScoped<IGenresService, GenresService>();
+        services.AddScoped<IRelatedMediaService, RelatedMediaService>();
+        services.AddScoped<IMixlistService, MixlistService>();
 
         services.AddScoped<IDocumentService, DocumentService>();
         services.AddScoped<IDocumentMappingService, DocumentMappingService>();

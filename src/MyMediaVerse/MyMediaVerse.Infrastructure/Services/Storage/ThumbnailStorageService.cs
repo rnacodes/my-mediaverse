@@ -45,11 +45,8 @@ namespace MyMediaVerse.Infrastructure.Services.Storage
 
             try
             {
-                var spacesConfig = _configuration.GetSection("DigitalOceanSpaces");
-                var bucketName = spacesConfig["BucketName"];
-                var endpoint = spacesConfig["Endpoint"];
-
-                if (string.IsNullOrEmpty(bucketName) || string.IsNullOrEmpty(endpoint))
+                var (bucketName, endpoint) = GetSpacesConfig();
+                if (bucketName == null || endpoint == null)
                 {
                     _logger.LogWarning("DigitalOcean Spaces configuration incomplete; keeping original image URL {ImageUrl}", imageUrl);
                     return imageUrl;
@@ -66,41 +63,37 @@ namespace MyMediaVerse.Infrastructure.Services.Storage
                 }
 
                 var contentType = response.Content.Headers.ContentType?.MediaType ?? "image/jpeg";
-                var extension = contentType.ToLowerInvariant() switch
-                {
-                    "image/jpeg" => ".jpg",
-                    "image/jpg" => ".jpg",
-                    "image/png" => ".png",
-                    "image/gif" => ".gif",
-                    "image/webp" => ".webp",
-                    _ => ".jpg"
-                };
-
-                var uniqueKey = $"{keyPrefix}{Guid.NewGuid()}{extension}";
-
                 using var imageStream = await response.Content.ReadAsStreamAsync();
 
-                var uploadRequest = new PutObjectRequest
-                {
-                    BucketName = bucketName,
-                    Key = uniqueKey,
-                    InputStream = imageStream,
-                    ContentType = contentType,
-                    CannedACL = S3CannedACL.PublicRead
-                };
-
-                await _s3Client.PutObjectAsync(uploadRequest);
-
-                var publicUrl = $"https://{bucketName}.{endpoint}/{uniqueKey}";
-                _logger.LogInformation("Uploaded thumbnail to DigitalOcean Spaces: {OriginalUrl} -> {PublicUrl}", imageUrl, publicUrl);
-
-                return publicUrl;
+                var result = await PutObjectAsync(_s3Client, bucketName, endpoint, imageStream, contentType, keyPrefix);
+                _logger.LogInformation("Uploaded thumbnail to DigitalOcean Spaces: {OriginalUrl} -> {PublicUrl}", imageUrl, result.PublicUrl);
+                return result.PublicUrl;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error uploading thumbnail from {ImageUrl}; keeping original URL", imageUrl);
                 return imageUrl;
             }
+        }
+
+        public async Task<ThumbnailUploadResult?> UploadStreamAsync(Stream content, string contentType, string keyPrefix)
+        {
+            if (_s3Client == null)
+            {
+                _logger.LogWarning("S3 client is not configured; cannot upload stream under {KeyPrefix}", keyPrefix);
+                return null;
+            }
+
+            var (bucketName, endpoint) = GetSpacesConfig();
+            if (bucketName == null || endpoint == null)
+            {
+                _logger.LogWarning("DigitalOcean Spaces configuration incomplete; cannot upload stream under {KeyPrefix}", keyPrefix);
+                return null;
+            }
+
+            var result = await PutObjectAsync(_s3Client, bucketName, endpoint, content, contentType, keyPrefix);
+            _logger.LogInformation("Uploaded thumbnail stream to DigitalOcean Spaces: {PublicUrl}", result.PublicUrl);
+            return result;
         }
 
         public async Task DeleteAsync(string? publicUrl)
@@ -118,11 +111,8 @@ namespace MyMediaVerse.Infrastructure.Services.Storage
 
             try
             {
-                var spacesConfig = _configuration.GetSection("DigitalOceanSpaces");
-                var bucketName = spacesConfig["BucketName"];
-                var endpoint = spacesConfig["Endpoint"];
-
-                if (string.IsNullOrEmpty(bucketName) || string.IsNullOrEmpty(endpoint))
+                var (bucketName, endpoint) = GetSpacesConfig();
+                if (bucketName == null || endpoint == null)
                 {
                     _logger.LogWarning("DigitalOcean Spaces configuration incomplete; skipping thumbnail deletion for {Url}", publicUrl);
                     return;
@@ -150,5 +140,48 @@ namespace MyMediaVerse.Infrastructure.Services.Storage
                 _logger.LogWarning(ex, "Error deleting thumbnail {Url}; continuing", publicUrl);
             }
         }
+
+        private (string? BucketName, string? Endpoint) GetSpacesConfig()
+        {
+            var spacesConfig = _configuration.GetSection("DigitalOceanSpaces");
+            var bucketName = spacesConfig["BucketName"];
+            var endpoint = spacesConfig["Endpoint"];
+            return (string.IsNullOrEmpty(bucketName) ? null : bucketName,
+                    string.IsNullOrEmpty(endpoint) ? null : endpoint);
+        }
+
+        private static async Task<ThumbnailUploadResult> PutObjectAsync(
+            IAmazonS3 s3Client,
+            string bucketName,
+            string endpoint,
+            Stream content,
+            string contentType,
+            string keyPrefix)
+        {
+            var extension = ExtensionFor(contentType);
+            var key = $"{keyPrefix}{Guid.NewGuid()}{extension}";
+
+            await s3Client.PutObjectAsync(new PutObjectRequest
+            {
+                BucketName = bucketName,
+                Key = key,
+                InputStream = content,
+                ContentType = contentType,
+                CannedACL = S3CannedACL.PublicRead
+            });
+
+            var publicUrl = $"https://{bucketName}.{endpoint}/{key}";
+            return new ThumbnailUploadResult(publicUrl, key);
+        }
+
+        private static string ExtensionFor(string contentType) => contentType.ToLowerInvariant() switch
+        {
+            "image/jpeg" => ".jpg",
+            "image/jpg" => ".jpg",
+            "image/png" => ".png",
+            "image/gif" => ".gif",
+            "image/webp" => ".webp",
+            _ => ".jpg"
+        };
     }
 }
