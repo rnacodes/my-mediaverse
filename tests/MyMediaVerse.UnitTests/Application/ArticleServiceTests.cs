@@ -1,12 +1,10 @@
 using FluentAssertions;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Moq;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Domain.Enums;
 using MyMediaVerse.DTOs;
-using MyMediaVerse.Shared.Interfaces;
 using MyMediaVerse.UnitTests.TestHelpers;
 
 namespace MyMediaVerse.UnitTests.Application
@@ -14,14 +12,12 @@ namespace MyMediaVerse.UnitTests.Application
     public class ArticleServiceTests : InMemoryDbTestBase
     {
         private readonly Mock<ILogger<ArticleService>> _mockLogger;
-        private readonly Mock<IConfiguration> _mockConfiguration;
         private readonly ArticleService _service;
 
         public ArticleServiceTests()
         {
             _mockLogger = new Mock<ILogger<ArticleService>>();
-            _mockConfiguration = new Mock<IConfiguration>();
-            _service = new ArticleService(Context, _mockLogger.Object, null, _mockConfiguration.Object);
+            _service = new ArticleService(Context, _mockLogger.Object);
         }
 
         #region GetAllArticlesAsync Tests

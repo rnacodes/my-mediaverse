@@ -3,8 +3,6 @@ using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Shared.Interfaces;
-using Microsoft.EntityFrameworkCore;
-using MyMediaVerse.Infrastructure.Data;
 
 namespace MyMediaVerse.Web.API.Controllers
 {
@@ -16,20 +14,17 @@ namespace MyMediaVerse.Web.API.Controllers
         private readonly ILogger<AuthController> _logger;
         private readonly IAuthService _authService;
         private readonly IWebHostEnvironment _environment;
-        private readonly MediaLibraryDbContext _context;
 
         public AuthController(
-            IConfiguration configuration, 
+            IConfiguration configuration,
             ILogger<AuthController> logger,
             IAuthService authService,
-            IWebHostEnvironment environment,
-            MediaLibraryDbContext context)
+            IWebHostEnvironment environment)
         {
             _configuration = configuration;
             _logger = logger;
             _authService = authService;
             _environment = environment;
-            _context = context;
         }
 
         /// <summary>
@@ -253,29 +248,19 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 _logger.LogInformation("Starting refresh tokens cleanup...");
 
-                // Get expired and revoked tokens
-                var tokensToDelete = await _context.RefreshTokens
-                    .Where(rt => rt.ExpiresAt < DateTime.UtcNow || rt.IsRevoked)
-                    .ToListAsync();
+                var result = await _authService.CleanupExpiredAndRevokedTokensAsync();
 
-                var expiredCount = tokensToDelete.Count(rt => rt.ExpiresAt < DateTime.UtcNow && !rt.IsRevoked);
-                var revokedCount = tokensToDelete.Count(rt => rt.IsRevoked);
-                var totalCount = tokensToDelete.Count;
-
-                // Delete the tokens
-                _context.RefreshTokens.RemoveRange(tokensToDelete);
-                await _context.SaveChangesAsync();
-
-                _logger.LogInformation($"Deleted {totalCount} expired/revoked refresh tokens (Expired: {expiredCount}, Revoked: {revokedCount})");
+                _logger.LogInformation("Deleted {TotalDeleted} expired/revoked refresh tokens (Expired: {Expired}, Revoked: {Revoked})",
+                    result.TotalDeleted, result.ExpiredCount, result.RevokedCount);
 
                 return Ok(new
                 {
                     message = "Refresh tokens cleanup completed successfully",
                     deleted = new
                     {
-                        expiredTokens = expiredCount,
-                        revokedTokens = revokedCount,
-                        totalDeleted = totalCount
+                        expiredTokens = result.ExpiredCount,
+                        revokedTokens = result.RevokedCount,
+                        totalDeleted = result.TotalDeleted
                     }
                 });
             }

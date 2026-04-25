@@ -1,6 +1,11 @@
 namespace MyMediaVerse.Shared.Interfaces
 {
     /// <summary>
+    /// Statistics returned by <see cref="IAuthService.CleanupExpiredAndRevokedTokensAsync"/>.
+    /// </summary>
+    public record TokenCleanupResult(int ExpiredCount, int RevokedCount, int TotalDeleted);
+
+    /// <summary>
     /// Service for handling JWT authentication operations
     /// </summary>
     public interface IAuthService
@@ -53,5 +58,11 @@ namespace MyMediaVerse.Shared.Interfaces
         /// Removes expired refresh tokens from the database
         /// </summary>
         Task CleanupExpiredTokensAsync();
+
+        /// <summary>
+        /// Removes both expired and explicitly revoked refresh tokens, returning
+        /// statistics about how many of each were deleted.
+        /// </summary>
+        Task<TokenCleanupResult> CleanupExpiredAndRevokedTokensAsync();
     }
 }

@@ -33,6 +33,7 @@ namespace MyMediaVerse.Web.API.Controllers
         /// GET /api/note?vault=general
         /// </summary>
         [HttpGet]
+        [AllowAnonymous]
         public async Task<IActionResult> GetAll([FromQuery] string? vault = null)
         {
             try
@@ -53,6 +54,7 @@ namespace MyMediaVerse.Web.API.Controllers
         /// GET /api/note/{id}
         /// </summary>
         [HttpGet("{id:guid}")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetById(Guid id)
         {
             try
@@ -77,6 +79,7 @@ namespace MyMediaVerse.Web.API.Controllers
         /// GET /api/note/slug/{vault}/{slug}
         /// </summary>
         [HttpGet("slug/{vault}/{slug}")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetBySlug(string vault, string slug)
         {
             try
@@ -221,6 +224,7 @@ namespace MyMediaVerse.Web.API.Controllers
         /// GET /api/note/{id}/media
         /// </summary>
         [HttpGet("{id:guid}/media")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetMediaForNote(Guid id)
         {
             try
@@ -240,6 +244,7 @@ namespace MyMediaVerse.Web.API.Controllers
         /// GET /api/note/for-media/{mediaItemId}
         /// </summary>
         [HttpGet("for-media/{mediaItemId:guid}")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetNotesForMedia(Guid mediaItemId)
         {
             try

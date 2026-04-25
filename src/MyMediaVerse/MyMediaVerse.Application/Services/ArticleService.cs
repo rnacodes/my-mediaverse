@@ -1,14 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Configuration;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Domain.Enums;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Utilities;
-using Amazon.S3;
-using Amazon.S3.Model;
-using System.Text;
 
 namespace MyMediaVerse.Application.Services
 {
@@ -16,19 +12,13 @@ namespace MyMediaVerse.Application.Services
     {
         private readonly IApplicationDbContext _context;
         private readonly ILogger<ArticleService> _logger;
-        private readonly IAmazonS3? _s3Client;
-        private readonly IConfiguration _configuration;
 
         public ArticleService(
             IApplicationDbContext context,
-            ILogger<ArticleService> logger,
-            IAmazonS3? s3Client,
-            IConfiguration configuration)
+            ILogger<ArticleService> logger)
         {
             _context = context;
             _logger = logger;
-            _s3Client = s3Client;
-            _configuration = configuration;
         }
 
         public async Task<IEnumerable<Article>> GetAllArticlesAsync()
