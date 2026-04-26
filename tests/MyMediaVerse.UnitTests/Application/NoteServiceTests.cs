@@ -23,7 +23,7 @@ namespace MyMediaVerse.UnitTests.Application
             _mockQuartzClient = new Mock<IQuartzApiClient>();
             _mockConfiguration = new Mock<IConfiguration>();
             _mockLogger = new Mock<ILogger<NoteService>>();
-            _service = new NoteService(Context, _mockQuartzClient.Object, null, _mockConfiguration.Object, _mockLogger.Object);
+            _service = new NoteService(Context, _mockQuartzClient.Object, _mockConfiguration.Object, _mockLogger.Object);
         }
 
         private Note CreateTestNote(string slug = "test-note", string title = "Test Note", string vaultName = "general")

@@ -174,62 +174,11 @@ namespace MyMediaVerse.Application.Services
             existingItem.RelatedNotes = dto.RelatedNotes;
             existingItem.Thumbnail = dto.Thumbnail;
 
-            // Clear existing topics and genres and save immediately
             existingItem.Topics.Clear();
             existingItem.Genres.Clear();
-            await _context.SaveChangesAsync();
 
-            // Process topics
-            if (dto.Topics?.Length > 0)
-            {
-                foreach (var topicName in dto.Topics.Where(t => !string.IsNullOrWhiteSpace(t)))
-                {
-                    var normalizedTopicName = topicName.Trim().ToLowerInvariant();
-
-                    var topic = await _context.Topics
-                        .AsNoTracking()
-                        .FirstOrDefaultAsync(t => t.Name == normalizedTopicName);
-
-                    if (topic == null)
-                    {
-                        topic = new Topic { Name = normalizedTopicName };
-                        _context.Add(topic);
-                        await _context.SaveChangesAsync();
-                    }
-
-                    var trackedTopic = await _context.FindAsync<Topic>(topic.Id);
-                    if (trackedTopic != null && !existingItem.Topics.Any(t => t.Id == trackedTopic.Id))
-                    {
-                        existingItem.Topics.Add(trackedTopic);
-                    }
-                }
-            }
-
-            // Process genres
-            if (dto.Genres?.Length > 0)
-            {
-                foreach (var genreName in dto.Genres.Where(g => !string.IsNullOrWhiteSpace(g)))
-                {
-                    var normalizedGenreName = genreName.Trim().ToLowerInvariant();
-
-                    var genre = await _context.Genres
-                        .AsNoTracking()
-                        .FirstOrDefaultAsync(g => g.Name == normalizedGenreName);
-
-                    if (genre == null)
-                    {
-                        genre = new Genre { Name = normalizedGenreName };
-                        _context.Add(genre);
-                        await _context.SaveChangesAsync();
-                    }
-
-                    var trackedGenre = await _context.FindAsync<Genre>(genre.Id);
-                    if (trackedGenre != null && !existingItem.Genres.Any(g => g.Id == trackedGenre.Id))
-                    {
-                        existingItem.Genres.Add(trackedGenre);
-                    }
-                }
-            }
+            await AddTopicsToMediaItemAsync(existingItem, dto.Topics ?? Array.Empty<string>());
+            await AddGenresToMediaItemAsync(existingItem, dto.Genres ?? Array.Empty<string>());
 
             await _context.SaveChangesAsync();
 

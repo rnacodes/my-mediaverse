@@ -19,7 +19,6 @@ namespace MyMediaVerse.Application.Services
     {
         private readonly IApplicationDbContext _context;
         private readonly IGradientAIClient _gradientClient;
-        private readonly ITypeSenseService _typeSenseService;
         private readonly ILogger<AIService> _logger;
 
         // Prompt templates
@@ -41,12 +40,10 @@ Content (excerpt):
         public AIService(
             IApplicationDbContext context,
             IGradientAIClient gradientClient,
-            ITypeSenseService typeSenseService,
             ILogger<AIService> logger)
         {
             _context = context;
             _gradientClient = gradientClient;
-            _typeSenseService = typeSenseService;
             _logger = logger;
         }
 
@@ -100,31 +97,6 @@ Content (excerpt):
                 }
 
                 await _context.SaveChangesAsync(cancellationToken);
-
-                // Re-index in Typesense
-                try
-                {
-                    // Get linked media count for Typesense indexing
-                    var linkedMediaCount = await _context.MediaItemNotes
-                        .CountAsync(min => min.NoteId == note.Id, cancellationToken);
-
-                    await _typeSenseService.IndexNoteAsync(
-                        note.Id,
-                        note.Slug,
-                        note.Title,
-                        note.Content,
-                        note.AiDescription ?? note.Description,
-                        note.VaultName,
-                        note.SourceUrl,
-                        note.Tags ?? new List<string>(),
-                        note.DateImported,
-                        note.NoteDate,
-                        linkedMediaCount);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to re-index note {NoteId} in Typesense after description generation", noteId);
-                }
 
                 _logger.LogInformation("Generated AI description for note {NoteId} ({Title})", noteId, note.Title);
                 return description;

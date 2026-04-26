@@ -601,52 +601,102 @@ namespace MyMediaVerse.Application.Services
 
         private async Task<List<string>> AddTopicsAsync(Mixlist mixlist, string[]? topics)
         {
-            var topicNames = new List<string>();
             if (topics == null || topics.Length == 0)
             {
-                return topicNames;
+                return new List<string>();
             }
 
-            foreach (var topicName in topics.Where(t => !string.IsNullOrWhiteSpace(t)))
+            var normalizedNames = topics
+                .Where(t => !string.IsNullOrWhiteSpace(t))
+                .Select(t => t.Trim().ToLower())
+                .Distinct()
+                .ToList();
+
+            if (normalizedNames.Count == 0)
             {
-                var normalizedName = topicName.Trim().ToLower();
-                var topic = await _context.Topics.FirstOrDefaultAsync(t => t.Name == normalizedName);
-                if (topic == null)
-                {
-                    topic = new Topic { Name = normalizedName };
-                    _context.Add(topic);
-                    await _context.SaveChangesAsync();
-                }
-                mixlist.Topics.Add(topic);
-                topicNames.Add(normalizedName);
+                return new List<string>();
             }
 
-            return topicNames;
+            var existingTopics = await _context.Topics
+                .AsNoTracking()
+                .Where(t => normalizedNames.Contains(t.Name))
+                .ToListAsync();
+
+            var existingNames = existingTopics.Select(t => t.Name).ToHashSet();
+            var newNames = normalizedNames.Where(n => !existingNames.Contains(n)).ToList();
+
+            if (newNames.Count > 0)
+            {
+                var newTopics = newNames.Select(name => new Topic { Name = name }).ToList();
+                _context.AddRange(newTopics);
+                await _context.SaveChangesAsync();
+                existingTopics.AddRange(newTopics);
+            }
+
+            var topicIds = existingTopics.Select(t => t.Id).ToList();
+            var trackedTopics = await _context.Topics
+                .Where(t => topicIds.Contains(t.Id))
+                .ToListAsync();
+
+            foreach (var topic in trackedTopics)
+            {
+                if (!mixlist.Topics.Any(t => t.Id == topic.Id))
+                {
+                    mixlist.Topics.Add(topic);
+                }
+            }
+
+            return normalizedNames;
         }
 
         private async Task<List<string>> AddGenresAsync(Mixlist mixlist, string[]? genres)
         {
-            var genreNames = new List<string>();
             if (genres == null || genres.Length == 0)
             {
-                return genreNames;
+                return new List<string>();
             }
 
-            foreach (var genreName in genres.Where(g => !string.IsNullOrWhiteSpace(g)))
+            var normalizedNames = genres
+                .Where(g => !string.IsNullOrWhiteSpace(g))
+                .Select(g => g.Trim().ToLower())
+                .Distinct()
+                .ToList();
+
+            if (normalizedNames.Count == 0)
             {
-                var normalizedName = genreName.Trim().ToLower();
-                var genre = await _context.Genres.FirstOrDefaultAsync(g => g.Name == normalizedName);
-                if (genre == null)
-                {
-                    genre = new Genre { Name = normalizedName };
-                    _context.Add(genre);
-                    await _context.SaveChangesAsync();
-                }
-                mixlist.Genres.Add(genre);
-                genreNames.Add(normalizedName);
+                return new List<string>();
             }
 
-            return genreNames;
+            var existingGenres = await _context.Genres
+                .AsNoTracking()
+                .Where(g => normalizedNames.Contains(g.Name))
+                .ToListAsync();
+
+            var existingNames = existingGenres.Select(g => g.Name).ToHashSet();
+            var newNames = normalizedNames.Where(n => !existingNames.Contains(n)).ToList();
+
+            if (newNames.Count > 0)
+            {
+                var newGenres = newNames.Select(name => new Genre { Name = name }).ToList();
+                _context.AddRange(newGenres);
+                await _context.SaveChangesAsync();
+                existingGenres.AddRange(newGenres);
+            }
+
+            var genreIds = existingGenres.Select(g => g.Id).ToList();
+            var trackedGenres = await _context.Genres
+                .Where(g => genreIds.Contains(g.Id))
+                .ToListAsync();
+
+            foreach (var genre in trackedGenres)
+            {
+                if (!mixlist.Genres.Any(g => g.Id == genre.Id))
+                {
+                    mixlist.Genres.Add(genre);
+                }
+            }
+
+            return normalizedNames;
         }
 
         private async Task SafeIndexMixlistAsync(Mixlist mixlist, IReadOnlyList<string> mediaTitles, IReadOnlyList<string> topicNames, IReadOnlyList<string> genreNames, string action)
