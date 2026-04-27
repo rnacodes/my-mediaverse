@@ -34,6 +34,7 @@ import { getTvShowById } from '../api/tvShowService';
 import { getVideoById, getPlaylistsForVideo } from '../api/videoService';
 import { getArticleById, fetchArticleContent } from '../api/articleService';
 import { getHighlightsByArticle, getHighlightsByBook } from '../api/highlightService';
+import { reindexMediaItem } from '../api/typesenseService';
 
 function MediaProfilePage() {
   const [mediaItem, setMediaItem] = useState(null);
@@ -50,11 +51,27 @@ function MediaProfilePage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [fetchingContent, setFetchingContent] = useState(false);
   const [relatedMediaRefreshTrigger, setRelatedMediaRefreshTrigger] = useState(0);
+  const [reindexing, setReindexing] = useState(false);
 
   const { id } = useParams();
   const navigate = useNavigate();
   const theme = useTheme();
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+
+  const handleReindex = async () => {
+    setReindexing(true);
+    try {
+      await reindexMediaItem(id);
+      setSnackbar({ open: true, message: 'Media item re-indexed in search.', severity: 'success' });
+    } catch (error) {
+      if (error.response?.status !== 403) {
+        console.error('Error re-indexing media item:', error);
+        setSnackbar({ open: true, message: 'Failed to re-index media item.', severity: 'error' });
+      }
+    } finally {
+      setReindexing(false);
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -382,7 +399,12 @@ function MediaProfilePage() {
         boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
       }}>
         {/* Header with back button and edit button */}
-        <MediaHeader title={mediaItem?.title} mediaId={id} />
+        <MediaHeader
+          title={mediaItem?.title}
+          mediaId={id}
+          onReindex={handleReindex}
+          reindexing={reindexing}
+        />
 
         <Card sx={{ overflow: 'hidden', borderRadius: 2 }}>
           <CardContent sx={{ p: { xs: 2, sm: 3, md: 4 } }}>

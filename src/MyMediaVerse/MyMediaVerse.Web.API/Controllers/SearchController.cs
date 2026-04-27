@@ -196,16 +196,41 @@ namespace MyMediaVerse.Web.API.Controllers
 
                 _logger.LogInformation("Re-index complete. Indexed {Count} media items.", count);
 
-                return Ok(new 
-                { 
-                    message = "Re-index completed successfully.", 
-                    indexed_count = count 
+                return Ok(new
+                {
+                    message = "Re-index completed successfully.",
+                    indexed_count = count
                 });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during re-index operation.");
                 return StatusCode(500, new { error = "An error occurred during re-index. Please check logs." });
+            }
+        }
+
+        /// <summary>
+        /// Re-indexes a single media item in Typesense.
+        /// POST /api/search/reindex-media/{id}
+        /// </summary>
+        [HttpPost("reindex-media/{id}")]
+        [Authorize]
+        public async Task<IActionResult> ReindexMediaItem(Guid id)
+        {
+            try
+            {
+                var indexed = await _typeSenseService.ReindexMediaItemByIdAsync(id);
+                if (!indexed)
+                {
+                    return NotFound(new { error = $"Media item {id} not found." });
+                }
+
+                return Ok(new { message = "Media item re-indexed successfully.", id });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error re-indexing media item {Id}.", id);
+                return StatusCode(500, new { error = "An error occurred while re-indexing the media item. Please check logs." });
             }
         }
 
@@ -226,16 +251,41 @@ namespace MyMediaVerse.Web.API.Controllers
 
                 _logger.LogInformation("Re-index of mixlists complete. Indexed {Count} mixlists.", count);
 
-                return Ok(new 
-                { 
-                    message = "Mixlist re-index completed successfully.", 
-                    indexed_count = count 
+                return Ok(new
+                {
+                    message = "Mixlist re-index completed successfully.",
+                    indexed_count = count
                 });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during mixlist re-index operation.");
                 return StatusCode(500, new { error = "An error occurred during mixlist re-index. Please check logs." });
+            }
+        }
+
+        /// <summary>
+        /// Re-indexes a single mixlist in Typesense.
+        /// POST /api/search/reindex-mixlist/{id}
+        /// </summary>
+        [HttpPost("reindex-mixlist/{id}")]
+        [Authorize]
+        public async Task<IActionResult> ReindexMixlist(Guid id)
+        {
+            try
+            {
+                var indexed = await _typeSenseService.ReindexMixlistByIdAsync(id);
+                if (!indexed)
+                {
+                    return NotFound(new { error = $"Mixlist {id} not found." });
+                }
+
+                return Ok(new { message = "Mixlist re-indexed successfully.", id });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error re-indexing mixlist {Id}.", id);
+                return StatusCode(500, new { error = "An error occurred while re-indexing the mixlist. Please check logs." });
             }
         }
 
@@ -457,6 +507,31 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 _logger.LogError(ex, "Error during notes re-index operation.");
                 return StatusCode(500, new { error = "An error occurred during notes re-index. Please check logs." });
+            }
+        }
+
+        /// <summary>
+        /// Re-indexes a single note in Typesense.
+        /// POST /api/search/reindex-note/{id}
+        /// </summary>
+        [HttpPost("reindex-note/{id}")]
+        [Authorize]
+        public async Task<IActionResult> ReindexNote(Guid id)
+        {
+            try
+            {
+                var indexed = await _typeSenseService.ReindexNoteByIdAsync(id);
+                if (!indexed)
+                {
+                    return NotFound(new { error = $"Note {id} not found." });
+                }
+
+                return Ok(new { message = "Note re-indexed successfully.", id });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error re-indexing note {Id}.", id);
+                return StatusCode(500, new { error = "An error occurred while re-indexing the note. Please check logs." });
             }
         }
 
@@ -723,6 +798,31 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 _logger.LogError(ex, "Error re-indexing highlights.");
                 return StatusCode(500, new { error = "An error occurred while re-indexing highlights. Please check logs." });
+            }
+        }
+
+        /// <summary>
+        /// Re-indexes a single highlight in Typesense.
+        /// POST /api/search/reindex-highlight/{id}
+        /// </summary>
+        [HttpPost("reindex-highlight/{id}")]
+        [Authorize]
+        public async Task<IActionResult> ReindexHighlight(Guid id)
+        {
+            try
+            {
+                var indexed = await _typeSenseService.ReindexHighlightByIdAsync(id);
+                if (!indexed)
+                {
+                    return NotFound(new { error = $"Highlight {id} not found." });
+                }
+
+                return Ok(new { message = "Highlight re-indexed successfully.", id });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error re-indexing highlight {Id}.", id);
+                return StatusCode(500, new { error = "An error occurred while re-indexing the highlight. Please check logs." });
             }
         }
 
