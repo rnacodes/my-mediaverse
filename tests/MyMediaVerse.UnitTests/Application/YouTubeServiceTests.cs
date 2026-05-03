@@ -1,6 +1,6 @@
-using Xunit;
+﻿using Xunit;
 using Moq;
-using FluentAssertions;
+using AwesomeAssertions;
 using Microsoft.Extensions.Logging;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Application.Interfaces;

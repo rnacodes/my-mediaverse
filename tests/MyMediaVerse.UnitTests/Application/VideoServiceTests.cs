@@ -1,5 +1,5 @@
-using Xunit;
-using FluentAssertions;
+﻿using Xunit;
+using AwesomeAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
 using MyMediaVerse.Application.Services;
@@ -527,7 +527,7 @@ namespace MyMediaVerse.UnitTests.Application
                 Status = Status.Uncharted,
                 ChannelId = channelId,
                 ParentVideoId = parentVideo.Id
-                // No topics/genres — should inherit from channel, not parent
+                // No topics/genres â€” should inherit from channel, not parent
             };
 
             // Act

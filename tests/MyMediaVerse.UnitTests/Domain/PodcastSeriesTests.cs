@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using AwesomeAssertions;
 using MyMediaVerse.Domain.Entities;
 
 namespace MyMediaVerse.UnitTests.Domain

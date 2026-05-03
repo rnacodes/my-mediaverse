@@ -1,5 +1,5 @@
-using Xunit;
-using FluentAssertions;
+﻿using Xunit;
+using AwesomeAssertions;
 using MyMediaVerse.Domain.Entities;
 using System;
 using System.Collections.Generic;

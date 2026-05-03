@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using AwesomeAssertions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -104,7 +104,7 @@ namespace MyMediaVerse.UnitTests.Application
         public async Task MapToResponseDtoAsync_WithEstimatedReadingTime_ComputedFromWordCount()
         {
             var article = TestDataFactory.CreateArticle();
-            article.WordCount = 500; // 500 words ≈ 2 min at ~250 wpm
+            article.WordCount = 500; // 500 words â‰ˆ 2 min at ~250 wpm
 
             var result = await _service.MapToResponseDtoAsync(article);
 
