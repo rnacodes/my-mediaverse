@@ -4,7 +4,7 @@ namespace MyMediaVerse.Shared.Interfaces
     /// Service interface for Typesense search integration.
     /// Manages document indexing and search operations for the media_items collection.
     /// </summary>
-    public interface ITypeSenseService
+    public interface ITypesenseService
     {
         /// <summary>
         /// Ensures the media_items collection exists in Typesense.

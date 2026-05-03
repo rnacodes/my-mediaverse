@@ -13,20 +13,20 @@ namespace MyMediaVerse.Infrastructure.Services.Search
     /// Service for managing Typesense search indexing and querying.
     /// Handles CRUD synchronization between PostgreSQL and Typesense.
     /// </summary>
-    public class TypeSenseService : ITypeSenseService
+    public class TypesenseService : ITypesenseService
     {
         private readonly ITypesenseClient _typesenseClient;
         private readonly IApplicationDbContext _context;
-        private readonly ILogger<TypeSenseService> _logger;
+        private readonly ILogger<TypesenseService> _logger;
         private readonly string _mediaCollectionName;
         private readonly string _mixlistCollectionName;
         private readonly string _notesCollectionName;
         private readonly string _highlightsCollectionName;
 
-        public TypeSenseService(
+        public TypesenseService(
             ITypesenseClient typesenseClient,
             IApplicationDbContext context,
-            ILogger<TypeSenseService> logger,
+            ILogger<TypesenseService> logger,
             IConfiguration configuration)
         {
             _typesenseClient = typesenseClient;
@@ -48,7 +48,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
             _highlightsCollectionName = $"{collectionPrefix}highlights";
 
             _logger.LogInformation(
-                "TypeSense collections configured with prefix '{Prefix}' (source: {Source}): {MediaCollection}, {MixlistCollection}, {NotesCollection}, {HighlightsCollection}",
+                "Typesense collections configured with prefix '{Prefix}' (source: {Source}): {MediaCollection}, {MixlistCollection}, {NotesCollection}, {HighlightsCollection}",
                 collectionPrefix, prefixSource, _mediaCollectionName, _mixlistCollectionName, _notesCollectionName, _highlightsCollectionName);
         }
 

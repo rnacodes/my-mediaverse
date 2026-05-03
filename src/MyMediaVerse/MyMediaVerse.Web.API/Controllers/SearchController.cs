@@ -14,16 +14,16 @@ namespace MyMediaVerse.Web.API.Controllers
     [Route("api/[controller]")]
     public class SearchController : ControllerBase
     {
-        private readonly ITypeSenseService _typeSenseService;
+        private readonly ITypesenseService _typesenseService;
         private readonly IGradientAIClient _gradientClient;
         private readonly ILogger<SearchController> _logger;
 
         public SearchController(
-            ITypeSenseService typeSenseService,
+            ITypesenseService typesenseService,
             IGradientAIClient gradientClient,
             ILogger<SearchController> logger)
         {
-            _typeSenseService = typeSenseService;
+            _typesenseService = typesenseService;
             _gradientClient = gradientClient;
             _logger = logger;
         }
@@ -71,7 +71,7 @@ namespace MyMediaVerse.Web.API.Controllers
                 _logger.LogInformation("Search request: query='{Query}', filter='{Filter}', page={Page}, per_page={PerPage}", 
                     q, filter, page, per_page);
 
-                var results = await _typeSenseService.SearchAsync(q, filter, per_page, page);
+                var results = await _typesenseService.SearchAsync(q, filter, per_page, page);
 
                 return Ok(results);
             }
@@ -114,7 +114,7 @@ namespace MyMediaVerse.Web.API.Controllers
                 // Create filter for media type
                 var filter = $"media_type:={mediaType}";
 
-                var results = await _typeSenseService.SearchAsync(q, filter, per_page, page);
+                var results = await _typesenseService.SearchAsync(q, filter, per_page, page);
 
                 return Ok(results);
             }
@@ -168,7 +168,7 @@ namespace MyMediaVerse.Web.API.Controllers
                 _logger.LogInformation("Mixlist search request: query='{Query}', filter='{Filter}', page={Page}, per_page={PerPage}", 
                     q, filter, page, per_page);
 
-                var results = await _typeSenseService.SearchMixlistsAsync(q, filter, per_page, page);
+                var results = await _typesenseService.SearchMixlistsAsync(q, filter, per_page, page);
 
                 return Ok(results);
             }
@@ -192,7 +192,7 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 _logger.LogInformation("Starting full re-index of all media items...");
 
-                var count = await _typeSenseService.BulkReindexAllMediaItemsAsync();
+                var count = await _typesenseService.BulkReindexAllMediaItemsAsync();
 
                 _logger.LogInformation("Re-index complete. Indexed {Count} media items.", count);
 
@@ -219,7 +219,7 @@ namespace MyMediaVerse.Web.API.Controllers
         {
             try
             {
-                var indexed = await _typeSenseService.ReindexMediaItemByIdAsync(id);
+                var indexed = await _typesenseService.ReindexMediaItemByIdAsync(id);
                 if (!indexed)
                 {
                     return NotFound(new { error = $"Media item {id} not found." });
@@ -247,7 +247,7 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 _logger.LogInformation("Starting full re-index of all mixlists...");
 
-                var count = await _typeSenseService.BulkReindexAllMixlistsAsync();
+                var count = await _typesenseService.BulkReindexAllMixlistsAsync();
 
                 _logger.LogInformation("Re-index of mixlists complete. Indexed {Count} mixlists.", count);
 
@@ -274,7 +274,7 @@ namespace MyMediaVerse.Web.API.Controllers
         {
             try
             {
-                var indexed = await _typeSenseService.ReindexMixlistByIdAsync(id);
+                var indexed = await _typesenseService.ReindexMixlistByIdAsync(id);
                 if (!indexed)
                 {
                     return NotFound(new { error = $"Mixlist {id} not found." });
@@ -300,7 +300,7 @@ namespace MyMediaVerse.Web.API.Controllers
             try
             {
                 // Simple check - if the service is injected, it's configured
-                if (_typeSenseService == null)
+                if (_typesenseService == null)
                 {
                     return StatusCode(503, new { status = "unavailable", message = "Typesense service not configured." });
                 }
@@ -327,7 +327,7 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 _logger.LogInformation("Resetting media_items collection...");
 
-                await _typeSenseService.ResetMediaItemsCollectionAsync();
+                await _typesenseService.ResetMediaItemsCollectionAsync();
 
                 _logger.LogInformation("Media_items collection reset complete.");
 
@@ -357,7 +357,7 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 _logger.LogInformation("Resetting mixlists collection...");
 
-                await _typeSenseService.ResetMixlistsCollectionAsync();
+                await _typesenseService.ResetMixlistsCollectionAsync();
 
                 _logger.LogInformation("Mixlists collection reset complete.");
 
@@ -403,7 +403,7 @@ namespace MyMediaVerse.Web.API.Controllers
                 _logger.LogInformation("Notes search request: query='{Query}', filter='{Filter}', page={Page}, per_page={PerPage}",
                     q, filter, page, per_page);
 
-                var results = await _typeSenseService.SearchNotesAsync(q, filter, per_page, page);
+                var results = await _typesenseService.SearchNotesAsync(q, filter, per_page, page);
 
                 return Ok(results);
             }
@@ -433,7 +433,7 @@ namespace MyMediaVerse.Web.API.Controllers
                 }
 
                 var filter = $"vault_name:={vault.ToLower()}";
-                var results = await _typeSenseService.SearchNotesAsync(q, filter, per_page, page);
+                var results = await _typesenseService.SearchNotesAsync(q, filter, per_page, page);
 
                 return Ok(results);
             }
@@ -470,7 +470,7 @@ namespace MyMediaVerse.Web.API.Controllers
                 _logger.LogInformation("Multi-search request: query='{Query}', filter='{Filter}', page={Page}, per_page={PerPage}",
                     q, filter, page, per_page);
 
-                var results = await _typeSenseService.MultiSearchAsync(q, filter, per_page, page);
+                var results = await _typesenseService.MultiSearchAsync(q, filter, per_page, page);
 
                 return Ok(results);
             }
@@ -493,7 +493,7 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 _logger.LogInformation("Starting full re-index of all notes...");
 
-                var count = await _typeSenseService.BulkReindexAllNotesAsync();
+                var count = await _typesenseService.BulkReindexAllNotesAsync();
 
                 _logger.LogInformation("Re-index of notes complete. Indexed {Count} notes.", count);
 
@@ -520,7 +520,7 @@ namespace MyMediaVerse.Web.API.Controllers
         {
             try
             {
-                var indexed = await _typeSenseService.ReindexNoteByIdAsync(id);
+                var indexed = await _typesenseService.ReindexNoteByIdAsync(id);
                 if (!indexed)
                 {
                     return NotFound(new { error = $"Note {id} not found." });
@@ -548,7 +548,7 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 _logger.LogInformation("Resetting obsidian_notes collection...");
 
-                await _typeSenseService.ResetNotesCollectionAsync();
+                await _typesenseService.ResetNotesCollectionAsync();
 
                 _logger.LogInformation("Obsidian_notes collection reset complete.");
 
@@ -612,7 +612,7 @@ namespace MyMediaVerse.Web.API.Controllers
                     _logger.LogWarning("Gradient AI not available, falling back to keyword search");
                 }
 
-                var results = await _typeSenseService.HybridSearchMediaAsync(
+                var results = await _typesenseService.HybridSearchMediaAsync(
                     request.Query,
                     queryEmbedding,
                     request.Filter,
@@ -669,7 +669,7 @@ namespace MyMediaVerse.Web.API.Controllers
                     }
                 }
 
-                var results = await _typeSenseService.HybridSearchNotesAsync(
+                var results = await _typesenseService.HybridSearchNotesAsync(
                     request.Query,
                     queryEmbedding,
                     request.Filter,
@@ -718,7 +718,7 @@ namespace MyMediaVerse.Web.API.Controllers
                 // Generate embedding for the vibe description
                 var embedding = await _gradientClient.GenerateEmbeddingAsync(request.Description);
 
-                var results = await _typeSenseService.VectorSearchMediaAsync(
+                var results = await _typesenseService.VectorSearchMediaAsync(
                     embedding,
                     request.Filter,
                     null,
@@ -761,7 +761,7 @@ namespace MyMediaVerse.Web.API.Controllers
 
                 _logger.LogInformation("Searching highlights: query='{Query}', filter='{Filter}', page={Page}", q, filter, pageNum);
 
-                var results = await _typeSenseService.SearchHighlightsAsync(q, filter, perPage, pageNum);
+                var results = await _typesenseService.SearchHighlightsAsync(q, filter, perPage, pageNum);
 
                 return Ok(results);
             }
@@ -784,7 +784,7 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 _logger.LogInformation("Starting full re-index of highlights...");
 
-                var count = await _typeSenseService.BulkReindexAllHighlightsAsync();
+                var count = await _typesenseService.BulkReindexAllHighlightsAsync();
 
                 _logger.LogInformation("Highlights re-index complete. Indexed {Count} highlights.", count);
 
@@ -811,7 +811,7 @@ namespace MyMediaVerse.Web.API.Controllers
         {
             try
             {
-                var indexed = await _typeSenseService.ReindexHighlightByIdAsync(id);
+                var indexed = await _typesenseService.ReindexHighlightByIdAsync(id);
                 if (!indexed)
                 {
                     return NotFound(new { error = $"Highlight {id} not found." });
@@ -839,7 +839,7 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 _logger.LogInformation("Resetting highlights collection...");
 
-                await _typeSenseService.ResetHighlightsCollectionAsync();
+                await _typesenseService.ResetHighlightsCollectionAsync();
 
                 _logger.LogInformation("Highlights collection reset complete.");
 

@@ -54,14 +54,14 @@ public static class SearchExtensions
             return new TypesenseClient(Options.Create(config), httpClient);
         });
 
-        services.AddScoped<ITypeSenseService, TypeSenseService>();
+        services.AddScoped<ITypesenseService, TypesenseService>();
 
         return services;
     }
 
     // Returned when Typesense is unconfigured so DI resolution doesn't fail.
     // Points at an unreachable localhost endpoint — any real search call raises a
-    // connection error caught by TypeSenseService's try/catch blocks, and the app
+    // connection error caught by TypesenseService's try/catch blocks, and the app
     // continues to run with search disabled.
     private static ITypesenseClient CreateDisabledTypesenseClient()
     {
@@ -81,14 +81,14 @@ public static class SearchExtensions
         try
         {
             using var scope = app.Services.CreateScope();
-            var typeSenseService = scope.ServiceProvider.GetService<ITypeSenseService>();
-            if (typeSenseService != null)
+            var typesenseService = scope.ServiceProvider.GetService<ITypesenseService>();
+            if (typesenseService != null)
             {
                 logger.LogInformation("Initializing Typesense collections...");
-                await typeSenseService.EnsureCollectionExistsAsync();
-                await typeSenseService.EnsureMixlistCollectionExistsAsync();
-                await typeSenseService.EnsureNotesCollectionExistsAsync();
-                await typeSenseService.EnsureHighlightsCollectionExistsAsync();
+                await typesenseService.EnsureCollectionExistsAsync();
+                await typesenseService.EnsureMixlistCollectionExistsAsync();
+                await typesenseService.EnsureNotesCollectionExistsAsync();
+                await typesenseService.EnsureHighlightsCollectionExistsAsync();
                 logger.LogInformation("Typesense collection initialization complete (media_items, mixlists, obsidian_notes, highlights).");
             }
             else

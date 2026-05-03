@@ -133,7 +133,7 @@ namespace MyMediaVerse.IntegrationTests
                 // documents into the real Typesense server via environment variables,
                 // creating orphaned search records that don't exist in any database.
                 var typesenseDescriptors = services.Where(d =>
-                    d.ServiceType == typeof(ITypeSenseService))
+                    d.ServiceType == typeof(ITypesenseService))
                     .ToList();
 
                 foreach (var desc in typesenseDescriptors)
@@ -141,9 +141,9 @@ namespace MyMediaVerse.IntegrationTests
                     services.Remove(desc);
                 }
 
-                var mockTypeSenseService = new Mock<ITypeSenseService>();
-                services.AddScoped(_ => mockTypeSenseService.Object);
-                Console.WriteLine("✅ ITypeSenseService replaced with no-op mock (prevents Typesense leakage)");
+                var mockTypesenseService = new Mock<ITypesenseService>();
+                services.AddScoped(_ => mockTypesenseService.Object);
+                Console.WriteLine("✅ ITypesenseService replaced with no-op mock (prevents Typesense leakage)");
 
                 // Configure ListenNotes API to use MOCK server for testing
                 // See: https://www.listennotes.com/api/docs/?test=1
