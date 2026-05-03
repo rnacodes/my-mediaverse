@@ -17,20 +17,17 @@ namespace MyMediaVerse.Application.Services
     {
         private readonly IApplicationDbContext _context;
         private readonly IQuartzApiClient _quartzClient;
-        private readonly ITypeSenseService? _typesenseService;
         private readonly IConfiguration _configuration;
         private readonly ILogger<NoteService> _logger;
 
         public NoteService(
             IApplicationDbContext context,
             IQuartzApiClient quartzClient,
-            ITypeSenseService? typesenseService,
             IConfiguration configuration,
             ILogger<NoteService> logger)
         {
             _context = context;
             _quartzClient = quartzClient;
-            _typesenseService = typesenseService;
             _configuration = configuration;
             _logger = logger;
         }
@@ -91,9 +88,6 @@ namespace MyMediaVerse.Application.Services
             _context.Add(note);
             await _context.SaveChangesAsync();
 
-            // Index in Typesense
-            await IndexNoteInTypesenseAsync(note);
-
             _logger.LogInformation("Created note {Id} ({Title}) in vault {VaultName}", note.Id, note.Title, note.VaultName);
             return note;
         }
@@ -126,9 +120,6 @@ namespace MyMediaVerse.Application.Services
             _context.Update(note);
             await _context.SaveChangesAsync();
 
-            // Update in Typesense
-            await IndexNoteInTypesenseAsync(note);
-
             _logger.LogInformation("Updated note {Id} ({Title})", note.Id, note.Title);
             return note;
         }
@@ -143,19 +134,6 @@ namespace MyMediaVerse.Application.Services
 
             _context.Remove(note);
             await _context.SaveChangesAsync();
-
-            // Remove from Typesense
-            if (_typesenseService != null)
-            {
-                try
-                {
-                    await _typesenseService.DeleteNoteAsync(id);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to delete note {Id} from Typesense", id);
-                }
-            }
 
             _logger.LogInformation("Deleted note {Id}", id);
         }
@@ -199,9 +177,6 @@ namespace MyMediaVerse.Application.Services
             _context.Add(link);
             await _context.SaveChangesAsync();
 
-            // Update Typesense with new linked count
-            await IndexNoteInTypesenseAsync(note);
-
             _logger.LogInformation("Linked note {NoteId} to media item {MediaItemId}", noteId, mediaItemId);
         }
 
@@ -217,13 +192,6 @@ namespace MyMediaVerse.Application.Services
 
             _context.Remove(link);
             await _context.SaveChangesAsync();
-
-            // Update Typesense with new linked count
-            var note = await _context.Notes.FirstOrDefaultAsync(n => n.Id == noteId);
-            if (note != null)
-            {
-                await IndexNoteInTypesenseAsync(note);
-            }
 
             _logger.LogInformation("Unlinked note {NoteId} from media item {MediaItemId}", noteId, mediaItemId);
         }
@@ -323,7 +291,6 @@ namespace MyMediaVerse.Application.Services
 
                             _context.Add(note);
                             await _context.SaveChangesAsync();
-                            await IndexNoteInTypesenseAsync(note);
 
                             result.Imported++;
                         }
@@ -340,7 +307,6 @@ namespace MyMediaVerse.Application.Services
 
                             _context.Update(existingNote);
                             await _context.SaveChangesAsync();
-                            await IndexNoteInTypesenseAsync(existingNote);
 
                             result.Updated++;
                         }
@@ -465,34 +431,6 @@ namespace MyMediaVerse.Application.Services
         // ============================================
         // Helper Methods
         // ============================================
-
-        private async Task IndexNoteInTypesenseAsync(Note note)
-        {
-            if (_typesenseService == null) return;
-
-            try
-            {
-                var linkedCount = await _context.MediaItemNotes.CountAsync(min => min.NoteId == note.Id);
-
-                await _typesenseService.IndexNoteAsync(
-                    note.Id,
-                    note.Slug,
-                    note.Title,
-                    note.Content,
-                    note.Description,
-                    note.VaultName,
-                    note.SourceUrl,
-                    note.Tags,
-                    note.DateImported,
-                    note.NoteDate,
-                    linkedCount
-                );
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to index note {Id} in Typesense", note.Id);
-            }
-        }
 
         private static string? ComputeContentHash(string? content)
         {

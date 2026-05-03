@@ -12,9 +12,11 @@ import {
     Star as StarIcon,
     Article as ArticleIcon,
     Book as BookIcon,
-    Delete as DeleteIcon
+    Delete as DeleteIcon,
+    Sync as SyncIcon
 } from '@mui/icons-material';
 import { getHighlightById, deleteHighlight } from '../api/highlightService';
+import { reindexHighlight } from '../api/typesenseService';
 
 function HighlightProfilePage() {
     const [highlight, setHighlight] = useState(null);
@@ -22,9 +24,26 @@ function HighlightProfilePage() {
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [deleting, setDeleting] = useState(false);
+    const [reindexing, setReindexing] = useState(false);
 
     const { id } = useParams();
     const navigate = useNavigate();
+
+    const handleReindex = async () => {
+        setReindexing(true);
+        try {
+            await reindexHighlight(id);
+            setSnackbar({ open: true, message: 'Highlight re-indexed in search.', severity: 'success' });
+        } catch (error) {
+            // 403 demo-mode rejections surface via the global DemoReadOnly dialog.
+            if (error.response?.status !== 403) {
+                console.error('Error re-indexing highlight:', error);
+                setSnackbar({ open: true, message: 'Failed to re-index highlight.', severity: 'error' });
+            }
+        } finally {
+            setReindexing(false);
+        }
+    };
 
     const handleDelete = async () => {
         try {
@@ -135,6 +154,15 @@ function HighlightProfilePage() {
                     <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} sx={{ color: 'white' }}>Back</Button>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         {highlight.isFavorite && <StarIcon sx={{ color: '#FFD700', fontSize: 28 }} />}
+                        <Button
+                            startIcon={reindexing ? <CircularProgress size={16} /> : <SyncIcon />}
+                            onClick={handleReindex}
+                            variant="outlined"
+                            size="small"
+                            disabled={reindexing}
+                        >
+                            {reindexing ? 'Reindexing...' : 'Reindex'}
+                        </Button>
                         <Button
                             startIcon={<DeleteIcon />}
                             onClick={() => setDeleteDialogOpen(true)}

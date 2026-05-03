@@ -52,6 +52,66 @@ export const typesenseReindex = async () => {
 };
 
 /**
+ * Re-index a single media item in Typesense
+ * @param {string} id - The media item ID
+ * @returns {Promise<Object>} Reindex result
+ */
+export const reindexMediaItem = async (id) => {
+    try {
+        const response = await apiClient.post(`/search/reindex-media/${id}`);
+        return response.data;
+    } catch (error) {
+        console.error(`Error reindexing media item ${id}:`, error);
+        throw error;
+    }
+};
+
+/**
+ * Re-index a single mixlist in Typesense
+ * @param {string} id - The mixlist ID
+ * @returns {Promise<Object>} Reindex result
+ */
+export const reindexMixlist = async (id) => {
+    try {
+        const response = await apiClient.post(`/search/reindex-mixlist/${id}`);
+        return response.data;
+    } catch (error) {
+        console.error(`Error reindexing mixlist ${id}:`, error);
+        throw error;
+    }
+};
+
+/**
+ * Re-index a single note in Typesense
+ * @param {string} id - The note ID
+ * @returns {Promise<Object>} Reindex result
+ */
+export const reindexNote = async (id) => {
+    try {
+        const response = await apiClient.post(`/search/reindex-note/${id}`);
+        return response.data;
+    } catch (error) {
+        console.error(`Error reindexing note ${id}:`, error);
+        throw error;
+    }
+};
+
+/**
+ * Re-index a single highlight in Typesense
+ * @param {string} id - The highlight ID
+ * @returns {Promise<Object>} Reindex result
+ */
+export const reindexHighlight = async (id) => {
+    try {
+        const response = await apiClient.post(`/search/reindex-highlight/${id}`);
+        return response.data;
+    } catch (error) {
+        console.error(`Error reindexing highlight ${id}:`, error);
+        throw error;
+    }
+};
+
+/**
  * Check Typesense health status
  * @returns {Promise<Object>} Health status information
  */

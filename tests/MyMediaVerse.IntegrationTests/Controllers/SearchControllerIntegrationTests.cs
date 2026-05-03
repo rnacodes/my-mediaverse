@@ -55,7 +55,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
         #endregion
 
-        #region Search (TypeSense mocked - returns NoContent for empty results)
+        #region Search (Typesense mocked - returns NoContent for empty results)
 
         [Fact]
         public async Task Search_ShouldReturnSuccessfully_WhenQueryProvided()

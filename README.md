@@ -214,6 +214,16 @@ The API will start at `http://localhost:5033`
 | `OPENAI_API_KEY`                | OpenAI embeddings        |
 | `GRADIENT_API_KEY`              | DigitalOcean Gradient AI |
 
+#### Local-only (migration script)
+
+These are read **only** by `scripts/run-migrations.ps1` from your local shell. They are never read by deployed app code and should not be set on Render or the demo Droplet.
+
+| Variable                   | Description                                                                  |
+| -------------------------- | ---------------------------------------------------------------------------- |
+| `PRODUCTION_DB_CONNECTION` | Connection string for the production DB (Render)                             |
+| `DEMO_DB_CONNECTION`       | Connection string for the demo DB via SSH tunnel (`Host=localhost;Port=5433;...`) |
+| `DEMO_DROPLET_IP`          | IP of the DigitalOcean Droplet hosting the demo DB                           |
+
 ---
 
 ## Architecture

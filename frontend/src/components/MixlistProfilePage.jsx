@@ -7,12 +7,14 @@ import {
     TextField, List, ListItem, ListItemText, Snackbar, Alert, InputAdornment,
     Checkbox, ListItemIcon
 } from '@mui/material';
-import { 
+import {
     ArrowBack, ExpandMore, ExpandLess, OpenInNew, Edit,
-    Search, Upload, FileDownload, AddCircle, Add, Delete
+    Search, Upload, FileDownload, AddCircle, Add, Delete, Sync
 } from '@mui/icons-material';
+import CircularProgress from '@mui/material/CircularProgress';
 import { getMixlistById, removeMediaFromMixlist, addMediaToMixlist } from '../api/mixlistService';
 import { searchMedia } from '../api/mediaService';
+import { reindexMixlist } from '../api/typesenseService';
 import SimpleMediaCarousel from './shared/SimpleMediaCarousel';
 import MixlistRelatedNotesSection from './MixlistRelatedNotesSection';
 import { formatMediaType, formatStatus } from '../utils/formatters';
@@ -31,6 +33,22 @@ function MixlistProfilePage() {
     const [selectedMediaIds, setSelectedMediaIds] = useState([]);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
     const [filterQuery, setFilterQuery] = useState('');
+    const [reindexing, setReindexing] = useState(false);
+
+    const handleReindex = async () => {
+        setReindexing(true);
+        try {
+            await reindexMixlist(id);
+            setSnackbar({ open: true, message: 'Mixlist re-indexed in search.', severity: 'success' });
+        } catch (error) {
+            if (error.response?.status !== 403) {
+                console.error('Error re-indexing mixlist:', error);
+                setSnackbar({ open: true, message: 'Failed to re-index mixlist.', severity: 'error' });
+            }
+        } finally {
+            setReindexing(false);
+        }
+    };
 
     useEffect(() => {
         const loadMixlist = async () => {
@@ -271,16 +289,27 @@ function MixlistProfilePage() {
                         </Typography>
                     </Box>
 
-                    {/* Edit Button */}
-                    <Button
-                        onClick={() => navigate(`/mixlist/${id}/edit`)}
-                        startIcon={<Edit />}
-                        variant="contained"
-                        color="primary"
-                        size="large"
-                    >
-                        Edit Mixlist
-                    </Button>
+                    {/* Action Buttons */}
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                        <Button
+                            onClick={handleReindex}
+                            startIcon={reindexing ? <CircularProgress size={16} /> : <Sync />}
+                            variant="outlined"
+                            size="medium"
+                            disabled={reindexing}
+                        >
+                            {reindexing ? 'Reindexing...' : 'Reindex'}
+                        </Button>
+                        <Button
+                            onClick={() => navigate(`/mixlist/${id}/edit`)}
+                            startIcon={<Edit />}
+                            variant="contained"
+                            color="primary"
+                            size="large"
+                        >
+                            Edit Mixlist
+                        </Button>
+                    </Box>
                 </Box>
 
                                 {/* Action Buttons */}

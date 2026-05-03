@@ -11,10 +11,12 @@ import {
     Save as SaveIcon,
     Close as CloseIcon,
     Article as NoteIcon,
-    AutoAwesome as AutoAwesomeIcon
+    AutoAwesome as AutoAwesomeIcon,
+    Sync as SyncIcon
 } from '@mui/icons-material';
 import { getNoteById, getMediaForNote, updateNote } from '../api/noteService';
 import { generateNoteDescription } from '../api/aiService';
+import { reindexNote } from '../api/typesenseService';
 import { formatMediaType, getMediaTypeColor } from '../utils/formatters';
 import SimilarNotesSection from './SimilarNotesSection';
 import RelatedMediaByEmbeddingSection from './RelatedMediaByEmbeddingSection';
@@ -30,9 +32,25 @@ function NoteProfilePage() {
     const [editedDescription, setEditedDescription] = useState('');
     const [saving, setSaving] = useState(false);
     const [generatingDescription, setGeneratingDescription] = useState(false);
+    const [reindexing, setReindexing] = useState(false);
 
     const { id } = useParams();
     const navigate = useNavigate();
+
+    const handleReindex = async () => {
+        setReindexing(true);
+        try {
+            await reindexNote(id);
+            setSnackbar({ open: true, message: 'Note re-indexed in search.', severity: 'success' });
+        } catch (error) {
+            if (error.response?.status !== 403) {
+                console.error('Error re-indexing note:', error);
+                setSnackbar({ open: true, message: 'Failed to re-index note.', severity: 'error' });
+            }
+        } finally {
+            setReindexing(false);
+        }
+    };
 
     useEffect(() => {
         const fetchData = async () => {
@@ -230,6 +248,15 @@ function NoteProfilePage() {
                         sx={{ color: 'white' }}
                     >
                         Back
+                    </Button>
+                    <Button
+                        startIcon={reindexing ? <CircularProgress size={16} /> : <SyncIcon />}
+                        onClick={handleReindex}
+                        variant="outlined"
+                        size="small"
+                        disabled={reindexing}
+                    >
+                        {reindexing ? 'Reindexing...' : 'Reindex'}
                     </Button>
                 </Box>
 

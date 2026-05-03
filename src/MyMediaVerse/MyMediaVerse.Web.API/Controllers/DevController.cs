@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MyMediaVerse.Infrastructure;
 using MyMediaVerse.Domain.Entities;
-using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.Web.API.Controllers
 {
@@ -13,18 +12,15 @@ namespace MyMediaVerse.Web.API.Controllers
         private readonly Infrastructure.Data.MediaLibraryDbContext _context;
         private readonly ILogger<DevController> _logger;
         private readonly IWebHostEnvironment _environment;
-        private readonly ITypeSenseService? _typeSenseService;
 
         public DevController(
             Infrastructure.Data.MediaLibraryDbContext context,
             ILogger<DevController> logger,
-            IWebHostEnvironment environment,
-            ITypeSenseService? typeSenseService = null)
+            IWebHostEnvironment environment)
         {
             _context = context;
             _logger = logger;
             _environment = environment;
-            _typeSenseService = typeSenseService;
         }
 
         // Helper method to check if the current environment allows dev operations
@@ -489,52 +485,17 @@ namespace MyMediaVerse.Web.API.Controllers
 
                 await _context.SaveChangesAsync();
 
-                // Index notes in Typesense
-                var indexedCount = 0;
-                if (_typeSenseService != null)
-                {
-                    foreach (var note in notes)
-                    {
-                        try
-                        {
-                            var linkedCount = await _context.Set<MediaItemNote>()
-                                .CountAsync(min => min.NoteId == note.Id);
-
-                            await _typeSenseService.IndexNoteAsync(
-                                note.Id,
-                                note.Slug,
-                                note.Title,
-                                note.Content,
-                                note.Description,
-                                note.VaultName,
-                                note.SourceUrl,
-                                note.Tags,
-                                note.DateImported,
-                                note.NoteDate,
-                                linkedCount
-                            );
-                            indexedCount++;
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "Failed to index note {NoteId} in Typesense", note.Id);
-                        }
-                    }
-                    _logger.LogInformation("Indexed {Count} notes in Typesense", indexedCount);
-                }
-
-                _logger.LogInformation("Demo notes seeded successfully!");
+                _logger.LogInformation("Demo notes seeded successfully! Run POST /api/search/reindex-notes to index them in Typesense.");
 
                 return Ok(new
                 {
-                    message = "Demo notes seeded successfully!",
+                    message = "Demo notes seeded successfully! Run POST /api/search/reindex-notes to index them in Typesense.",
                     created = new
                     {
                         notes = notes.Count,
                         generalVault = notes.Count(n => n.VaultName == "general"),
                         programmingVault = notes.Count(n => n.VaultName == "programming"),
-                        mediaItemLinks = linksCreated,
-                        indexedInTypesense = indexedCount
+                        mediaItemLinks = linksCreated
                     }
                 });
             }

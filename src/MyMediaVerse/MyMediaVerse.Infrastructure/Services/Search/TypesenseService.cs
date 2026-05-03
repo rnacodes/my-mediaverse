@@ -13,20 +13,20 @@ namespace MyMediaVerse.Infrastructure.Services.Search
     /// Service for managing Typesense search indexing and querying.
     /// Handles CRUD synchronization between PostgreSQL and Typesense.
     /// </summary>
-    public class TypeSenseService : ITypeSenseService
+    public class TypesenseService : ITypesenseService
     {
         private readonly ITypesenseClient _typesenseClient;
         private readonly IApplicationDbContext _context;
-        private readonly ILogger<TypeSenseService> _logger;
+        private readonly ILogger<TypesenseService> _logger;
         private readonly string _mediaCollectionName;
         private readonly string _mixlistCollectionName;
         private readonly string _notesCollectionName;
         private readonly string _highlightsCollectionName;
 
-        public TypeSenseService(
+        public TypesenseService(
             ITypesenseClient typesenseClient,
             IApplicationDbContext context,
-            ILogger<TypeSenseService> logger,
+            ILogger<TypesenseService> logger,
             IConfiguration configuration)
         {
             _typesenseClient = typesenseClient;
@@ -48,7 +48,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
             _highlightsCollectionName = $"{collectionPrefix}highlights";
 
             _logger.LogInformation(
-                "TypeSense collections configured with prefix '{Prefix}' (source: {Source}): {MediaCollection}, {MixlistCollection}, {NotesCollection}, {HighlightsCollection}",
+                "Typesense collections configured with prefix '{Prefix}' (source: {Source}): {MediaCollection}, {MixlistCollection}, {NotesCollection}, {HighlightsCollection}",
                 collectionPrefix, prefixSource, _mediaCollectionName, _mixlistCollectionName, _notesCollectionName, _highlightsCollectionName);
         }
 
@@ -396,6 +396,101 @@ namespace MyMediaVerse.Infrastructure.Services.Search
         }
 
         /// <summary>
+        /// Re-indexes a single media item by ID, applying any media-type-specific fields.
+        /// </summary>
+        public async Task<bool> ReindexMediaItemByIdAsync(Guid id)
+        {
+            var item = await _context.MediaItems
+                .Include(m => m.Topics)
+                .Include(m => m.Genres)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(m => m.Id == id);
+
+            if (item == null)
+            {
+                _logger.LogInformation("ReindexMediaItemByIdAsync: media item {Id} not found.", id);
+                return false;
+            }
+
+            var additionalFields = new Dictionary<string, object>();
+
+            switch (item.MediaType.ToString())
+            {
+                case "Article":
+                    var article = await _context.Articles.AsNoTracking()
+                        .FirstOrDefaultAsync(a => a.Id == item.Id);
+                    if (article?.Author != null)
+                        additionalFields["author"] = article.Author;
+                    break;
+
+                case "Book":
+                    var book = await _context.Books.AsNoTracking()
+                        .FirstOrDefaultAsync(b => b.Id == item.Id);
+                    if (book?.Author != null)
+                        additionalFields["author"] = book.Author;
+                    break;
+
+                case "Movie":
+                    var movie = await _context.Movies.AsNoTracking()
+                        .FirstOrDefaultAsync(m => m.Id == item.Id);
+                    if (movie?.Director != null)
+                        additionalFields["director"] = movie.Director;
+                    if (movie?.ReleaseYear != null)
+                        additionalFields["release_year"] = movie.ReleaseYear.Value;
+                    break;
+
+                case "TVShow":
+                    var tvShow = await _context.TvShows.AsNoTracking()
+                        .FirstOrDefaultAsync(t => t.Id == item.Id);
+                    if (tvShow?.Creator != null)
+                        additionalFields["creator"] = tvShow.Creator;
+                    if (tvShow?.FirstAirYear != null)
+                        additionalFields["release_year"] = tvShow.FirstAirYear.Value;
+                    break;
+
+                case "Podcast":
+                    var episode = await _context.PodcastEpisodes.AsNoTracking()
+                        .FirstOrDefaultAsync(e => e.Id == item.Id);
+                    if (episode != null)
+                    {
+                        additionalFields["series_id"] = episode.SeriesId.ToString();
+                        if (episode.Publisher != null)
+                            additionalFields["publisher"] = episode.Publisher;
+                    }
+                    else
+                    {
+                        var podcast = await _context.PodcastSeries.AsNoTracking()
+                            .FirstOrDefaultAsync(p => p.Id == item.Id);
+                        if (podcast?.Publisher != null)
+                            additionalFields["publisher"] = podcast.Publisher;
+                    }
+                    break;
+
+                case "Video":
+                    var video = await _context.Videos.AsNoTracking()
+                        .FirstOrDefaultAsync(v => v.Id == item.Id);
+                    if (video?.Platform != null)
+                        additionalFields["platform"] = video.Platform;
+                    break;
+            }
+
+            await IndexMediaItemAsync(
+                item.Id,
+                item.Title,
+                item.MediaType.ToString(),
+                item.Description,
+                item.Topics.Select(t => t.Name).ToList(),
+                item.Genres.Select(g => g.Name).ToList(),
+                item.DateAdded,
+                item.Status.ToString(),
+                item.Rating?.ToString(),
+                item.Thumbnail,
+                additionalFields);
+
+            return true;
+        }
+
+        /// <summary>
         /// Ensures the mixlists collection exists with proper schema.
         /// Called during application startup.
         /// </summary>
@@ -628,6 +723,48 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 _logger.LogError(ex, "Error during bulk re-index of mixlists.");
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Re-indexes a single mixlist by ID, including aggregated topics/genres from its media items.
+        /// </summary>
+        public async Task<bool> ReindexMixlistByIdAsync(Guid id)
+        {
+            var mixlist = await _context.Mixlists
+                .Include(m => m.MediaItems)
+                    .ThenInclude(mi => mi.Topics)
+                .Include(m => m.MediaItems)
+                    .ThenInclude(mi => mi.Genres)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(m => m.Id == id);
+
+            if (mixlist == null)
+            {
+                _logger.LogInformation("ReindexMixlistByIdAsync: mixlist {Id} not found.", id);
+                return false;
+            }
+
+            var mediaItemTitles = mixlist.MediaItems.Select(mi => mi.Title).ToList();
+            var topics = mixlist.MediaItems
+                .SelectMany(mi => mi.Topics.Select(t => t.Name))
+                .Distinct()
+                .ToList();
+            var genres = mixlist.MediaItems
+                .SelectMany(mi => mi.Genres.Select(g => g.Name))
+                .Distinct()
+                .ToList();
+
+            await IndexMixlistAsync(
+                mixlist.Id,
+                mixlist.Name,
+                mixlist.Description,
+                mixlist.Thumbnail,
+                mixlist.DateCreated,
+                mediaItemTitles,
+                topics,
+                genres);
+
+            return true;
         }
 
         /// <summary>
@@ -901,6 +1038,38 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 _logger.LogError(ex, "Error during bulk re-index of notes.");
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Re-indexes a single note by ID.
+        /// </summary>
+        public async Task<bool> ReindexNoteByIdAsync(Guid id)
+        {
+            var note = await _context.Notes
+                .Include(n => n.MediaItemNotes)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(n => n.Id == id);
+
+            if (note == null)
+            {
+                _logger.LogInformation("ReindexNoteByIdAsync: note {Id} not found.", id);
+                return false;
+            }
+
+            await IndexNoteAsync(
+                note.Id,
+                note.Slug,
+                note.Title,
+                note.Content,
+                note.Description,
+                note.VaultName,
+                note.SourceUrl,
+                note.Tags ?? new List<string>(),
+                note.DateImported,
+                note.NoteDate,
+                note.MediaItemNotes.Count);
+
+            return true;
         }
 
         /// <summary>
@@ -1412,6 +1581,62 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 _logger.LogError(ex, "Error during bulk re-index of highlights.");
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Re-indexes a single highlight by ID, resolving the linked article/book title for display.
+        /// </summary>
+        public async Task<bool> ReindexHighlightByIdAsync(Guid id)
+        {
+            var highlight = await _context.Highlights
+                .Include(h => h.Article)
+                .Include(h => h.Book)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(h => h.Id == id);
+
+            if (highlight == null)
+            {
+                _logger.LogInformation("ReindexHighlightByIdAsync: highlight {Id} not found.", id);
+                return false;
+            }
+
+            string? linkedMediaTitle = null;
+            if (highlight.ArticleId.HasValue && highlight.Article != null)
+            {
+                linkedMediaTitle = highlight.Article.Title;
+            }
+            else if (highlight.BookId.HasValue && highlight.Book != null)
+            {
+                linkedMediaTitle = highlight.Book.Title;
+            }
+
+            var tags = string.IsNullOrWhiteSpace(highlight.Tags)
+                ? new List<string>()
+                : highlight.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(t => t.Trim())
+                    .Where(t => !string.IsNullOrWhiteSpace(t))
+                    .ToList();
+
+            await IndexHighlightAsync(
+                highlight.Id,
+                highlight.Text,
+                highlight.Note,
+                highlight.Title,
+                highlight.Author,
+                highlight.Category,
+                tags,
+                highlight.SourceUrl,
+                highlight.SourceType,
+                highlight.IsFavorite,
+                highlight.HighlightedAt,
+                highlight.CreatedAt,
+                highlight.ArticleId,
+                highlight.BookId,
+                linkedMediaTitle,
+                highlight.Location,
+                highlight.ImageUrl);
+
+            return true;
         }
 
         /// <summary>

@@ -4,7 +4,7 @@ namespace MyMediaVerse.Shared.Interfaces
     /// Service interface for Typesense search integration.
     /// Manages document indexing and search operations for the media_items collection.
     /// </summary>
-    public interface ITypeSenseService
+    public interface ITypesenseService
     {
         /// <summary>
         /// Ensures the media_items collection exists in Typesense.
@@ -64,6 +64,13 @@ namespace MyMediaVerse.Shared.Interfaces
         Task<int> BulkReindexAllMediaItemsAsync();
 
         /// <summary>
+        /// Re-indexes a single media item by ID.
+        /// Loads the entity (and any media-type-specific fields) and upserts the Typesense document.
+        /// Returns false if no media item with the given ID exists.
+        /// </summary>
+        Task<bool> ReindexMediaItemByIdAsync(Guid id);
+
+        /// <summary>
         /// Ensures the mixlists collection exists in Typesense.
         /// Creates the collection if it doesn't exist, or skips if it does.
         /// Should be called during application startup.
@@ -113,6 +120,12 @@ namespace MyMediaVerse.Shared.Interfaces
         /// Useful for initial setup or full data synchronization.
         /// </summary>
         Task<int> BulkReindexAllMixlistsAsync();
+
+        /// <summary>
+        /// Re-indexes a single mixlist by ID, including aggregated topics/genres from its media items.
+        /// Returns false if no mixlist with the given ID exists.
+        /// </summary>
+        Task<bool> ReindexMixlistByIdAsync(Guid id);
 
         /// <summary>
         /// Deletes and recreates the media_items collection, clearing all indexed data.
@@ -168,6 +181,12 @@ namespace MyMediaVerse.Shared.Interfaces
         /// Performs a bulk re-index of all notes from the database.
         /// </summary>
         Task<int> BulkReindexAllNotesAsync();
+
+        /// <summary>
+        /// Re-indexes a single note by ID.
+        /// Returns false if no note with the given ID exists.
+        /// </summary>
+        Task<bool> ReindexNoteByIdAsync(Guid id);
 
         /// <summary>
         /// Deletes and recreates the obsidian_notes collection.
@@ -338,6 +357,12 @@ namespace MyMediaVerse.Shared.Interfaces
         /// Useful for initial setup or full data synchronization.
         /// </summary>
         Task<int> BulkReindexAllHighlightsAsync();
+
+        /// <summary>
+        /// Re-indexes a single highlight by ID.
+        /// Returns false if no highlight with the given ID exists.
+        /// </summary>
+        Task<bool> ReindexHighlightByIdAsync(Guid id);
 
         /// <summary>
         /// Deletes and recreates the highlights collection, clearing all indexed data.

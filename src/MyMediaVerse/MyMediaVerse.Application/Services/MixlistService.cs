@@ -14,18 +14,15 @@ namespace MyMediaVerse.Application.Services
     {
         private readonly IApplicationDbContext _context;
         private readonly IThumbnailStorageService _thumbnailStorage;
-        private readonly ITypeSenseService _typeSenseService;
         private readonly ILogger<MixlistService> _logger;
 
         public MixlistService(
             IApplicationDbContext context,
             IThumbnailStorageService thumbnailStorage,
-            ITypeSenseService typeSenseService,
             ILogger<MixlistService> logger)
         {
             _context = context;
             _thumbnailStorage = thumbnailStorage;
-            _typeSenseService = typeSenseService;
             _logger = logger;
         }
 
@@ -145,8 +142,6 @@ namespace MyMediaVerse.Application.Services
             var genreNames = await AddGenresAsync(mixlist, dto.Genres);
             await _context.SaveChangesAsync();
 
-            await SafeIndexMixlistAsync(mixlist, new List<string>(), topicNames, genreNames, "create");
-
             return new MixlistResponseDto
             {
                 Id = mixlist.Id,
@@ -210,8 +205,6 @@ namespace MyMediaVerse.Application.Services
             mixlist!.MediaItems.Add(mediaItem!);
             await _context.SaveChangesAsync();
 
-            await SafeReindexMixlistAsync(mixlistInfo.Id, mixlistInfo.Name, mixlistInfo.Description, mixlistInfo.Thumbnail, mixlistInfo.DateCreated, "add media");
-
             return result;
         }
 
@@ -252,8 +245,6 @@ namespace MyMediaVerse.Application.Services
 
             mixlist.MediaItems.Remove(mixlist.MediaItems.First());
             await _context.SaveChangesAsync();
-
-            await SafeReindexMixlistAsync(mixlistInfo.Id, mixlistInfo.Name, mixlistInfo.Description, mixlistInfo.Thumbnail, mixlistInfo.DateCreated, "remove media");
 
             return result;
         }
@@ -301,29 +292,6 @@ namespace MyMediaVerse.Application.Services
 
             await _context.SaveChangesAsync();
 
-            try
-            {
-                var mediaItemTitles = await _context.Mixlists
-                    .AsNoTracking()
-                    .Where(m => m.Id == id)
-                    .SelectMany(m => m.MediaItems.Select(mi => mi.Title))
-                    .ToListAsync();
-
-                await _typeSenseService.IndexMixlistAsync(
-                    mixlist.Id,
-                    mixlist.Name,
-                    mixlist.Description,
-                    mixlist.Thumbnail,
-                    mixlist.DateCreated,
-                    mediaItemTitles,
-                    topicNames,
-                    genreNames);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to re-index mixlist {MixlistId} in Typesense after update", id);
-            }
-
             return new MixlistResponseDto
             {
                 Id = mixlist.Id,
@@ -364,15 +332,6 @@ namespace MyMediaVerse.Application.Services
 
             _context.Remove(mixlist);
             await _context.SaveChangesAsync();
-
-            try
-            {
-                await _typeSenseService.DeleteMixlistAsync(id);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to delete mixlist {MixlistId} from Typesense", id);
-            }
 
             return true;
         }
@@ -601,112 +560,102 @@ namespace MyMediaVerse.Application.Services
 
         private async Task<List<string>> AddTopicsAsync(Mixlist mixlist, string[]? topics)
         {
-            var topicNames = new List<string>();
             if (topics == null || topics.Length == 0)
             {
-                return topicNames;
+                return new List<string>();
             }
 
-            foreach (var topicName in topics.Where(t => !string.IsNullOrWhiteSpace(t)))
+            var normalizedNames = topics
+                .Where(t => !string.IsNullOrWhiteSpace(t))
+                .Select(t => t.Trim().ToLower())
+                .Distinct()
+                .ToList();
+
+            if (normalizedNames.Count == 0)
             {
-                var normalizedName = topicName.Trim().ToLower();
-                var topic = await _context.Topics.FirstOrDefaultAsync(t => t.Name == normalizedName);
-                if (topic == null)
-                {
-                    topic = new Topic { Name = normalizedName };
-                    _context.Add(topic);
-                    await _context.SaveChangesAsync();
-                }
-                mixlist.Topics.Add(topic);
-                topicNames.Add(normalizedName);
+                return new List<string>();
             }
 
-            return topicNames;
+            var existingTopics = await _context.Topics
+                .AsNoTracking()
+                .Where(t => normalizedNames.Contains(t.Name))
+                .ToListAsync();
+
+            var existingNames = existingTopics.Select(t => t.Name).ToHashSet();
+            var newNames = normalizedNames.Where(n => !existingNames.Contains(n)).ToList();
+
+            if (newNames.Count > 0)
+            {
+                var newTopics = newNames.Select(name => new Topic { Name = name }).ToList();
+                _context.AddRange(newTopics);
+                await _context.SaveChangesAsync();
+                existingTopics.AddRange(newTopics);
+            }
+
+            var topicIds = existingTopics.Select(t => t.Id).ToList();
+            var trackedTopics = await _context.Topics
+                .Where(t => topicIds.Contains(t.Id))
+                .ToListAsync();
+
+            foreach (var topic in trackedTopics)
+            {
+                if (!mixlist.Topics.Any(t => t.Id == topic.Id))
+                {
+                    mixlist.Topics.Add(topic);
+                }
+            }
+
+            return normalizedNames;
         }
 
         private async Task<List<string>> AddGenresAsync(Mixlist mixlist, string[]? genres)
         {
-            var genreNames = new List<string>();
             if (genres == null || genres.Length == 0)
             {
-                return genreNames;
+                return new List<string>();
             }
 
-            foreach (var genreName in genres.Where(g => !string.IsNullOrWhiteSpace(g)))
+            var normalizedNames = genres
+                .Where(g => !string.IsNullOrWhiteSpace(g))
+                .Select(g => g.Trim().ToLower())
+                .Distinct()
+                .ToList();
+
+            if (normalizedNames.Count == 0)
             {
-                var normalizedName = genreName.Trim().ToLower();
-                var genre = await _context.Genres.FirstOrDefaultAsync(g => g.Name == normalizedName);
-                if (genre == null)
+                return new List<string>();
+            }
+
+            var existingGenres = await _context.Genres
+                .AsNoTracking()
+                .Where(g => normalizedNames.Contains(g.Name))
+                .ToListAsync();
+
+            var existingNames = existingGenres.Select(g => g.Name).ToHashSet();
+            var newNames = normalizedNames.Where(n => !existingNames.Contains(n)).ToList();
+
+            if (newNames.Count > 0)
+            {
+                var newGenres = newNames.Select(name => new Genre { Name = name }).ToList();
+                _context.AddRange(newGenres);
+                await _context.SaveChangesAsync();
+                existingGenres.AddRange(newGenres);
+            }
+
+            var genreIds = existingGenres.Select(g => g.Id).ToList();
+            var trackedGenres = await _context.Genres
+                .Where(g => genreIds.Contains(g.Id))
+                .ToListAsync();
+
+            foreach (var genre in trackedGenres)
+            {
+                if (!mixlist.Genres.Any(g => g.Id == genre.Id))
                 {
-                    genre = new Genre { Name = normalizedName };
-                    _context.Add(genre);
-                    await _context.SaveChangesAsync();
+                    mixlist.Genres.Add(genre);
                 }
-                mixlist.Genres.Add(genre);
-                genreNames.Add(normalizedName);
             }
 
-            return genreNames;
-        }
-
-        private async Task SafeIndexMixlistAsync(Mixlist mixlist, IReadOnlyList<string> mediaTitles, IReadOnlyList<string> topicNames, IReadOnlyList<string> genreNames, string action)
-        {
-            try
-            {
-                await _typeSenseService.IndexMixlistAsync(
-                    mixlist.Id,
-                    mixlist.Name,
-                    mixlist.Description,
-                    mixlist.Thumbnail,
-                    mixlist.DateCreated,
-                    mediaTitles.ToList(),
-                    topicNames.ToList(),
-                    genreNames.ToList());
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to index mixlist {MixlistId} in Typesense after {Action}", mixlist.Id, action);
-            }
-        }
-
-        private async Task SafeReindexMixlistAsync(Guid mixlistId, string name, string? description, string? thumbnail, DateTime dateCreated, string action)
-        {
-            try
-            {
-                var mediaItemTitles = await _context.Mixlists
-                    .AsNoTracking()
-                    .Where(m => m.Id == mixlistId)
-                    .SelectMany(m => m.MediaItems.Select(mi => mi.Title))
-                    .ToListAsync();
-
-                var topics = await _context.Mixlists
-                    .AsNoTracking()
-                    .Where(m => m.Id == mixlistId)
-                    .SelectMany(m => m.MediaItems.SelectMany(mi => mi.Topics.Select(t => t.Name)))
-                    .Distinct()
-                    .ToListAsync();
-
-                var genres = await _context.Mixlists
-                    .AsNoTracking()
-                    .Where(m => m.Id == mixlistId)
-                    .SelectMany(m => m.MediaItems.SelectMany(mi => mi.Genres.Select(g => g.Name)))
-                    .Distinct()
-                    .ToListAsync();
-
-                await _typeSenseService.IndexMixlistAsync(
-                    mixlistId,
-                    name,
-                    description,
-                    thumbnail,
-                    dateCreated,
-                    mediaItemTitles,
-                    topics,
-                    genres);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to re-index mixlist {MixlistId} in Typesense after {Action}", mixlistId, action);
-            }
+            return normalizedNames;
         }
 
         private static byte[] WriteCsv(IEnumerable<object> rows)

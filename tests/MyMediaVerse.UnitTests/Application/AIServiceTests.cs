@@ -12,16 +12,14 @@ namespace MyMediaVerse.UnitTests.Application
     public class AIServiceTests : InMemoryDbTestBase
     {
         private readonly Mock<IGradientAIClient> _mockGradientClient;
-        private readonly Mock<ITypeSenseService> _mockTypeSenseService;
         private readonly Mock<ILogger<AIService>> _mockLogger;
         private readonly AIService _service;
 
         public AIServiceTests()
         {
             _mockGradientClient = new Mock<IGradientAIClient>();
-            _mockTypeSenseService = new Mock<ITypeSenseService>();
             _mockLogger = new Mock<ILogger<AIService>>();
-            _service = new AIService(Context, _mockGradientClient.Object, _mockTypeSenseService.Object, _mockLogger.Object);
+            _service = new AIService(Context, _mockGradientClient.Object, _mockLogger.Object);
         }
 
         #region IsAvailableAsync
