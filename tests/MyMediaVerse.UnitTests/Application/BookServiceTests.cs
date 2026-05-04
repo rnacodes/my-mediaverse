@@ -1,6 +1,6 @@
-﻿using AwesomeAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Logging;
-using Moq;
+using NSubstitute;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
@@ -11,13 +11,13 @@ namespace MyMediaVerse.UnitTests.Application
 {
     public class BookServiceTests : InMemoryDbTestBase
     {
-        private readonly Mock<ILogger<BookService>> _mockLogger;
+        private readonly ILogger<BookService> _mockLogger;
         private readonly BookService _bookService;
 
         public BookServiceTests()
         {
-            _mockLogger = new Mock<ILogger<BookService>>();
-            _bookService = new BookService(Context, _mockLogger.Object);
+            _mockLogger = Substitute.For<ILogger<BookService>>();
+            _bookService = new BookService(Context, _mockLogger);
         }
 
         [Fact]

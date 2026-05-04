@@ -2,7 +2,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using AwesomeAssertions;
+using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;

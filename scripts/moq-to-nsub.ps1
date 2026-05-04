@@ -1,5 +1,23 @@
 # One-shot Moq -> NSubstitute migration sweep across tests/.
 # Idempotent on already-migrated files.
+#
+# Walks every .cs file under tests\ and applies single-line regex transforms:
+#   - usings:    `using Moq;`              -> `using NSubstitute;`
+#                `using Moq.Protected;`    -> (removed)
+#   - ctors:     `new Mock<X>()`           -> `Substitute.For<X>()`
+#                `Mock.Of<X>()`            -> `Substitute.For<X>()`
+#   - types:     `Mock<X>` field/var       -> `X`               (NSubstitute has no .Object indirection)
+#   - matchers:  `It.IsAny<>` / `It.Is<>`  -> `Arg.Any<>` / `Arg.Is<>`
+#   - async:     `.ReturnsAsync(` / `.ThrowsAsync(`/`<` -> `.Returns(` / `.Throws(`/`<`
+#   - .Object stripped from mock-y identifiers (_mockFoo.Object -> _mockFoo)
+#   - .Setup / .SetupGet / indexer-Setup unwrapped so chained .Returns(...) still attaches
+#   - .Verify(..., Times.Once|Never|AtLeastOnce|Exactly(N)) -> .Received(1)|.DidNotReceive()|.Received()|.Received(N)
+#
+# Limitations: regex-only, allows up to ONE level of nested generics / parens. Multi-line
+# Setup/Verify chains and deeply-nested arg trees need the follow-up sweeps in
+# moq-to-nsub-multiline.ps1 (text-only) and moq-to-nsub-deep.ps1 (paren-balanced parser).
+# Protected-method patterns (HttpMessageHandler.SendAsync) cannot be migrated mechanically —
+# see TestHelpers/TestHttpMessageHandler.cs and the per-file rewrites done by hand.
 $ErrorActionPreference = 'Stop'
 
 $root = "C:\Users\rashi\source\repos\MyMediaVerse\tests"

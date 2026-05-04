@@ -363,7 +363,7 @@ This is the Minimum Viable Product release with core functionality complete. Act
 
 For detailed documentation, including architecture deep-dives and code examples, see:
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/rnacodes/project-loopbreaker)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/rnacodes/my-mediaverse)
 
 ---
 

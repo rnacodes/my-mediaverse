@@ -1,9 +1,10 @@
 ﻿using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using AwesomeAssertions;
+using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
-using Moq;
+using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Infrastructure.Data;
@@ -54,11 +55,11 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task Search_ShouldReturnOk_WhenValidQueryProvided()
         {
             // Arrange
-            var mockService = new Mock<IListenNotesService>();
+            var mockService = Substitute.For<IListenNotesService>();
             var expectedResult = CreateSearchResultDto();
             
-            mockService.Setup(x => x.SearchAsync("test", null, null, null, null, null, null, null, null, null, null, null, null, null))
-                      .ReturnsAsync(expectedResult);
+            mockService.SearchAsync("test", null, null, null, null, null, null, null, null, null, null, null, null, null)
+                      .Returns(expectedResult);
 
             using var scope = _factory.Services.CreateScope();
             var serviceProvider = scope.ServiceProvider;
@@ -74,7 +75,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                         services.Remove(descriptor);
                     
                     // Add our mock
-                    services.AddSingleton(mockService.Object);
+                    services.AddSingleton(mockService);
                 });
             }).CreateClient();
 
@@ -91,11 +92,11 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task Search_ShouldIncludeAllParameters_WhenAllParametersProvided()
         {
             // Arrange
-            var mockService = new Mock<IListenNotesService>();
+            var mockService = Substitute.For<IListenNotesService>();
             var expectedResult = CreateSearchResultDto();
             
-            mockService.Setup(x => x.SearchAsync("test", "podcast", 10, 30, 60, "1,2,3", "2023-01-01", "2022-01-01", "title", "en", "us", "1", "1", "1"))
-                      .ReturnsAsync(expectedResult);
+            mockService.SearchAsync("test", "podcast", 10, 30, 60, "1,2,3", "2023-01-01", "2022-01-01", "title", "en", "us", "1", "1", "1")
+                      .Returns(expectedResult);
 
             using var scope = _factory.Services.CreateScope();
             var serviceProvider = scope.ServiceProvider;
@@ -108,7 +109,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                     if (descriptor != null)
                         services.Remove(descriptor);
                     
-                    services.AddSingleton(mockService.Object);
+                    services.AddSingleton(mockService);
                 });
             }).CreateClient();
 
@@ -117,7 +118,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.OK);
-            mockService.Verify(x => x.SearchAsync("test", "podcast", 10, 30, 60, "1,2,3", "2023-01-01", "2022-01-01", "title", "en", "us", "1", "1", "1"), Times.Once);
+            mockService.Received(1).SearchAsync("test", "podcast", 10, 30, 60, "1,2,3", "2023-01-01", "2022-01-01", "title", "en", "us", "1", "1", "1");
         }
 
         #endregion
@@ -128,11 +129,11 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task GetPodcast_ShouldReturnOk_WhenValidIdProvided()
         {
             // Arrange
-            var mockService = new Mock<IListenNotesService>();
+            var mockService = Substitute.For<IListenNotesService>();
             var expectedResult = CreatePodcastSeriesDto();
             
-            mockService.Setup(x => x.GetPodcastByIdAsync("test-id", null))
-                      .ReturnsAsync(expectedResult);
+            mockService.GetPodcastByIdAsync("test-id", null)
+                      .Returns(expectedResult);
 
             var client = _factory.WithWebHostBuilder(builder =>
             {
@@ -142,7 +143,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                     if (descriptor != null)
                         services.Remove(descriptor);
                     
-                    services.AddSingleton(mockService.Object);
+                    services.AddSingleton(mockService);
                 });
             }).CreateClient();
 
@@ -159,11 +160,11 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task GetBestPodcasts_ShouldReturnOk_WhenCalled()
         {
             // Arrange
-            var mockService = new Mock<IListenNotesService>();
+            var mockService = Substitute.For<IListenNotesService>();
             var expectedResult = CreateBestPodcastsDto();
             
-            mockService.Setup(x => x.GetBestPodcastsAsync(null, null, null, null, null))
-                      .ReturnsAsync(expectedResult);
+            mockService.GetBestPodcastsAsync(null, null, null, null, null)
+                      .Returns(expectedResult);
 
             var client = _factory.WithWebHostBuilder(builder =>
             {
@@ -173,7 +174,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                     if (descriptor != null)
                         services.Remove(descriptor);
                     
-                    services.AddSingleton(mockService.Object);
+                    services.AddSingleton(mockService);
                 });
             }).CreateClient();
 
@@ -188,11 +189,11 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task GetPodcastRecommendations_ShouldReturnOk_WhenValidIdProvided()
         {
             // Arrange
-            var mockService = new Mock<IListenNotesService>();
+            var mockService = Substitute.For<IListenNotesService>();
             var expectedResult = CreateRecommendationsDto();
             
-            mockService.Setup(x => x.GetPodcastRecommendationsAsync("test-id", null))
-                      .ReturnsAsync(expectedResult);
+            mockService.GetPodcastRecommendationsAsync("test-id", null)
+                      .Returns(expectedResult);
 
             var client = _factory.WithWebHostBuilder(builder =>
             {
@@ -202,7 +203,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                     if (descriptor != null)
                         services.Remove(descriptor);
                     
-                    services.AddSingleton(mockService.Object);
+                    services.AddSingleton(mockService);
                 });
             }).CreateClient();
 
@@ -221,11 +222,11 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task GetEpisode_ShouldReturnOk_WhenValidIdProvided()
         {
             // Arrange
-            var mockService = new Mock<IListenNotesService>();
+            var mockService = Substitute.For<IListenNotesService>();
             var expectedResult = CreatePodcastEpisodeDto();
             
-            mockService.Setup(x => x.GetEpisodeByIdAsync("test-id"))
-                      .ReturnsAsync(expectedResult);
+            mockService.GetEpisodeByIdAsync("test-id")
+                      .Returns(expectedResult);
 
             var client = _factory.WithWebHostBuilder(builder =>
             {
@@ -235,7 +236,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                     if (descriptor != null)
                         services.Remove(descriptor);
                     
-                    services.AddSingleton(mockService.Object);
+                    services.AddSingleton(mockService);
                 });
             }).CreateClient();
 
@@ -250,11 +251,11 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task GetEpisodeRecommendations_ShouldReturnOk_WhenValidIdProvided()
         {
             // Arrange
-            var mockService = new Mock<IListenNotesService>();
+            var mockService = Substitute.For<IListenNotesService>();
             var expectedResult = CreateRecommendationsDto();
             
-            mockService.Setup(x => x.GetEpisodeRecommendationsAsync("test-id", null))
-                      .ReturnsAsync(expectedResult);
+            mockService.GetEpisodeRecommendationsAsync("test-id", null)
+                      .Returns(expectedResult);
 
             var client = _factory.WithWebHostBuilder(builder =>
             {
@@ -264,7 +265,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                     if (descriptor != null)
                         services.Remove(descriptor);
                     
-                    services.AddSingleton(mockService.Object);
+                    services.AddSingleton(mockService);
                 });
             }).CreateClient();
 
@@ -283,11 +284,11 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task GetPlaylists_ShouldReturnOk_WhenCalled()
         {
             // Arrange
-            var mockService = new Mock<IListenNotesService>();
+            var mockService = Substitute.For<IListenNotesService>();
             var expectedResult = CreatePlaylistsDto();
             
-            mockService.Setup(x => x.GetPlaylistsAsync())
-                      .ReturnsAsync(expectedResult);
+            mockService.GetPlaylistsAsync()
+                      .Returns(expectedResult);
 
             var client = _factory.WithWebHostBuilder(builder =>
             {
@@ -297,7 +298,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                     if (descriptor != null)
                         services.Remove(descriptor);
                     
-                    services.AddSingleton(mockService.Object);
+                    services.AddSingleton(mockService);
                 });
             }).CreateClient();
 
@@ -312,11 +313,11 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task GetPlaylist_ShouldReturnOk_WhenValidIdProvided()
         {
             // Arrange
-            var mockService = new Mock<IListenNotesService>();
+            var mockService = Substitute.For<IListenNotesService>();
             var expectedResult = CreatePlaylistDto();
             
-            mockService.Setup(x => x.GetPlaylistByIdAsync("test-id"))
-                      .ReturnsAsync(expectedResult);
+            mockService.GetPlaylistByIdAsync("test-id")
+                      .Returns(expectedResult);
 
             var client = _factory.WithWebHostBuilder(builder =>
             {
@@ -326,7 +327,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                     if (descriptor != null)
                         services.Remove(descriptor);
                     
-                    services.AddSingleton(mockService.Object);
+                    services.AddSingleton(mockService);
                 });
             }).CreateClient();
 
@@ -345,11 +346,11 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task GetGenres_ShouldReturnOk_WhenCalled()
         {
             // Arrange
-            var mockService = new Mock<IListenNotesService>();
+            var mockService = Substitute.For<IListenNotesService>();
             var expectedResult = CreateGenresDto();
             
-            mockService.Setup(x => x.GetGenresAsync())
-                      .ReturnsAsync(expectedResult);
+            mockService.GetGenresAsync()
+                      .Returns(expectedResult);
 
             var client = _factory.WithWebHostBuilder(builder =>
             {
@@ -359,7 +360,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                     if (descriptor != null)
                         services.Remove(descriptor);
                     
-                    services.AddSingleton(mockService.Object);
+                    services.AddSingleton(mockService);
                 });
             }).CreateClient();
 
@@ -378,11 +379,11 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task GetCuratedPodcasts_ShouldReturnOk_WhenCalled()
         {
             // Arrange
-            var mockService = new Mock<IListenNotesService>();
+            var mockService = Substitute.For<IListenNotesService>();
             var expectedResult = CreateCuratedPodcastsDto();
             
-            mockService.Setup(x => x.GetCuratedPodcastsAsync(null))
-                      .ReturnsAsync(expectedResult);
+            mockService.GetCuratedPodcastsAsync(null)
+                      .Returns(expectedResult);
 
             var client = _factory.WithWebHostBuilder(builder =>
             {
@@ -392,7 +393,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                     if (descriptor != null)
                         services.Remove(descriptor);
                     
-                    services.AddSingleton(mockService.Object);
+                    services.AddSingleton(mockService);
                 });
             }).CreateClient();
 
@@ -407,11 +408,11 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task GetCuratedPodcast_ShouldReturnOk_WhenValidIdProvided()
         {
             // Arrange
-            var mockService = new Mock<IListenNotesService>();
+            var mockService = Substitute.For<IListenNotesService>();
             var expectedResult = CreateCuratedPodcastDto();
             
-            mockService.Setup(x => x.GetCuratedPodcastByIdAsync("test-id"))
-                      .ReturnsAsync(expectedResult);
+            mockService.GetCuratedPodcastByIdAsync("test-id")
+                      .Returns(expectedResult);
 
             var client = _factory.WithWebHostBuilder(builder =>
             {
@@ -421,7 +422,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                     if (descriptor != null)
                         services.Remove(descriptor);
                     
-                    services.AddSingleton(mockService.Object);
+                    services.AddSingleton(mockService);
                 });
             }).CreateClient();
 
@@ -440,11 +441,11 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task ImportPodcast_ShouldReturnOk_WhenValidIdProvided()
         {
             // Arrange
-            var mockService = new Mock<IListenNotesService>();
+            var mockService = Substitute.For<IListenNotesService>();
             var expectedResult = CreatePodcastSeries();
             
-            mockService.Setup(x => x.ImportPodcastSeriesAsync("test-id"))
-                      .ReturnsAsync(expectedResult);
+            mockService.ImportPodcastSeriesAsync("test-id")
+                      .Returns(expectedResult);
 
             var client = _factory.WithWebHostBuilder(builder =>
             {
@@ -454,7 +455,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                     if (descriptor != null)
                         services.Remove(descriptor);
                     
-                    services.AddSingleton(mockService.Object);
+                    services.AddSingleton(mockService);
                 });
             }).CreateClient();
 
@@ -469,10 +470,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task ImportPodcast_ShouldReturnNotFound_WhenPodcastNotFound()
         {
             // Arrange
-            var mockService = new Mock<IListenNotesService>();
+            var mockService = Substitute.For<IListenNotesService>();
             
-            mockService.Setup(x => x.ImportPodcastSeriesAsync("invalid-id"))
-                      .ThrowsAsync(new InvalidOperationException("Podcast not found"));
+            mockService.ImportPodcastSeriesAsync("invalid-id")
+                      .Throws(new InvalidOperationException("Podcast not found"));
 
             var client = _factory.WithWebHostBuilder(builder =>
             {
@@ -482,7 +483,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                     if (descriptor != null)
                         services.Remove(descriptor);
                     
-                    services.AddSingleton(mockService.Object);
+                    services.AddSingleton(mockService);
                 });
             }).CreateClient();
 
@@ -497,12 +498,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task ImportPodcastEpisode_ShouldReturnOk_WhenValidIdProvided()
         {
             // Arrange
-            var mockService = new Mock<IListenNotesService>();
+            var mockService = Substitute.For<IListenNotesService>();
             var seriesId = Guid.NewGuid();
             var expectedResult = CreatePodcastEpisode(seriesId);
             
-            mockService.Setup(x => x.ImportPodcastEpisodeAsync("test-id", seriesId))
-                      .ReturnsAsync(expectedResult);
+            mockService.ImportPodcastEpisodeAsync("test-id", seriesId)
+                      .Returns(expectedResult);
 
             var client = _factory.WithWebHostBuilder(builder =>
             {
@@ -512,7 +513,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                     if (descriptor != null)
                         services.Remove(descriptor);
                     
-                    services.AddSingleton(mockService.Object);
+                    services.AddSingleton(mockService);
                 });
             }).CreateClient();
 
@@ -527,11 +528,11 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task ImportPodcastEpisode_ShouldReturnNotFound_WhenEpisodeNotFound()
         {
             // Arrange
-            var mockService = new Mock<IListenNotesService>();
+            var mockService = Substitute.For<IListenNotesService>();
             var seriesId = Guid.NewGuid();
             
-            mockService.Setup(x => x.ImportPodcastEpisodeAsync("invalid-id", seriesId))
-                      .ThrowsAsync(new InvalidOperationException("Episode not found"));
+            mockService.ImportPodcastEpisodeAsync("invalid-id", seriesId)
+                      .Throws(new InvalidOperationException("Episode not found"));
 
             var client = _factory.WithWebHostBuilder(builder =>
             {
@@ -541,7 +542,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                     if (descriptor != null)
                         services.Remove(descriptor);
                     
-                    services.AddSingleton(mockService.Object);
+                    services.AddSingleton(mockService);
                 });
             }).CreateClient();
 

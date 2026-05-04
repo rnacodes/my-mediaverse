@@ -1,6 +1,7 @@
-﻿using AwesomeAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Logging;
-using Moq;
+using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Infrastructure.Services.Sync;
 using MyMediaVerse.Shared.DTOs.Trakt;
@@ -11,15 +12,15 @@ namespace MyMediaVerse.UnitTests.Infrastructure
 {
     public class TraktSyncServiceTests : InMemoryDbTestBase
     {
-        private readonly Mock<ITraktApiClient> _mockTraktClient;
-        private readonly Mock<ILogger<TraktSyncService>> _mockLogger;
+        private readonly ITraktApiClient _mockTraktClient;
+        private readonly ILogger<TraktSyncService> _mockLogger;
         private readonly TraktSyncService _service;
 
         public TraktSyncServiceTests()
         {
-            _mockTraktClient = new Mock<ITraktApiClient>();
-            _mockLogger = new Mock<ILogger<TraktSyncService>>();
-            _service = new TraktSyncService(Context, _mockTraktClient.Object, _mockLogger.Object);
+            _mockTraktClient = Substitute.For<ITraktApiClient>();
+            _mockLogger = Substitute.For<ILogger<TraktSyncService>>();
+            _service = new TraktSyncService(Context, _mockTraktClient, _mockLogger);
         }
 
         #region IsConnectedAsync
@@ -196,8 +197,8 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             await Context.SaveChangesAsync();
 
             var unixTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            _mockTraktClient.Setup(c => c.RefreshTokenAsync("test-refresh"))
-                .ReturnsAsync(new TraktOAuthTokenDto
+            _mockTraktClient.RefreshTokenAsync("test-refresh")
+                .Returns(new TraktOAuthTokenDto
                 {
                     AccessToken = "refreshed-token",
                     RefreshToken = "new-refresh",
@@ -208,7 +209,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             var result = await _service.GetValidAccessTokenAsync();
 
             result.Should().Be("refreshed-token");
-            _mockTraktClient.Verify(c => c.RefreshTokenAsync("test-refresh"), Times.Once);
+            _mockTraktClient.Received(1).RefreshTokenAsync("test-refresh");
         }
 
         [Fact]
@@ -223,8 +224,8 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             });
             await Context.SaveChangesAsync();
 
-            _mockTraktClient.Setup(c => c.RefreshTokenAsync("test-refresh"))
-                .ThrowsAsync(new Exception("Refresh failed"));
+            _mockTraktClient.RefreshTokenAsync("test-refresh")
+                .Throws(new Exception("Refresh failed"));
 
             var result = await _service.GetValidAccessTokenAsync();
 
@@ -243,8 +244,8 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             });
             await Context.SaveChangesAsync();
 
-            _mockTraktClient.Setup(c => c.RefreshTokenAsync("test-refresh"))
-                .ThrowsAsync(new Exception("Refresh failed"));
+            _mockTraktClient.RefreshTokenAsync("test-refresh")
+                .Throws(new Exception("Refresh failed"));
 
             var result = await _service.GetValidAccessTokenAsync();
 
@@ -270,7 +271,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             await _service.DisconnectAsync();
 
             Context.TraktTokens.Should().BeEmpty();
-            _mockTraktClient.Verify(c => c.RevokeTokenAsync("test-token"), Times.Once);
+            _mockTraktClient.Received(1).RevokeTokenAsync("test-token");
         }
 
         [Fact]
@@ -285,8 +286,8 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             });
             await Context.SaveChangesAsync();
 
-            _mockTraktClient.Setup(c => c.RevokeTokenAsync("test-token"))
-                .ThrowsAsync(new Exception("Revoke failed"));
+            _mockTraktClient.RevokeTokenAsync("test-token")
+                .Throws(new Exception("Revoke failed"));
 
             await _service.DisconnectAsync();
 
@@ -298,7 +299,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         {
             await _service.DisconnectAsync();
 
-            _mockTraktClient.Verify(c => c.RevokeTokenAsync(It.IsAny<string>()), Times.Never);
+            _mockTraktClient.DidNotReceive().RevokeTokenAsync(Arg.Any<string>());
         }
 
         #endregion
@@ -1597,38 +1598,38 @@ namespace MyMediaVerse.UnitTests.Infrastructure
 
         private void SetupWatchedMovies(List<TraktWatchedMovieDto> movies)
         {
-            _mockTraktClient.Setup(c => c.GetWatchedMoviesAsync(It.IsAny<string>()))
-                .ReturnsAsync(movies);
+            _mockTraktClient.GetWatchedMoviesAsync(Arg.Any<string>())
+                .Returns(movies);
         }
 
         private void SetupWatchedShows(List<TraktWatchedShowDto> shows)
         {
-            _mockTraktClient.Setup(c => c.GetWatchedShowsAsync(It.IsAny<string>()))
-                .ReturnsAsync(shows);
+            _mockTraktClient.GetWatchedShowsAsync(Arg.Any<string>())
+                .Returns(shows);
         }
 
         private void SetupWatchlistMovies(List<TraktWatchlistItemDto> items)
         {
-            _mockTraktClient.Setup(c => c.GetWatchlistMoviesAsync(It.IsAny<string>()))
-                .ReturnsAsync(items);
+            _mockTraktClient.GetWatchlistMoviesAsync(Arg.Any<string>())
+                .Returns(items);
         }
 
         private void SetupWatchlistShows(List<TraktWatchlistItemDto> items)
         {
-            _mockTraktClient.Setup(c => c.GetWatchlistShowsAsync(It.IsAny<string>()))
-                .ReturnsAsync(items);
+            _mockTraktClient.GetWatchlistShowsAsync(Arg.Any<string>())
+                .Returns(items);
         }
 
         private void SetupRatingsMovies(List<TraktRatingItemDto> ratings)
         {
-            _mockTraktClient.Setup(c => c.GetRatingsMoviesAsync(It.IsAny<string>()))
-                .ReturnsAsync(ratings);
+            _mockTraktClient.GetRatingsMoviesAsync(Arg.Any<string>())
+                .Returns(ratings);
         }
 
         private void SetupRatingsShows(List<TraktRatingItemDto> ratings)
         {
-            _mockTraktClient.Setup(c => c.GetRatingsShowsAsync(It.IsAny<string>()))
-                .ReturnsAsync(ratings);
+            _mockTraktClient.GetRatingsShowsAsync(Arg.Any<string>())
+                .Returns(ratings);
         }
 
         private static TraktWatchedMovieDto CreateWatchedMovieDto(

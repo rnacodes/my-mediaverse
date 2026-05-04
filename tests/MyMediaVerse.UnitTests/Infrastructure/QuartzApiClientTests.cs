@@ -1,31 +1,31 @@
 ﻿using System.Net;
 using System.Text;
 using System.Text.Json;
-using AwesomeAssertions;
+using FluentAssertions;
 using Microsoft.Extensions.Logging;
-using Moq;
-using Moq.Protected;
+using NSubstitute;
 using MyMediaVerse.Infrastructure.Clients.Obsidian;
 using MyMediaVerse.Shared.DTOs.Obsidian;
+using MyMediaVerse.UnitTests.TestHelpers;
 
 namespace MyMediaVerse.UnitTests.Infrastructure
 {
     public class QuartzApiClientTests
     {
-        private readonly Mock<HttpMessageHandler> _mockHttpMessageHandler;
-        private readonly Mock<ILogger<QuartzApiClient>> _mockLogger;
+        private readonly TestHttpMessageHandler _mockHttpMessageHandler;
+        private readonly ILogger<QuartzApiClient> _mockLogger;
         private readonly HttpClient _httpClient;
         private readonly QuartzApiClient _client;
         private readonly JsonSerializerOptions _jsonOptions;
 
         public QuartzApiClientTests()
         {
-            _mockHttpMessageHandler = new Mock<HttpMessageHandler>();
-            _mockLogger = new Mock<ILogger<QuartzApiClient>>();
+            _mockHttpMessageHandler = new TestHttpMessageHandler();
+            _mockLogger = Substitute.For<ILogger<QuartzApiClient>>();
 
-            _httpClient = new HttpClient(_mockHttpMessageHandler.Object);
+            _httpClient = new HttpClient(_mockHttpMessageHandler);
 
-            _client = new QuartzApiClient(_httpClient, _mockLogger.Object);
+            _client = new QuartzApiClient(_httpClient, _mockLogger);
 
             _jsonOptions = new JsonSerializerOptions
             {
@@ -34,18 +34,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         }
 
         private void SetupHttpResponse(HttpStatusCode statusCode, string content)
-        {
-            _mockHttpMessageHandler.Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>())
-                .ReturnsAsync(new HttpResponseMessage
-                {
-                    StatusCode = statusCode,
-                    Content = new StringContent(content, Encoding.UTF8, "application/json")
-                });
-        }
+            => _mockHttpMessageHandler.RespondWith(statusCode, content);
 
         #region GetContentIndexAsync Tests
 
@@ -95,12 +84,8 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             result.Should().BeEmpty();
 
             // Verify the URL was properly constructed (no double slashes)
-            _mockHttpMessageHandler.Protected().Verify(
-                "SendAsync",
-                Times.Once(),
-                ItExpr.Is<HttpRequestMessage>(req =>
-                    req.RequestUri!.ToString() == "https://vault.example.com/static/contentIndex.json"),
-                ItExpr.IsAny<CancellationToken>());
+            _mockHttpMessageHandler.Requests.Should().ContainSingle(req =>
+                req.RequestUri!.ToString() == "https://vault.example.com/static/contentIndex.json");
         }
 
         [Fact]
@@ -163,13 +148,9 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             await _client.GetContentIndexAsync("https://vault.example.com", "user:password");
 
             // Assert - verify Basic auth header was set
-            _mockHttpMessageHandler.Protected().Verify(
-                "SendAsync",
-                Times.Once(),
-                ItExpr.Is<HttpRequestMessage>(req =>
-                    req.Headers.Authorization != null &&
-                    req.Headers.Authorization.Scheme == "Basic"),
-                ItExpr.IsAny<CancellationToken>());
+            _mockHttpMessageHandler.Requests.Should().ContainSingle(req =>
+                req.Headers.Authorization != null &&
+                req.Headers.Authorization.Scheme == "Basic");
         }
 
         [Fact]
@@ -182,14 +163,10 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             await _client.GetContentIndexAsync("https://vault.example.com", "Bearer my-token");
 
             // Assert - verify Bearer auth header was set
-            _mockHttpMessageHandler.Protected().Verify(
-                "SendAsync",
-                Times.Once(),
-                ItExpr.Is<HttpRequestMessage>(req =>
-                    req.Headers.Authorization != null &&
-                    req.Headers.Authorization.Scheme == "Bearer" &&
-                    req.Headers.Authorization.Parameter == "my-token"),
-                ItExpr.IsAny<CancellationToken>());
+            _mockHttpMessageHandler.Requests.Should().ContainSingle(req =>
+                req.Headers.Authorization != null &&
+                req.Headers.Authorization.Scheme == "Bearer" &&
+                req.Headers.Authorization.Parameter == "my-token");
         }
 
         [Fact]
@@ -202,14 +179,10 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             await _client.GetContentIndexAsync("https://vault.example.com", "plain-api-token");
 
             // Assert - plain token defaults to Bearer
-            _mockHttpMessageHandler.Protected().Verify(
-                "SendAsync",
-                Times.Once(),
-                ItExpr.Is<HttpRequestMessage>(req =>
-                    req.Headers.Authorization != null &&
-                    req.Headers.Authorization.Scheme == "Bearer" &&
-                    req.Headers.Authorization.Parameter == "plain-api-token"),
-                ItExpr.IsAny<CancellationToken>());
+            _mockHttpMessageHandler.Requests.Should().ContainSingle(req =>
+                req.Headers.Authorization != null &&
+                req.Headers.Authorization.Scheme == "Bearer" &&
+                req.Headers.Authorization.Parameter == "plain-api-token");
         }
 
         [Fact]
@@ -222,12 +195,8 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             await _client.GetContentIndexAsync("https://vault.example.com", null);
 
             // Assert - no auth header
-            _mockHttpMessageHandler.Protected().Verify(
-                "SendAsync",
-                Times.Once(),
-                ItExpr.Is<HttpRequestMessage>(req =>
-                    req.Headers.Authorization == null),
-                ItExpr.IsAny<CancellationToken>());
+            _mockHttpMessageHandler.Requests.Should().ContainSingle(req =>
+                req.Headers.Authorization == null);
         }
 
         [Fact]
@@ -240,12 +209,8 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             await _client.GetContentIndexAsync("https://vault.example.com");
 
             // Assert
-            _mockHttpMessageHandler.Protected().Verify(
-                "SendAsync",
-                Times.Once(),
-                ItExpr.Is<HttpRequestMessage>(req =>
-                    req.Headers.Contains("User-Agent")),
-                ItExpr.IsAny<CancellationToken>());
+            _mockHttpMessageHandler.Requests.Should().ContainSingle(req =>
+                req.Headers.Contains("User-Agent"));
         }
 
         #endregion

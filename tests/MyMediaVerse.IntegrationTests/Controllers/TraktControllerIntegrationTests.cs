@@ -1,6 +1,7 @@
-using Microsoft.AspNetCore.TestHost;
+﻿using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
-using Moq;
+using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using MyMediaVerse.Shared.DTOs.Trakt;
 using MyMediaVerse.Shared.Interfaces;
 using System.Net;
@@ -34,17 +35,17 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task GetStatus_WhenConnected_ShouldReturnOkWithConnectedStatus()
         {
             // Arrange
-            var mockSyncService = new Mock<ITraktSyncService>();
-            var mockApiClient = new Mock<ITraktApiClient>();
-            mockSyncService.Setup(s => s.GetStatusAsync())
-                .ReturnsAsync(new TraktConnectionStatusDto { Connected = true, Username = "testuser" });
+            var mockSyncService = Substitute.For<ITraktSyncService>();
+            var mockApiClient = Substitute.For<ITraktApiClient>();
+            mockSyncService.GetStatusAsync()
+                .Returns(new TraktConnectionStatusDto { Connected = true, Username = "testuser" });
 
             var client = _factory.WithWebHostBuilder(builder =>
             {
                 builder.ConfigureTestServices(services =>
                 {
-                    services.AddScoped(_ => mockSyncService.Object);
-                    services.AddScoped(_ => mockApiClient.Object);
+                    services.AddScoped(_ => mockSyncService);
+                    services.AddScoped(_ => mockApiClient);
                 });
             }).CreateClient();
 
@@ -65,17 +66,17 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task GetStatus_WhenDisconnected_ShouldReturnOkWithDisconnectedStatus()
         {
             // Arrange
-            var mockSyncService = new Mock<ITraktSyncService>();
-            var mockApiClient = new Mock<ITraktApiClient>();
-            mockSyncService.Setup(s => s.GetStatusAsync())
-                .ReturnsAsync(new TraktConnectionStatusDto { Connected = false, Username = null });
+            var mockSyncService = Substitute.For<ITraktSyncService>();
+            var mockApiClient = Substitute.For<ITraktApiClient>();
+            mockSyncService.GetStatusAsync()
+                .Returns(new TraktConnectionStatusDto { Connected = false, Username = null });
 
             var client = _factory.WithWebHostBuilder(builder =>
             {
                 builder.ConfigureTestServices(services =>
                 {
-                    services.AddScoped(_ => mockSyncService.Object);
-                    services.AddScoped(_ => mockApiClient.Object);
+                    services.AddScoped(_ => mockSyncService);
+                    services.AddScoped(_ => mockApiClient);
                 });
             }).CreateClient();
 
@@ -100,10 +101,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task StartDeviceAuth_ShouldReturnOkWithDeviceCode()
         {
             // Arrange
-            var mockSyncService = new Mock<ITraktSyncService>();
-            var mockApiClient = new Mock<ITraktApiClient>();
-            mockApiClient.Setup(c => c.GetDeviceCodeAsync())
-                .ReturnsAsync(new TraktDeviceCodeDto
+            var mockSyncService = Substitute.For<ITraktSyncService>();
+            var mockApiClient = Substitute.For<ITraktApiClient>();
+            mockApiClient.GetDeviceCodeAsync()
+                .Returns(new TraktDeviceCodeDto
                 {
                     DeviceCode = "test-device-code",
                     UserCode = "ABCD1234",
@@ -116,8 +117,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             {
                 builder.ConfigureTestServices(services =>
                 {
-                    services.AddScoped(_ => mockSyncService.Object);
-                    services.AddScoped(_ => mockApiClient.Object);
+                    services.AddScoped(_ => mockSyncService);
+                    services.AddScoped(_ => mockApiClient);
                 });
             }).CreateClient();
 
@@ -139,17 +140,17 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task StartDeviceAuth_WhenApiThrows_ShouldReturn500()
         {
             // Arrange
-            var mockSyncService = new Mock<ITraktSyncService>();
-            var mockApiClient = new Mock<ITraktApiClient>();
-            mockApiClient.Setup(c => c.GetDeviceCodeAsync())
-                .ThrowsAsync(new Exception("API error"));
+            var mockSyncService = Substitute.For<ITraktSyncService>();
+            var mockApiClient = Substitute.For<ITraktApiClient>();
+            mockApiClient.GetDeviceCodeAsync()
+                .Throws(new Exception("API error"));
 
             var client = _factory.WithWebHostBuilder(builder =>
             {
                 builder.ConfigureTestServices(services =>
                 {
-                    services.AddScoped(_ => mockSyncService.Object);
-                    services.AddScoped(_ => mockApiClient.Object);
+                    services.AddScoped(_ => mockSyncService);
+                    services.AddScoped(_ => mockApiClient);
                 });
             }).CreateClient();
 
@@ -168,17 +169,17 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task PollDeviceToken_WhenPending_ShouldReturnOkWithPendingStatus()
         {
             // Arrange
-            var mockSyncService = new Mock<ITraktSyncService>();
-            var mockApiClient = new Mock<ITraktApiClient>();
-            mockApiClient.Setup(c => c.PollDeviceTokenAsync("test-code"))
-                .ReturnsAsync((TraktOAuthTokenDto?)null);
+            var mockSyncService = Substitute.For<ITraktSyncService>();
+            var mockApiClient = Substitute.For<ITraktApiClient>();
+            mockApiClient.PollDeviceTokenAsync("test-code")
+                .Returns((TraktOAuthTokenDto?)null);
 
             var client = _factory.WithWebHostBuilder(builder =>
             {
                 builder.ConfigureTestServices(services =>
                 {
-                    services.AddScoped(_ => mockSyncService.Object);
-                    services.AddScoped(_ => mockApiClient.Object);
+                    services.AddScoped(_ => mockSyncService);
+                    services.AddScoped(_ => mockApiClient);
                 });
             }).CreateClient();
 
@@ -203,8 +204,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task PollDeviceToken_WhenAuthorized_ShouldReturnOkWithAuthorizedStatus()
         {
             // Arrange
-            var mockSyncService = new Mock<ITraktSyncService>();
-            var mockApiClient = new Mock<ITraktApiClient>();
+            var mockSyncService = Substitute.For<ITraktSyncService>();
+            var mockApiClient = Substitute.For<ITraktApiClient>();
 
             var token = new TraktOAuthTokenDto
             {
@@ -215,17 +216,17 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                 CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
             };
 
-            mockApiClient.Setup(c => c.PollDeviceTokenAsync("test-code"))
-                .ReturnsAsync(token);
-            mockSyncService.Setup(s => s.SaveTokenAsync(It.IsAny<TraktOAuthTokenDto>()))
+            mockApiClient.PollDeviceTokenAsync("test-code")
+                .Returns(token);
+            mockSyncService.SaveTokenAsync(Arg.Any<TraktOAuthTokenDto>())
                 .Returns(Task.CompletedTask);
 
             var client = _factory.WithWebHostBuilder(builder =>
             {
                 builder.ConfigureTestServices(services =>
                 {
-                    services.AddScoped(_ => mockSyncService.Object);
-                    services.AddScoped(_ => mockApiClient.Object);
+                    services.AddScoped(_ => mockSyncService);
+                    services.AddScoped(_ => mockApiClient);
                 });
             }).CreateClient();
 
@@ -245,24 +246,24 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             using var doc = JsonDocument.Parse(content);
             Assert.Equal("authorized", doc.RootElement.GetProperty("status").GetString());
 
-            mockSyncService.Verify(s => s.SaveTokenAsync(It.IsAny<TraktOAuthTokenDto>()), Times.Once);
+            mockSyncService.Received(1).SaveTokenAsync(Arg.Any<TraktOAuthTokenDto>());
         }
 
         [Fact]
         public async Task PollDeviceToken_WhenCodeExpired_ShouldReturnBadRequest()
         {
             // Arrange
-            var mockSyncService = new Mock<ITraktSyncService>();
-            var mockApiClient = new Mock<ITraktApiClient>();
-            mockApiClient.Setup(c => c.PollDeviceTokenAsync("test-code"))
-                .ThrowsAsync(new InvalidOperationException("Device code has expired"));
+            var mockSyncService = Substitute.For<ITraktSyncService>();
+            var mockApiClient = Substitute.For<ITraktApiClient>();
+            mockApiClient.PollDeviceTokenAsync("test-code")
+                .Throws(new InvalidOperationException("Device code has expired"));
 
             var client = _factory.WithWebHostBuilder(builder =>
             {
                 builder.ConfigureTestServices(services =>
                 {
-                    services.AddScoped(_ => mockSyncService.Object);
-                    services.AddScoped(_ => mockApiClient.Object);
+                    services.AddScoped(_ => mockSyncService);
+                    services.AddScoped(_ => mockApiClient);
                 });
             }).CreateClient();
 
@@ -287,17 +288,17 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task Disconnect_ShouldReturnOk()
         {
             // Arrange
-            var mockSyncService = new Mock<ITraktSyncService>();
-            var mockApiClient = new Mock<ITraktApiClient>();
-            mockSyncService.Setup(s => s.DisconnectAsync())
+            var mockSyncService = Substitute.For<ITraktSyncService>();
+            var mockApiClient = Substitute.For<ITraktApiClient>();
+            mockSyncService.DisconnectAsync()
                 .Returns(Task.CompletedTask);
 
             var client = _factory.WithWebHostBuilder(builder =>
             {
                 builder.ConfigureTestServices(services =>
                 {
-                    services.AddScoped(_ => mockSyncService.Object);
-                    services.AddScoped(_ => mockApiClient.Object);
+                    services.AddScoped(_ => mockSyncService);
+                    services.AddScoped(_ => mockApiClient);
                 });
             }).CreateClient();
 
@@ -307,7 +308,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-            mockSyncService.Verify(s => s.DisconnectAsync(), Times.Once);
+            mockSyncService.Received(1).DisconnectAsync();
         }
 
         #endregion
@@ -318,10 +319,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task SyncWatched_ShouldReturnOkWithResult()
         {
             // Arrange
-            var mockSyncService = new Mock<ITraktSyncService>();
-            var mockApiClient = new Mock<ITraktApiClient>();
-            mockSyncService.Setup(s => s.SyncWatchedAsync())
-                .ReturnsAsync(new TraktSyncResultDto
+            var mockSyncService = Substitute.For<ITraktSyncService>();
+            var mockApiClient = Substitute.For<ITraktApiClient>();
+            mockSyncService.SyncWatchedAsync()
+                .Returns(new TraktSyncResultDto
                 {
                     Success = true,
                     MoviesCreated = 5,
@@ -335,8 +336,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             {
                 builder.ConfigureTestServices(services =>
                 {
-                    services.AddScoped(_ => mockSyncService.Object);
-                    services.AddScoped(_ => mockApiClient.Object);
+                    services.AddScoped(_ => mockSyncService);
+                    services.AddScoped(_ => mockApiClient);
                 });
             }).CreateClient();
 
@@ -359,10 +360,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task SyncWatchlist_ShouldReturnOkWithResult()
         {
             // Arrange
-            var mockSyncService = new Mock<ITraktSyncService>();
-            var mockApiClient = new Mock<ITraktApiClient>();
-            mockSyncService.Setup(s => s.SyncWatchlistAsync())
-                .ReturnsAsync(new TraktSyncResultDto
+            var mockSyncService = Substitute.For<ITraktSyncService>();
+            var mockApiClient = Substitute.For<ITraktApiClient>();
+            mockSyncService.SyncWatchlistAsync()
+                .Returns(new TraktSyncResultDto
                 {
                     Success = true,
                     WatchlistItemsProcessed = 10,
@@ -374,8 +375,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             {
                 builder.ConfigureTestServices(services =>
                 {
-                    services.AddScoped(_ => mockSyncService.Object);
-                    services.AddScoped(_ => mockApiClient.Object);
+                    services.AddScoped(_ => mockSyncService);
+                    services.AddScoped(_ => mockApiClient);
                 });
             }).CreateClient();
 
@@ -396,10 +397,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task SyncRatings_ShouldReturnOkWithResult()
         {
             // Arrange
-            var mockSyncService = new Mock<ITraktSyncService>();
-            var mockApiClient = new Mock<ITraktApiClient>();
-            mockSyncService.Setup(s => s.SyncRatingsAsync())
-                .ReturnsAsync(new TraktSyncResultDto
+            var mockSyncService = Substitute.For<ITraktSyncService>();
+            var mockApiClient = Substitute.For<ITraktApiClient>();
+            mockSyncService.SyncRatingsAsync()
+                .Returns(new TraktSyncResultDto
                 {
                     Success = true,
                     RatingsProcessed = 15,
@@ -411,8 +412,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             {
                 builder.ConfigureTestServices(services =>
                 {
-                    services.AddScoped(_ => mockSyncService.Object);
-                    services.AddScoped(_ => mockApiClient.Object);
+                    services.AddScoped(_ => mockSyncService);
+                    services.AddScoped(_ => mockApiClient);
                 });
             }).CreateClient();
 
@@ -433,10 +434,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task SyncAll_ShouldReturnOkWithCombinedResult()
         {
             // Arrange
-            var mockSyncService = new Mock<ITraktSyncService>();
-            var mockApiClient = new Mock<ITraktApiClient>();
-            mockSyncService.Setup(s => s.SyncAllAsync())
-                .ReturnsAsync(new TraktSyncResultDto
+            var mockSyncService = Substitute.For<ITraktSyncService>();
+            var mockApiClient = Substitute.For<ITraktApiClient>();
+            mockSyncService.SyncAllAsync()
+                .Returns(new TraktSyncResultDto
                 {
                     Success = true,
                     MoviesCreated = 5,
@@ -455,8 +456,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             {
                 builder.ConfigureTestServices(services =>
                 {
-                    services.AddScoped(_ => mockSyncService.Object);
-                    services.AddScoped(_ => mockApiClient.Object);
+                    services.AddScoped(_ => mockSyncService);
+                    services.AddScoped(_ => mockApiClient);
                 });
             }).CreateClient();
 
@@ -484,17 +485,17 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task SyncWatched_WhenServiceThrows_ShouldReturn500()
         {
             // Arrange
-            var mockSyncService = new Mock<ITraktSyncService>();
-            var mockApiClient = new Mock<ITraktApiClient>();
-            mockSyncService.Setup(s => s.SyncWatchedAsync())
-                .ThrowsAsync(new Exception("Sync failed"));
+            var mockSyncService = Substitute.For<ITraktSyncService>();
+            var mockApiClient = Substitute.For<ITraktApiClient>();
+            mockSyncService.SyncWatchedAsync()
+                .Throws(new Exception("Sync failed"));
 
             var client = _factory.WithWebHostBuilder(builder =>
             {
                 builder.ConfigureTestServices(services =>
                 {
-                    services.AddScoped(_ => mockSyncService.Object);
-                    services.AddScoped(_ => mockApiClient.Object);
+                    services.AddScoped(_ => mockSyncService);
+                    services.AddScoped(_ => mockApiClient);
                 });
             }).CreateClient();
 

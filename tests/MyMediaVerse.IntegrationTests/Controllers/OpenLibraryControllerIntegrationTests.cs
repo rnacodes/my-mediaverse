@@ -2,9 +2,10 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using AwesomeAssertions;
+using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
-using Moq;
+using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
@@ -38,8 +39,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task SearchOpenLibrary_WithValidQuery_ReturnsResults()
         {
             // Arrange
-            var mockOpenLibraryService = new Mock<IOpenLibraryService>();
-            var mockBookMappingService = new Mock<IBookMappingService>();
+            var mockOpenLibraryService = Substitute.For<IOpenLibraryService>();
+            var mockBookMappingService = Substitute.For<IBookMappingService>();
 
             var searchResult = new OpenLibrarySearchResultDto
             {
@@ -58,12 +59,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             };
 
             mockOpenLibraryService
-                .Setup(x => x.SearchBooksAsync("Harry Potter", null, 5))
-                .ReturnsAsync(searchResult);
+                .SearchBooksAsync("Harry Potter", null, 5)
+                .Returns(searchResult);
 
             mockBookMappingService
-                .Setup(x => x.MapToSearchResultDtoAsync(It.IsAny<OpenLibraryBookDto>()))
-                .ReturnsAsync(mappedResult);
+                .MapToSearchResultDtoAsync(Arg.Any<OpenLibraryBookDto>())
+                .Returns(mappedResult);
 
             var client = CreateClientWithMocks(mockOpenLibraryService, mockBookMappingService);
 
@@ -93,8 +94,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task SearchOpenLibrary_WithTitleSearchType_ReturnsResults()
         {
             // Arrange
-            var mockOpenLibraryService = new Mock<IOpenLibraryService>();
-            var mockBookMappingService = new Mock<IBookMappingService>();
+            var mockOpenLibraryService = Substitute.For<IOpenLibraryService>();
+            var mockBookMappingService = Substitute.For<IBookMappingService>();
 
             var searchResult = new OpenLibrarySearchResultDto
             {
@@ -113,12 +114,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             };
 
             mockOpenLibraryService
-                .Setup(x => x.SearchBooksByTitleAsync("The Great Gatsby", null, 3))
-                .ReturnsAsync(searchResult);
+                .SearchBooksByTitleAsync("The Great Gatsby", null, 3)
+                .Returns(searchResult);
 
             mockBookMappingService
-                .Setup(x => x.MapToSearchResultDtoAsync(It.IsAny<OpenLibraryBookDto>()))
-                .ReturnsAsync(mappedResult);
+                .MapToSearchResultDtoAsync(Arg.Any<OpenLibraryBookDto>())
+                .Returns(mappedResult);
 
             var client = CreateClientWithMocks(mockOpenLibraryService, mockBookMappingService);
 
@@ -135,8 +136,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task SearchOpenLibrary_WithAuthorSearchType_ReturnsResults()
         {
             // Arrange
-            var mockOpenLibraryService = new Mock<IOpenLibraryService>();
-            var mockBookMappingService = new Mock<IBookMappingService>();
+            var mockOpenLibraryService = Substitute.For<IOpenLibraryService>();
+            var mockBookMappingService = Substitute.For<IBookMappingService>();
 
             var searchResult = new OpenLibrarySearchResultDto
             {
@@ -155,12 +156,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             };
 
             mockOpenLibraryService
-                .Setup(x => x.SearchBooksByAuthorAsync("J.K. Rowling", null, 3))
-                .ReturnsAsync(searchResult);
+                .SearchBooksByAuthorAsync("J.K. Rowling", null, 3)
+                .Returns(searchResult);
 
             mockBookMappingService
-                .Setup(x => x.MapToSearchResultDtoAsync(It.IsAny<OpenLibraryBookDto>()))
-                .ReturnsAsync(mappedResult);
+                .MapToSearchResultDtoAsync(Arg.Any<OpenLibraryBookDto>())
+                .Returns(mappedResult);
 
             var client = CreateClientWithMocks(mockOpenLibraryService, mockBookMappingService);
 
@@ -177,8 +178,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task SearchOpenLibrary_WithPagination_ReturnsCorrectResults()
         {
             // Arrange
-            var mockOpenLibraryService = new Mock<IOpenLibraryService>();
-            var mockBookMappingService = new Mock<IBookMappingService>();
+            var mockOpenLibraryService = Substitute.For<IOpenLibraryService>();
+            var mockBookMappingService = Substitute.For<IBookMappingService>();
 
             var books = Enumerable.Range(1, 3)
                 .Select(i => CreateTestBook($"/works/OL{i}W", $"Science Fiction Book {i}", "Test Author"))
@@ -197,12 +198,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             };
 
             mockOpenLibraryService
-                .Setup(x => x.SearchBooksAsync("science fiction", 0, 5))
-                .ReturnsAsync(searchResult);
+                .SearchBooksAsync("science fiction", 0, 5)
+                .Returns(searchResult);
 
             mockBookMappingService
-                .Setup(x => x.MapToSearchResultDtoAsync(It.IsAny<OpenLibraryBookDto>()))
-                .ReturnsAsync(mappedResult);
+                .MapToSearchResultDtoAsync(Arg.Any<OpenLibraryBookDto>())
+                .Returns(mappedResult);
 
             var client = CreateClientWithMocks(mockOpenLibraryService, mockBookMappingService);
 
@@ -223,8 +224,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task SearchOpenLibrary_WithDifferentSearchTypes_ReturnsOk(string searchType)
         {
             // Arrange
-            var mockOpenLibraryService = new Mock<IOpenLibraryService>();
-            var mockBookMappingService = new Mock<IBookMappingService>();
+            var mockOpenLibraryService = Substitute.For<IOpenLibraryService>();
+            var mockBookMappingService = Substitute.For<IBookMappingService>();
 
             var searchResult = new OpenLibrarySearchResultDto
             {
@@ -243,18 +244,18 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Setup all possible search type methods
             mockOpenLibraryService
-                .Setup(x => x.SearchBooksAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<int?>()))
-                .ReturnsAsync(searchResult);
+                .SearchBooksAsync(Arg.Any<string>(), Arg.Any<int?>(), Arg.Any<int?>())
+                .Returns(searchResult);
             mockOpenLibraryService
-                .Setup(x => x.SearchBooksByTitleAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<int?>()))
-                .ReturnsAsync(searchResult);
+                .SearchBooksByTitleAsync(Arg.Any<string>(), Arg.Any<int?>(), Arg.Any<int?>())
+                .Returns(searchResult);
             mockOpenLibraryService
-                .Setup(x => x.SearchBooksByAuthorAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<int?>()))
-                .ReturnsAsync(searchResult);
+                .SearchBooksByAuthorAsync(Arg.Any<string>(), Arg.Any<int?>(), Arg.Any<int?>())
+                .Returns(searchResult);
 
             mockBookMappingService
-                .Setup(x => x.MapToSearchResultDtoAsync(It.IsAny<OpenLibraryBookDto>()))
-                .ReturnsAsync(mappedResult);
+                .MapToSearchResultDtoAsync(Arg.Any<OpenLibraryBookDto>())
+                .Returns(mappedResult);
 
             var client = CreateClientWithMocks(mockOpenLibraryService, mockBookMappingService);
 
@@ -273,8 +274,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task ImportFromOpenLibrary_WithValidTitle_CreatesBook()
         {
             // Arrange
-            var mockOpenLibraryService = new Mock<IOpenLibraryService>();
-            var mockBookMappingService = new Mock<IBookMappingService>();
+            var mockOpenLibraryService = Substitute.For<IOpenLibraryService>();
+            var mockBookMappingService = Substitute.For<IBookMappingService>();
 
             var expectedBook = TestDataFactory.CreateBook("The Hobbit", "J.R.R. Tolkien");
 
@@ -289,12 +290,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             };
 
             mockOpenLibraryService
-                .Setup(x => x.ImportBookFromTitleAndAuthorAsync("The Hobbit", "J.R.R. Tolkien"))
-                .ReturnsAsync(expectedBook);
+                .ImportBookFromTitleAndAuthorAsync("The Hobbit", "J.R.R. Tolkien")
+                .Returns(expectedBook);
 
             mockBookMappingService
-                .Setup(x => x.MapToResponseDtoAsync(It.IsAny<Book>()))
-                .ReturnsAsync(expectedResponse);
+                .MapToResponseDtoAsync(Arg.Any<Book>())
+                .Returns(expectedResponse);
 
             var client = CreateClientWithMocks(mockOpenLibraryService, mockBookMappingService);
 
@@ -318,8 +319,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task ImportFromOpenLibrary_WithValidISBN_CreatesBook()
         {
             // Arrange
-            var mockOpenLibraryService = new Mock<IOpenLibraryService>();
-            var mockBookMappingService = new Mock<IBookMappingService>();
+            var mockOpenLibraryService = Substitute.For<IOpenLibraryService>();
+            var mockBookMappingService = Substitute.For<IBookMappingService>();
 
             var expectedBook = TestDataFactory.CreateBook("The Great Gatsby", "F. Scott Fitzgerald");
 
@@ -334,12 +335,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             };
 
             mockOpenLibraryService
-                .Setup(x => x.ImportBookFromISBNAsync("9780743273565"))
-                .ReturnsAsync(expectedBook);
+                .ImportBookFromISBNAsync("9780743273565")
+                .Returns(expectedBook);
 
             mockBookMappingService
-                .Setup(x => x.MapToResponseDtoAsync(It.IsAny<Book>()))
-                .ReturnsAsync(expectedResponse);
+                .MapToResponseDtoAsync(Arg.Any<Book>())
+                .Returns(expectedResponse);
 
             var client = CreateClientWithMocks(mockOpenLibraryService, mockBookMappingService);
 
@@ -376,12 +377,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task ImportFromOpenLibrary_WithNonExistentTitle_ReturnsNotFound()
         {
             // Arrange
-            var mockOpenLibraryService = new Mock<IOpenLibraryService>();
-            var mockBookMappingService = new Mock<IBookMappingService>();
+            var mockOpenLibraryService = Substitute.For<IOpenLibraryService>();
+            var mockBookMappingService = Substitute.For<IBookMappingService>();
 
             mockOpenLibraryService
-                .Setup(x => x.ImportBookFromTitleAndAuthorAsync("This Book Definitely Does Not Exist 12345", "Non Existent Author 67890"))
-                .ThrowsAsync(new InvalidOperationException("Book not found in OpenLibrary"));
+                .ImportBookFromTitleAndAuthorAsync("This Book Definitely Does Not Exist 12345", "Non Existent Author 67890")
+                .Throws(new InvalidOperationException("Book not found in OpenLibrary"));
 
             var client = CreateClientWithMocks(mockOpenLibraryService, mockBookMappingService);
 
@@ -403,8 +404,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         #region Helper Methods
 
         private HttpClient CreateClientWithMocks(
-            Mock<IOpenLibraryService>? mockOpenLibraryService = null,
-            Mock<IBookMappingService>? mockBookMappingService = null)
+            IOpenLibraryService? mockOpenLibraryService = null,
+            IBookMappingService? mockBookMappingService = null)
         {
             var factory = _factory.WithWebHostBuilder(builder =>
             {
@@ -415,7 +416,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                         var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IOpenLibraryService));
                         if (descriptor != null)
                             services.Remove(descriptor);
-                        services.AddSingleton(mockOpenLibraryService.Object);
+                        services.AddSingleton(mockOpenLibraryService);
                     }
 
                     if (mockBookMappingService != null)
@@ -423,7 +424,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                         var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IBookMappingService));
                         if (descriptor != null)
                             services.Remove(descriptor);
-                        services.AddSingleton(mockBookMappingService.Object);
+                        services.AddSingleton(mockBookMappingService);
                     }
                 });
             });

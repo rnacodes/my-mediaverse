@@ -1,6 +1,6 @@
-﻿using AwesomeAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Configuration;
-using Moq;
+using NSubstitute;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.UnitTests.TestHelpers;
@@ -10,23 +10,23 @@ namespace MyMediaVerse.UnitTests.Application
 {
     public class AuthServiceTests : InMemoryDbTestBase
     {
-        private readonly Mock<IConfiguration> _mockConfiguration;
-        private readonly Mock<IConfigurationSection> _mockJwtSection;
+        private readonly IConfiguration _mockConfiguration;
+        private readonly IConfigurationSection _mockJwtSection;
         private readonly AuthService _authService;
         private const string TestJwtSecret = "ThisIsAVerySecureTestSecretKey12345678901234567890";
 
         public AuthServiceTests()
         {
-            _mockConfiguration = new Mock<IConfiguration>();
-            _mockJwtSection = new Mock<IConfigurationSection>();
+            _mockConfiguration = Substitute.For<IConfiguration>();
+            _mockJwtSection = Substitute.For<IConfigurationSection>();
 
             // Setup JWT configuration
-            _mockJwtSection.Setup(x => x["Secret"]).Returns(TestJwtSecret);
-            _mockJwtSection.Setup(x => x["Issuer"]).Returns("TestIssuer");
-            _mockJwtSection.Setup(x => x["Audience"]).Returns("TestAudience");
-            _mockConfiguration.Setup(x => x.GetSection("JwtSettings")).Returns(_mockJwtSection.Object);
+            _mockJwtSection["Secret"].Returns(TestJwtSecret);
+            _mockJwtSection["Issuer"].Returns("TestIssuer");
+            _mockJwtSection["Audience"].Returns("TestAudience");
+            _mockConfiguration.GetSection("JwtSettings").Returns(_mockJwtSection);
 
-            _authService = new AuthService(Context, _mockConfiguration.Object);
+            _authService = new AuthService(Context, _mockConfiguration);
         }
 
         #region GenerateAccessToken Tests

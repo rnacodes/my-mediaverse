@@ -1,6 +1,6 @@
-﻿using AwesomeAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Logging;
-using Moq;
+using NSubstitute;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.UnitTests.TestData;
@@ -9,13 +9,13 @@ namespace MyMediaVerse.UnitTests.Application
 {
     public class WebsiteMappingServiceTests
     {
-        private readonly Mock<ILogger<WebsiteMappingService>> _mockLogger;
+        private readonly ILogger<WebsiteMappingService> _mockLogger;
         private readonly WebsiteMappingService _service;
 
         public WebsiteMappingServiceTests()
         {
-            _mockLogger = new Mock<ILogger<WebsiteMappingService>>();
-            _service = new WebsiteMappingService(_mockLogger.Object);
+            _mockLogger = Substitute.For<ILogger<WebsiteMappingService>>();
+            _service = new WebsiteMappingService(_mockLogger);
         }
 
         #region MapToResponseDtoAsync (single)

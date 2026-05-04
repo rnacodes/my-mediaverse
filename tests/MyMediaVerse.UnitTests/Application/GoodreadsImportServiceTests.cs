@@ -1,6 +1,6 @@
-﻿using AwesomeAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Logging;
-using Moq;
+using NSubstitute;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.UnitTests.TestData;
@@ -10,13 +10,13 @@ namespace MyMediaVerse.UnitTests.Application
 {
     public class GoodreadsImportServiceTests : InMemoryDbTestBase
     {
-        private readonly Mock<ILogger<GoodreadsImportService>> _mockLogger;
+        private readonly ILogger<GoodreadsImportService> _mockLogger;
         private readonly GoodreadsImportService _service;
 
         public GoodreadsImportServiceTests()
         {
-            _mockLogger = new Mock<ILogger<GoodreadsImportService>>();
-            _service = new GoodreadsImportService(Context, _mockLogger.Object);
+            _mockLogger = Substitute.For<ILogger<GoodreadsImportService>>();
+            _service = new GoodreadsImportService(Context, _mockLogger);
         }
 
         #region MapShelfToStatus

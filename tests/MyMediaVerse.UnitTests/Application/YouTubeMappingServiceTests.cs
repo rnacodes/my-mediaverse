@@ -1,4 +1,4 @@
-﻿using AwesomeAssertions;
+﻿using FluentAssertions;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Shared.DTOs.YouTube;

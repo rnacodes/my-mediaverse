@@ -2,9 +2,10 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using AwesomeAssertions;
+using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
-using Moq;
+using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
@@ -38,8 +39,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task SearchGoogleBooks_WithValidQuery_ReturnsResults()
         {
             // Arrange
-            var mockGoogleBooksService = new Mock<IGoogleBooksService>();
-            var mockBookMappingService = new Mock<IBookMappingService>();
+            var mockGoogleBooksService = Substitute.For<IGoogleBooksService>();
+            var mockBookMappingService = Substitute.For<IBookMappingService>();
 
             var searchResult = new GoogleBooksSearchResultDto
             {
@@ -58,12 +59,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             };
 
             mockGoogleBooksService
-                .Setup(x => x.SearchBooksAsync("Harry Potter", null, 5))
-                .ReturnsAsync(searchResult);
+                .SearchBooksAsync("Harry Potter", null, 5)
+                .Returns(searchResult);
 
             mockBookMappingService
-                .Setup(x => x.MapGoogleBooksToSearchResultDtoAsync(It.IsAny<GoogleBooksVolumeDto>()))
-                .ReturnsAsync(mappedResult);
+                .MapGoogleBooksToSearchResultDtoAsync(Arg.Any<GoogleBooksVolumeDto>())
+                .Returns(mappedResult);
 
             var client = CreateClientWithMocks(mockGoogleBooksService, mockBookMappingService);
 
@@ -93,8 +94,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task SearchGoogleBooks_WithTitleSearchType_ReturnsResults()
         {
             // Arrange
-            var mockGoogleBooksService = new Mock<IGoogleBooksService>();
-            var mockBookMappingService = new Mock<IBookMappingService>();
+            var mockGoogleBooksService = Substitute.For<IGoogleBooksService>();
+            var mockBookMappingService = Substitute.For<IBookMappingService>();
 
             var searchResult = new GoogleBooksSearchResultDto
             {
@@ -113,12 +114,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             };
 
             mockGoogleBooksService
-                .Setup(x => x.SearchBooksByTitleAsync("The Great Gatsby", null, 3))
-                .ReturnsAsync(searchResult);
+                .SearchBooksByTitleAsync("The Great Gatsby", null, 3)
+                .Returns(searchResult);
 
             mockBookMappingService
-                .Setup(x => x.MapGoogleBooksToSearchResultDtoAsync(It.IsAny<GoogleBooksVolumeDto>()))
-                .ReturnsAsync(mappedResult);
+                .MapGoogleBooksToSearchResultDtoAsync(Arg.Any<GoogleBooksVolumeDto>())
+                .Returns(mappedResult);
 
             var client = CreateClientWithMocks(mockGoogleBooksService, mockBookMappingService);
 
@@ -135,8 +136,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task SearchGoogleBooks_WithAuthorSearchType_ReturnsResults()
         {
             // Arrange
-            var mockGoogleBooksService = new Mock<IGoogleBooksService>();
-            var mockBookMappingService = new Mock<IBookMappingService>();
+            var mockGoogleBooksService = Substitute.For<IGoogleBooksService>();
+            var mockBookMappingService = Substitute.For<IBookMappingService>();
 
             var searchResult = new GoogleBooksSearchResultDto
             {
@@ -155,12 +156,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             };
 
             mockGoogleBooksService
-                .Setup(x => x.SearchBooksByAuthorAsync("J.K. Rowling", null, 3))
-                .ReturnsAsync(searchResult);
+                .SearchBooksByAuthorAsync("J.K. Rowling", null, 3)
+                .Returns(searchResult);
 
             mockBookMappingService
-                .Setup(x => x.MapGoogleBooksToSearchResultDtoAsync(It.IsAny<GoogleBooksVolumeDto>()))
-                .ReturnsAsync(mappedResult);
+                .MapGoogleBooksToSearchResultDtoAsync(Arg.Any<GoogleBooksVolumeDto>())
+                .Returns(mappedResult);
 
             var client = CreateClientWithMocks(mockGoogleBooksService, mockBookMappingService);
 
@@ -177,8 +178,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task SearchGoogleBooks_WithISBNSearchType_ReturnsResults()
         {
             // Arrange
-            var mockGoogleBooksService = new Mock<IGoogleBooksService>();
-            var mockBookMappingService = new Mock<IBookMappingService>();
+            var mockGoogleBooksService = Substitute.For<IGoogleBooksService>();
+            var mockBookMappingService = Substitute.For<IBookMappingService>();
 
             var searchResult = new GoogleBooksSearchResultDto
             {
@@ -197,12 +198,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             };
 
             mockGoogleBooksService
-                .Setup(x => x.SearchBooksByISBNAsync("9780743273565"))
-                .ReturnsAsync(searchResult);
+                .SearchBooksByISBNAsync("9780743273565")
+                .Returns(searchResult);
 
             mockBookMappingService
-                .Setup(x => x.MapGoogleBooksToSearchResultDtoAsync(It.IsAny<GoogleBooksVolumeDto>()))
-                .ReturnsAsync(mappedResult);
+                .MapGoogleBooksToSearchResultDtoAsync(Arg.Any<GoogleBooksVolumeDto>())
+                .Returns(mappedResult);
 
             var client = CreateClientWithMocks(mockGoogleBooksService, mockBookMappingService);
 
@@ -219,8 +220,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task SearchGoogleBooks_WithPagination_ReturnsCorrectResults()
         {
             // Arrange
-            var mockGoogleBooksService = new Mock<IGoogleBooksService>();
-            var mockBookMappingService = new Mock<IBookMappingService>();
+            var mockGoogleBooksService = Substitute.For<IGoogleBooksService>();
+            var mockBookMappingService = Substitute.For<IBookMappingService>();
 
             var volumes = Enumerable.Range(1, 3)
                 .Select(i => CreateTestVolume($"vol{i}", $"Science Fiction Book {i}"))
@@ -239,12 +240,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             };
 
             mockGoogleBooksService
-                .Setup(x => x.SearchBooksAsync("science fiction", 0, 5))
-                .ReturnsAsync(searchResult);
+                .SearchBooksAsync("science fiction", 0, 5)
+                .Returns(searchResult);
 
             mockBookMappingService
-                .Setup(x => x.MapGoogleBooksToSearchResultDtoAsync(It.IsAny<GoogleBooksVolumeDto>()))
-                .ReturnsAsync(mappedResult);
+                .MapGoogleBooksToSearchResultDtoAsync(Arg.Any<GoogleBooksVolumeDto>())
+                .Returns(mappedResult);
 
             var client = CreateClientWithMocks(mockGoogleBooksService, mockBookMappingService);
 
@@ -265,8 +266,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task SearchGoogleBooks_WithDifferentSearchTypes_ReturnsOk(string searchType)
         {
             // Arrange
-            var mockGoogleBooksService = new Mock<IGoogleBooksService>();
-            var mockBookMappingService = new Mock<IBookMappingService>();
+            var mockGoogleBooksService = Substitute.For<IGoogleBooksService>();
+            var mockBookMappingService = Substitute.For<IBookMappingService>();
 
             var searchResult = new GoogleBooksSearchResultDto
             {
@@ -285,18 +286,18 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Setup all possible search type methods
             mockGoogleBooksService
-                .Setup(x => x.SearchBooksAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<int?>()))
-                .ReturnsAsync(searchResult);
+                .SearchBooksAsync(Arg.Any<string>(), Arg.Any<int?>(), Arg.Any<int?>())
+                .Returns(searchResult);
             mockGoogleBooksService
-                .Setup(x => x.SearchBooksByTitleAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<int?>()))
-                .ReturnsAsync(searchResult);
+                .SearchBooksByTitleAsync(Arg.Any<string>(), Arg.Any<int?>(), Arg.Any<int?>())
+                .Returns(searchResult);
             mockGoogleBooksService
-                .Setup(x => x.SearchBooksByAuthorAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<int?>()))
-                .ReturnsAsync(searchResult);
+                .SearchBooksByAuthorAsync(Arg.Any<string>(), Arg.Any<int?>(), Arg.Any<int?>())
+                .Returns(searchResult);
 
             mockBookMappingService
-                .Setup(x => x.MapGoogleBooksToSearchResultDtoAsync(It.IsAny<GoogleBooksVolumeDto>()))
-                .ReturnsAsync(mappedResult);
+                .MapGoogleBooksToSearchResultDtoAsync(Arg.Any<GoogleBooksVolumeDto>())
+                .Returns(mappedResult);
 
             var client = CreateClientWithMocks(mockGoogleBooksService, mockBookMappingService);
 
@@ -315,8 +316,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task ImportFromGoogleBooks_WithValidTitle_CreatesBook()
         {
             // Arrange
-            var mockGoogleBooksService = new Mock<IGoogleBooksService>();
-            var mockBookMappingService = new Mock<IBookMappingService>();
+            var mockGoogleBooksService = Substitute.For<IGoogleBooksService>();
+            var mockBookMappingService = Substitute.For<IBookMappingService>();
 
             var expectedBook = TestDataFactory.CreateBook("The Hobbit", "J.R.R. Tolkien");
 
@@ -331,12 +332,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             };
 
             mockGoogleBooksService
-                .Setup(x => x.ImportBookFromTitleAndAuthorAsync("The Hobbit", "J.R.R. Tolkien"))
-                .ReturnsAsync(expectedBook);
+                .ImportBookFromTitleAndAuthorAsync("The Hobbit", "J.R.R. Tolkien")
+                .Returns(expectedBook);
 
             mockBookMappingService
-                .Setup(x => x.MapToResponseDtoAsync(It.IsAny<Book>()))
-                .ReturnsAsync(expectedResponse);
+                .MapToResponseDtoAsync(Arg.Any<Book>())
+                .Returns(expectedResponse);
 
             var client = CreateClientWithMocks(mockGoogleBooksService, mockBookMappingService);
 
@@ -360,8 +361,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task ImportFromGoogleBooks_WithValidISBN_CreatesBook()
         {
             // Arrange
-            var mockGoogleBooksService = new Mock<IGoogleBooksService>();
-            var mockBookMappingService = new Mock<IBookMappingService>();
+            var mockGoogleBooksService = Substitute.For<IGoogleBooksService>();
+            var mockBookMappingService = Substitute.For<IBookMappingService>();
 
             var expectedBook = TestDataFactory.CreateBook("The Great Gatsby", "F. Scott Fitzgerald");
 
@@ -376,12 +377,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             };
 
             mockGoogleBooksService
-                .Setup(x => x.ImportBookFromISBNAsync("9780743273565"))
-                .ReturnsAsync(expectedBook);
+                .ImportBookFromISBNAsync("9780743273565")
+                .Returns(expectedBook);
 
             mockBookMappingService
-                .Setup(x => x.MapToResponseDtoAsync(It.IsAny<Book>()))
-                .ReturnsAsync(expectedResponse);
+                .MapToResponseDtoAsync(Arg.Any<Book>())
+                .Returns(expectedResponse);
 
             var client = CreateClientWithMocks(mockGoogleBooksService, mockBookMappingService);
 
@@ -418,12 +419,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task ImportFromGoogleBooks_WithNonExistentTitle_ReturnsNotFound()
         {
             // Arrange
-            var mockGoogleBooksService = new Mock<IGoogleBooksService>();
-            var mockBookMappingService = new Mock<IBookMappingService>();
+            var mockGoogleBooksService = Substitute.For<IGoogleBooksService>();
+            var mockBookMappingService = Substitute.For<IBookMappingService>();
 
             mockGoogleBooksService
-                .Setup(x => x.ImportBookFromTitleAndAuthorAsync("This Book Definitely Does Not Exist 12345", "Non Existent Author 67890"))
-                .ThrowsAsync(new InvalidOperationException("Book not found in Google Books"));
+                .ImportBookFromTitleAndAuthorAsync("This Book Definitely Does Not Exist 12345", "Non Existent Author 67890")
+                .Throws(new InvalidOperationException("Book not found in Google Books"));
 
             var client = CreateClientWithMocks(mockGoogleBooksService, mockBookMappingService);
 
@@ -444,8 +445,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task ImportFromGoogleBooks_WithValidVolumeId_CreatesBook()
         {
             // Arrange
-            var mockGoogleBooksService = new Mock<IGoogleBooksService>();
-            var mockBookMappingService = new Mock<IBookMappingService>();
+            var mockGoogleBooksService = Substitute.For<IGoogleBooksService>();
+            var mockBookMappingService = Substitute.For<IBookMappingService>();
 
             var expectedBook = TestDataFactory.CreateBook("1984", "George Orwell");
 
@@ -460,12 +461,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             };
 
             mockGoogleBooksService
-                .Setup(x => x.ImportBookFromVolumeIdAsync("test-volume-id"))
-                .ReturnsAsync(expectedBook);
+                .ImportBookFromVolumeIdAsync("test-volume-id")
+                .Returns(expectedBook);
 
             mockBookMappingService
-                .Setup(x => x.MapToResponseDtoAsync(It.IsAny<Book>()))
-                .ReturnsAsync(expectedResponse);
+                .MapToResponseDtoAsync(Arg.Any<Book>())
+                .Returns(expectedResponse);
 
             var client = CreateClientWithMocks(mockGoogleBooksService, mockBookMappingService);
 
@@ -489,8 +490,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         #region Helper Methods
 
         private HttpClient CreateClientWithMocks(
-            Mock<IGoogleBooksService>? mockGoogleBooksService = null,
-            Mock<IBookMappingService>? mockBookMappingService = null)
+            IGoogleBooksService? mockGoogleBooksService = null,
+            IBookMappingService? mockBookMappingService = null)
         {
             var factory = _factory.WithWebHostBuilder(builder =>
             {
@@ -501,7 +502,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                         var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IGoogleBooksService));
                         if (descriptor != null)
                             services.Remove(descriptor);
-                        services.AddSingleton(mockGoogleBooksService.Object);
+                        services.AddSingleton(mockGoogleBooksService);
                     }
 
                     if (mockBookMappingService != null)
@@ -509,7 +510,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                         var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IBookMappingService));
                         if (descriptor != null)
                             services.Remove(descriptor);
-                        services.AddSingleton(mockBookMappingService.Object);
+                        services.AddSingleton(mockBookMappingService);
                     }
                 });
             });

@@ -1,37 +1,33 @@
-﻿using AwesomeAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Logging;
-using Moq;
-using Moq.Protected;
+using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using MyMediaVerse.Infrastructure.Services.Web;
+using MyMediaVerse.UnitTests.TestHelpers;
 using System.Net;
 
 namespace MyMediaVerse.UnitTests.Infrastructure
 {
     public class WebsiteScraperServiceTests
     {
-        private readonly Mock<ILogger<WebsiteScraperService>> _mockLogger;
+        private readonly ILogger<WebsiteScraperService> _mockLogger;
 
         public WebsiteScraperServiceTests()
         {
-            _mockLogger = new Mock<ILogger<WebsiteScraperService>>();
+            _mockLogger = Substitute.For<ILogger<WebsiteScraperService>>();
         }
 
         private WebsiteScraperService CreateServiceWithResponse(string htmlContent, HttpStatusCode statusCode = HttpStatusCode.OK)
         {
-            var handlerMock = new Mock<HttpMessageHandler>();
-            handlerMock.Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>())
-                .ReturnsAsync(new HttpResponseMessage
-                {
-                    StatusCode = statusCode,
-                    Content = new StringContent(htmlContent)
-                });
+            var handlerMock = new TestHttpMessageHandler();
+            handlerMock.RespondWith(new HttpResponseMessage
+            {
+                StatusCode = statusCode,
+                Content = new StringContent(htmlContent)
+            });
 
-            var httpClient = new HttpClient(handlerMock.Object);
-            return new WebsiteScraperService(httpClient, _mockLogger.Object);
+            var httpClient = new HttpClient(handlerMock);
+            return new WebsiteScraperService(httpClient, _mockLogger);
         }
 
         #region ScrapeWebsiteAsync - Validation
@@ -203,16 +199,13 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         [Fact]
         public async Task ScrapeWebsiteAsync_HttpError_ThrowsWithDescriptiveMessage()
         {
-            var handlerMock = new Mock<HttpMessageHandler>();
-            handlerMock.Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>())
-                .ThrowsAsync(new HttpRequestException("Connection refused"));
+            var handlerMock = new TestHttpMessageHandler
+            {
+                OnSend = (req, ct) => throw new HttpRequestException("Connection refused")
+            };
 
-            var httpClient = new HttpClient(handlerMock.Object);
-            var service = new WebsiteScraperService(httpClient, _mockLogger.Object);
+            var httpClient = new HttpClient(handlerMock);
+            var service = new WebsiteScraperService(httpClient, _mockLogger);
 
             Func<Task> act = async () => await service.ScrapeWebsiteAsync("https://example.com");
 

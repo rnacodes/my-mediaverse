@@ -1,6 +1,6 @@
-﻿using AwesomeAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Logging;
-using Moq;
+using NSubstitute;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Infrastructure.Services.Enrichment;
 using MyMediaVerse.Shared.DTOs.TMDB;
@@ -12,15 +12,15 @@ namespace MyMediaVerse.UnitTests.Infrastructure
 {
     public class MovieTvEnrichmentServiceTests : InMemoryDbTestBase
     {
-        private readonly Mock<ITmdbApiClient> _mockTmdbClient;
-        private readonly Mock<ILogger<MovieTvEnrichmentService>> _mockLogger;
+        private readonly ITmdbApiClient _mockTmdbClient;
+        private readonly ILogger<MovieTvEnrichmentService> _mockLogger;
         private readonly MovieTvEnrichmentService _service;
 
         public MovieTvEnrichmentServiceTests()
         {
-            _mockTmdbClient = new Mock<ITmdbApiClient>();
-            _mockLogger = new Mock<ILogger<MovieTvEnrichmentService>>();
-            _service = new MovieTvEnrichmentService(Context, _mockTmdbClient.Object, _mockLogger.Object);
+            _mockTmdbClient = Substitute.For<ITmdbApiClient>();
+            _mockLogger = Substitute.For<ILogger<MovieTvEnrichmentService>>();
+            _service = new MovieTvEnrichmentService(Context, _mockTmdbClient, _mockLogger);
         }
 
         #region GetMoviesNeedingEnrichmentCountAsync
@@ -100,8 +100,8 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             Context.Movies.Add(movie);
             await Context.SaveChangesAsync();
 
-            _mockTmdbClient.Setup(c => c.SearchMoviesAsync("The Matrix", It.IsAny<int>(), It.IsAny<string>()))
-                .ReturnsAsync(new TmdbMovieSearchResultDto
+            _mockTmdbClient.SearchMoviesAsync("The Matrix", Arg.Any<int>(), Arg.Any<string>())
+                .Returns(new TmdbMovieSearchResultDto
                 {
                     Results = new[]
                     {
@@ -117,8 +117,8 @@ namespace MyMediaVerse.UnitTests.Infrastructure
                     TotalResults = 1
                 });
 
-            _mockTmdbClient.Setup(c => c.GetMovieDetailsAsync(603, It.IsAny<string>()))
-                .ReturnsAsync(new TmdbMovieDto
+            _mockTmdbClient.GetMovieDetailsAsync(603, Arg.Any<string>())
+                .Returns(new TmdbMovieDto
                 {
                     Id = 603,
                     Title = "The Matrix",
@@ -150,8 +150,8 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             Context.Movies.Add(movie);
             await Context.SaveChangesAsync();
 
-            _mockTmdbClient.Setup(c => c.SearchMoviesAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>()))
-                .ReturnsAsync(new TmdbMovieSearchResultDto
+            _mockTmdbClient.SearchMoviesAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<string>())
+                .Returns(new TmdbMovieSearchResultDto
                 {
                     Results = Array.Empty<TmdbMovieDto>(),
                     TotalResults = 0
@@ -200,8 +200,8 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             Context.TvShows.Add(tvShow);
             await Context.SaveChangesAsync();
 
-            _mockTmdbClient.Setup(c => c.SearchTvShowsAsync("Breaking Bad", It.IsAny<int>(), It.IsAny<string>()))
-                .ReturnsAsync(new TmdbTvSearchResultDto
+            _mockTmdbClient.SearchTvShowsAsync("Breaking Bad", Arg.Any<int>(), Arg.Any<string>())
+                .Returns(new TmdbTvSearchResultDto
                 {
                     Results = new[]
                     {
@@ -219,8 +219,8 @@ namespace MyMediaVerse.UnitTests.Infrastructure
                     TotalResults = 1
                 });
 
-            _mockTmdbClient.Setup(c => c.GetTvShowDetailsAsync(1396, It.IsAny<string>()))
-                .ReturnsAsync(new TmdbTvShowDto
+            _mockTmdbClient.GetTvShowDetailsAsync(1396, Arg.Any<string>())
+                .Returns(new TmdbTvShowDto
                 {
                     Id = 1396,
                     Name = "Breaking Bad",
@@ -253,8 +253,8 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             Context.TvShows.Add(tvShow);
             await Context.SaveChangesAsync();
 
-            _mockTmdbClient.Setup(c => c.SearchTvShowsAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>()))
-                .ReturnsAsync(new TmdbTvSearchResultDto
+            _mockTmdbClient.SearchTvShowsAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<string>())
+                .Returns(new TmdbTvSearchResultDto
                 {
                     Results = new[]
                     {
@@ -268,8 +268,8 @@ namespace MyMediaVerse.UnitTests.Infrastructure
                     TotalResults = 1
                 });
 
-            _mockTmdbClient.Setup(c => c.GetTvShowDetailsAsync(100, It.IsAny<string>()))
-                .ReturnsAsync(new TmdbTvShowDto
+            _mockTmdbClient.GetTvShowDetailsAsync(100, Arg.Any<string>())
+                .Returns(new TmdbTvShowDto
                 {
                     Id = 100,
                     Name = "Test Show",

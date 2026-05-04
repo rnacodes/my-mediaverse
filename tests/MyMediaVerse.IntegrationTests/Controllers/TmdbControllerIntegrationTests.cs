@@ -2,9 +2,10 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using AwesomeAssertions;
+using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
-using Moq;
+using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Infrastructure.Data;
@@ -136,12 +137,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                     if (serviceDescriptor != null)
                         services.Remove(serviceDescriptor);
 
-                    var mockTmdbService = new Mock<ITmdbService>();
+                    var mockTmdbService = Substitute.For<ITmdbService>();
                     mockTmdbService
-                        .Setup(x => x.ImportMovieAsync(movieId, "en-US"))
-                        .ReturnsAsync(expectedMovie);
+                        .ImportMovieAsync(movieId, "en-US")
+                        .Returns(expectedMovie);
                     
-                    services.AddSingleton(mockTmdbService.Object);
+                    services.AddSingleton(mockTmdbService);
                 });
             });
 
@@ -174,12 +175,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                     if (serviceDescriptor != null)
                         services.Remove(serviceDescriptor);
 
-                    var mockTmdbService = new Mock<ITmdbService>();
+                    var mockTmdbService = Substitute.For<ITmdbService>();
                     mockTmdbService
-                        .Setup(x => x.ImportTvShowAsync(tvShowId, "en-US"))
-                        .ReturnsAsync(expectedTvShow);
+                        .ImportTvShowAsync(tvShowId, "en-US")
+                        .Returns(expectedTvShow);
                     
-                    services.AddSingleton(mockTmdbService.Object);
+                    services.AddSingleton(mockTmdbService);
                 });
             });
 
@@ -211,12 +212,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                     if (serviceDescriptor != null)
                         services.Remove(serviceDescriptor);
 
-                    var mockTmdbService = new Mock<ITmdbService>();
+                    var mockTmdbService = Substitute.For<ITmdbService>();
                     mockTmdbService
-                        .Setup(x => x.ImportMovieAsync(movieId, "en-US"))
-                        .ThrowsAsync(new InvalidOperationException($"Movie with ID {movieId} not found"));
+                        .ImportMovieAsync(movieId, "en-US")
+                        .Throws(new InvalidOperationException($"Movie with ID {movieId} not found"));
                     
-                    services.AddSingleton(mockTmdbService.Object);
+                    services.AddSingleton(mockTmdbService);
                 });
             });
 
@@ -244,12 +245,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                     if (serviceDescriptor != null)
                         services.Remove(serviceDescriptor);
 
-                    var mockTmdbService = new Mock<ITmdbService>();
+                    var mockTmdbService = Substitute.For<ITmdbService>();
                     mockTmdbService
-                        .Setup(x => x.ImportTvShowAsync(tvShowId, "en-US"))
-                        .ThrowsAsync(new InvalidOperationException($"TV show with ID {tvShowId} not found"));
+                        .ImportTvShowAsync(tvShowId, "en-US")
+                        .Throws(new InvalidOperationException($"TV show with ID {tvShowId} not found"));
                     
-                    services.AddSingleton(mockTmdbService.Object);
+                    services.AddSingleton(mockTmdbService);
                 });
             });
 
@@ -277,12 +278,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                     if (serviceDescriptor != null)
                         services.Remove(serviceDescriptor);
 
-                    var mockTmdbService = new Mock<ITmdbService>();
+                    var mockTmdbService = Substitute.For<ITmdbService>();
                     mockTmdbService
-                        .Setup(x => x.ImportMovieAsync(movieId, "en-US"))
-                        .ThrowsAsync(new Exception("Unexpected error"));
+                        .ImportMovieAsync(movieId, "en-US")
+                        .Throws(new Exception("Unexpected error"));
                     
-                    services.AddSingleton(mockTmdbService.Object);
+                    services.AddSingleton(mockTmdbService);
                 });
             });
 
@@ -315,12 +316,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                     if (serviceDescriptor != null)
                         services.Remove(serviceDescriptor);
 
-                    var mockTmdbService = new Mock<ITmdbService>();
+                    var mockTmdbService = Substitute.For<ITmdbService>();
                     mockTmdbService
-                        .Setup(x => x.GetMovieDetailsAsync(movieId, "en-US"))
-                        .ReturnsAsync(expectedMovie);
+                        .GetMovieDetailsAsync(movieId, "en-US")
+                        .Returns(expectedMovie);
                     
-                    services.AddSingleton(mockTmdbService.Object);
+                    services.AddSingleton(mockTmdbService);
                 });
             });
 
@@ -353,12 +354,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                     if (serviceDescriptor != null)
                         services.Remove(serviceDescriptor);
 
-                    var mockTmdbService = new Mock<ITmdbService>();
+                    var mockTmdbService = Substitute.For<ITmdbService>();
                     mockTmdbService
-                        .Setup(x => x.GetTvShowDetailsAsync(tvShowId, "en-US"))
-                        .ReturnsAsync(expectedTvShow);
+                        .GetTvShowDetailsAsync(tvShowId, "en-US")
+                        .Returns(expectedTvShow);
                     
-                    services.AddSingleton(mockTmdbService.Object);
+                    services.AddSingleton(mockTmdbService);
                 });
             });
 
@@ -390,12 +391,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                     if (serviceDescriptor != null)
                         services.Remove(serviceDescriptor);
 
-                    var mockTmdbService = new Mock<ITmdbService>();
+                    var mockTmdbService = Substitute.For<ITmdbService>();
                     mockTmdbService
-                        .Setup(x => x.GetMovieDetailsAsync(movieId, "en-US"))
-                        .ThrowsAsync(new InvalidOperationException($"Movie with ID {movieId} not found"));
+                        .GetMovieDetailsAsync(movieId, "en-US")
+                        .Throws(new InvalidOperationException($"Movie with ID {movieId} not found"));
                     
-                    services.AddSingleton(mockTmdbService.Object);
+                    services.AddSingleton(mockTmdbService);
                 });
             });
 
@@ -428,12 +429,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                     if (serviceDescriptor != null)
                         services.Remove(serviceDescriptor);
 
-                    var mockTmdbService = new Mock<ITmdbService>();
+                    var mockTmdbService = Substitute.For<ITmdbService>();
                     mockTmdbService
-                        .Setup(x => x.GetPopularMoviesAsync(1, "en-US"))
-                        .ReturnsAsync(expectedResult);
+                        .GetPopularMoviesAsync(1, "en-US")
+                        .Returns(expectedResult);
                     
-                    services.AddSingleton(mockTmdbService.Object);
+                    services.AddSingleton(mockTmdbService);
                 });
             });
 
@@ -466,12 +467,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                     if (serviceDescriptor != null)
                         services.Remove(serviceDescriptor);
 
-                    var mockTmdbService = new Mock<ITmdbService>();
+                    var mockTmdbService = Substitute.For<ITmdbService>();
                     mockTmdbService
-                        .Setup(x => x.GetPopularTvShowsAsync(1, "en-US"))
-                        .ReturnsAsync(expectedResult);
+                        .GetPopularTvShowsAsync(1, "en-US")
+                        .Returns(expectedResult);
                     
-                    services.AddSingleton(mockTmdbService.Object);
+                    services.AddSingleton(mockTmdbService);
                 });
             });
 
@@ -514,12 +515,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                     if (serviceDescriptor != null)
                         services.Remove(serviceDescriptor);
 
-                    var mockTmdbService = new Mock<ITmdbService>();
+                    var mockTmdbService = Substitute.For<ITmdbService>();
                     mockTmdbService
-                        .Setup(x => x.GetMovieGenresAsync("en-US"))
-                        .ReturnsAsync(expectedGenres);
+                        .GetMovieGenresAsync("en-US")
+                        .Returns(expectedGenres);
                     
-                    services.AddSingleton(mockTmdbService.Object);
+                    services.AddSingleton(mockTmdbService);
                 });
             });
 
@@ -558,12 +559,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                     if (serviceDescriptor != null)
                         services.Remove(serviceDescriptor);
 
-                    var mockTmdbService = new Mock<ITmdbService>();
+                    var mockTmdbService = Substitute.For<ITmdbService>();
                     mockTmdbService
-                        .Setup(x => x.GetTvGenresAsync("en-US"))
-                        .ReturnsAsync(expectedGenres);
+                        .GetTvGenresAsync("en-US")
+                        .Returns(expectedGenres);
                     
-                    services.AddSingleton(mockTmdbService.Object);
+                    services.AddSingleton(mockTmdbService);
                 });
             });
 

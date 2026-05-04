@@ -1,6 +1,6 @@
-﻿using AwesomeAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Logging;
-using Moq;
+using NSubstitute;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Domain.Enums;
@@ -11,13 +11,13 @@ namespace MyMediaVerse.UnitTests.Application
 {
     public class ArticleServiceTests : InMemoryDbTestBase
     {
-        private readonly Mock<ILogger<ArticleService>> _mockLogger;
+        private readonly ILogger<ArticleService> _mockLogger;
         private readonly ArticleService _service;
 
         public ArticleServiceTests()
         {
-            _mockLogger = new Mock<ILogger<ArticleService>>();
-            _service = new ArticleService(Context, _mockLogger.Object);
+            _mockLogger = Substitute.For<ILogger<ArticleService>>();
+            _service = new ArticleService(Context, _mockLogger);
         }
 
         #region GetAllArticlesAsync Tests

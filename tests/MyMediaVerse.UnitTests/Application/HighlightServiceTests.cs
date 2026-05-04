@@ -2,10 +2,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using AwesomeAssertions;
+using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Moq;
+using NSubstitute;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Application.Interfaces;
@@ -18,16 +18,16 @@ namespace MyMediaVerse.UnitTests.Application
 {
     public class HighlightServiceTests : InMemoryDbTestBase
     {
-        private readonly Mock<IReadwiseApiClient> _mockReadwiseClient;
-        private readonly Mock<ILogger<HighlightService>> _mockLogger;
+        private readonly IReadwiseApiClient _mockReadwiseClient;
+        private readonly ILogger<HighlightService> _mockLogger;
         private readonly HighlightService _service;
 
         public HighlightServiceTests()
         {
-            _mockReadwiseClient = new Mock<IReadwiseApiClient>();
-            _mockLogger = new Mock<ILogger<HighlightService>>();
+            _mockReadwiseClient = Substitute.For<IReadwiseApiClient>();
+            _mockLogger = Substitute.For<ILogger<HighlightService>>();
 
-            _service = new HighlightService(Context, _mockReadwiseClient.Object, _mockLogger.Object);
+            _service = new HighlightService(Context, _mockReadwiseClient, _mockLogger);
         }
 
         [Fact]

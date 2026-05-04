@@ -1,6 +1,7 @@
-﻿using AwesomeAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Logging;
-using Moq;
+using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Shared.DTOs.Readwise;
@@ -12,15 +13,15 @@ namespace MyMediaVerse.UnitTests.Application
 {
     public class ReadwiseServiceTests : InMemoryDbTestBase
     {
-        private readonly Mock<IReadwiseApiClient> _mockReadwiseClient;
-        private readonly Mock<ILogger<ReadwiseService>> _mockLogger;
+        private readonly IReadwiseApiClient _mockReadwiseClient;
+        private readonly ILogger<ReadwiseService> _mockLogger;
         private readonly ReadwiseService _service;
 
         public ReadwiseServiceTests()
         {
-            _mockReadwiseClient = new Mock<IReadwiseApiClient>();
-            _mockLogger = new Mock<ILogger<ReadwiseService>>();
-            _service = new ReadwiseService(Context, _mockReadwiseClient.Object, _mockLogger.Object);
+            _mockReadwiseClient = Substitute.For<IReadwiseApiClient>();
+            _mockLogger = Substitute.For<ILogger<ReadwiseService>>();
+            _service = new ReadwiseService(Context, _mockReadwiseClient, _mockLogger);
         }
 
         #region ValidateConnectionAsync
@@ -28,7 +29,7 @@ namespace MyMediaVerse.UnitTests.Application
         [Fact]
         public async Task ValidateConnectionAsync_ValidToken_ReturnsTrue()
         {
-            _mockReadwiseClient.Setup(c => c.ValidateTokenAsync()).ReturnsAsync(true);
+            _mockReadwiseClient.ValidateTokenAsync().Returns(true);
 
             var result = await _service.ValidateConnectionAsync();
 
@@ -38,7 +39,7 @@ namespace MyMediaVerse.UnitTests.Application
         [Fact]
         public async Task ValidateConnectionAsync_InvalidToken_ReturnsFalse()
         {
-            _mockReadwiseClient.Setup(c => c.ValidateTokenAsync()).ReturnsAsync(false);
+            _mockReadwiseClient.ValidateTokenAsync().Returns(false);
 
             var result = await _service.ValidateConnectionAsync();
 
@@ -48,7 +49,7 @@ namespace MyMediaVerse.UnitTests.Application
         [Fact]
         public async Task ValidateConnectionAsync_ApiThrows_PropagatesException()
         {
-            _mockReadwiseClient.Setup(c => c.ValidateTokenAsync()).ThrowsAsync(new Exception("API error"));
+            _mockReadwiseClient.ValidateTokenAsync().Throws(new Exception("API error"));
 
             Func<Task> act = async () => await _service.ValidateConnectionAsync();
 
@@ -62,9 +63,9 @@ namespace MyMediaVerse.UnitTests.Application
         [Fact]
         public async Task SyncBooksAsync_EmptyResponse_ReturnsZero()
         {
-            _mockReadwiseClient.Setup(c => c.GetBooksAsync(
-                It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<int>(), It.IsAny<int>()))
-                .ReturnsAsync(new ReadwiseBooksResponse
+            _mockReadwiseClient.GetBooksAsync(
+                Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<int>(), Arg.Any<int>())
+                .Returns(new ReadwiseBooksResponse
                 {
                     count = 0,
                     results = new List<ReadwiseBookDto>(),
@@ -80,9 +81,9 @@ namespace MyMediaVerse.UnitTests.Application
         [Fact]
         public async Task SyncBooksAsync_WithBooks_ProcessesAndReturnsResult()
         {
-            _mockReadwiseClient.Setup(c => c.GetBooksAsync(
-                It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<int>(), It.IsAny<int>()))
-                .ReturnsAsync(new ReadwiseBooksResponse
+            _mockReadwiseClient.GetBooksAsync(
+                Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<int>(), Arg.Any<int>())
+                .Returns(new ReadwiseBooksResponse
                 {
                     count = 1,
                     results = new List<ReadwiseBookDto>
@@ -109,9 +110,9 @@ namespace MyMediaVerse.UnitTests.Application
         [Fact]
         public async Task SyncBooksAsync_WithCategoryFilter_PassesToClient()
         {
-            _mockReadwiseClient.Setup(c => c.GetBooksAsync(
-                It.IsAny<string?>(), "books", It.IsAny<int>(), It.IsAny<int>()))
-                .ReturnsAsync(new ReadwiseBooksResponse
+            _mockReadwiseClient.GetBooksAsync(
+                Arg.Any<string?>(), "books", Arg.Any<int>(), Arg.Any<int>())
+                .Returns(new ReadwiseBooksResponse
                 {
                     count = 0,
                     results = new List<ReadwiseBookDto>(),
@@ -120,9 +121,8 @@ namespace MyMediaVerse.UnitTests.Application
 
             await _service.SyncBooksAsync(category: "books");
 
-            _mockReadwiseClient.Verify(c => c.GetBooksAsync(
-                It.IsAny<string?>(), "books", It.IsAny<int>(), It.IsAny<int>()),
-                Times.Once);
+            _mockReadwiseClient.Received(1).GetBooksAsync(
+                Arg.Any<string?>(), "books", Arg.Any<int>(), Arg.Any<int>());
         }
 
         #endregion
@@ -182,13 +182,13 @@ namespace MyMediaVerse.UnitTests.Application
             Context.Highlights.Add(highlight);
             await Context.SaveChangesAsync();
 
-            _mockReadwiseClient.Setup(c => c.CreateHighlightsAsync(It.IsAny<List<CreateReadwiseHighlightDto>>()))
-                .ReturnsAsync(true);
+            _mockReadwiseClient.CreateHighlightsAsync(Arg.Any<List<CreateReadwiseHighlightDto>>())
+                .Returns(true);
 
             var result = await _service.ExportHighlightToReadwiseAsync(highlight.Id);
 
             result.Should().BeTrue();
-            _mockReadwiseClient.Verify(c => c.CreateHighlightsAsync(It.IsAny<List<CreateReadwiseHighlightDto>>()), Times.Once);
+            _mockReadwiseClient.Received(1).CreateHighlightsAsync(Arg.Any<List<CreateReadwiseHighlightDto>>());
         }
 
         [Fact]
@@ -198,8 +198,8 @@ namespace MyMediaVerse.UnitTests.Application
             Context.Highlights.Add(highlight);
             await Context.SaveChangesAsync();
 
-            _mockReadwiseClient.Setup(c => c.CreateHighlightsAsync(It.IsAny<List<CreateReadwiseHighlightDto>>()))
-                .ReturnsAsync(false);
+            _mockReadwiseClient.CreateHighlightsAsync(Arg.Any<List<CreateReadwiseHighlightDto>>())
+                .Returns(false);
 
             var result = await _service.ExportHighlightToReadwiseAsync(highlight.Id);
 

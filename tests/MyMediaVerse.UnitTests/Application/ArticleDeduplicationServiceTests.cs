@@ -1,6 +1,6 @@
-﻿using AwesomeAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Logging;
-using Moq;
+using NSubstitute;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Domain.Enums;
@@ -11,13 +11,13 @@ namespace MyMediaVerse.UnitTests.Application
 {
     public class ArticleDeduplicationServiceTests : InMemoryDbTestBase
     {
-        private readonly Mock<ILogger<ArticleDeduplicationService>> _mockLogger;
+        private readonly ILogger<ArticleDeduplicationService> _mockLogger;
         private readonly ArticleDeduplicationService _service;
 
         public ArticleDeduplicationServiceTests()
         {
-            _mockLogger = new Mock<ILogger<ArticleDeduplicationService>>();
-            _service = new ArticleDeduplicationService(Context, _mockLogger.Object);
+            _mockLogger = Substitute.For<ILogger<ArticleDeduplicationService>>();
+            _service = new ArticleDeduplicationService(Context, _mockLogger);
         }
 
         #region FindDuplicatesAsync

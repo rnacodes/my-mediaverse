@@ -1,5 +1,3 @@
-using AutoFixture;
-using AutoFixture.Kernel;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Domain.Enums;
 using MyMediaVerse.DTOs;
@@ -9,10 +7,6 @@ namespace MyMediaVerse.UnitTests.TestData
 {
     public static class TestDataFactory
     {
-        // Keep a minimal fixture instance for TMDB DTO creation only (used later in the file)
-        // All entity and DTO creation now uses manual factory methods to avoid circular reference issues
-        private static readonly Fixture _fixture = new();
-
         public static Book CreateBook(string? title = null, string? author = null)
         {
             return new Book

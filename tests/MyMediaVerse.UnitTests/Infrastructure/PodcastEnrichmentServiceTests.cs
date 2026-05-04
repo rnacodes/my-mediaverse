@@ -1,6 +1,6 @@
-﻿using AwesomeAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Logging;
-using Moq;
+using NSubstitute;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Infrastructure.Services.Enrichment;
 using MyMediaVerse.Shared.DTOs.ListenNotes;
@@ -11,15 +11,15 @@ namespace MyMediaVerse.UnitTests.Infrastructure
 {
     public class PodcastEnrichmentServiceTests : InMemoryDbTestBase
     {
-        private readonly Mock<IListenNotesApiClient> _mockListenNotesClient;
-        private readonly Mock<ILogger<PodcastEnrichmentService>> _mockLogger;
+        private readonly IListenNotesApiClient _mockListenNotesClient;
+        private readonly ILogger<PodcastEnrichmentService> _mockLogger;
         private readonly PodcastEnrichmentService _service;
 
         public PodcastEnrichmentServiceTests()
         {
-            _mockListenNotesClient = new Mock<IListenNotesApiClient>();
-            _mockLogger = new Mock<ILogger<PodcastEnrichmentService>>();
-            _service = new PodcastEnrichmentService(Context, _mockListenNotesClient.Object, _mockLogger.Object);
+            _mockListenNotesClient = Substitute.For<IListenNotesApiClient>();
+            _mockLogger = Substitute.For<ILogger<PodcastEnrichmentService>>();
+            _service = new PodcastEnrichmentService(Context, _mockListenNotesClient, _mockLogger);
         }
 
         private PodcastSeries CreateTestPodcastSeries(string title, string? externalId = null)
@@ -78,13 +78,13 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             Context.PodcastSeries.Add(series);
             await Context.SaveChangesAsync();
 
-            _mockListenNotesClient.Setup(c => c.SearchAsync(
-                "The Daily", "podcast", It.IsAny<int?>(),
-                It.IsAny<int?>(), It.IsAny<int?>(), It.IsAny<string?>(),
-                It.IsAny<string?>(), It.IsAny<string?>(),
-                It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
-                It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>()))
-                .ReturnsAsync(new SearchResultDto
+            _mockListenNotesClient.SearchAsync(
+                "The Daily", "podcast", Arg.Any<int?>(),
+                Arg.Any<int?>(), Arg.Any<int?>(), Arg.Any<string?>(),
+                Arg.Any<string?>(), Arg.Any<string?>(),
+                Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>(),
+                Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>())
+                .Returns(new SearchResultDto
                 {
                     Count = 1,
                     Total = 1,
@@ -102,8 +102,8 @@ namespace MyMediaVerse.UnitTests.Infrastructure
                     }
                 });
 
-            _mockListenNotesClient.Setup(c => c.GetPodcastByIdAsync("ln_daily_123", It.IsAny<string?>()))
-                .ReturnsAsync(new PodcastSeriesDto
+            _mockListenNotesClient.GetPodcastByIdAsync("ln_daily_123", Arg.Any<string?>())
+                .Returns(new PodcastSeriesDto
                 {
                     Id = "ln_daily_123",
                     Title = "The Daily",
@@ -130,13 +130,13 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             Context.PodcastSeries.Add(series);
             await Context.SaveChangesAsync();
 
-            _mockListenNotesClient.Setup(c => c.SearchAsync(
-                It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<int?>(),
-                It.IsAny<int?>(), It.IsAny<int?>(), It.IsAny<string?>(),
-                It.IsAny<string?>(), It.IsAny<string?>(),
-                It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
-                It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>()))
-                .ReturnsAsync(new SearchResultDto
+            _mockListenNotesClient.SearchAsync(
+                Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<int?>(),
+                Arg.Any<int?>(), Arg.Any<int?>(), Arg.Any<string?>(),
+                Arg.Any<string?>(), Arg.Any<string?>(),
+                Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>(),
+                Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>())
+                .Returns(new SearchResultDto
                 {
                     Count = 0,
                     Total = 0,
@@ -174,24 +174,23 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             await Context.SaveChangesAsync();
 
             var callCount = 0;
-            _mockListenNotesClient.Setup(c => c.SearchAsync(
-                It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<int?>(),
-                It.IsAny<int?>(), It.IsAny<int?>(), It.IsAny<string?>(),
-                It.IsAny<string?>(), It.IsAny<string?>(),
-                It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
-                It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>()))
-                .Returns<string, string?, int?, int?, int?, string?, string?, string?, string?, string?, string?, string?, string?, string?>(
-                    (query, type, offset, lenMin, lenMax, genreIds, publishedBefore, publishedAfter, onlyIn, language, region, sortByDate, safeMode, uniquePodcasts) =>
+            _mockListenNotesClient.SearchAsync(
+                Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<int?>(),
+                Arg.Any<int?>(), Arg.Any<int?>(), Arg.Any<string?>(),
+                Arg.Any<string?>(), Arg.Any<string?>(),
+                Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>(),
+                Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>())
+                .Returns(callInfo =>
+                {
+                    callCount++;
+                    if (callCount == 1) throw new Exception("API error");
+                    return Task.FromResult(new SearchResultDto
                     {
-                        callCount++;
-                        if (callCount == 1) throw new Exception("API error");
-                        return Task.FromResult(new SearchResultDto
-                        {
-                            Count = 0,
-                            Total = 0,
-                            Results = new List<PodcastSearchDto>()
-                        });
+                        Count = 0,
+                        Total = 0,
+                        Results = new List<PodcastSearchDto>()
                     });
+                });
 
             var result = await _service.EnrichPodcastsWithoutListenNotesDataAsync(batchSize: 10, delayBetweenCallsMs: 0);
 

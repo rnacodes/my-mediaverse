@@ -1,6 +1,6 @@
-﻿using AwesomeAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Logging;
-using Moq;
+using NSubstitute;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
@@ -12,13 +12,13 @@ namespace MyMediaVerse.UnitTests.Application
 {
     public class MovieMappingServiceTests : InMemoryDbTestBase
     {
-        private readonly Mock<ILogger<MovieMappingService>> _mockLogger;
+        private readonly ILogger<MovieMappingService> _mockLogger;
         private readonly MovieMappingService _service;
 
         public MovieMappingServiceTests()
         {
-            _mockLogger = new Mock<ILogger<MovieMappingService>>();
-            _service = new MovieMappingService(Context, _mockLogger.Object);
+            _mockLogger = Substitute.For<ILogger<MovieMappingService>>();
+            _service = new MovieMappingService(Context, _mockLogger);
         }
 
         #region MapFromDtoAsync

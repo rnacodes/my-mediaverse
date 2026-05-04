@@ -1,4 +1,4 @@
-﻿using AwesomeAssertions;
+﻿using FluentAssertions;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Domain.Enums;
 using MyMediaVerse.UnitTests.TestData;

@@ -1,34 +1,35 @@
 ﻿using System.Net;
 using System.Text;
 using System.Text.Json;
-using AwesomeAssertions;
+using FluentAssertions;
 using Microsoft.Extensions.Logging;
-using Moq;
-using Moq.Protected;
+using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using MyMediaVerse.Infrastructure.Clients.Paperless;
 using MyMediaVerse.Shared.DTOs.Paperless;
+using MyMediaVerse.UnitTests.TestHelpers;
 
 namespace MyMediaVerse.UnitTests.Infrastructure
 {
     public class PaperlessApiClientTests
     {
-        private readonly Mock<HttpMessageHandler> _mockHttpMessageHandler;
-        private readonly Mock<ILogger<PaperlessApiClient>> _mockLogger;
+        private readonly TestHttpMessageHandler _mockHttpMessageHandler;
+        private readonly ILogger<PaperlessApiClient> _mockLogger;
         private readonly HttpClient _httpClient;
         private readonly PaperlessApiClient _client;
         private readonly JsonSerializerOptions _jsonOptions;
 
         public PaperlessApiClientTests()
         {
-            _mockHttpMessageHandler = new Mock<HttpMessageHandler>();
-            _mockLogger = new Mock<ILogger<PaperlessApiClient>>();
+            _mockHttpMessageHandler = new TestHttpMessageHandler();
+            _mockLogger = Substitute.For<ILogger<PaperlessApiClient>>();
 
-            _httpClient = new HttpClient(_mockHttpMessageHandler.Object)
+            _httpClient = new HttpClient(_mockHttpMessageHandler)
             {
                 BaseAddress = new Uri("https://paperless.example.com/api/")
             };
 
-            _client = new PaperlessApiClient(_httpClient, _mockLogger.Object);
+            _client = new PaperlessApiClient(_httpClient, _mockLogger);
 
             _jsonOptions = new JsonSerializerOptions
             {
@@ -38,32 +39,10 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         }
 
         private void SetupHttpResponse(HttpStatusCode statusCode, string jsonResponse)
-        {
-            _mockHttpMessageHandler.Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>())
-                .ReturnsAsync(new HttpResponseMessage
-                {
-                    StatusCode = statusCode,
-                    Content = new StringContent(jsonResponse, Encoding.UTF8, "application/json")
-                });
-        }
+            => _mockHttpMessageHandler.RespondWith(statusCode, jsonResponse);
 
         private void SetupHttpByteResponse(HttpStatusCode statusCode, byte[] content)
-        {
-            _mockHttpMessageHandler.Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>())
-                .ReturnsAsync(new HttpResponseMessage
-                {
-                    StatusCode = statusCode,
-                    Content = new ByteArrayContent(content)
-                });
-        }
+            => _mockHttpMessageHandler.RespondWith(statusCode, content);
 
         #region GetDocumentsAsync Tests
 
@@ -310,12 +289,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         public async Task IsAvailableAsync_WhenUnreachable_ShouldReturnFalse()
         {
             // Arrange
-            _mockHttpMessageHandler.Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>())
-                .ThrowsAsync(new HttpRequestException("Connection refused"));
+            _mockHttpMessageHandler.OnSend = (req, ct) => throw new HttpRequestException("Connection refused");
 
             // Act
             var result = await _client.IsAvailableAsync();

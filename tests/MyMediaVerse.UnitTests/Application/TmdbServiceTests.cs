@@ -1,6 +1,7 @@
-﻿using AwesomeAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Logging;
-using Moq;
+using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
@@ -13,24 +14,24 @@ namespace MyMediaVerse.UnitTests.Application
 {
     public class TmdbServiceTests
     {
-        private readonly Mock<ITmdbApiClient> _mockTmdbApiClient;
-        private readonly Mock<IMovieService> _mockMovieService;
-        private readonly Mock<ITvShowService> _mockTvShowService;
-        private readonly Mock<ILogger<TmdbService>> _mockLogger;
+        private readonly ITmdbApiClient _mockTmdbApiClient;
+        private readonly IMovieService _mockMovieService;
+        private readonly ITvShowService _mockTvShowService;
+        private readonly ILogger<TmdbService> _mockLogger;
         private readonly TmdbService _tmdbService;
 
         public TmdbServiceTests()
         {
-            _mockTmdbApiClient = new Mock<ITmdbApiClient>();
-            _mockMovieService = new Mock<IMovieService>();
-            _mockTvShowService = new Mock<ITvShowService>();
-            _mockLogger = new Mock<ILogger<TmdbService>>();
+            _mockTmdbApiClient = Substitute.For<ITmdbApiClient>();
+            _mockMovieService = Substitute.For<IMovieService>();
+            _mockTvShowService = Substitute.For<ITvShowService>();
+            _mockLogger = Substitute.For<ILogger<TmdbService>>();
             
             _tmdbService = new TmdbService(
-                _mockTmdbApiClient.Object,
-                _mockMovieService.Object,
-                _mockTvShowService.Object,
-                _mockLogger.Object);
+                _mockTmdbApiClient,
+                _mockMovieService,
+                _mockTvShowService,
+                _mockLogger);
         }
 
         #region Search Operations Tests
@@ -44,8 +45,8 @@ namespace MyMediaVerse.UnitTests.Application
                 TestDataFactory.CreateTmdbMovieDto(27205, "Inception"));
             
             _mockTmdbApiClient
-                .Setup(x => x.SearchMoviesAsync(query, 1, "en-US"))
-                .ReturnsAsync(expectedResult);
+                .SearchMoviesAsync(query, 1, "en-US")
+                .Returns(expectedResult);
 
             // Act
             var result = await _tmdbService.SearchMoviesAsync(query);
@@ -54,7 +55,7 @@ namespace MyMediaVerse.UnitTests.Application
             result.Should().NotBeNull();
             result.Results.Should().HaveCount(1);
             result.Results[0].Title.Should().Be("Inception");
-            _mockTmdbApiClient.Verify(x => x.SearchMoviesAsync(query, 1, "en-US"), Times.Once);
+            _mockTmdbApiClient.Received(1).SearchMoviesAsync(query, 1, "en-US");
         }
 
         [Fact]
@@ -66,8 +67,8 @@ namespace MyMediaVerse.UnitTests.Application
                 TestDataFactory.CreateTmdbTvShowDto(1399, "Game of Thrones"));
             
             _mockTmdbApiClient
-                .Setup(x => x.SearchTvShowsAsync(query, 1, "en-US"))
-                .ReturnsAsync(expectedResult);
+                .SearchTvShowsAsync(query, 1, "en-US")
+                .Returns(expectedResult);
 
             // Act
             var result = await _tmdbService.SearchTvShowsAsync(query);
@@ -76,7 +77,7 @@ namespace MyMediaVerse.UnitTests.Application
             result.Should().NotBeNull();
             result.Results.Should().HaveCount(1);
             result.Results[0].Name.Should().Be("Game of Thrones");
-            _mockTmdbApiClient.Verify(x => x.SearchTvShowsAsync(query, 1, "en-US"), Times.Once);
+            _mockTmdbApiClient.Received(1).SearchTvShowsAsync(query, 1, "en-US");
         }
 
         [Fact]
@@ -87,8 +88,8 @@ namespace MyMediaVerse.UnitTests.Application
             var expectedMovie = TestDataFactory.CreateTmdbMovieDto(movieId, "Inception");
             
             _mockTmdbApiClient
-                .Setup(x => x.GetMovieDetailsAsync(movieId, "en-US"))
-                .ReturnsAsync(expectedMovie);
+                .GetMovieDetailsAsync(movieId, "en-US")
+                .Returns(expectedMovie);
 
             // Act
             var result = await _tmdbService.GetMovieDetailsAsync(movieId);
@@ -97,7 +98,7 @@ namespace MyMediaVerse.UnitTests.Application
             result.Should().NotBeNull();
             result.Id.Should().Be(movieId);
             result.Title.Should().Be("Inception");
-            _mockTmdbApiClient.Verify(x => x.GetMovieDetailsAsync(movieId, "en-US"), Times.Once);
+            _mockTmdbApiClient.Received(1).GetMovieDetailsAsync(movieId, "en-US");
         }
 
         [Fact]
@@ -108,8 +109,8 @@ namespace MyMediaVerse.UnitTests.Application
             var expectedTvShow = TestDataFactory.CreateTmdbTvShowDto(tvShowId, "Game of Thrones");
             
             _mockTmdbApiClient
-                .Setup(x => x.GetTvShowDetailsAsync(tvShowId, "en-US"))
-                .ReturnsAsync(expectedTvShow);
+                .GetTvShowDetailsAsync(tvShowId, "en-US")
+                .Returns(expectedTvShow);
 
             // Act
             var result = await _tmdbService.GetTvShowDetailsAsync(tvShowId);
@@ -118,7 +119,7 @@ namespace MyMediaVerse.UnitTests.Application
             result.Should().NotBeNull();
             result.Id.Should().Be(tvShowId);
             result.Name.Should().Be("Game of Thrones");
-            _mockTmdbApiClient.Verify(x => x.GetTvShowDetailsAsync(tvShowId, "en-US"), Times.Once);
+            _mockTmdbApiClient.Received(1).GetTvShowDetailsAsync(tvShowId, "en-US");
         }
 
         #endregion
@@ -134,16 +135,16 @@ namespace MyMediaVerse.UnitTests.Application
             var expectedMovie = TestDataFactory.CreateMovie("Inception", 2010, movieId.ToString());
 
             _mockTmdbApiClient
-                .Setup(x => x.GetMovieDetailsAsync(movieId, "en-US"))
-                .ReturnsAsync(tmdbMovieDto);
+                .GetMovieDetailsAsync(movieId, "en-US")
+                .Returns(tmdbMovieDto);
             
             _mockMovieService
-                .Setup(x => x.GetMovieByTitleAndYearAsync("Inception", 2010))
-                .ReturnsAsync((Movie?)null);
+                .GetMovieByTitleAndYearAsync("Inception", 2010)
+                .Returns((Movie?)null);
             
             _mockMovieService
-                .Setup(x => x.CreateMovieAsync(It.IsAny<CreateMovieDto>()))
-                .ReturnsAsync(expectedMovie);
+                .CreateMovieAsync(Arg.Any<CreateMovieDto>())
+                .Returns(expectedMovie);
 
             // Act
             var result = await _tmdbService.ImportMovieAsync(movieId);
@@ -154,14 +155,14 @@ namespace MyMediaVerse.UnitTests.Application
             result.ReleaseYear.Should().Be(2010);
             result.TmdbId.Should().Be(movieId.ToString());
             
-            _mockTmdbApiClient.Verify(x => x.GetMovieDetailsAsync(movieId, "en-US"), Times.Once);
-            _mockMovieService.Verify(x => x.GetMovieByTitleAndYearAsync("Inception", 2010), Times.Once);
-            _mockMovieService.Verify(x => x.CreateMovieAsync(It.Is<CreateMovieDto>(dto => 
+            _mockTmdbApiClient.Received(1).GetMovieDetailsAsync(movieId, "en-US");
+            _mockMovieService.Received(1).GetMovieByTitleAndYearAsync("Inception", 2010);
+            _mockMovieService.Received(1).CreateMovieAsync(Arg.Is<CreateMovieDto>(dto => 
                 dto.Title == "Inception" && 
                 dto.ReleaseYear == 2010 &&
                 dto.TmdbId == movieId.ToString() &&
                 dto.MediaType == MediaType.Movie &&
-                dto.Status == Status.Uncharted)), Times.Once);
+                dto.Status == Status.Uncharted));
         }
 
         [Fact]
@@ -173,12 +174,12 @@ namespace MyMediaVerse.UnitTests.Application
             var existingMovie = TestDataFactory.CreateMovie("Inception", 2010, movieId.ToString());
 
             _mockTmdbApiClient
-                .Setup(x => x.GetMovieDetailsAsync(movieId, "en-US"))
-                .ReturnsAsync(tmdbMovieDto);
+                .GetMovieDetailsAsync(movieId, "en-US")
+                .Returns(tmdbMovieDto);
             
             _mockMovieService
-                .Setup(x => x.GetMovieByTitleAndYearAsync("Inception", 2010))
-                .ReturnsAsync(existingMovie);
+                .GetMovieByTitleAndYearAsync("Inception", 2010)
+                .Returns(existingMovie);
 
             // Act
             var result = await _tmdbService.ImportMovieAsync(movieId);
@@ -188,9 +189,9 @@ namespace MyMediaVerse.UnitTests.Application
             result.Should().Be(existingMovie);
             result.Title.Should().Be("Inception");
             
-            _mockTmdbApiClient.Verify(x => x.GetMovieDetailsAsync(movieId, "en-US"), Times.Once);
-            _mockMovieService.Verify(x => x.GetMovieByTitleAndYearAsync("Inception", 2010), Times.Once);
-            _mockMovieService.Verify(x => x.CreateMovieAsync(It.IsAny<CreateMovieDto>()), Times.Never);
+            _mockTmdbApiClient.Received(1).GetMovieDetailsAsync(movieId, "en-US");
+            _mockMovieService.Received(1).GetMovieByTitleAndYearAsync("Inception", 2010);
+            _mockMovieService.DidNotReceive().CreateMovieAsync(Arg.Any<CreateMovieDto>());
         }
 
         [Fact]
@@ -202,16 +203,16 @@ namespace MyMediaVerse.UnitTests.Application
             var expectedTvShow = TestDataFactory.CreateTvShow("Game of Thrones", 2011, tvShowId.ToString());
 
             _mockTmdbApiClient
-                .Setup(x => x.GetTvShowDetailsAsync(tvShowId, "en-US"))
-                .ReturnsAsync(tmdbTvShowDto);
+                .GetTvShowDetailsAsync(tvShowId, "en-US")
+                .Returns(tmdbTvShowDto);
             
             _mockTvShowService
-                .Setup(x => x.GetTvShowByTitleAndYearAsync("Game of Thrones", 2011))
-                .ReturnsAsync((TvShow?)null);
+                .GetTvShowByTitleAndYearAsync("Game of Thrones", 2011)
+                .Returns((TvShow?)null);
             
             _mockTvShowService
-                .Setup(x => x.CreateTvShowAsync(It.IsAny<CreateTvShowDto>()))
-                .ReturnsAsync(expectedTvShow);
+                .CreateTvShowAsync(Arg.Any<CreateTvShowDto>())
+                .Returns(expectedTvShow);
 
             // Act
             var result = await _tmdbService.ImportTvShowAsync(tvShowId);
@@ -222,14 +223,14 @@ namespace MyMediaVerse.UnitTests.Application
             result.FirstAirYear.Should().Be(2011);
             result.TmdbId.Should().Be(tvShowId.ToString());
             
-            _mockTmdbApiClient.Verify(x => x.GetTvShowDetailsAsync(tvShowId, "en-US"), Times.Once);
-            _mockTvShowService.Verify(x => x.GetTvShowByTitleAndYearAsync("Game of Thrones", 2011), Times.Once);
-            _mockTvShowService.Verify(x => x.CreateTvShowAsync(It.Is<CreateTvShowDto>(dto => 
+            _mockTmdbApiClient.Received(1).GetTvShowDetailsAsync(tvShowId, "en-US");
+            _mockTvShowService.Received(1).GetTvShowByTitleAndYearAsync("Game of Thrones", 2011);
+            _mockTvShowService.Received(1).CreateTvShowAsync(Arg.Is<CreateTvShowDto>(dto => 
                 dto.Title == "Game of Thrones" && 
                 dto.FirstAirYear == 2011 &&
                 dto.TmdbId == tvShowId.ToString() &&
                 dto.MediaType == MediaType.TVShow &&
-                dto.Status == Status.Uncharted)), Times.Once);
+                dto.Status == Status.Uncharted));
         }
 
         [Fact]
@@ -241,12 +242,12 @@ namespace MyMediaVerse.UnitTests.Application
             var existingTvShow = TestDataFactory.CreateTvShow("Game of Thrones", 2011, tvShowId.ToString());
 
             _mockTmdbApiClient
-                .Setup(x => x.GetTvShowDetailsAsync(tvShowId, "en-US"))
-                .ReturnsAsync(tmdbTvShowDto);
+                .GetTvShowDetailsAsync(tvShowId, "en-US")
+                .Returns(tmdbTvShowDto);
             
             _mockTvShowService
-                .Setup(x => x.GetTvShowByTitleAndYearAsync("Game of Thrones", 2011))
-                .ReturnsAsync(existingTvShow);
+                .GetTvShowByTitleAndYearAsync("Game of Thrones", 2011)
+                .Returns(existingTvShow);
 
             // Act
             var result = await _tmdbService.ImportTvShowAsync(tvShowId);
@@ -256,9 +257,9 @@ namespace MyMediaVerse.UnitTests.Application
             result.Should().Be(existingTvShow);
             result.Title.Should().Be("Game of Thrones");
             
-            _mockTmdbApiClient.Verify(x => x.GetTvShowDetailsAsync(tvShowId, "en-US"), Times.Once);
-            _mockTvShowService.Verify(x => x.GetTvShowByTitleAndYearAsync("Game of Thrones", 2011), Times.Once);
-            _mockTvShowService.Verify(x => x.CreateTvShowAsync(It.IsAny<CreateTvShowDto>()), Times.Never);
+            _mockTmdbApiClient.Received(1).GetTvShowDetailsAsync(tvShowId, "en-US");
+            _mockTvShowService.Received(1).GetTvShowByTitleAndYearAsync("Game of Thrones", 2011);
+            _mockTvShowService.DidNotReceive().CreateTvShowAsync(Arg.Any<CreateTvShowDto>());
         }
 
         [Fact]
@@ -271,16 +272,16 @@ namespace MyMediaVerse.UnitTests.Application
             var expectedMovie = TestDataFactory.CreateMovie("Test Movie", null, movieId.ToString());
 
             _mockTmdbApiClient
-                .Setup(x => x.GetMovieDetailsAsync(movieId, "en-US"))
-                .ReturnsAsync(tmdbMovieDto);
+                .GetMovieDetailsAsync(movieId, "en-US")
+                .Returns(tmdbMovieDto);
             
             _mockMovieService
-                .Setup(x => x.GetMovieByTitleAndYearAsync("Test Movie", null))
-                .ReturnsAsync((Movie?)null);
+                .GetMovieByTitleAndYearAsync("Test Movie", null)
+                .Returns((Movie?)null);
             
             _mockMovieService
-                .Setup(x => x.CreateMovieAsync(It.IsAny<CreateMovieDto>()))
-                .ReturnsAsync(expectedMovie);
+                .CreateMovieAsync(Arg.Any<CreateMovieDto>())
+                .Returns(expectedMovie);
 
             // Act
             var result = await _tmdbService.ImportMovieAsync(movieId);
@@ -289,9 +290,9 @@ namespace MyMediaVerse.UnitTests.Application
             result.Should().NotBeNull();
             result.Title.Should().Be("Test Movie");
             
-            _mockMovieService.Verify(x => x.CreateMovieAsync(It.Is<CreateMovieDto>(dto => 
+            _mockMovieService.Received(1).CreateMovieAsync(Arg.Is<CreateMovieDto>(dto => 
                 dto.Title == "Test Movie" && 
-                dto.ReleaseYear == null)), Times.Once);
+                dto.ReleaseYear == null));
         }
 
         [Fact]
@@ -304,24 +305,24 @@ namespace MyMediaVerse.UnitTests.Application
             var expectedMovie = TestDataFactory.CreateMovie("Test Movie", 2010, movieId.ToString());
 
             _mockTmdbApiClient
-                .Setup(x => x.GetMovieDetailsAsync(movieId, "en-US"))
-                .ReturnsAsync(tmdbMovieDto);
+                .GetMovieDetailsAsync(movieId, "en-US")
+                .Returns(tmdbMovieDto);
             
             _mockMovieService
-                .Setup(x => x.GetMovieByTitleAndYearAsync("Test Movie", 2010))
-                .ReturnsAsync((Movie?)null);
+                .GetMovieByTitleAndYearAsync("Test Movie", 2010)
+                .Returns((Movie?)null);
             
             _mockMovieService
-                .Setup(x => x.CreateMovieAsync(It.IsAny<CreateMovieDto>()))
-                .ReturnsAsync(expectedMovie);
+                .CreateMovieAsync(Arg.Any<CreateMovieDto>())
+                .Returns(expectedMovie);
 
             // Act
             var result = await _tmdbService.ImportMovieAsync(movieId);
 
             // Assert
-            _mockMovieService.Verify(x => x.CreateMovieAsync(It.Is<CreateMovieDto>(dto => 
+            _mockMovieService.Received(1).CreateMovieAsync(Arg.Is<CreateMovieDto>(dto => 
                 dto.Rating == null && // Personal rating should be null for imports
-                dto.TmdbRating == 8.4)), Times.Once); // TMDB rating should be stored as-is
+                dto.TmdbRating == 8.4)); // TMDB rating should be stored as-is
         }
 
         [Fact]
@@ -334,24 +335,24 @@ namespace MyMediaVerse.UnitTests.Application
             var expectedTvShow = TestDataFactory.CreateTvShow("Test TV Show", 2020, tvShowId.ToString());
 
             _mockTmdbApiClient
-                .Setup(x => x.GetTvShowDetailsAsync(tvShowId, "en-US"))
-                .ReturnsAsync(tmdbTvShowDto);
+                .GetTvShowDetailsAsync(tvShowId, "en-US")
+                .Returns(tmdbTvShowDto);
             
             _mockTvShowService
-                .Setup(x => x.GetTvShowByTitleAndYearAsync("Test TV Show", 2020))
-                .ReturnsAsync((TvShow?)null);
+                .GetTvShowByTitleAndYearAsync("Test TV Show", 2020)
+                .Returns((TvShow?)null);
             
             _mockTvShowService
-                .Setup(x => x.CreateTvShowAsync(It.IsAny<CreateTvShowDto>()))
-                .ReturnsAsync(expectedTvShow);
+                .CreateTvShowAsync(Arg.Any<CreateTvShowDto>())
+                .Returns(expectedTvShow);
 
             // Act
             var result = await _tmdbService.ImportTvShowAsync(tvShowId);
 
             // Assert
-            _mockTvShowService.Verify(x => x.CreateTvShowAsync(It.Is<CreateTvShowDto>(dto => 
+            _mockTvShowService.Received(1).CreateTvShowAsync(Arg.Is<CreateTvShowDto>(dto => 
                 dto.Rating == null && // Personal rating should be null for imports
-                dto.TmdbRating == 7.8)), Times.Once); // TMDB rating should be stored as-is
+                dto.TmdbRating == 7.8)); // TMDB rating should be stored as-is
         }
 
         [Fact]
@@ -363,29 +364,29 @@ namespace MyMediaVerse.UnitTests.Application
             var expectedMovie = TestDataFactory.CreateMovie("Inception", 2010, movieId.ToString());
 
             _mockTmdbApiClient
-                .Setup(x => x.GetMovieDetailsAsync(movieId, "en-US"))
-                .ReturnsAsync(tmdbMovieDto);
+                .GetMovieDetailsAsync(movieId, "en-US")
+                .Returns(tmdbMovieDto);
             
             _mockMovieService
-                .Setup(x => x.GetMovieByTitleAndYearAsync("Inception", 2010))
-                .ReturnsAsync((Movie?)null);
+                .GetMovieByTitleAndYearAsync("Inception", 2010)
+                .Returns((Movie?)null);
             
             _mockMovieService
-                .Setup(x => x.CreateMovieAsync(It.IsAny<CreateMovieDto>()))
-                .ReturnsAsync(expectedMovie);
+                .CreateMovieAsync(Arg.Any<CreateMovieDto>())
+                .Returns(expectedMovie);
 
             // Act
             var result = await _tmdbService.ImportMovieAsync(movieId);
 
             // Assert
-            _mockMovieService.Verify(x => x.CreateMovieAsync(It.Is<CreateMovieDto>(dto => 
+            _mockMovieService.Received(1).CreateMovieAsync(Arg.Is<CreateMovieDto>(dto => 
                 dto.TmdbId == movieId.ToString() &&
                 dto.TmdbRating == tmdbMovieDto.VoteAverage &&
                 dto.TmdbBackdropPath == tmdbMovieDto.BackdropPath &&
                 dto.Tagline == tmdbMovieDto.Tagline &&
                 dto.Homepage == tmdbMovieDto.Homepage &&
                 dto.OriginalLanguage == tmdbMovieDto.OriginalLanguage &&
-                dto.OriginalTitle == tmdbMovieDto.OriginalTitle)), Times.Once);
+                dto.OriginalTitle == tmdbMovieDto.OriginalTitle));
         }
 
         [Fact]
@@ -397,29 +398,29 @@ namespace MyMediaVerse.UnitTests.Application
             var expectedTvShow = TestDataFactory.CreateTvShow("Game of Thrones", 2011, tvShowId.ToString());
 
             _mockTmdbApiClient
-                .Setup(x => x.GetTvShowDetailsAsync(tvShowId, "en-US"))
-                .ReturnsAsync(tmdbTvShowDto);
+                .GetTvShowDetailsAsync(tvShowId, "en-US")
+                .Returns(tmdbTvShowDto);
             
             _mockTvShowService
-                .Setup(x => x.GetTvShowByTitleAndYearAsync("Game of Thrones", 2011))
-                .ReturnsAsync((TvShow?)null);
+                .GetTvShowByTitleAndYearAsync("Game of Thrones", 2011)
+                .Returns((TvShow?)null);
             
             _mockTvShowService
-                .Setup(x => x.CreateTvShowAsync(It.IsAny<CreateTvShowDto>()))
-                .ReturnsAsync(expectedTvShow);
+                .CreateTvShowAsync(Arg.Any<CreateTvShowDto>())
+                .Returns(expectedTvShow);
 
             // Act
             var result = await _tmdbService.ImportTvShowAsync(tvShowId);
 
             // Assert
-            _mockTvShowService.Verify(x => x.CreateTvShowAsync(It.Is<CreateTvShowDto>(dto => 
+            _mockTvShowService.Received(1).CreateTvShowAsync(Arg.Is<CreateTvShowDto>(dto => 
                 dto.TmdbId == tvShowId.ToString() &&
                 dto.TmdbRating == tmdbTvShowDto.VoteAverage &&
                 dto.TmdbPosterPath == tmdbTvShowDto.PosterPath &&
                 dto.Tagline == tmdbTvShowDto.Tagline &&
                 dto.Homepage == tmdbTvShowDto.Homepage &&
                 dto.OriginalLanguage == tmdbTvShowDto.OriginalLanguage &&
-                dto.OriginalName == tmdbTvShowDto.OriginalName)), Times.Once);
+                dto.OriginalName == tmdbTvShowDto.OriginalName));
         }
 
         [Fact]
@@ -430,8 +431,8 @@ namespace MyMediaVerse.UnitTests.Application
             var expectedException = new InvalidOperationException("TMDB API error");
 
             _mockTmdbApiClient
-                .Setup(x => x.GetMovieDetailsAsync(movieId, "en-US"))
-                .ThrowsAsync(expectedException);
+                .GetMovieDetailsAsync(movieId, "en-US")
+                .Throws(expectedException);
 
             // Act & Assert
             var exception = await Assert.ThrowsAsync<InvalidOperationException>(
@@ -453,7 +454,7 @@ namespace MyMediaVerse.UnitTests.Application
             var expectedUrl = "https://image.tmdb.org/t/p/w500/test-image.jpg";
 
             _mockTmdbApiClient
-                .Setup(x => x.GetImageUrl(imagePath, size))
+                .GetImageUrl(imagePath, size)
                 .Returns(expectedUrl);
 
             // Act
@@ -461,7 +462,7 @@ namespace MyMediaVerse.UnitTests.Application
 
             // Assert
             result.Should().Be(expectedUrl);
-            _mockTmdbApiClient.Verify(x => x.GetImageUrl(imagePath, size), Times.Once);
+            _mockTmdbApiClient.Received(1).GetImageUrl(imagePath, size);
         }
 
         #endregion

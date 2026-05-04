@@ -1,10 +1,10 @@
-using Microsoft.AspNetCore.Hosting;
+﻿using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Moq;
+using NSubstitute;
 using MyMediaVerse.Infrastructure.Data;
 using MyMediaVerse.Shared.Interfaces;
 
@@ -16,14 +16,14 @@ namespace MyMediaVerse.IntegrationTests
         {
             // Set environment variable BEFORE anything else runs
             Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Testing");
-            Console.WriteLine("🚀 WebApplicationFactory constructor called - Environment set to Testing");
+            Console.WriteLine("WebApplicationFactory constructor called - Environment set to Testing");
         }
 
         public async Task InitializeAsync()
         {
-            Console.WriteLine("🔧 InitializeAsync called - About to resolve services");
+            Console.WriteLine("InitializeAsync called - About to resolve services");
             using var scope = Services.CreateScope();
-            Console.WriteLine($"🔍 Service provider created. Service count: {Services.GetType().GetProperty("Count")?.GetValue(Services) ?? "Unknown"}");
+            Console.WriteLine($"Service provider created. Service count: {Services.GetType().GetProperty("Count")?.GetValue(Services) ?? "Unknown"}");
             
             var context = scope.ServiceProvider.GetRequiredService<MediaLibraryDbContext>();
             
@@ -124,7 +124,7 @@ namespace MyMediaVerse.IntegrationTests
                     return context;
                 });
                 
-                Console.WriteLine("✅ DbContext and IApplicationDbContext registered");
+                Console.WriteLine("DbContext and IApplicationDbContext registered");
                 Console.WriteLine("=== WebApplicationFactory ConfigureServices END ===");
 
                 // Replace real Typesense service with a no-op mock to prevent
@@ -141,9 +141,9 @@ namespace MyMediaVerse.IntegrationTests
                     services.Remove(desc);
                 }
 
-                var mockTypesenseService = new Mock<ITypesenseService>();
-                services.AddScoped(_ => mockTypesenseService.Object);
-                Console.WriteLine("✅ ITypesenseService replaced with no-op mock (prevents Typesense leakage)");
+                var mockTypesenseService = Substitute.For<ITypesenseService>();
+                services.AddScoped(_ => mockTypesenseService);
+                Console.WriteLine("ITypesenseService replaced with no-op mock (prevents Typesense leakage)");
 
                 // Configure ListenNotes API to use MOCK server for testing
                 // See: https://www.listennotes.com/api/docs/?test=1

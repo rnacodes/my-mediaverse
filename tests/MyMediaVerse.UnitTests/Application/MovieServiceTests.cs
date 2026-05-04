@@ -1,6 +1,6 @@
-﻿using AwesomeAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Logging;
-using Moq;
+using NSubstitute;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
@@ -10,13 +10,13 @@ namespace MyMediaVerse.UnitTests.Application
 {
     public class MovieServiceTests : InMemoryDbTestBase
     {
-        private readonly Mock<ILogger<MovieService>> _mockLogger;
+        private readonly ILogger<MovieService> _mockLogger;
         private readonly MovieService _service;
 
         public MovieServiceTests()
         {
-            _mockLogger = new Mock<ILogger<MovieService>>();
-            _service = new MovieService(Context, _mockLogger.Object);
+            _mockLogger = Substitute.For<ILogger<MovieService>>();
+            _service = new MovieService(Context, _mockLogger);
         }
 
         #region GetAllMoviesAsync Tests

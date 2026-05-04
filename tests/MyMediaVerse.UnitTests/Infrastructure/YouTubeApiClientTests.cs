@@ -1,40 +1,40 @@
 ﻿using System.Net;
 using System.Text;
 using System.Text.Json;
-using AwesomeAssertions;
+using FluentAssertions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Moq;
-using Moq.Protected;
+using NSubstitute;
 using MyMediaVerse.Infrastructure.Clients.YouTube;
 using MyMediaVerse.Shared.DTOs.YouTube;
+using MyMediaVerse.UnitTests.TestHelpers;
 
 namespace MyMediaVerse.UnitTests.Infrastructure
 {
     public class YouTubeApiClientTests
     {
-        private readonly Mock<HttpMessageHandler> _mockHttpMessageHandler;
-        private readonly Mock<ILogger<YouTubeApiClient>> _mockLogger;
-        private readonly Mock<IConfiguration> _mockConfiguration;
+        private readonly TestHttpMessageHandler _mockHttpMessageHandler;
+        private readonly ILogger<YouTubeApiClient> _mockLogger;
+        private readonly IConfiguration _mockConfiguration;
         private readonly HttpClient _httpClient;
         private readonly YouTubeApiClient _youtubeApiClient;
         private readonly JsonSerializerOptions _jsonOptions;
 
         public YouTubeApiClientTests()
         {
-            _mockHttpMessageHandler = new Mock<HttpMessageHandler>();
-            _mockLogger = new Mock<ILogger<YouTubeApiClient>>();
-            _mockConfiguration = new Mock<IConfiguration>();
+            _mockHttpMessageHandler = new TestHttpMessageHandler();
+            _mockLogger = Substitute.For<ILogger<YouTubeApiClient>>();
+            _mockConfiguration = Substitute.For<IConfiguration>();
 
-            _httpClient = new HttpClient(_mockHttpMessageHandler.Object)
+            _httpClient = new HttpClient(_mockHttpMessageHandler)
             {
                 BaseAddress = new Uri("https://www.googleapis.com/youtube/v3/")
             };
 
             // Setup configuration to return test API key
-            _mockConfiguration.Setup(x => x["ApiKeys:YouTube"]).Returns("test-api-key");
+            _mockConfiguration["ApiKeys:YouTube"].Returns("test-api-key");
 
-            _youtubeApiClient = new YouTubeApiClient(_httpClient, _mockLogger.Object, _mockConfiguration.Object);
+            _youtubeApiClient = new YouTubeApiClient(_httpClient, _mockLogger, _mockConfiguration);
 
             _jsonOptions = new JsonSerializerOptions
             {
@@ -305,32 +305,13 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         #region Helper Methods
 
         private void SetupHttpResponse(HttpStatusCode statusCode, string content)
-        {
-            var response = new HttpResponseMessage(statusCode)
-            {
-                Content = new StringContent(content, Encoding.UTF8, "application/json")
-            };
-
-            _mockHttpMessageHandler
-                .Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>())
-                .ReturnsAsync(response);
-        }
+            => _mockHttpMessageHandler.RespondWith(statusCode, content);
 
         private void VerifyHttpRequest(string method, string expectedUriPart)
         {
-            _mockHttpMessageHandler
-                .Protected()
-                .Verify(
-                    "SendAsync",
-                    Times.Once(),
-                    ItExpr.Is<HttpRequestMessage>(req =>
-                        req.Method.ToString() == method &&
-                        req.RequestUri!.ToString().Contains(expectedUriPart)),
-                    ItExpr.IsAny<CancellationToken>());
+            _mockHttpMessageHandler.Requests.Should().ContainSingle(req =>
+                req.Method.ToString() == method &&
+                req.RequestUri!.ToString().Contains(expectedUriPart));
         }
 
         private static YouTubeSearchResultDto CreateSearchResultDto()
