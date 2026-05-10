@@ -2,21 +2,27 @@ using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
 using MyMediaVerse.DTOs;
+using MyMediaVerse.IntegrationTests.Fixtures;
 using MyMediaVerse.UnitTests.TestData;
 
 namespace MyMediaVerse.IntegrationTests.Controllers
 {
     [Trait("Category", "Integration")]
-    public class WebsiteControllerIntegrationTests : IClassFixture<WebApplicationFactory>
+    [Collection("Database")]
+    public class WebsiteControllerIntegrationTests : IAsyncLifetime
     {
-        private readonly WebApplicationFactory _factory;
+        private readonly ApiFactory _factory;
         private readonly HttpClient _client;
 
-        public WebsiteControllerIntegrationTests(WebApplicationFactory factory)
+        public WebsiteControllerIntegrationTests(ApiFactory factory)
         {
             _factory = factory;
             _client = _factory.CreateClient();
         }
+
+        public Task InitializeAsync() => _factory.ResetDatabaseAsync();
+
+        public Task DisposeAsync() => Task.CompletedTask;
 
         [Fact]
         public async Task GetAllWebsites_ShouldReturnOk()
@@ -238,4 +244,3 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         }
     }
 }
-
