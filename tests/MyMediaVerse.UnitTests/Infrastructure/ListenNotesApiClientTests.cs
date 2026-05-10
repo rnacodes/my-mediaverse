@@ -4,29 +4,30 @@ using System.Text.Json;
 using FluentAssertions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Moq;
-using Moq.Protected;
+using NSubstitute;
 using MyMediaVerse.Infrastructure.Clients.ListenNotes;
 using MyMediaVerse.Shared.DTOs.ListenNotes;
+using MyMediaVerse.UnitTests.TestHelpers;
 
 namespace MyMediaVerse.UnitTests.Infrastructure
 {
+    [Trait("Category", "Unit")]
     public class ListenNotesApiClientTests
     {
-        private readonly Mock<HttpMessageHandler> _mockHttpMessageHandler;
-        private readonly Mock<ILogger<ListenNotesApiClient>> _mockLogger;
-        private readonly Mock<IConfiguration> _mockConfiguration;
+        private readonly TestHttpMessageHandler _mockHttpMessageHandler;
+        private readonly ILogger<ListenNotesApiClient> _mockLogger;
+        private readonly IConfiguration _mockConfiguration;
         private readonly HttpClient _httpClient;
         private readonly ListenNotesApiClient _listenNotesApiClient;
         private readonly JsonSerializerOptions _jsonOptions;
 
         public ListenNotesApiClientTests()
         {
-            _mockHttpMessageHandler = new Mock<HttpMessageHandler>();
-            _mockLogger = new Mock<ILogger<ListenNotesApiClient>>();
-            _mockConfiguration = new Mock<IConfiguration>();
+            _mockHttpMessageHandler = new TestHttpMessageHandler();
+            _mockLogger = Substitute.For<ILogger<ListenNotesApiClient>>();
+            _mockConfiguration = Substitute.For<IConfiguration>();
             
-            _httpClient = new HttpClient(_mockHttpMessageHandler.Object)
+            _httpClient = new HttpClient(_mockHttpMessageHandler)
             {
                 // Using ListenNotes MOCK server for testing (no API key required)
                 // See: https://www.listennotes.com/api/docs/?test=1
@@ -34,9 +35,9 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             };
 
             // Setup configuration to return test API key (not needed for mock server)
-            _mockConfiguration.Setup(x => x["ApiKeys:ListenNotes"]).Returns("test-api-key");
+            _mockConfiguration["ApiKeys:ListenNotes"].Returns("test-api-key");
 
-            _listenNotesApiClient = new ListenNotesApiClient(_httpClient, _mockLogger.Object, _mockConfiguration.Object);
+            _listenNotesApiClient = new ListenNotesApiClient(_httpClient, _mockLogger, _mockConfiguration);
 
             _jsonOptions = new JsonSerializerOptions
             {
@@ -355,34 +356,15 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         #region Helper Methods
 
         private void SetupHttpResponse(HttpStatusCode statusCode, string content)
-        {
-            var response = new HttpResponseMessage(statusCode)
-            {
-                Content = new StringContent(content, Encoding.UTF8, "application/json")
-            };
-
-            _mockHttpMessageHandler
-                .Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>())
-                .ReturnsAsync(response);
-        }
+            => _mockHttpMessageHandler.RespondWith(statusCode, content);
 
         private void VerifyHttpRequest(string method, string expectedUriPart)
         {
-            _mockHttpMessageHandler
-                .Protected()
-                .Verify(
-                    "SendAsync",
-                    Times.Once(),
-                    ItExpr.Is<HttpRequestMessage>(req =>
-                        req.Method == HttpMethod.Parse(method) &&
-                        (req.RequestUri!.ToString().Contains(expectedUriPart) ||
-                         Uri.UnescapeDataString(req.RequestUri.ToString()).Contains(Uri.UnescapeDataString(expectedUriPart)) ||
-                         req.RequestUri!.ToString().StartsWith("https://listen-api.listennotes.com/api/v2/" + expectedUriPart))),
-                    ItExpr.IsAny<CancellationToken>());
+            _mockHttpMessageHandler.Requests.Should().ContainSingle(req =>
+                req.Method == HttpMethod.Parse(method) &&
+                (req.RequestUri!.ToString().Contains(expectedUriPart) ||
+                 Uri.UnescapeDataString(req.RequestUri.ToString()).Contains(Uri.UnescapeDataString(expectedUriPart)) ||
+                 req.RequestUri!.ToString().StartsWith("https://listen-api.listennotes.com/api/v2/" + expectedUriPart)));
         }
 
         #endregion

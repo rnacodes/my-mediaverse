@@ -2,31 +2,32 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
-using Moq;
-using Moq.Protected;
+using NSubstitute;
 using MyMediaVerse.Infrastructure.Clients.OpenLibrary;
 using MyMediaVerse.Shared.DTOs.OpenLibrary;
 using MyMediaVerse.Shared.Interfaces;
+using MyMediaVerse.UnitTests.TestHelpers;
 using Xunit;
 
 namespace MyMediaVerse.UnitTests.Infrastructure
 {
+    [Trait("Category", "Unit")]
     public class OpenLibraryApiClientTests
     {
-        private readonly Mock<ILogger<OpenLibraryApiClient>> _mockLogger;
-        private readonly Mock<HttpMessageHandler> _mockHttpMessageHandler;
+        private readonly ILogger<OpenLibraryApiClient> _mockLogger;
+        private readonly TestHttpMessageHandler _mockHttpMessageHandler;
         private readonly HttpClient _httpClient;
         private readonly IOpenLibraryApiClient _openLibraryApiClient;
 
         public OpenLibraryApiClientTests()
         {
-            _mockLogger = new Mock<ILogger<OpenLibraryApiClient>>();
-            _mockHttpMessageHandler = new Mock<HttpMessageHandler>();
-            _httpClient = new HttpClient(_mockHttpMessageHandler.Object)
+            _mockLogger = Substitute.For<ILogger<OpenLibraryApiClient>>();
+            _mockHttpMessageHandler = new TestHttpMessageHandler();
+            _httpClient = new HttpClient(_mockHttpMessageHandler)
             {
                 BaseAddress = new Uri("https://openlibrary.org/")
             };
-            _openLibraryApiClient = new OpenLibraryApiClient(_httpClient, _mockLogger.Object);
+            _openLibraryApiClient = new OpenLibraryApiClient(_httpClient, _mockLogger);
         }
 
         [Fact]
@@ -56,17 +57,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             });
 
-            _mockHttpMessageHandler
-                .Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>())
-                .ReturnsAsync(new HttpResponseMessage
-                {
-                    StatusCode = HttpStatusCode.OK,
-                    Content = new StringContent(jsonResponse, Encoding.UTF8, "application/json")
-                });
+            _mockHttpMessageHandler.RespondWith(HttpStatusCode.OK, jsonResponse);
 
             // Act
             var result = await _openLibraryApiClient.SearchBooksAsync(query);
@@ -105,17 +96,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             });
 
-            _mockHttpMessageHandler
-                .Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>())
-                .ReturnsAsync(new HttpResponseMessage
-                {
-                    StatusCode = HttpStatusCode.OK,
-                    Content = new StringContent(jsonResponse, Encoding.UTF8, "application/json")
-                });
+            _mockHttpMessageHandler.RespondWith(HttpStatusCode.OK, jsonResponse);
 
             // Act
             var result = await _openLibraryApiClient.SearchBooksByTitleAsync(title);
@@ -153,17 +134,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             });
 
-            _mockHttpMessageHandler
-                .Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>())
-                .ReturnsAsync(new HttpResponseMessage
-                {
-                    StatusCode = HttpStatusCode.OK,
-                    Content = new StringContent(jsonResponse, Encoding.UTF8, "application/json")
-                });
+            _mockHttpMessageHandler.RespondWith(HttpStatusCode.OK, jsonResponse);
 
             // Act
             var result = await _openLibraryApiClient.SearchBooksByAuthorAsync(author);
@@ -201,17 +172,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             });
 
-            _mockHttpMessageHandler
-                .Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>())
-                .ReturnsAsync(new HttpResponseMessage
-                {
-                    StatusCode = HttpStatusCode.OK,
-                    Content = new StringContent(jsonResponse, Encoding.UTF8, "application/json")
-                });
+            _mockHttpMessageHandler.RespondWith(HttpStatusCode.OK, jsonResponse);
 
             // Act
             var result = await _openLibraryApiClient.SearchBooksByISBNAsync(isbn);
@@ -248,17 +209,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             });
 
-            _mockHttpMessageHandler
-                .Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>())
-                .ReturnsAsync(new HttpResponseMessage
-                {
-                    StatusCode = HttpStatusCode.OK,
-                    Content = new StringContent(jsonResponse, Encoding.UTF8, "application/json")
-                });
+            _mockHttpMessageHandler.RespondWith(HttpStatusCode.OK, jsonResponse);
 
             // Act
             var result = await _openLibraryApiClient.GetBookByOpenLibraryIdAsync(openLibraryId);
@@ -289,17 +240,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             });
 
-            _mockHttpMessageHandler
-                .Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>())
-                .ReturnsAsync(new HttpResponseMessage
-                {
-                    StatusCode = HttpStatusCode.OK,
-                    Content = new StringContent(jsonResponse, Encoding.UTF8, "application/json")
-                });
+            _mockHttpMessageHandler.RespondWith(HttpStatusCode.OK, jsonResponse);
 
             // Act
             var result = await _openLibraryApiClient.GetBookByISBNAsync(isbn);
@@ -329,17 +270,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             });
 
-            _mockHttpMessageHandler
-                .Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>())
-                .ReturnsAsync(new HttpResponseMessage
-                {
-                    StatusCode = HttpStatusCode.OK,
-                    Content = new StringContent(jsonResponse, Encoding.UTF8, "application/json")
-                });
+            _mockHttpMessageHandler.RespondWith(HttpStatusCode.OK, jsonResponse);
 
             // Act
             var result = await _openLibraryApiClient.GetAuthorAsync(authorId);
@@ -371,17 +302,11 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             // Arrange
             var query = "test book";
 
-            _mockHttpMessageHandler
-                .Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>())
-                .ReturnsAsync(new HttpResponseMessage
-                {
-                    StatusCode = HttpStatusCode.InternalServerError,
-                    Content = new StringContent("Internal Server Error")
-                });
+            _mockHttpMessageHandler.RespondWith(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.InternalServerError,
+                Content = new StringContent("Internal Server Error")
+            });
 
             // Act & Assert
             await Assert.ThrowsAsync<HttpRequestException>(() => _openLibraryApiClient.SearchBooksAsync(query));
@@ -393,17 +318,11 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             // Arrange
             var openLibraryId = "INVALID";
 
-            _mockHttpMessageHandler
-                .Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>())
-                .ReturnsAsync(new HttpResponseMessage
-                {
-                    StatusCode = HttpStatusCode.NotFound,
-                    Content = new StringContent("Not Found")
-                });
+            _mockHttpMessageHandler.RespondWith(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.NotFound,
+                Content = new StringContent("Not Found")
+            });
 
             // Act & Assert
             await Assert.ThrowsAsync<HttpRequestException>(() => _openLibraryApiClient.GetBookByOpenLibraryIdAsync(openLibraryId));

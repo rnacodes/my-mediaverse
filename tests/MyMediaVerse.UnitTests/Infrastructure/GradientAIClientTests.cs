@@ -4,18 +4,19 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
-using Moq;
-using Moq.Protected;
+using NSubstitute;
 using MyMediaVerse.Infrastructure.Clients.AI;
+using MyMediaVerse.UnitTests.TestHelpers;
 
 namespace MyMediaVerse.UnitTests.Infrastructure
 {
+    [Trait("Category", "Unit")]
     public class GradientAIClientTests : IDisposable
     {
-        private readonly Mock<HttpMessageHandler> _mockGradientHandler;
-        private readonly Mock<HttpMessageHandler> _mockOpenAIHandler;
-        private readonly Mock<ILogger<GradientAIClient>> _mockLogger;
-        private readonly Mock<IHttpClientFactory> _mockHttpClientFactory;
+        private readonly TestHttpMessageHandler _mockGradientHandler;
+        private readonly TestHttpMessageHandler _mockOpenAIHandler;
+        private readonly ILogger<GradientAIClient> _mockLogger;
+        private readonly IHttpClientFactory _mockHttpClientFactory;
         private readonly HttpClient _gradientHttpClient;
         private readonly HttpClient _openAIHttpClient;
         private readonly JsonSerializerOptions _jsonOptions;
@@ -40,22 +41,22 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             Environment.SetEnvironmentVariable("GRADIENT_API_KEY", "test-gradient-key");
             Environment.SetEnvironmentVariable("OPENAI_API_KEY", "test-openai-key");
 
-            _mockGradientHandler = new Mock<HttpMessageHandler>();
-            _mockOpenAIHandler = new Mock<HttpMessageHandler>();
-            _mockLogger = new Mock<ILogger<GradientAIClient>>();
-            _mockHttpClientFactory = new Mock<IHttpClientFactory>();
+            _mockGradientHandler = new TestHttpMessageHandler();
+            _mockOpenAIHandler = new TestHttpMessageHandler();
+            _mockLogger = Substitute.For<ILogger<GradientAIClient>>();
+            _mockHttpClientFactory = Substitute.For<IHttpClientFactory>();
 
-            _gradientHttpClient = new HttpClient(_mockGradientHandler.Object)
+            _gradientHttpClient = new HttpClient(_mockGradientHandler)
             {
                 BaseAddress = new Uri("https://cloud.digitalocean.com/gen-ai/api/v1/")
             };
 
-            _openAIHttpClient = new HttpClient(_mockOpenAIHandler.Object)
+            _openAIHttpClient = new HttpClient(_mockOpenAIHandler)
             {
                 BaseAddress = new Uri("https://api.openai.com/v1/")
             };
 
-            _mockHttpClientFactory.Setup(f => f.CreateClient("OpenAIEmbeddings"))
+            _mockHttpClientFactory.CreateClient("OpenAIEmbeddings")
                 .Returns(_openAIHttpClient);
 
             _jsonOptions = new JsonSerializerOptions
@@ -79,36 +80,14 @@ namespace MyMediaVerse.UnitTests.Infrastructure
 
         private GradientAIClient CreateClient()
         {
-            return new GradientAIClient(_gradientHttpClient, _mockHttpClientFactory.Object, _mockLogger.Object);
+            return new GradientAIClient(_gradientHttpClient, _mockHttpClientFactory, _mockLogger);
         }
 
         private void SetupOpenAIResponse(HttpStatusCode statusCode, string jsonResponse)
-        {
-            _mockOpenAIHandler.Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>())
-                .ReturnsAsync(new HttpResponseMessage
-                {
-                    StatusCode = statusCode,
-                    Content = new StringContent(jsonResponse, Encoding.UTF8, "application/json")
-                });
-        }
+            => _mockOpenAIHandler.RespondWith(statusCode, jsonResponse);
 
         private void SetupGradientResponse(HttpStatusCode statusCode, string jsonResponse)
-        {
-            _mockGradientHandler.Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>())
-                .ReturnsAsync(new HttpResponseMessage
-                {
-                    StatusCode = statusCode,
-                    Content = new StringContent(jsonResponse, Encoding.UTF8, "application/json")
-                });
-        }
+            => _mockGradientHandler.RespondWith(statusCode, jsonResponse);
 
         #region Configuration Tests
 

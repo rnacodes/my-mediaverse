@@ -6,6 +6,7 @@ using MyMediaVerse.UnitTests.TestData;
 
 namespace MyMediaVerse.UnitTests.Application
 {
+    [Trait("Category", "Unit")]
     public class DocumentMappingServiceTests
     {
         private readonly DocumentMappingService _service;

@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
-using Moq;
+using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Infrastructure.Services.Enrichment;
 using MyMediaVerse.Shared.Interfaces;
@@ -9,17 +10,18 @@ using MyMediaVerse.UnitTests.TestHelpers;
 
 namespace MyMediaVerse.UnitTests.Infrastructure
 {
+    [Trait("Category", "Unit")]
     public class BookDescriptionEnrichmentServiceTests : InMemoryDbTestBase
     {
-        private readonly Mock<IGoogleBooksApiClient> _mockGoogleBooksClient;
-        private readonly Mock<ILogger<BookDescriptionEnrichmentService>> _mockLogger;
+        private readonly IGoogleBooksApiClient _mockGoogleBooksClient;
+        private readonly ILogger<BookDescriptionEnrichmentService> _mockLogger;
         private readonly BookDescriptionEnrichmentService _service;
 
         public BookDescriptionEnrichmentServiceTests()
         {
-            _mockGoogleBooksClient = new Mock<IGoogleBooksApiClient>();
-            _mockLogger = new Mock<ILogger<BookDescriptionEnrichmentService>>();
-            _service = new BookDescriptionEnrichmentService(Context, _mockGoogleBooksClient.Object, _mockLogger.Object);
+            _mockGoogleBooksClient = Substitute.For<IGoogleBooksApiClient>();
+            _mockLogger = Substitute.For<ILogger<BookDescriptionEnrichmentService>>();
+            _service = new BookDescriptionEnrichmentService(Context, _mockGoogleBooksClient, _mockLogger);
         }
 
         #region GetBooksNeedingEnrichmentCountAsync
@@ -106,8 +108,8 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             Context.Books.Add(book);
             await Context.SaveChangesAsync();
 
-            _mockGoogleBooksClient.Setup(c => c.GetBookDescriptionByISBNAsync("9780123456789"))
-                .ReturnsAsync("A fascinating book about technology.");
+            _mockGoogleBooksClient.GetBookDescriptionByISBNAsync("9780123456789")
+                .Returns("A fascinating book about technology.");
 
             var result = await _service.EnrichBookByIdAsync(book.Id);
 
@@ -127,8 +129,8 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             Context.Books.Add(book);
             await Context.SaveChangesAsync();
 
-            _mockGoogleBooksClient.Setup(c => c.GetBookDescriptionByISBNAsync("9780123456789"))
-                .ReturnsAsync((string?)null);
+            _mockGoogleBooksClient.GetBookDescriptionByISBNAsync("9780123456789")
+                .Returns((string?)null);
 
             var result = await _service.EnrichBookByIdAsync(book.Id);
 
@@ -157,8 +159,8 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             Context.Books.Add(book);
             await Context.SaveChangesAsync();
 
-            _mockGoogleBooksClient.Setup(c => c.GetBookDescriptionByISBNAsync(It.IsAny<string>()))
-                .ReturnsAsync("Enriched description");
+            _mockGoogleBooksClient.GetBookDescriptionByISBNAsync(Arg.Any<string>())
+                .Returns("Enriched description");
 
             var result = await _service.EnrichBooksWithoutDescriptionsAsync(batchSize: 10, delayBetweenCallsMs: 0);
 
@@ -181,11 +183,11 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             Context.Books.AddRange(book1, book2);
             await Context.SaveChangesAsync();
 
-            _mockGoogleBooksClient.Setup(c => c.GetBookDescriptionByISBNAsync("9780000000001"))
-                .ThrowsAsync(new Exception("API error"));
+            _mockGoogleBooksClient.GetBookDescriptionByISBNAsync("9780000000001")
+                .Throws(new Exception("API error"));
 
-            _mockGoogleBooksClient.Setup(c => c.GetBookDescriptionByISBNAsync("9780000000002"))
-                .ReturnsAsync("Description for book 2");
+            _mockGoogleBooksClient.GetBookDescriptionByISBNAsync("9780000000002")
+                .Returns("Description for book 2");
 
             var result = await _service.EnrichBooksWithoutDescriptionsAsync(batchSize: 10, delayBetweenCallsMs: 0);
 
@@ -206,8 +208,8 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             }
             await Context.SaveChangesAsync();
 
-            _mockGoogleBooksClient.Setup(c => c.GetBookDescriptionByISBNAsync(It.IsAny<string>()))
-                .ReturnsAsync("Description");
+            _mockGoogleBooksClient.GetBookDescriptionByISBNAsync(Arg.Any<string>())
+                .Returns("Description");
 
             var result = await _service.EnrichBooksWithoutDescriptionsAsync(batchSize: 2, delayBetweenCallsMs: 0);
 
@@ -240,12 +242,12 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             Context.Books.Add(book);
             await Context.SaveChangesAsync();
 
-            _mockGoogleBooksClient.Setup(c => c.GetBookDescriptionByISBNAsync("9780123456789"))
-                .ReturnsAsync("Description");
+            _mockGoogleBooksClient.GetBookDescriptionByISBNAsync("9780123456789")
+                .Returns("Description");
 
             var result = await _service.EnrichBooksWithoutDescriptionsAsync(batchSize: 10, delayBetweenCallsMs: 0);
 
-            _mockGoogleBooksClient.Verify(c => c.GetBookDescriptionByISBNAsync("9780123456789"), Times.Once);
+            _mockGoogleBooksClient.Received(1).GetBookDescriptionByISBNAsync("9780123456789");
         }
 
         #endregion

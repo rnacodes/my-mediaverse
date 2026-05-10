@@ -1,24 +1,25 @@
 using FluentAssertions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Moq;
+using NSubstitute;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.UnitTests.TestData;
 
 namespace MyMediaVerse.UnitTests.Application
 {
+    [Trait("Category", "Unit")]
     public class ArticleMappingServiceTests
     {
-        private readonly Mock<ILogger<ArticleMappingService>> _mockLogger;
-        private readonly Mock<IConfiguration> _mockConfiguration;
+        private readonly ILogger<ArticleMappingService> _mockLogger;
+        private readonly IConfiguration _mockConfiguration;
         private readonly ArticleMappingService _service;
 
         public ArticleMappingServiceTests()
         {
-            _mockLogger = new Mock<ILogger<ArticleMappingService>>();
-            _mockConfiguration = new Mock<IConfiguration>();
-            _service = new ArticleMappingService(_mockLogger.Object, _mockConfiguration.Object);
+            _mockLogger = Substitute.For<ILogger<ArticleMappingService>>();
+            _mockConfiguration = Substitute.For<IConfiguration>();
+            _service = new ArticleMappingService(_mockLogger, _mockConfiguration);
         }
 
         #region MapToResponseDtoAsync (single)
@@ -104,7 +105,7 @@ namespace MyMediaVerse.UnitTests.Application
         public async Task MapToResponseDtoAsync_WithEstimatedReadingTime_ComputedFromWordCount()
         {
             var article = TestDataFactory.CreateArticle();
-            article.WordCount = 500; // 500 words ≈ 2 min at ~250 wpm
+            article.WordCount = 500; // 500 words â‰ˆ 2 min at ~250 wpm
 
             var result = await _service.MapToResponseDtoAsync(article);
 

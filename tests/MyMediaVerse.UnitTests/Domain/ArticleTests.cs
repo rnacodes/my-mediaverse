@@ -5,6 +5,7 @@ using MyMediaVerse.UnitTests.TestData;
 
 namespace MyMediaVerse.UnitTests.Domain
 {
+    [Trait("Category", "Unit")]
     public class ArticleTests
     {
         #region Constructor Tests

@@ -1,40 +1,42 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using FluentAssertions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Moq;
-using Moq.Protected;
+using NSubstitute;
 using MyMediaVerse.Infrastructure.Clients.Google;
 using MyMediaVerse.Shared.DTOs.GoogleBooks;
 using MyMediaVerse.Shared.Interfaces;
+using MyMediaVerse.UnitTests.TestHelpers;
 using Xunit;
 
 namespace MyMediaVerse.UnitTests.Infrastructure
 {
+    [Trait("Category", "Unit")]
     public class GoogleBooksApiClientTests
     {
-        private readonly Mock<ILogger<GoogleBooksApiClient>> _mockLogger;
-        private readonly Mock<IConfiguration> _mockConfiguration;
-        private readonly Mock<HttpMessageHandler> _mockHttpMessageHandler;
+        private readonly ILogger<GoogleBooksApiClient> _mockLogger;
+        private readonly IConfiguration _mockConfiguration;
+        private readonly TestHttpMessageHandler _mockHttpMessageHandler;
         private readonly HttpClient _httpClient;
         private readonly IGoogleBooksApiClient _googleBooksApiClient;
 
         public GoogleBooksApiClientTests()
         {
-            _mockLogger = new Mock<ILogger<GoogleBooksApiClient>>();
-            _mockConfiguration = new Mock<IConfiguration>();
-            _mockHttpMessageHandler = new Mock<HttpMessageHandler>();
+            _mockLogger = Substitute.For<ILogger<GoogleBooksApiClient>>();
+            _mockConfiguration = Substitute.For<IConfiguration>();
+            _mockHttpMessageHandler = new TestHttpMessageHandler();
 
             // Setup configuration to return a test API key
-            _mockConfiguration.Setup(x => x["GoogleBooks:ApiKey"]).Returns("test-api-key");
+            _mockConfiguration["GoogleBooks:ApiKey"].Returns("test-api-key");
 
-            _httpClient = new HttpClient(_mockHttpMessageHandler.Object)
+            _httpClient = new HttpClient(_mockHttpMessageHandler)
             {
                 BaseAddress = new Uri("https://www.googleapis.com/books/v1/")
             };
 
-            _googleBooksApiClient = new GoogleBooksApiClient(_httpClient, _mockLogger.Object, _mockConfiguration.Object);
+            _googleBooksApiClient = new GoogleBooksApiClient(_httpClient, _mockLogger, _mockConfiguration);
         }
 
         [Fact]
@@ -321,13 +323,9 @@ namespace MyMediaVerse.UnitTests.Infrastructure
 
             // Assert
             Assert.NotNull(result);
-            _mockHttpMessageHandler.Protected().Verify(
-                "SendAsync",
-                Times.Once(),
-                ItExpr.Is<HttpRequestMessage>(req =>
-                    req.RequestUri!.ToString().Contains($"startIndex={startIndex}") &&
-                    req.RequestUri.ToString().Contains($"maxResults={maxResults}")),
-                ItExpr.IsAny<CancellationToken>());
+            _mockHttpMessageHandler.Requests.Should().ContainSingle(req =>
+                req.RequestUri!.ToString().Contains($"startIndex={startIndex}") &&
+                req.RequestUri.ToString().Contains($"maxResults={maxResults}"));
         }
 
         [Fact]
@@ -336,17 +334,11 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             // Arrange
             var query = "test book";
 
-            _mockHttpMessageHandler
-                .Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>())
-                .ReturnsAsync(new HttpResponseMessage
-                {
-                    StatusCode = HttpStatusCode.InternalServerError,
-                    Content = new StringContent("Internal Server Error")
-                });
+            _mockHttpMessageHandler.RespondWith(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.InternalServerError,
+                Content = new StringContent("Internal Server Error")
+            });
 
             // Act & Assert
             await Assert.ThrowsAsync<HttpRequestException>(() => _googleBooksApiClient.SearchBooksAsync(query));
@@ -358,17 +350,11 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             // Arrange
             var volumeId = "invalid-id";
 
-            _mockHttpMessageHandler
-                .Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>())
-                .ReturnsAsync(new HttpResponseMessage
-                {
-                    StatusCode = HttpStatusCode.NotFound,
-                    Content = new StringContent("Not Found")
-                });
+            _mockHttpMessageHandler.RespondWith(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.NotFound,
+                Content = new StringContent("Not Found")
+            });
 
             // Act
             var result = await _googleBooksApiClient.GetVolumeByIdAsync(volumeId);
@@ -384,17 +370,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             });
 
-            _mockHttpMessageHandler
-                .Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>())
-                .ReturnsAsync(new HttpResponseMessage
-                {
-                    StatusCode = HttpStatusCode.OK,
-                    Content = new StringContent(jsonResponse, Encoding.UTF8, "application/json")
-                });
+            _mockHttpMessageHandler.RespondWith(HttpStatusCode.OK, jsonResponse);
         }
     }
 }

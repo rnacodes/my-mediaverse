@@ -4,6 +4,7 @@ using Xunit;
 
 namespace MyMediaVerse.UnitTests.Domain
 {
+    [Trait("Category", "Unit")]
     public class TvShowTests
     {
         [Fact]

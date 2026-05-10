@@ -6,34 +6,35 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Moq;
-using Moq.Protected;
+using NSubstitute;
 using MyMediaVerse.Infrastructure.Clients.Readwise;
+using MyMediaVerse.UnitTests.TestHelpers;
 using Xunit;
 
 namespace MyMediaVerse.UnitTests.Infrastructure
 {
+    [Trait("Category", "Unit")]
     public class ReadwiseApiClientTests
     {
-        private readonly Mock<IConfiguration> _mockConfiguration;
-        private readonly Mock<ILogger<ReadwiseApiClient>> _mockLogger;
-        private readonly Mock<HttpMessageHandler> _mockHttpMessageHandler;
+        private readonly IConfiguration _mockConfiguration;
+        private readonly ILogger<ReadwiseApiClient> _mockLogger;
+        private readonly TestHttpMessageHandler _mockHttpMessageHandler;
         private readonly HttpClient _httpClient;
         private readonly ReadwiseApiClient _client;
 
         public ReadwiseApiClientTests()
         {
-            _mockConfiguration = new Mock<IConfiguration>();
-            _mockConfiguration.Setup(c => c["ApiKeys:Readwise"]).Returns("test-api-token");
+            _mockConfiguration = Substitute.For<IConfiguration>();
+            _mockConfiguration["ApiKeys:Readwise"].Returns("test-api-token");
 
-            _mockLogger = new Mock<ILogger<ReadwiseApiClient>>();
-            _mockHttpMessageHandler = new Mock<HttpMessageHandler>();
-            _httpClient = new HttpClient(_mockHttpMessageHandler.Object)
+            _mockLogger = Substitute.For<ILogger<ReadwiseApiClient>>();
+            _mockHttpMessageHandler = new TestHttpMessageHandler();
+            _httpClient = new HttpClient(_mockHttpMessageHandler)
             {
                 BaseAddress = new Uri("https://readwise.io/api/v2/")
             };
 
-            _client = new ReadwiseApiClient(_httpClient, _mockLogger.Object, _mockConfiguration.Object);
+            _client = new ReadwiseApiClient(_httpClient, _mockLogger, _mockConfiguration);
         }
 
         [Fact]
@@ -115,24 +116,17 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             var updatedAfter = "2023-01-01";
             var responseJson = @"{""count"": 0, ""results"": []}";
 
-            HttpRequestMessage capturedRequest = null;
-            _mockHttpMessageHandler
-                .Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>())
-                .Callback<HttpRequestMessage, CancellationToken>((req, ct) => capturedRequest = req)
-                .ReturnsAsync(new HttpResponseMessage
-                {
-                    StatusCode = HttpStatusCode.OK,
-                    Content = new StringContent(responseJson)
-                });
+            _mockHttpMessageHandler.OnSend = (req, ct) => Task.FromResult(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent(responseJson)
+            });
 
             // Act
             await _client.GetHighlightsAsync(updatedAfter);
 
             // Assert
+            var capturedRequest = _mockHttpMessageHandler.Requests.LastOrDefault();
             capturedRequest.Should().NotBeNull();
             capturedRequest.RequestUri.Query.Should().Contain("updated__gt=2023-01-01");
         }
@@ -226,17 +220,11 @@ namespace MyMediaVerse.UnitTests.Infrastructure
 
         private void SetupHttpResponse(HttpStatusCode statusCode, string content)
         {
-            _mockHttpMessageHandler
-                .Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>())
-                .ReturnsAsync(new HttpResponseMessage
-                {
-                    StatusCode = statusCode,
-                    Content = new StringContent(content)
-                });
+            _mockHttpMessageHandler.RespondWith(new HttpResponseMessage
+            {
+                StatusCode = statusCode,
+                Content = new StringContent(content)
+            });
         }
     }
 }

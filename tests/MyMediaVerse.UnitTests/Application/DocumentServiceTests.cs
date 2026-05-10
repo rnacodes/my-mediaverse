@@ -1,6 +1,6 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
-using Moq;
+using NSubstitute;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
@@ -10,17 +10,18 @@ using MyMediaVerse.UnitTests.TestHelpers;
 
 namespace MyMediaVerse.UnitTests.Application
 {
+    [Trait("Category", "Unit")]
     public class DocumentServiceTests : InMemoryDbTestBase
     {
-        private readonly Mock<ILogger<DocumentService>> _mockLogger;
-        private readonly Mock<IDocumentMappingService> _mockMappingService;
+        private readonly ILogger<DocumentService> _mockLogger;
+        private readonly IDocumentMappingService _mockMappingService;
         private readonly DocumentService _service;
 
         public DocumentServiceTests()
         {
-            _mockLogger = new Mock<ILogger<DocumentService>>();
-            _mockMappingService = new Mock<IDocumentMappingService>();
-            _service = new DocumentService(Context, _mockLogger.Object, _mockMappingService.Object);
+            _mockLogger = Substitute.For<ILogger<DocumentService>>();
+            _mockMappingService = Substitute.For<IDocumentMappingService>();
+            _service = new DocumentService(Context, _mockLogger, _mockMappingService);
         }
 
         private Document CreateTestDocument(string title = "Test Doc", int? paperlessId = null)
@@ -338,10 +339,10 @@ namespace MyMediaVerse.UnitTests.Application
         public async Task IsPaperlessAvailableAsync_WhenClientAvailable_ShouldReturnTrue()
         {
             // Arrange
-            var mockPaperlessClient = new Mock<IPaperlessApiClient>();
-            mockPaperlessClient.Setup(c => c.IsAvailableAsync()).ReturnsAsync(true);
+            var mockPaperlessClient = Substitute.For<IPaperlessApiClient>();
+            mockPaperlessClient.IsAvailableAsync().Returns(true);
             var service = new DocumentService(
-                Context, _mockLogger.Object, _mockMappingService.Object, mockPaperlessClient.Object);
+                Context, _mockLogger, _mockMappingService, mockPaperlessClient);
 
             // Act
             var result = await service.IsPaperlessAvailableAsync();

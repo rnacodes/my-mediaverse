@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Moq;
+using NSubstitute;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
@@ -16,27 +16,28 @@ namespace MyMediaVerse.UnitTests.Application
     /// Note: Only basic tests included. Complex many-to-many relationship tests
     /// and import functionality are better suited for integration tests.
     /// </summary>
+    [Trait("Category", "Unit")]
     public class YouTubePlaylistServiceTests : InMemoryDbTestBase
     {
-        private readonly Mock<IYouTubeApiClient> _mockYouTubeApiClient;
-        private readonly Mock<IYouTubeMappingService> _mockMappingService;
-        private readonly Mock<IVideoService> _mockVideoService;
-        private readonly Mock<ILogger<YouTubePlaylistService>> _mockLogger;
+        private readonly IYouTubeApiClient _mockYouTubeApiClient;
+        private readonly IYouTubeMappingService _mockMappingService;
+        private readonly IVideoService _mockVideoService;
+        private readonly ILogger<YouTubePlaylistService> _mockLogger;
         private readonly YouTubePlaylistService _service;
 
         public YouTubePlaylistServiceTests()
         {
-            _mockYouTubeApiClient = new Mock<IYouTubeApiClient>();
-            _mockMappingService = new Mock<IYouTubeMappingService>();
-            _mockVideoService = new Mock<IVideoService>();
-            _mockLogger = new Mock<ILogger<YouTubePlaylistService>>();
+            _mockYouTubeApiClient = Substitute.For<IYouTubeApiClient>();
+            _mockMappingService = Substitute.For<IYouTubeMappingService>();
+            _mockVideoService = Substitute.For<IVideoService>();
+            _mockLogger = Substitute.For<ILogger<YouTubePlaylistService>>();
 
             _service = new YouTubePlaylistService(
                 Context,
-                _mockYouTubeApiClient.Object,
-                _mockMappingService.Object,
-                _mockVideoService.Object,
-                _mockLogger.Object
+                _mockYouTubeApiClient,
+                _mockMappingService,
+                _mockVideoService,
+                _mockLogger
             );
         }
 

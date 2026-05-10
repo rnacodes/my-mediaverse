@@ -1,7 +1,7 @@
 using Xunit;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
-using Moq;
+using NSubstitute;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
@@ -9,15 +9,16 @@ using MyMediaVerse.UnitTests.TestHelpers;
 
 namespace MyMediaVerse.UnitTests.Application
 {
+    [Trait("Category", "Unit")]
     public class VideoServiceTests : InMemoryDbTestBase
     {
-        private readonly Mock<ILogger<VideoService>> _mockLogger;
+        private readonly ILogger<VideoService> _mockLogger;
         private readonly VideoService _service;
 
         public VideoServiceTests()
         {
-            _mockLogger = new Mock<ILogger<VideoService>>();
-            _service = new VideoService(Context, _mockLogger.Object);
+            _mockLogger = Substitute.For<ILogger<VideoService>>();
+            _service = new VideoService(Context, _mockLogger);
         }
 
         #region GetAllVideosAsync Tests
@@ -527,7 +528,7 @@ namespace MyMediaVerse.UnitTests.Application
                 Status = Status.Uncharted,
                 ChannelId = channelId,
                 ParentVideoId = parentVideo.Id
-                // No topics/genres — should inherit from channel, not parent
+                // No topics/genres â€” should inherit from channel, not parent
             };
 
             // Act

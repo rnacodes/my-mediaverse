@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Logging;
-using Moq;
+using NSubstitute;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
@@ -10,26 +10,27 @@ using Xunit;
 
 namespace MyMediaVerse.UnitTests.Application
 {
+    [Trait("Category", "Unit")]
     public class GoogleBooksServiceTests
     {
-        private readonly Mock<IGoogleBooksApiClient> _mockApiClient;
-        private readonly Mock<IBookService> _mockBookService;
-        private readonly Mock<IBookMappingService> _mockMappingService;
-        private readonly Mock<ILogger<GoogleBooksService>> _mockLogger;
+        private readonly IGoogleBooksApiClient _mockApiClient;
+        private readonly IBookService _mockBookService;
+        private readonly IBookMappingService _mockMappingService;
+        private readonly ILogger<GoogleBooksService> _mockLogger;
         private readonly IGoogleBooksService _googleBooksService;
 
         public GoogleBooksServiceTests()
         {
-            _mockApiClient = new Mock<IGoogleBooksApiClient>();
-            _mockBookService = new Mock<IBookService>();
-            _mockMappingService = new Mock<IBookMappingService>();
-            _mockLogger = new Mock<ILogger<GoogleBooksService>>();
+            _mockApiClient = Substitute.For<IGoogleBooksApiClient>();
+            _mockBookService = Substitute.For<IBookService>();
+            _mockMappingService = Substitute.For<IBookMappingService>();
+            _mockLogger = Substitute.For<ILogger<GoogleBooksService>>();
 
             _googleBooksService = new GoogleBooksService(
-                _mockApiClient.Object,
-                _mockBookService.Object,
-                _mockMappingService.Object,
-                _mockLogger.Object);
+                _mockApiClient,
+                _mockBookService,
+                _mockMappingService,
+                _mockLogger);
         }
 
         [Fact]
@@ -53,15 +54,15 @@ namespace MyMediaVerse.UnitTests.Application
             };
 
             _mockApiClient
-                .Setup(x => x.SearchBooksAsync(query, offset, limit))
-                .ReturnsAsync(expectedResult);
+                .SearchBooksAsync(query, offset, limit)
+                .Returns(expectedResult);
 
             // Act
             var result = await _googleBooksService.SearchBooksAsync(query, offset, limit);
 
             // Assert
             Assert.Equal(expectedResult, result);
-            _mockApiClient.Verify(x => x.SearchBooksAsync(query, offset, limit), Times.Once);
+            _mockApiClient.Received(1).SearchBooksAsync(query, offset, limit);
         }
 
         [Fact]
@@ -83,15 +84,15 @@ namespace MyMediaVerse.UnitTests.Application
             };
 
             _mockApiClient
-                .Setup(x => x.SearchBooksByTitleAsync(title, null, null))
-                .ReturnsAsync(expectedResult);
+                .SearchBooksByTitleAsync(title, null, null)
+                .Returns(expectedResult);
 
             // Act
             var result = await _googleBooksService.SearchBooksByTitleAsync(title);
 
             // Assert
             Assert.Equal(expectedResult, result);
-            _mockApiClient.Verify(x => x.SearchBooksByTitleAsync(title, null, null), Times.Once);
+            _mockApiClient.Received(1).SearchBooksByTitleAsync(title, null, null);
         }
 
         [Fact]
@@ -117,15 +118,15 @@ namespace MyMediaVerse.UnitTests.Application
             };
 
             _mockApiClient
-                .Setup(x => x.SearchBooksByAuthorAsync(author, null, null))
-                .ReturnsAsync(expectedResult);
+                .SearchBooksByAuthorAsync(author, null, null)
+                .Returns(expectedResult);
 
             // Act
             var result = await _googleBooksService.SearchBooksByAuthorAsync(author);
 
             // Assert
             Assert.Equal(expectedResult, result);
-            _mockApiClient.Verify(x => x.SearchBooksByAuthorAsync(author, null, null), Times.Once);
+            _mockApiClient.Received(1).SearchBooksByAuthorAsync(author, null, null);
         }
 
         [Fact]
@@ -154,15 +155,15 @@ namespace MyMediaVerse.UnitTests.Application
             };
 
             _mockApiClient
-                .Setup(x => x.SearchBooksByISBNAsync(isbn))
-                .ReturnsAsync(expectedResult);
+                .SearchBooksByISBNAsync(isbn)
+                .Returns(expectedResult);
 
             // Act
             var result = await _googleBooksService.SearchBooksByISBNAsync(isbn);
 
             // Assert
             Assert.Equal(expectedResult, result);
-            _mockApiClient.Verify(x => x.SearchBooksByISBNAsync(isbn), Times.Once);
+            _mockApiClient.Received(1).SearchBooksByISBNAsync(isbn);
         }
 
         [Fact]
@@ -202,30 +203,30 @@ namespace MyMediaVerse.UnitTests.Application
             };
 
             _mockApiClient
-                .Setup(x => x.GetVolumeByIdAsync(volumeId))
-                .ReturnsAsync(volumeDto);
+                .GetVolumeByIdAsync(volumeId)
+                .Returns(volumeDto);
 
             _mockBookService
-                .Setup(x => x.GetBookByTitleAndAuthorAsync("Test Book", It.IsAny<string>()))
-                .ReturnsAsync((Book?)null);
+                .GetBookByTitleAndAuthorAsync("Test Book", Arg.Any<string>())
+                .Returns((Book?)null);
 
             _mockMappingService
-                .Setup(x => x.MapFromGoogleBooksAsync(It.IsAny<GoogleBooksVolumeDto>()))
-                .ReturnsAsync(mappedBook);
+                .MapFromGoogleBooksAsync(Arg.Any<GoogleBooksVolumeDto>())
+                .Returns(mappedBook);
 
             _mockBookService
-                .Setup(x => x.CreateBookAsync(It.IsAny<CreateBookDto>()))
-                .ReturnsAsync(createdBook);
+                .CreateBookAsync(Arg.Any<CreateBookDto>())
+                .Returns(createdBook);
 
             // Act
             var result = await _googleBooksService.ImportBookFromVolumeIdAsync(volumeId);
 
             // Assert
             Assert.Equal(createdBook, result);
-            _mockApiClient.Verify(x => x.GetVolumeByIdAsync(volumeId), Times.Once);
-            _mockBookService.Verify(x => x.GetBookByTitleAndAuthorAsync("Test Book", It.IsAny<string>()), Times.Once);
-            _mockMappingService.Verify(x => x.MapFromGoogleBooksAsync(It.IsAny<GoogleBooksVolumeDto>()), Times.Once);
-            _mockBookService.Verify(x => x.CreateBookAsync(It.IsAny<CreateBookDto>()), Times.Once);
+            _mockApiClient.Received(1).GetVolumeByIdAsync(volumeId);
+            _mockBookService.Received(1).GetBookByTitleAndAuthorAsync("Test Book", Arg.Any<string>());
+            _mockMappingService.Received(1).MapFromGoogleBooksAsync(Arg.Any<GoogleBooksVolumeDto>());
+            _mockBookService.Received(1).CreateBookAsync(Arg.Any<CreateBookDto>());
         }
 
         [Fact]
@@ -254,22 +255,22 @@ namespace MyMediaVerse.UnitTests.Application
             };
 
             _mockApiClient
-                .Setup(x => x.GetVolumeByIdAsync(volumeId))
-                .ReturnsAsync(volumeDto);
+                .GetVolumeByIdAsync(volumeId)
+                .Returns(volumeDto);
 
             _mockBookService
-                .Setup(x => x.GetBookByTitleAndAuthorAsync("Test Book", It.IsAny<string>()))
-                .ReturnsAsync(existingBook);
+                .GetBookByTitleAndAuthorAsync("Test Book", Arg.Any<string>())
+                .Returns(existingBook);
 
             // Act
             var result = await _googleBooksService.ImportBookFromVolumeIdAsync(volumeId);
 
             // Assert
             Assert.Equal(existingBook, result);
-            _mockApiClient.Verify(x => x.GetVolumeByIdAsync(volumeId), Times.Once);
-            _mockBookService.Verify(x => x.GetBookByTitleAndAuthorAsync("Test Book", It.IsAny<string>()), Times.Once);
-            _mockMappingService.Verify(x => x.MapFromGoogleBooksAsync(It.IsAny<GoogleBooksVolumeDto>()), Times.Never);
-            _mockBookService.Verify(x => x.CreateBookAsync(It.IsAny<CreateBookDto>()), Times.Never);
+            _mockApiClient.Received(1).GetVolumeByIdAsync(volumeId);
+            _mockBookService.Received(1).GetBookByTitleAndAuthorAsync("Test Book", Arg.Any<string>());
+            _mockMappingService.DidNotReceive().MapFromGoogleBooksAsync(Arg.Any<GoogleBooksVolumeDto>());
+            _mockBookService.DidNotReceive().CreateBookAsync(Arg.Any<CreateBookDto>());
         }
 
         [Fact]
@@ -279,8 +280,8 @@ namespace MyMediaVerse.UnitTests.Application
             var volumeId = "invalid-id";
 
             _mockApiClient
-                .Setup(x => x.GetVolumeByIdAsync(volumeId))
-                .ReturnsAsync((GoogleBooksVolumeDto?)null);
+                .GetVolumeByIdAsync(volumeId)
+                .Returns((GoogleBooksVolumeDto?)null);
 
             // Act & Assert
             var exception = await Assert.ThrowsAsync<InvalidOperationException>(
@@ -335,30 +336,30 @@ namespace MyMediaVerse.UnitTests.Application
             };
 
             _mockApiClient
-                .Setup(x => x.SearchBooksByISBNAsync(isbn))
-                .ReturnsAsync(searchResult);
+                .SearchBooksByISBNAsync(isbn)
+                .Returns(searchResult);
 
             _mockBookService
-                .Setup(x => x.GetBookByTitleAndAuthorAsync("Test Book", It.IsAny<string>()))
-                .ReturnsAsync((Book?)null);
+                .GetBookByTitleAndAuthorAsync("Test Book", Arg.Any<string>())
+                .Returns((Book?)null);
 
             _mockMappingService
-                .Setup(x => x.MapFromGoogleBooksAsync(It.IsAny<GoogleBooksVolumeDto>()))
-                .ReturnsAsync(mappedBook);
+                .MapFromGoogleBooksAsync(Arg.Any<GoogleBooksVolumeDto>())
+                .Returns(mappedBook);
 
             _mockBookService
-                .Setup(x => x.CreateBookAsync(It.IsAny<CreateBookDto>()))
-                .ReturnsAsync(createdBook);
+                .CreateBookAsync(Arg.Any<CreateBookDto>())
+                .Returns(createdBook);
 
             // Act
             var result = await _googleBooksService.ImportBookFromISBNAsync(isbn);
 
             // Assert
             Assert.Equal(createdBook, result);
-            _mockApiClient.Verify(x => x.SearchBooksByISBNAsync(isbn), Times.Once);
-            _mockBookService.Verify(x => x.GetBookByTitleAndAuthorAsync("Test Book", It.IsAny<string>()), Times.Once);
-            _mockMappingService.Verify(x => x.MapFromGoogleBooksAsync(It.IsAny<GoogleBooksVolumeDto>()), Times.Once);
-            _mockBookService.Verify(x => x.CreateBookAsync(It.IsAny<CreateBookDto>()), Times.Once);
+            _mockApiClient.Received(1).SearchBooksByISBNAsync(isbn);
+            _mockBookService.Received(1).GetBookByTitleAndAuthorAsync("Test Book", Arg.Any<string>());
+            _mockMappingService.Received(1).MapFromGoogleBooksAsync(Arg.Any<GoogleBooksVolumeDto>());
+            _mockBookService.Received(1).CreateBookAsync(Arg.Any<CreateBookDto>());
         }
 
         [Fact]
@@ -373,8 +374,8 @@ namespace MyMediaVerse.UnitTests.Application
             };
 
             _mockApiClient
-                .Setup(x => x.SearchBooksByISBNAsync(isbn))
-                .ReturnsAsync(searchResult);
+                .SearchBooksByISBNAsync(isbn)
+                .Returns(searchResult);
 
             // Act & Assert
             var exception = await Assert.ThrowsAsync<InvalidOperationException>(
@@ -427,20 +428,20 @@ namespace MyMediaVerse.UnitTests.Application
 
             // The service uses "intitle:{title} inauthor:{author}" (space, not +) and maxResults: 1
             _mockApiClient
-                .Setup(x => x.SearchBooksAsync($"intitle:{title} inauthor:{author}", null, 1))
-                .ReturnsAsync(searchResult);
+                .SearchBooksAsync($"intitle:{title} inauthor:{author}", null, 1)
+                .Returns(searchResult);
 
             _mockBookService
-                .Setup(x => x.GetBookByTitleAndAuthorAsync(title, It.IsAny<string>()))
-                .ReturnsAsync((Book?)null);
+                .GetBookByTitleAndAuthorAsync(title, Arg.Any<string>())
+                .Returns((Book?)null);
 
             _mockMappingService
-                .Setup(x => x.MapFromGoogleBooksAsync(It.IsAny<GoogleBooksVolumeDto>()))
-                .ReturnsAsync(mappedBook);
+                .MapFromGoogleBooksAsync(Arg.Any<GoogleBooksVolumeDto>())
+                .Returns(mappedBook);
 
             _mockBookService
-                .Setup(x => x.CreateBookAsync(It.IsAny<CreateBookDto>()))
-                .ReturnsAsync(createdBook);
+                .CreateBookAsync(Arg.Any<CreateBookDto>())
+                .Returns(createdBook);
 
             // Act
             var result = await _googleBooksService.ImportBookFromTitleAndAuthorAsync(title, author);
@@ -491,27 +492,27 @@ namespace MyMediaVerse.UnitTests.Application
             };
 
             _mockApiClient
-                .Setup(x => x.SearchBooksByTitleAsync(title, null, 1))
-                .ReturnsAsync(searchResult);
+                .SearchBooksByTitleAsync(title, null, 1)
+                .Returns(searchResult);
 
             _mockBookService
-                .Setup(x => x.GetBookByTitleAndAuthorAsync(title, It.IsAny<string>()))
-                .ReturnsAsync((Book?)null);
+                .GetBookByTitleAndAuthorAsync(title, Arg.Any<string>())
+                .Returns((Book?)null);
 
             _mockMappingService
-                .Setup(x => x.MapFromGoogleBooksAsync(It.IsAny<GoogleBooksVolumeDto>()))
-                .ReturnsAsync(mappedBook);
+                .MapFromGoogleBooksAsync(Arg.Any<GoogleBooksVolumeDto>())
+                .Returns(mappedBook);
 
             _mockBookService
-                .Setup(x => x.CreateBookAsync(It.IsAny<CreateBookDto>()))
-                .ReturnsAsync(createdBook);
+                .CreateBookAsync(Arg.Any<CreateBookDto>())
+                .Returns(createdBook);
 
             // Act
             var result = await _googleBooksService.ImportBookFromTitleAndAuthorAsync(title);
 
             // Assert
             Assert.Equal(createdBook, result);
-            _mockApiClient.Verify(x => x.SearchBooksByTitleAsync(title, null, 1), Times.Once);
+            _mockApiClient.Received(1).SearchBooksByTitleAsync(title, null, 1);
         }
 
         [Fact]
@@ -526,8 +527,8 @@ namespace MyMediaVerse.UnitTests.Application
             };
 
             _mockApiClient
-                .Setup(x => x.SearchBooksByTitleAsync(title, null, 1))
-                .ReturnsAsync(searchResult);
+                .SearchBooksByTitleAsync(title, null, 1)
+                .Returns(searchResult);
 
             // Act & Assert
             var exception = await Assert.ThrowsAsync<InvalidOperationException>(

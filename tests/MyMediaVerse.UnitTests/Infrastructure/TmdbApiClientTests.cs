@@ -4,19 +4,20 @@ using System.Text.Json;
 using FluentAssertions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Moq;
-using Moq.Protected;
+using NSubstitute;
 using MyMediaVerse.Infrastructure.Clients.TMDB;
 using MyMediaVerse.Shared.DTOs.TMDB;
 using MyMediaVerse.UnitTests.TestData;
+using MyMediaVerse.UnitTests.TestHelpers;
 
 namespace MyMediaVerse.UnitTests.Infrastructure
 {
+    [Trait("Category", "Unit")]
     public class TmdbApiClientTests
     {
-        private readonly Mock<HttpMessageHandler> _mockHttpMessageHandler;
-        private readonly Mock<ILogger<TmdbApiClient>> _mockLogger;
-        private readonly Mock<IConfiguration> _mockConfiguration;
+        private readonly TestHttpMessageHandler _mockHttpMessageHandler;
+        private readonly ILogger<TmdbApiClient> _mockLogger;
+        private readonly IConfiguration _mockConfiguration;
         private readonly HttpClient _httpClient;
         private readonly TmdbApiClient _tmdbApiClient;
         private readonly JsonSerializerOptions _jsonOptions;
@@ -26,19 +27,19 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             // Ensure Environment Variable matches test expectation
             Environment.SetEnvironmentVariable("TMDB_API_KEY", "test-api-key");
 
-            _mockHttpMessageHandler = new Mock<HttpMessageHandler>();
-            _mockLogger = new Mock<ILogger<TmdbApiClient>>();
-            _mockConfiguration = new Mock<IConfiguration>();
+            _mockHttpMessageHandler = new TestHttpMessageHandler();
+            _mockLogger = Substitute.For<ILogger<TmdbApiClient>>();
+            _mockConfiguration = Substitute.For<IConfiguration>();
             
-            _httpClient = new HttpClient(_mockHttpMessageHandler.Object)
+            _httpClient = new HttpClient(_mockHttpMessageHandler)
             {
                 BaseAddress = new Uri("https://api.themoviedb.org/3/")
             };
 
             // Setup configuration to return test API key (fallback)
-            _mockConfiguration.Setup(x => x["ApiKeys:TMDB"]).Returns("test-api-key");
+            _mockConfiguration["ApiKeys:TMDB"].Returns("test-api-key");
 
-            _tmdbApiClient = new TmdbApiClient(_httpClient, _mockLogger.Object, _mockConfiguration.Object);
+            _tmdbApiClient = new TmdbApiClient(_httpClient, _mockLogger, _mockConfiguration);
 
             _jsonOptions = new JsonSerializerOptions
             {
@@ -358,20 +359,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         #region Helper Methods
 
         private void SetupHttpResponse(HttpStatusCode statusCode, string content)
-        {
-            var response = new HttpResponseMessage(statusCode)
-            {
-                Content = new StringContent(content, Encoding.UTF8, "application/json")
-            };
-
-            _mockHttpMessageHandler
-                .Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>())
-                .ReturnsAsync(response);
-        }
+            => _mockHttpMessageHandler.RespondWith(statusCode, content);
 
         private void VerifyHttpRequest(string method, string expectedUriStart)
         {
@@ -383,16 +371,10 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             // Normalize query components for comparison (handles order differences)
             var expectedQueryParams = query.Split('&').Where(x => !string.IsNullOrEmpty(x)).OrderBy(x => x).ToList();
 
-            _mockHttpMessageHandler
-                .Protected()
-                .Verify(
-                    "SendAsync",
-                    Times.Once(),
-                    ItExpr.Is<HttpRequestMessage>(req =>
-                        req.Method.ToString() == method &&
-                        req.RequestUri!.ToString().Contains(path) &&
-                        CheckQueryParams(req.RequestUri!.Query, expectedQueryParams)),
-                    ItExpr.IsAny<CancellationToken>());
+            _mockHttpMessageHandler.Requests.Should().ContainSingle(req =>
+                req.Method.ToString() == method &&
+                req.RequestUri!.ToString().Contains(path) &&
+                CheckQueryParams(req.RequestUri!.Query, expectedQueryParams));
         }
 
         private bool CheckQueryParams(string actualQuery, List<string> expectedQueryParams)

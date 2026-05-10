@@ -1,6 +1,6 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
-using Moq;
+using NSubstitute;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
@@ -11,15 +11,16 @@ using MyMediaVerse.UnitTests.TestHelpers;
 
 namespace MyMediaVerse.UnitTests.Application
 {
+    [Trait("Category", "Unit")]
     public class BookMappingServiceTests : InMemoryDbTestBase
     {
-        private readonly Mock<ILogger<BookMappingService>> _mockLogger;
+        private readonly ILogger<BookMappingService> _mockLogger;
         private readonly BookMappingService _service;
 
         public BookMappingServiceTests()
         {
-            _mockLogger = new Mock<ILogger<BookMappingService>>();
-            _service = new BookMappingService(Context, _mockLogger.Object);
+            _mockLogger = Substitute.For<ILogger<BookMappingService>>();
+            _service = new BookMappingService(Context, _mockLogger);
         }
 
         #region MapFromDtoAsync

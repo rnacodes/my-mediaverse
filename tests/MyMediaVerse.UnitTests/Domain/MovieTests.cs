@@ -4,6 +4,7 @@ using Xunit;
 
 namespace MyMediaVerse.UnitTests.Domain
 {
+    [Trait("Category", "Unit")]
     public class MovieTests
     {
         [Fact]
@@ -338,12 +339,12 @@ namespace MyMediaVerse.UnitTests.Domain
 
             // Act
             movie.Title = "Spirited Away";
-            movie.OriginalTitle = "千と千尋の神隠し";
+            movie.OriginalTitle = "åƒã¨åƒå°‹ã®ç¥žéš ã—";
             movie.OriginalLanguage = "ja";
 
             // Assert
             Assert.Equal("Spirited Away", movie.Title);
-            Assert.Equal("千と千尋の神隠し", movie.OriginalTitle);
+            Assert.Equal("åƒã¨åƒå°‹ã®ç¥žéš ã—", movie.OriginalTitle);
             Assert.Equal("ja", movie.OriginalLanguage);
         }
     }

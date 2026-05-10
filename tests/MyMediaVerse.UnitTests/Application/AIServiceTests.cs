@@ -1,6 +1,6 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
-using Moq;
+using NSubstitute;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Shared.Interfaces;
@@ -9,17 +9,18 @@ using MyMediaVerse.UnitTests.TestHelpers;
 
 namespace MyMediaVerse.UnitTests.Application
 {
+    [Trait("Category", "Unit")]
     public class AIServiceTests : InMemoryDbTestBase
     {
-        private readonly Mock<IGradientAIClient> _mockGradientClient;
-        private readonly Mock<ILogger<AIService>> _mockLogger;
+        private readonly IGradientAIClient _mockGradientClient;
+        private readonly ILogger<AIService> _mockLogger;
         private readonly AIService _service;
 
         public AIServiceTests()
         {
-            _mockGradientClient = new Mock<IGradientAIClient>();
-            _mockLogger = new Mock<ILogger<AIService>>();
-            _service = new AIService(Context, _mockGradientClient.Object, _mockLogger.Object);
+            _mockGradientClient = Substitute.For<IGradientAIClient>();
+            _mockLogger = Substitute.For<ILogger<AIService>>();
+            _service = new AIService(Context, _mockGradientClient, _mockLogger);
         }
 
         #region IsAvailableAsync
@@ -27,7 +28,7 @@ namespace MyMediaVerse.UnitTests.Application
         [Fact]
         public async Task IsAvailableAsync_ClientAvailable_ReturnsTrue()
         {
-            _mockGradientClient.Setup(c => c.IsAvailableAsync()).ReturnsAsync(true);
+            _mockGradientClient.IsAvailableAsync().Returns(true);
 
             var result = await _service.IsAvailableAsync();
 
@@ -37,7 +38,7 @@ namespace MyMediaVerse.UnitTests.Application
         [Fact]
         public async Task IsAvailableAsync_ClientUnavailable_ReturnsFalse()
         {
-            _mockGradientClient.Setup(c => c.IsAvailableAsync()).ReturnsAsync(false);
+            _mockGradientClient.IsAvailableAsync().Returns(false);
 
             var result = await _service.IsAvailableAsync();
 
@@ -65,9 +66,9 @@ namespace MyMediaVerse.UnitTests.Application
             Context.Notes.Add(note);
             await Context.SaveChangesAsync();
 
-            _mockGradientClient.Setup(c => c.GenerateTextAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync("A comprehensive exploration of machine learning fundamentals.");
+            _mockGradientClient.GenerateTextAsync(
+                Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .Returns("A comprehensive exploration of machine learning fundamentals.");
 
             var result = await _service.GenerateNoteDescriptionAsync(note.Id);
 
@@ -97,9 +98,9 @@ namespace MyMediaVerse.UnitTests.Application
             Context.Notes.Add(note);
             await Context.SaveChangesAsync();
 
-            _mockGradientClient.Setup(c => c.GenerateTextAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync("Generated description");
+            _mockGradientClient.GenerateTextAsync(
+                Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .Returns("Generated description");
 
             await _service.GenerateNoteDescriptionAsync(note.Id);
 
@@ -129,9 +130,9 @@ namespace MyMediaVerse.UnitTests.Application
             Context.Notes.Add(note);
             await Context.SaveChangesAsync();
 
-            _mockGradientClient.Setup(c => c.GenerateTextAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync("Generated description");
+            _mockGradientClient.GenerateTextAsync(
+                Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .Returns("Generated description");
 
             var result = await _service.GenerateNoteDescriptionsBatchAsync(batchSize: 10);
 
@@ -195,10 +196,10 @@ namespace MyMediaVerse.UnitTests.Application
         [Fact]
         public async Task GetStatusAsync_WithInMemoryDb_ThrowsDueToRawSql()
         {
-            _mockGradientClient.Setup(c => c.IsAvailableAsync()).ReturnsAsync(true);
-            _mockGradientClient.Setup(c => c.EmbeddingModelName).Returns("text-embedding-3-large");
-            _mockGradientClient.Setup(c => c.EmbeddingDimensions).Returns(1024);
-            _mockGradientClient.Setup(c => c.GenerationModelName).Returns("gradient-model");
+            _mockGradientClient.IsAvailableAsync().Returns(true);
+            _mockGradientClient.EmbeddingModelName.Returns("text-embedding-3-large");
+            _mockGradientClient.EmbeddingDimensions.Returns(1024);
+            _mockGradientClient.GenerationModelName.Returns("gradient-model");
 
             // GetStatusAsync uses raw SQL for embedding counts, which InMemory provider doesn't support
             Func<Task> act = async () => await _service.GetStatusAsync();

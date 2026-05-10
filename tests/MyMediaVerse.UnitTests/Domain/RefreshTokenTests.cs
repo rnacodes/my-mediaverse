@@ -3,6 +3,7 @@ using MyMediaVerse.Domain.Entities;
 
 namespace MyMediaVerse.UnitTests.Domain
 {
+    [Trait("Category", "Unit")]
     public class RefreshTokenTests
     {
         #region Constructor Tests

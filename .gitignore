@@ -696,7 +696,6 @@ temp_content.json
 .claude/settings.local.json
 tmp*
 CLAUDE.md
-CLAUDE.md
 temp-docs/
 docs/
 official-documentation/
@@ -707,3 +706,4 @@ official-documentation/
 .cursor/rules/todo2.mdc
 .cursor/mcp.json
 .todo2/
+.mcp.json

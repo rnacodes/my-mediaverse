@@ -1,7 +1,8 @@
 using FluentAssertions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Moq;
+using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
@@ -11,19 +12,20 @@ using MyMediaVerse.UnitTests.TestHelpers;
 
 namespace MyMediaVerse.UnitTests.Application
 {
+    [Trait("Category", "Unit")]
     public class NoteServiceTests : InMemoryDbTestBase
     {
-        private readonly Mock<IQuartzApiClient> _mockQuartzClient;
-        private readonly Mock<IConfiguration> _mockConfiguration;
-        private readonly Mock<ILogger<NoteService>> _mockLogger;
+        private readonly IQuartzApiClient _mockQuartzClient;
+        private readonly IConfiguration _mockConfiguration;
+        private readonly ILogger<NoteService> _mockLogger;
         private readonly NoteService _service;
 
         public NoteServiceTests()
         {
-            _mockQuartzClient = new Mock<IQuartzApiClient>();
-            _mockConfiguration = new Mock<IConfiguration>();
-            _mockLogger = new Mock<ILogger<NoteService>>();
-            _service = new NoteService(Context, _mockQuartzClient.Object, _mockConfiguration.Object, _mockLogger.Object);
+            _mockQuartzClient = Substitute.For<IQuartzApiClient>();
+            _mockConfiguration = Substitute.For<IConfiguration>();
+            _mockLogger = Substitute.For<ILogger<NoteService>>();
+            _service = new NoteService(Context, _mockQuartzClient, _mockConfiguration, _mockLogger);
         }
 
         private Note CreateTestNote(string slug = "test-note", string title = "Test Note", string vaultName = "general")
@@ -497,8 +499,8 @@ namespace MyMediaVerse.UnitTests.Application
                 }
             };
 
-            _mockQuartzClient.Setup(c => c.GetContentIndexAsync(It.IsAny<string>(), It.IsAny<string?>()))
-                .ReturnsAsync(contentIndex);
+            _mockQuartzClient.GetContentIndexAsync(Arg.Any<string>(), Arg.Any<string?>())
+                .Returns(contentIndex);
 
             // Act
             var result = await _service.SyncFromQuartzVaultAsync("general", "https://vault.example.com");
@@ -531,8 +533,8 @@ namespace MyMediaVerse.UnitTests.Application
                 }
             };
 
-            _mockQuartzClient.Setup(c => c.GetContentIndexAsync(It.IsAny<string>(), It.IsAny<string?>()))
-                .ReturnsAsync(contentIndex);
+            _mockQuartzClient.GetContentIndexAsync(Arg.Any<string>(), Arg.Any<string?>())
+                .Returns(contentIndex);
 
             // Act
             var result = await _service.SyncFromQuartzVaultAsync("general", "https://vault.example.com");
@@ -546,8 +548,8 @@ namespace MyMediaVerse.UnitTests.Application
         public async Task SyncFromQuartzVaultAsync_WhenAuthError_ShouldReturnResultWithError()
         {
             // Arrange
-            _mockQuartzClient.Setup(c => c.GetContentIndexAsync(It.IsAny<string>(), It.IsAny<string?>()))
-                .ThrowsAsync(new UnauthorizedAccessException("Invalid token"));
+            _mockQuartzClient.GetContentIndexAsync(Arg.Any<string>(), Arg.Any<string?>())
+                .Throws(new UnauthorizedAccessException("Invalid token"));
 
             // Act
             var result = await _service.SyncFromQuartzVaultAsync("general", "https://vault.example.com", "bad-token");
@@ -561,8 +563,8 @@ namespace MyMediaVerse.UnitTests.Application
         public async Task SyncFromQuartzVaultAsync_WithEmptyVault_ShouldReturnZeroCounts()
         {
             // Arrange
-            _mockQuartzClient.Setup(c => c.GetContentIndexAsync(It.IsAny<string>(), It.IsAny<string?>()))
-                .ReturnsAsync(new Dictionary<string, QuartzNoteDto>());
+            _mockQuartzClient.GetContentIndexAsync(Arg.Any<string>(), Arg.Any<string?>())
+                .Returns(new Dictionary<string, QuartzNoteDto>());
 
             // Act
             var result = await _service.SyncFromQuartzVaultAsync("general", "https://vault.example.com");

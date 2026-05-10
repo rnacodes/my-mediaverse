@@ -1,6 +1,6 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
-using Moq;
+using NSubstitute;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
@@ -10,19 +10,20 @@ using MyMediaVerse.UnitTests.TestHelpers;
 
 namespace MyMediaVerse.UnitTests.Application
 {
+    [Trait("Category", "Unit")]
     public class YouTubeChannelServiceTests : InMemoryDbTestBase
     {
-        private readonly Mock<IYouTubeApiClient> _mockYouTubeApiClient;
-        private readonly Mock<IYouTubeMappingService> _mockMappingService;
-        private readonly Mock<ILogger<YouTubeChannelService>> _mockLogger;
+        private readonly IYouTubeApiClient _mockYouTubeApiClient;
+        private readonly IYouTubeMappingService _mockMappingService;
+        private readonly ILogger<YouTubeChannelService> _mockLogger;
         private readonly YouTubeChannelService _service;
 
         public YouTubeChannelServiceTests()
         {
-            _mockYouTubeApiClient = new Mock<IYouTubeApiClient>();
-            _mockMappingService = new Mock<IYouTubeMappingService>();
-            _mockLogger = new Mock<ILogger<YouTubeChannelService>>();
-            _service = new YouTubeChannelService(Context, _mockYouTubeApiClient.Object, _mockMappingService.Object, _mockLogger.Object);
+            _mockYouTubeApiClient = Substitute.For<IYouTubeApiClient>();
+            _mockMappingService = Substitute.For<IYouTubeMappingService>();
+            _mockLogger = Substitute.For<ILogger<YouTubeChannelService>>();
+            _service = new YouTubeChannelService(Context, _mockYouTubeApiClient, _mockMappingService, _mockLogger);
         }
 
         private YouTubeChannel CreateTestChannel(string title = "Test Channel", string externalId = "UCtest123")

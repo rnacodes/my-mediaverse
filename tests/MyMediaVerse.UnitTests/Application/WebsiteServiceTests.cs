@@ -1,6 +1,6 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
-using Moq;
+using NSubstitute;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
@@ -11,17 +11,18 @@ using MyMediaVerse.UnitTests.TestHelpers;
 
 namespace MyMediaVerse.UnitTests.Application
 {
+    [Trait("Category", "Unit")]
     public class WebsiteServiceTests : InMemoryDbTestBase
     {
-        private readonly Mock<ILogger<WebsiteService>> _mockLogger;
-        private readonly Mock<IWebsiteScraperService> _mockScraperService;
+        private readonly ILogger<WebsiteService> _mockLogger;
+        private readonly IWebsiteScraperService _mockScraperService;
         private readonly WebsiteService _websiteService;
 
         public WebsiteServiceTests()
         {
-            _mockLogger = new Mock<ILogger<WebsiteService>>();
-            _mockScraperService = new Mock<IWebsiteScraperService>();
-            _websiteService = new WebsiteService(Context, _mockScraperService.Object, _mockLogger.Object);
+            _mockLogger = Substitute.For<ILogger<WebsiteService>>();
+            _mockScraperService = Substitute.For<IWebsiteScraperService>();
+            _websiteService = new WebsiteService(Context, _mockScraperService, _mockLogger);
         }
 
         [Fact]
@@ -182,8 +183,8 @@ namespace MyMediaVerse.UnitTests.Application
             };
 
             _mockScraperService
-                .Setup(s => s.ScrapeWebsiteAsync(importDto.Url))
-                .ReturnsAsync(scrapedData);
+                .ScrapeWebsiteAsync(importDto.Url)
+                .Returns(scrapedData);
 
             // Act
             var result = await _websiteService.ImportWebsiteFromUrlAsync(importDto);
@@ -201,7 +202,7 @@ namespace MyMediaVerse.UnitTests.Application
             result.Topics.Should().HaveCount(1);
             result.Genres.Should().HaveCount(1);
 
-            _mockScraperService.Verify(s => s.ScrapeWebsiteAsync(importDto.Url), Times.Once);
+            _mockScraperService.Received(1).ScrapeWebsiteAsync(importDto.Url);
         }
 
         [Fact]
@@ -222,8 +223,8 @@ namespace MyMediaVerse.UnitTests.Application
             };
 
             _mockScraperService
-                .Setup(s => s.ScrapeWebsiteAsync(importDto.Url))
-                .ReturnsAsync(scrapedData);
+                .ScrapeWebsiteAsync(importDto.Url)
+                .Returns(scrapedData);
 
             // Act
             var result = await _websiteService.ImportWebsiteFromUrlAsync(importDto);

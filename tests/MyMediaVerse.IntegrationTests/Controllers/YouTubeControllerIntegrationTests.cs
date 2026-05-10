@@ -5,7 +5,8 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
-using Moq;
+using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Shared.DTOs.YouTube;
@@ -13,6 +14,7 @@ using Xunit;
 
 namespace MyMediaVerse.IntegrationTests.Controllers
 {
+    [Trait("Category", "Integration")]
     public class YouTubeControllerIntegrationTests : IClassFixture<WebApplicationFactory>
     {
         private readonly WebApplicationFactory _factory;
@@ -37,12 +39,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task Search_WithValidQuery_ShouldReturnOk()
         {
             // Arrange
-            var mockService = new Mock<IYouTubeService>();
+            var mockService = Substitute.For<IYouTubeService>();
             var expectedResult = CreateSearchResult();
 
             mockService
-                .Setup(x => x.SearchAsync("test", "video", 25, null, null))
-                .ReturnsAsync(expectedResult);
+                .SearchAsync("test", "video", 25, null, null)
+                .Returns(expectedResult);
 
             var client = CreateClientWithMock(mockService);
 
@@ -70,12 +72,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task Search_WithCustomParameters_ShouldReturnOk()
         {
             // Arrange
-            var mockService = new Mock<IYouTubeService>();
+            var mockService = Substitute.For<IYouTubeService>();
             var expectedResult = CreateSearchResult();
 
             mockService
-                .Setup(x => x.SearchAsync("test", "channel", 10, null, null))
-                .ReturnsAsync(expectedResult);
+                .SearchAsync("test", "channel", 10, null, null)
+                .Returns(expectedResult);
 
             var client = CreateClientWithMock(mockService);
 
@@ -96,13 +98,13 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task GetVideoDetails_WithValidVideoId_ShouldReturnOk()
         {
             // Arrange
-            var mockService = new Mock<IYouTubeService>();
+            var mockService = Substitute.For<IYouTubeService>();
             var videoId = "dQw4w9WgXcQ";
             var expectedVideo = CreateVideoDto(videoId, "Never Gonna Give You Up");
 
             mockService
-                .Setup(x => x.GetVideoDetailsAsync(videoId))
-                .ReturnsAsync(expectedVideo);
+                .GetVideoDetailsAsync(videoId)
+                .Returns(expectedVideo);
 
             var client = CreateClientWithMock(mockService);
 
@@ -120,11 +122,11 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task GetVideoDetails_WithInvalidVideoId_ShouldReturnNotFound()
         {
             // Arrange
-            var mockService = new Mock<IYouTubeService>();
+            var mockService = Substitute.For<IYouTubeService>();
 
             mockService
-                .Setup(x => x.GetVideoDetailsAsync("invalid_video_id"))
-                .ReturnsAsync((YouTubeVideoDto?)null);
+                .GetVideoDetailsAsync("invalid_video_id")
+                .Returns((YouTubeVideoDto?)null);
 
             var client = CreateClientWithMock(mockService);
 
@@ -143,13 +145,13 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task GetPlaylistDetails_WithValidPlaylistId_ShouldReturnOk()
         {
             // Arrange
-            var mockService = new Mock<IYouTubeService>();
+            var mockService = Substitute.For<IYouTubeService>();
             var playlistId = "PLFgquLnL59alCl_2TQvOiD5Vgm1hCaGSI";
             var expectedPlaylist = CreatePlaylistDto(playlistId, "Test Playlist");
 
             mockService
-                .Setup(x => x.GetPlaylistDetailsAsync(playlistId))
-                .ReturnsAsync(expectedPlaylist);
+                .GetPlaylistDetailsAsync(playlistId)
+                .Returns(expectedPlaylist);
 
             var client = CreateClientWithMock(mockService);
 
@@ -167,7 +169,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task GetPlaylistItems_WithValidPlaylistId_ShouldReturnOk()
         {
             // Arrange
-            var mockService = new Mock<IYouTubeService>();
+            var mockService = Substitute.For<IYouTubeService>();
             var playlistId = "PLFgquLnL59alCl_2TQvOiD5Vgm1hCaGSI";
             var expectedItems = new List<YouTubePlaylistItemDto>
             {
@@ -176,8 +178,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             };
 
             mockService
-                .Setup(x => x.GetPlaylistItemsAsync(playlistId, 50, null))
-                .ReturnsAsync(expectedItems);
+                .GetPlaylistItemsAsync(playlistId, 50, null)
+                .Returns(expectedItems);
 
             var client = CreateClientWithMock(mockService);
 
@@ -198,13 +200,13 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task GetChannelDetails_WithValidChannelId_ShouldReturnOk()
         {
             // Arrange
-            var mockService = new Mock<IYouTubeService>();
+            var mockService = Substitute.For<IYouTubeService>();
             var channelId = "UCuAXFkgsw1L7xaCfnd5JJOw";
             var expectedChannel = CreateChannelDto(channelId, "Test Channel");
 
             mockService
-                .Setup(x => x.GetChannelDetailsAsync(channelId))
-                .ReturnsAsync(expectedChannel);
+                .GetChannelDetailsAsync(channelId)
+                .Returns(expectedChannel);
 
             var client = CreateClientWithMock(mockService);
 
@@ -222,13 +224,13 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task GetChannelByUsername_WithValidUsername_ShouldReturnOk()
         {
             // Arrange
-            var mockService = new Mock<IYouTubeService>();
+            var mockService = Substitute.For<IYouTubeService>();
             var username = "YouTube";
             var expectedChannel = CreateChannelDto("UC_test_id", "YouTube");
 
             mockService
-                .Setup(x => x.GetChannelByUsernameAsync(username))
-                .ReturnsAsync(expectedChannel);
+                .GetChannelByUsernameAsync(username)
+                .Returns(expectedChannel);
 
             var client = CreateClientWithMock(mockService);
 
@@ -245,11 +247,11 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task GetChannelByUsername_WithInvalidUsername_ShouldReturnNotFound()
         {
             // Arrange
-            var mockService = new Mock<IYouTubeService>();
+            var mockService = Substitute.For<IYouTubeService>();
 
             mockService
-                .Setup(x => x.GetChannelByUsernameAsync("nonexistent_user_12345"))
-                .ReturnsAsync((YouTubeChannelDto?)null);
+                .GetChannelByUsernameAsync("nonexistent_user_12345")
+                .Returns((YouTubeChannelDto?)null);
 
             var client = CreateClientWithMock(mockService);
 
@@ -268,13 +270,13 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task ImportVideo_WithValidVideoId_ShouldReturnCreated()
         {
             // Arrange
-            var mockService = new Mock<IYouTubeService>();
+            var mockService = Substitute.For<IYouTubeService>();
             var videoId = "dQw4w9WgXcQ";
             var expectedVideo = CreateVideoEntity(videoId, "Never Gonna Give You Up");
 
             mockService
-                .Setup(x => x.ImportVideoAsync(videoId))
-                .ReturnsAsync(expectedVideo);
+                .ImportVideoAsync(videoId)
+                .Returns(expectedVideo);
 
             var client = CreateClientWithMock(mockService);
 
@@ -293,11 +295,11 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task ImportVideo_WithInvalidVideoId_ShouldReturnNotFound()
         {
             // Arrange
-            var mockService = new Mock<IYouTubeService>();
+            var mockService = Substitute.For<IYouTubeService>();
 
             mockService
-                .Setup(x => x.ImportVideoAsync("invalid_video_id"))
-                .ThrowsAsync(new InvalidOperationException("Video not found"));
+                .ImportVideoAsync("invalid_video_id")
+                .Throws(new InvalidOperationException("Video not found"));
 
             var client = CreateClientWithMock(mockService);
 
@@ -312,13 +314,13 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task ImportFromUrl_WithValidVideoUrl_ShouldReturnCreated()
         {
             // Arrange
-            var mockService = new Mock<IYouTubeService>();
+            var mockService = Substitute.For<IYouTubeService>();
             var videoUrl = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
             var expectedVideo = CreateVideoEntity("dQw4w9WgXcQ", "Never Gonna Give You Up");
 
             mockService
-                .Setup(x => x.ImportFromUrlAsync(videoUrl))
-                .ReturnsAsync(expectedVideo);
+                .ImportFromUrlAsync(videoUrl)
+                .Returns(expectedVideo);
 
             var client = CreateClientWithMock(mockService);
 
@@ -340,12 +342,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task ImportFromUrl_WithInvalidUrl_ShouldReturnBadRequest()
         {
             // Arrange
-            var mockService = new Mock<IYouTubeService>();
+            var mockService = Substitute.For<IYouTubeService>();
             var invalidUrl = "https://example.com/not-youtube";
 
             mockService
-                .Setup(x => x.ImportFromUrlAsync(invalidUrl))
-                .ThrowsAsync(new ArgumentException("Invalid YouTube URL"));
+                .ImportFromUrlAsync(invalidUrl)
+                .Throws(new ArgumentException("Invalid YouTube URL"));
 
             var client = CreateClientWithMock(mockService);
 
@@ -363,7 +365,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task ImportPlaylist_WithValidPlaylistId_ShouldReturnOk()
         {
             // Arrange
-            var mockService = new Mock<IYouTubeService>();
+            var mockService = Substitute.For<IYouTubeService>();
             var playlistId = "PLFgquLnL59alCl_2TQvOiD5Vgm1hCaGSI";
             var expectedVideos = new List<Video>
             {
@@ -372,8 +374,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             };
 
             mockService
-                .Setup(x => x.ImportPlaylistAsync(playlistId, false))
-                .ReturnsAsync(expectedVideos);
+                .ImportPlaylistAsync(playlistId, false)
+                .Returns(expectedVideos);
 
             var client = CreateClientWithMock(mockService);
 
@@ -397,13 +399,13 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task ImportChannel_WithValidChannelId_ShouldReturnCreated()
         {
             // Arrange
-            var mockService = new Mock<IYouTubeService>();
+            var mockService = Substitute.For<IYouTubeService>();
             var channelId = "UCuAXFkgsw1L7xaCfnd5JJOw";
             var expectedChannel = CreateVideoEntity(channelId, "Test Channel");
 
             mockService
-                .Setup(x => x.ImportChannelAsync(channelId))
-                .ReturnsAsync(expectedChannel);
+                .ImportChannelAsync(channelId)
+                .Returns(expectedChannel);
 
             var client = CreateClientWithMock(mockService);
 
@@ -458,7 +460,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
         #region Helper Methods
 
-        private HttpClient CreateClientWithMock(Mock<IYouTubeService> mockService)
+        private HttpClient CreateClientWithMock(IYouTubeService mockService)
         {
             var factory = _factory.WithWebHostBuilder(builder =>
             {
@@ -467,7 +469,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                     var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IYouTubeService));
                     if (descriptor != null)
                         services.Remove(descriptor);
-                    services.AddSingleton(mockService.Object);
+                    services.AddSingleton(mockService);
                 });
             });
 

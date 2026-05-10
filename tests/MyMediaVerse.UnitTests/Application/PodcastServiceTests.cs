@@ -1,6 +1,6 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
-using Moq;
+using NSubstitute;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
@@ -10,20 +10,21 @@ using MyMediaVerse.UnitTests.TestHelpers;
 
 namespace MyMediaVerse.UnitTests.Application
 {
+    [Trait("Category", "Unit")]
     public class PodcastServiceTests : InMemoryDbTestBase
     {
-        private readonly Mock<IListenNotesApiClient> _mockListenNotesApiClient;
-        private readonly Mock<IPodcastMappingService> _mockPodcastMappingService;
-        private readonly Mock<ILogger<PodcastService>> _mockLogger;
+        private readonly IListenNotesApiClient _mockListenNotesApiClient;
+        private readonly IPodcastMappingService _mockPodcastMappingService;
+        private readonly ILogger<PodcastService> _mockLogger;
         private readonly PodcastService _service;
 
         public PodcastServiceTests()
         {
-            _mockListenNotesApiClient = new Mock<IListenNotesApiClient>();
-            _mockPodcastMappingService = new Mock<IPodcastMappingService>();
-            _mockLogger = new Mock<ILogger<PodcastService>>();
-            _service = new PodcastService(Context, _mockListenNotesApiClient.Object, 
-                _mockPodcastMappingService.Object, _mockLogger.Object);
+            _mockListenNotesApiClient = Substitute.For<IListenNotesApiClient>();
+            _mockPodcastMappingService = Substitute.For<IPodcastMappingService>();
+            _mockLogger = Substitute.For<ILogger<PodcastService>>();
+            _service = new PodcastService(Context, _mockListenNotesApiClient, 
+                _mockPodcastMappingService, _mockLogger);
         }
 
         #region PodcastSeries Tests

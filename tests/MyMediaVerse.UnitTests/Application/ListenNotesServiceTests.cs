@@ -1,6 +1,6 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
-using Moq;
+using NSubstitute;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
@@ -10,26 +10,27 @@ using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.UnitTests.Application
 {
+    [Trait("Category", "Unit")]
     public class ListenNotesServiceTests
     {
-        private readonly Mock<IListenNotesApiClient> _mockListenNotesApiClient;
-        private readonly Mock<IPodcastService> _mockPodcastService;
-        private readonly Mock<IPodcastMappingService> _mockPodcastMappingService;
-        private readonly Mock<ILogger<ListenNotesService>> _mockLogger;
+        private readonly IListenNotesApiClient _mockListenNotesApiClient;
+        private readonly IPodcastService _mockPodcastService;
+        private readonly IPodcastMappingService _mockPodcastMappingService;
+        private readonly ILogger<ListenNotesService> _mockLogger;
         private readonly ListenNotesService _listenNotesService;
 
         public ListenNotesServiceTests()
         {
-            _mockListenNotesApiClient = new Mock<IListenNotesApiClient>();
-            _mockPodcastService = new Mock<IPodcastService>();
-            _mockPodcastMappingService = new Mock<IPodcastMappingService>();
-            _mockLogger = new Mock<ILogger<ListenNotesService>>();
+            _mockListenNotesApiClient = Substitute.For<IListenNotesApiClient>();
+            _mockPodcastService = Substitute.For<IPodcastService>();
+            _mockPodcastMappingService = Substitute.For<IPodcastMappingService>();
+            _mockLogger = Substitute.For<ILogger<ListenNotesService>>();
             
             _listenNotesService = new ListenNotesService(
-                _mockListenNotesApiClient.Object,
-                _mockPodcastService.Object,
-                _mockPodcastMappingService.Object,
-                _mockLogger.Object);
+                _mockListenNotesApiClient,
+                _mockPodcastService,
+                _mockPodcastMappingService,
+                _mockLogger);
         }
 
         #region Search Operations Tests
@@ -42,8 +43,8 @@ namespace MyMediaVerse.UnitTests.Application
             var expectedResult = CreateSearchResultDto();
             
             _mockListenNotesApiClient
-                .Setup(x => x.SearchAsync(query, null, null, null, null, null, null, null, null, null, null, null, null, null))
-                .ReturnsAsync(expectedResult);
+                .SearchAsync(query, null, null, null, null, null, null, null, null, null, null, null, null, null)
+                .Returns(expectedResult);
 
             // Act
             var result = await _listenNotesService.SearchAsync(query);
@@ -51,7 +52,7 @@ namespace MyMediaVerse.UnitTests.Application
             // Assert
             result.Should().NotBeNull();
             result.Should().BeEquivalentTo(expectedResult);
-            _mockListenNotesApiClient.Verify(x => x.SearchAsync(query, null, null, null, null, null, null, null, null, null, null, null, null, null), Times.Once);
+            _mockListenNotesApiClient.Received(1).SearchAsync(query, null, null, null, null, null, null, null, null, null, null, null, null, null);
         }
 
         [Fact]
@@ -75,8 +76,8 @@ namespace MyMediaVerse.UnitTests.Application
             var expectedResult = CreateSearchResultDto();
             
             _mockListenNotesApiClient
-                .Setup(x => x.SearchAsync(query, type, offset, lenMin, lenMax, genreIds, publishedBefore, publishedAfter, onlyIn, language, region, sortByDate, safeMode, uniquePodcasts))
-                .ReturnsAsync(expectedResult);
+                .SearchAsync(query, type, offset, lenMin, lenMax, genreIds, publishedBefore, publishedAfter, onlyIn, language, region, sortByDate, safeMode, uniquePodcasts)
+                .Returns(expectedResult);
 
             // Act
             var result = await _listenNotesService.SearchAsync(query, type, offset, lenMin, lenMax, genreIds, publishedBefore, publishedAfter, onlyIn, language, region, sortByDate, safeMode, uniquePodcasts);
@@ -84,7 +85,7 @@ namespace MyMediaVerse.UnitTests.Application
             // Assert
             result.Should().NotBeNull();
             result.Should().BeEquivalentTo(expectedResult);
-            _mockListenNotesApiClient.Verify(x => x.SearchAsync(query, type, offset, lenMin, lenMax, genreIds, publishedBefore, publishedAfter, onlyIn, language, region, sortByDate, safeMode, uniquePodcasts), Times.Once);
+            _mockListenNotesApiClient.Received(1).SearchAsync(query, type, offset, lenMin, lenMax, genreIds, publishedBefore, publishedAfter, onlyIn, language, region, sortByDate, safeMode, uniquePodcasts);
         }
 
         #endregion
@@ -99,8 +100,8 @@ namespace MyMediaVerse.UnitTests.Application
             var expectedResult = CreateListenNotesPodcastSeriesDto();
             
             _mockListenNotesApiClient
-                .Setup(x => x.GetPodcastByIdAsync(podcastId, null))
-                .ReturnsAsync(expectedResult);
+                .GetPodcastByIdAsync(podcastId, null)
+                .Returns(expectedResult);
 
             // Act
             var result = await _listenNotesService.GetPodcastByIdAsync(podcastId);
@@ -108,7 +109,7 @@ namespace MyMediaVerse.UnitTests.Application
             // Assert
             result.Should().NotBeNull();
             result.Should().BeEquivalentTo(expectedResult);
-            _mockListenNotesApiClient.Verify(x => x.GetPodcastByIdAsync(podcastId, null), Times.Once);
+            _mockListenNotesApiClient.Received(1).GetPodcastByIdAsync(podcastId, null);
         }
 
         [Fact]
@@ -118,8 +119,8 @@ namespace MyMediaVerse.UnitTests.Application
             var expectedResult = CreateBestPodcastsDto();
             
             _mockListenNotesApiClient
-                .Setup(x => x.GetBestPodcastsAsync(null, null, null, null, null))
-                .ReturnsAsync(expectedResult);
+                .GetBestPodcastsAsync(null, null, null, null, null)
+                .Returns(expectedResult);
 
             // Act
             var result = await _listenNotesService.GetBestPodcastsAsync();
@@ -127,7 +128,7 @@ namespace MyMediaVerse.UnitTests.Application
             // Assert
             result.Should().NotBeNull();
             result.Should().BeEquivalentTo(expectedResult);
-            _mockListenNotesApiClient.Verify(x => x.GetBestPodcastsAsync(null, null, null, null, null), Times.Once);
+            _mockListenNotesApiClient.Received(1).GetBestPodcastsAsync(null, null, null, null, null);
         }
 
         [Fact]
@@ -138,8 +139,8 @@ namespace MyMediaVerse.UnitTests.Application
             var expectedResult = CreateRecommendationsDto();
             
             _mockListenNotesApiClient
-                .Setup(x => x.GetPodcastRecommendationsAsync(podcastId, null))
-                .ReturnsAsync(expectedResult);
+                .GetPodcastRecommendationsAsync(podcastId, null)
+                .Returns(expectedResult);
 
             // Act
             var result = await _listenNotesService.GetPodcastRecommendationsAsync(podcastId);
@@ -147,7 +148,7 @@ namespace MyMediaVerse.UnitTests.Application
             // Assert
             result.Should().NotBeNull();
             result.Should().BeEquivalentTo(expectedResult);
-            _mockListenNotesApiClient.Verify(x => x.GetPodcastRecommendationsAsync(podcastId, null), Times.Once);
+            _mockListenNotesApiClient.Received(1).GetPodcastRecommendationsAsync(podcastId, null);
         }
 
         #endregion
@@ -162,8 +163,8 @@ namespace MyMediaVerse.UnitTests.Application
             var expectedResult = CreateListenNotesPodcastEpisodeDto();
             
             _mockListenNotesApiClient
-                .Setup(x => x.GetEpisodeByIdAsync(episodeId))
-                .ReturnsAsync(expectedResult);
+                .GetEpisodeByIdAsync(episodeId)
+                .Returns(expectedResult);
 
             // Act
             var result = await _listenNotesService.GetEpisodeByIdAsync(episodeId);
@@ -171,7 +172,7 @@ namespace MyMediaVerse.UnitTests.Application
             // Assert
             result.Should().NotBeNull();
             result.Should().BeEquivalentTo(expectedResult);
-            _mockListenNotesApiClient.Verify(x => x.GetEpisodeByIdAsync(episodeId), Times.Once);
+            _mockListenNotesApiClient.Received(1).GetEpisodeByIdAsync(episodeId);
         }
 
         [Fact]
@@ -182,8 +183,8 @@ namespace MyMediaVerse.UnitTests.Application
             var expectedResult = CreateRecommendationsDto();
             
             _mockListenNotesApiClient
-                .Setup(x => x.GetEpisodeRecommendationsAsync(episodeId, null))
-                .ReturnsAsync(expectedResult);
+                .GetEpisodeRecommendationsAsync(episodeId, null)
+                .Returns(expectedResult);
 
             // Act
             var result = await _listenNotesService.GetEpisodeRecommendationsAsync(episodeId);
@@ -191,7 +192,7 @@ namespace MyMediaVerse.UnitTests.Application
             // Assert
             result.Should().NotBeNull();
             result.Should().BeEquivalentTo(expectedResult);
-            _mockListenNotesApiClient.Verify(x => x.GetEpisodeRecommendationsAsync(episodeId, null), Times.Once);
+            _mockListenNotesApiClient.Received(1).GetEpisodeRecommendationsAsync(episodeId, null);
         }
 
         #endregion
@@ -205,8 +206,8 @@ namespace MyMediaVerse.UnitTests.Application
             var expectedResult = CreatePlaylistsDto();
             
             _mockListenNotesApiClient
-                .Setup(x => x.GetPlaylistsAsync())
-                .ReturnsAsync(expectedResult);
+                .GetPlaylistsAsync()
+                .Returns(expectedResult);
 
             // Act
             var result = await _listenNotesService.GetPlaylistsAsync();
@@ -214,7 +215,7 @@ namespace MyMediaVerse.UnitTests.Application
             // Assert
             result.Should().NotBeNull();
             result.Should().BeEquivalentTo(expectedResult);
-            _mockListenNotesApiClient.Verify(x => x.GetPlaylistsAsync(), Times.Once);
+            _mockListenNotesApiClient.Received(1).GetPlaylistsAsync();
         }
 
         [Fact]
@@ -225,8 +226,8 @@ namespace MyMediaVerse.UnitTests.Application
             var expectedResult = CreatePlaylistDto();
             
             _mockListenNotesApiClient
-                .Setup(x => x.GetPlaylistByIdAsync(playlistId))
-                .ReturnsAsync(expectedResult);
+                .GetPlaylistByIdAsync(playlistId)
+                .Returns(expectedResult);
 
             // Act
             var result = await _listenNotesService.GetPlaylistByIdAsync(playlistId);
@@ -234,7 +235,7 @@ namespace MyMediaVerse.UnitTests.Application
             // Assert
             result.Should().NotBeNull();
             result.Should().BeEquivalentTo(expectedResult);
-            _mockListenNotesApiClient.Verify(x => x.GetPlaylistByIdAsync(playlistId), Times.Once);
+            _mockListenNotesApiClient.Received(1).GetPlaylistByIdAsync(playlistId);
         }
 
         #endregion
@@ -248,8 +249,8 @@ namespace MyMediaVerse.UnitTests.Application
             var expectedResult = CreateGenresDto();
             
             _mockListenNotesApiClient
-                .Setup(x => x.GetGenresAsync())
-                .ReturnsAsync(expectedResult);
+                .GetGenresAsync()
+                .Returns(expectedResult);
 
             // Act
             var result = await _listenNotesService.GetGenresAsync();
@@ -257,7 +258,7 @@ namespace MyMediaVerse.UnitTests.Application
             // Assert
             result.Should().NotBeNull();
             result.Should().BeEquivalentTo(expectedResult);
-            _mockListenNotesApiClient.Verify(x => x.GetGenresAsync(), Times.Once);
+            _mockListenNotesApiClient.Received(1).GetGenresAsync();
         }
 
         #endregion
@@ -271,8 +272,8 @@ namespace MyMediaVerse.UnitTests.Application
             var expectedResult = CreateCuratedPodcastsDto();
             
             _mockListenNotesApiClient
-                .Setup(x => x.GetCuratedPodcastsAsync(null))
-                .ReturnsAsync(expectedResult);
+                .GetCuratedPodcastsAsync(null)
+                .Returns(expectedResult);
 
             // Act
             var result = await _listenNotesService.GetCuratedPodcastsAsync();
@@ -280,7 +281,7 @@ namespace MyMediaVerse.UnitTests.Application
             // Assert
             result.Should().NotBeNull();
             result.Should().BeEquivalentTo(expectedResult);
-            _mockListenNotesApiClient.Verify(x => x.GetCuratedPodcastsAsync(null), Times.Once);
+            _mockListenNotesApiClient.Received(1).GetCuratedPodcastsAsync(null);
         }
 
         [Fact]
@@ -291,8 +292,8 @@ namespace MyMediaVerse.UnitTests.Application
             var expectedResult = CreateCuratedPodcastDto();
             
             _mockListenNotesApiClient
-                .Setup(x => x.GetCuratedPodcastByIdAsync(curatedPodcastId))
-                .ReturnsAsync(expectedResult);
+                .GetCuratedPodcastByIdAsync(curatedPodcastId)
+                .Returns(expectedResult);
 
             // Act
             var result = await _listenNotesService.GetCuratedPodcastByIdAsync(curatedPodcastId);
@@ -300,7 +301,7 @@ namespace MyMediaVerse.UnitTests.Application
             // Assert
             result.Should().NotBeNull();
             result.Should().BeEquivalentTo(expectedResult);
-            _mockListenNotesApiClient.Verify(x => x.GetCuratedPodcastByIdAsync(curatedPodcastId), Times.Once);
+            _mockListenNotesApiClient.Received(1).GetCuratedPodcastByIdAsync(curatedPodcastId);
         }
 
         #endregion
@@ -317,20 +318,20 @@ namespace MyMediaVerse.UnitTests.Application
             var expectedPodcastSeries = CreatePodcastSeries();
 
             _mockListenNotesApiClient
-                .Setup(x => x.GetPodcastByIdAsync(podcastId, null))
-                .ReturnsAsync(podcastDto);
+                .GetPodcastByIdAsync(podcastId, null)
+                .Returns(podcastDto);
 
             _mockPodcastService
-                .Setup(x => x.GetPodcastSeriesByTitleAsync(podcastDto.Title, podcastDto.Publisher))
-                .ReturnsAsync((PodcastSeries?)null);
+                .GetPodcastSeriesByTitleAsync(podcastDto.Title, podcastDto.Publisher)
+                .Returns((PodcastSeries?)null);
 
             _mockPodcastMappingService
-                .Setup(x => x.MapFromListenNotesSeriesDto(podcastDto))
+                .MapFromListenNotesSeriesDto(podcastDto)
                 .Returns(createPodcastSeriesDto);
 
             _mockPodcastService
-                .Setup(x => x.CreatePodcastSeriesAsync(createPodcastSeriesDto))
-                .ReturnsAsync(expectedPodcastSeries);
+                .CreatePodcastSeriesAsync(createPodcastSeriesDto)
+                .Returns(expectedPodcastSeries);
 
             // Act
             var result = await _listenNotesService.ImportPodcastSeriesAsync(podcastId);
@@ -338,10 +339,10 @@ namespace MyMediaVerse.UnitTests.Application
             // Assert
             result.Should().NotBeNull();
             result.Should().BeEquivalentTo(expectedPodcastSeries);
-            _mockListenNotesApiClient.Verify(x => x.GetPodcastByIdAsync(podcastId, null), Times.Once);
-            _mockPodcastService.Verify(x => x.GetPodcastSeriesByTitleAsync(podcastDto.Title, podcastDto.Publisher), Times.Once);
-            _mockPodcastMappingService.Verify(x => x.MapFromListenNotesSeriesDto(podcastDto), Times.Once);
-            _mockPodcastService.Verify(x => x.CreatePodcastSeriesAsync(createPodcastSeriesDto), Times.Once);
+            _mockListenNotesApiClient.Received(1).GetPodcastByIdAsync(podcastId, null);
+            _mockPodcastService.Received(1).GetPodcastSeriesByTitleAsync(podcastDto.Title, podcastDto.Publisher);
+            _mockPodcastMappingService.Received(1).MapFromListenNotesSeriesDto(podcastDto);
+            _mockPodcastService.Received(1).CreatePodcastSeriesAsync(createPodcastSeriesDto);
         }
 
         [Fact]
@@ -353,12 +354,12 @@ namespace MyMediaVerse.UnitTests.Application
             var existingPodcastSeries = CreatePodcastSeries();
 
             _mockListenNotesApiClient
-                .Setup(x => x.GetPodcastByIdAsync(podcastId, null))
-                .ReturnsAsync(podcastDto);
+                .GetPodcastByIdAsync(podcastId, null)
+                .Returns(podcastDto);
 
             _mockPodcastService
-                .Setup(x => x.GetPodcastSeriesByTitleAsync(podcastDto.Title, podcastDto.Publisher))
-                .ReturnsAsync(existingPodcastSeries);
+                .GetPodcastSeriesByTitleAsync(podcastDto.Title, podcastDto.Publisher)
+                .Returns(existingPodcastSeries);
 
             // Act
             var result = await _listenNotesService.ImportPodcastSeriesAsync(podcastId);
@@ -366,10 +367,10 @@ namespace MyMediaVerse.UnitTests.Application
             // Assert
             result.Should().NotBeNull();
             result.Should().BeEquivalentTo(existingPodcastSeries);
-            _mockListenNotesApiClient.Verify(x => x.GetPodcastByIdAsync(podcastId, null), Times.Once);
-            _mockPodcastService.Verify(x => x.GetPodcastSeriesByTitleAsync(podcastDto.Title, podcastDto.Publisher), Times.Once);
-            _mockPodcastMappingService.Verify(x => x.MapFromListenNotesSeriesDto(It.IsAny<PodcastSeriesDto>()), Times.Never);
-            _mockPodcastService.Verify(x => x.CreatePodcastSeriesAsync(It.IsAny<CreatePodcastSeriesDto>()), Times.Never);
+            _mockListenNotesApiClient.Received(1).GetPodcastByIdAsync(podcastId, null);
+            _mockPodcastService.Received(1).GetPodcastSeriesByTitleAsync(podcastDto.Title, podcastDto.Publisher);
+            _mockPodcastMappingService.DidNotReceive().MapFromListenNotesSeriesDto(Arg.Any<PodcastSeriesDto>());
+            _mockPodcastService.DidNotReceive().CreatePodcastSeriesAsync(Arg.Any<CreatePodcastSeriesDto>());
         }
 
         [Fact]
@@ -383,20 +384,20 @@ namespace MyMediaVerse.UnitTests.Application
             var expectedPodcastEpisode = CreatePodcastEpisode();
 
             _mockListenNotesApiClient
-                .Setup(x => x.GetEpisodeByIdAsync(episodeId))
-                .ReturnsAsync(episodeDto);
+                .GetEpisodeByIdAsync(episodeId)
+                .Returns(episodeDto);
 
             _mockPodcastMappingService
-                .Setup(x => x.MapFromListenNotesEpisodeDto(episodeDto))
+                .MapFromListenNotesEpisodeDto(episodeDto)
                 .Returns(createPodcastEpisodeDto);
 
             _mockPodcastService
-                .Setup(x => x.GetEpisodesBySeriesIdAsync(seriesId))
-                .ReturnsAsync(new List<PodcastEpisode>());
+                .GetEpisodesBySeriesIdAsync(seriesId)
+                .Returns(new List<PodcastEpisode>());
 
             _mockPodcastService
-                .Setup(x => x.CreatePodcastEpisodeAsync(It.IsAny<CreatePodcastEpisodeDto>()))
-                .ReturnsAsync(expectedPodcastEpisode);
+                .CreatePodcastEpisodeAsync(Arg.Any<CreatePodcastEpisodeDto>())
+                .Returns(expectedPodcastEpisode);
 
             // Act
             var result = await _listenNotesService.ImportPodcastEpisodeAsync(episodeId, seriesId);
@@ -404,10 +405,10 @@ namespace MyMediaVerse.UnitTests.Application
             // Assert
             result.Should().NotBeNull();
             result.Should().BeEquivalentTo(expectedPodcastEpisode);
-            _mockListenNotesApiClient.Verify(x => x.GetEpisodeByIdAsync(episodeId), Times.Once);
-            _mockPodcastMappingService.Verify(x => x.MapFromListenNotesEpisodeDto(episodeDto), Times.Once);
-            _mockPodcastService.Verify(x => x.GetEpisodesBySeriesIdAsync(seriesId), Times.Once);
-            _mockPodcastService.Verify(x => x.CreatePodcastEpisodeAsync(It.IsAny<CreatePodcastEpisodeDto>()), Times.Once);
+            _mockListenNotesApiClient.Received(1).GetEpisodeByIdAsync(episodeId);
+            _mockPodcastMappingService.Received(1).MapFromListenNotesEpisodeDto(episodeDto);
+            _mockPodcastService.Received(1).GetEpisodesBySeriesIdAsync(seriesId);
+            _mockPodcastService.Received(1).CreatePodcastEpisodeAsync(Arg.Any<CreatePodcastEpisodeDto>());
         }
 
         [Fact]
@@ -422,16 +423,16 @@ namespace MyMediaVerse.UnitTests.Application
             existingPodcastEpisode.ExternalId = episodeId;
 
             _mockListenNotesApiClient
-                .Setup(x => x.GetEpisodeByIdAsync(episodeId))
-                .ReturnsAsync(episodeDto);
+                .GetEpisodeByIdAsync(episodeId)
+                .Returns(episodeDto);
 
             _mockPodcastMappingService
-                .Setup(x => x.MapFromListenNotesEpisodeDto(episodeDto))
+                .MapFromListenNotesEpisodeDto(episodeDto)
                 .Returns(createPodcastEpisodeDto);
 
             _mockPodcastService
-                .Setup(x => x.GetEpisodesBySeriesIdAsync(seriesId))
-                .ReturnsAsync(new List<PodcastEpisode> { existingPodcastEpisode });
+                .GetEpisodesBySeriesIdAsync(seriesId)
+                .Returns(new List<PodcastEpisode> { existingPodcastEpisode });
 
             // Act
             var result = await _listenNotesService.ImportPodcastEpisodeAsync(episodeId, seriesId);
@@ -439,7 +440,7 @@ namespace MyMediaVerse.UnitTests.Application
             // Assert
             result.Should().NotBeNull();
             result.Should().BeEquivalentTo(existingPodcastEpisode);
-            _mockListenNotesApiClient.Verify(x => x.GetEpisodeByIdAsync(episodeId), Times.Once);
+            _mockListenNotesApiClient.Received(1).GetEpisodeByIdAsync(episodeId);
             
             // We should not verify MapFromListenNotesEpisodeDto here because the implementation checks for existence first
             // and if it exists, it might skip mapping or it might map it anyway depending on implementation.
@@ -448,9 +449,9 @@ namespace MyMediaVerse.UnitTests.Application
             // Looking at the test failure: "Expected invocation on the mock once, but was 0 times: x => x.MapFromListenNotesEpisodeDto(PodcastEpisodeDto)"
             // This means the code returned early before mapping. So we should verify Times.Never.
             
-            _mockPodcastMappingService.Verify(x => x.MapFromListenNotesEpisodeDto(episodeDto), Times.Never);
-            _mockPodcastService.Verify(x => x.GetEpisodesBySeriesIdAsync(seriesId), Times.Once);
-            _mockPodcastService.Verify(x => x.CreatePodcastEpisodeAsync(It.IsAny<CreatePodcastEpisodeDto>()), Times.Never);
+            _mockPodcastMappingService.DidNotReceive().MapFromListenNotesEpisodeDto(episodeDto);
+            _mockPodcastService.Received(1).GetEpisodesBySeriesIdAsync(seriesId);
+            _mockPodcastService.DidNotReceive().CreatePodcastEpisodeAsync(Arg.Any<CreatePodcastEpisodeDto>());
         }
 
         #endregion

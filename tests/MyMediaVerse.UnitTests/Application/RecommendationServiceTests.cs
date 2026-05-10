@@ -1,6 +1,6 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
-using Moq;
+using NSubstitute;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Shared.DTOs;
@@ -10,19 +10,20 @@ using MyMediaVerse.UnitTests.TestHelpers;
 
 namespace MyMediaVerse.UnitTests.Application
 {
+    [Trait("Category", "Unit")]
     public class RecommendationServiceTests : InMemoryDbTestBase
     {
-        private readonly Mock<IVectorSearchRepository> _mockVectorSearch;
-        private readonly Mock<IGradientAIClient> _mockGradientClient;
-        private readonly Mock<ILogger<RecommendationService>> _mockLogger;
+        private readonly IVectorSearchRepository _mockVectorSearch;
+        private readonly IGradientAIClient _mockGradientClient;
+        private readonly ILogger<RecommendationService> _mockLogger;
         private readonly RecommendationService _service;
 
         public RecommendationServiceTests()
         {
-            _mockVectorSearch = new Mock<IVectorSearchRepository>();
-            _mockGradientClient = new Mock<IGradientAIClient>();
-            _mockLogger = new Mock<ILogger<RecommendationService>>();
-            _service = new RecommendationService(Context, _mockVectorSearch.Object, _mockGradientClient.Object, _mockLogger.Object);
+            _mockVectorSearch = Substitute.For<IVectorSearchRepository>();
+            _mockGradientClient = Substitute.For<IGradientAIClient>();
+            _mockLogger = Substitute.For<ILogger<RecommendationService>>();
+            _service = new RecommendationService(Context, _mockVectorSearch, _mockGradientClient, _mockLogger);
         }
 
         #region IsAvailableAsync
@@ -30,9 +31,9 @@ namespace MyMediaVerse.UnitTests.Application
         [Fact]
         public async Task IsAvailableAsync_AllAvailable_ReturnsTrue()
         {
-            _mockGradientClient.Setup(c => c.IsAvailableAsync()).ReturnsAsync(true);
-            _mockVectorSearch.Setup(v => v.IsPgVectorAvailableAsync()).ReturnsAsync(true);
-            _mockVectorSearch.Setup(v => v.HasAnyMediaEmbeddingsAsync()).ReturnsAsync(true);
+            _mockGradientClient.IsAvailableAsync().Returns(true);
+            _mockVectorSearch.IsPgVectorAvailableAsync().Returns(true);
+            _mockVectorSearch.HasAnyMediaEmbeddingsAsync().Returns(true);
 
             var result = await _service.IsAvailableAsync();
 
@@ -42,9 +43,9 @@ namespace MyMediaVerse.UnitTests.Application
         [Fact]
         public async Task IsAvailableAsync_AIUnavailable_ReturnsFalse()
         {
-            _mockGradientClient.Setup(c => c.IsAvailableAsync()).ReturnsAsync(false);
-            _mockVectorSearch.Setup(v => v.IsPgVectorAvailableAsync()).ReturnsAsync(true);
-            _mockVectorSearch.Setup(v => v.HasAnyMediaEmbeddingsAsync()).ReturnsAsync(true);
+            _mockGradientClient.IsAvailableAsync().Returns(false);
+            _mockVectorSearch.IsPgVectorAvailableAsync().Returns(true);
+            _mockVectorSearch.HasAnyMediaEmbeddingsAsync().Returns(true);
 
             var result = await _service.IsAvailableAsync();
 
@@ -54,8 +55,8 @@ namespace MyMediaVerse.UnitTests.Application
         [Fact]
         public async Task IsAvailableAsync_PgVectorUnavailable_StillReturnsTrue()
         {
-            _mockGradientClient.Setup(c => c.IsAvailableAsync()).ReturnsAsync(true);
-            _mockVectorSearch.Setup(v => v.IsPgVectorAvailableAsync()).ReturnsAsync(false);
+            _mockGradientClient.IsAvailableAsync().Returns(true);
+            _mockVectorSearch.IsPgVectorAvailableAsync().Returns(false);
 
             var result = await _service.IsAvailableAsync();
 
@@ -66,9 +67,9 @@ namespace MyMediaVerse.UnitTests.Application
         [Fact]
         public async Task IsAvailableAsync_NoEmbeddings_StillReturnsTrue()
         {
-            _mockGradientClient.Setup(c => c.IsAvailableAsync()).ReturnsAsync(true);
-            _mockVectorSearch.Setup(v => v.IsPgVectorAvailableAsync()).ReturnsAsync(true);
-            _mockVectorSearch.Setup(v => v.HasAnyMediaEmbeddingsAsync()).ReturnsAsync(false);
+            _mockGradientClient.IsAvailableAsync().Returns(true);
+            _mockVectorSearch.IsPgVectorAvailableAsync().Returns(true);
+            _mockVectorSearch.HasAnyMediaEmbeddingsAsync().Returns(false);
 
             var result = await _service.IsAvailableAsync();
 
@@ -83,8 +84,8 @@ namespace MyMediaVerse.UnitTests.Application
         [Fact]
         public async Task GetSimilarMediaItemsAsync_NoEmbedding_ReturnsEmptyList()
         {
-            _mockVectorSearch.Setup(v => v.GetMediaItemEmbeddingAsync(It.IsAny<Guid>()))
-                .ReturnsAsync((float[]?)null);
+            _mockVectorSearch.GetMediaItemEmbeddingAsync(Arg.Any<Guid>())
+                .Returns((float[]?)null);
 
             var result = await _service.GetSimilarMediaItemsAsync(Guid.NewGuid());
 
@@ -97,12 +98,12 @@ namespace MyMediaVerse.UnitTests.Application
             var mediaItemId = Guid.NewGuid();
             var embedding = new float[] { 0.1f, 0.2f, 0.3f };
 
-            _mockVectorSearch.Setup(v => v.GetMediaItemEmbeddingAsync(mediaItemId))
-                .ReturnsAsync(embedding);
+            _mockVectorSearch.GetMediaItemEmbeddingAsync(mediaItemId)
+                .Returns(embedding);
 
-            _mockVectorSearch.Setup(v => v.FindSimilarMediaItemsAsync(
-                embedding, mediaItemId, null, 10))
-                .ReturnsAsync(new List<VectorSearchResult>
+            _mockVectorSearch.FindSimilarMediaItemsAsync(
+                embedding, mediaItemId, null, 10)
+                .Returns(new List<VectorSearchResult>
                 {
                     new VectorSearchResult
                     {
@@ -125,17 +126,17 @@ namespace MyMediaVerse.UnitTests.Application
             var mediaItemId = Guid.NewGuid();
             var embedding = new float[] { 0.1f, 0.2f };
 
-            _mockVectorSearch.Setup(v => v.GetMediaItemEmbeddingAsync(mediaItemId))
-                .ReturnsAsync(embedding);
+            _mockVectorSearch.GetMediaItemEmbeddingAsync(mediaItemId)
+                .Returns(embedding);
 
-            _mockVectorSearch.Setup(v => v.FindSimilarMediaItemsAsync(
-                embedding, mediaItemId, "Book", 5))
-                .ReturnsAsync(new List<VectorSearchResult>());
+            _mockVectorSearch.FindSimilarMediaItemsAsync(
+                embedding, mediaItemId, "Book", 5)
+                .Returns(new List<VectorSearchResult>());
 
             await _service.GetSimilarMediaItemsAsync(mediaItemId, count: 5, mediaTypeFilter: "Book");
 
-            _mockVectorSearch.Verify(v => v.FindSimilarMediaItemsAsync(
-                embedding, mediaItemId, "Book", 5), Times.Once);
+            _mockVectorSearch.Received(1).FindSimilarMediaItemsAsync(
+                embedding, mediaItemId, "Book", 5);
         }
 
         #endregion
@@ -145,8 +146,8 @@ namespace MyMediaVerse.UnitTests.Application
         [Fact]
         public async Task GetSimilarNotesAsync_NoEmbedding_ReturnsEmptyList()
         {
-            _mockVectorSearch.Setup(v => v.GetNoteEmbeddingAsync(It.IsAny<Guid>()))
-                .ReturnsAsync((float[]?)null);
+            _mockVectorSearch.GetNoteEmbeddingAsync(Arg.Any<Guid>())
+                .Returns((float[]?)null);
 
             var result = await _service.GetSimilarNotesAsync(Guid.NewGuid());
 
@@ -159,12 +160,12 @@ namespace MyMediaVerse.UnitTests.Application
             var noteId = Guid.NewGuid();
             var embedding = new float[] { 0.5f, 0.5f };
 
-            _mockVectorSearch.Setup(v => v.GetNoteEmbeddingAsync(noteId))
-                .ReturnsAsync(embedding);
+            _mockVectorSearch.GetNoteEmbeddingAsync(noteId)
+                .Returns(embedding);
 
-            _mockVectorSearch.Setup(v => v.FindSimilarNotesAsync(
-                embedding, noteId, null, 10))
-                .ReturnsAsync(new List<VectorSearchNoteResult>
+            _mockVectorSearch.FindSimilarNotesAsync(
+                embedding, noteId, null, 10)
+                .Returns(new List<VectorSearchNoteResult>
                 {
                     new VectorSearchNoteResult
                     {
@@ -198,15 +199,15 @@ namespace MyMediaVerse.UnitTests.Application
         {
             var queryEmbedding = new float[] { 0.3f, 0.4f, 0.5f };
 
-            _mockGradientClient.Setup(c => c.IsAvailableAsync()).ReturnsAsync(true);
+            _mockGradientClient.IsAvailableAsync().Returns(true);
 
-            _mockGradientClient.Setup(c => c.GenerateEmbeddingAsync(
-                It.IsAny<string>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(queryEmbedding);
+            _mockGradientClient.GenerateEmbeddingAsync(
+                Arg.Any<string>(), Arg.Any<CancellationToken>())
+                .Returns(queryEmbedding);
 
-            _mockVectorSearch.Setup(v => v.FindSimilarMediaItemsAsync(
-                It.IsAny<float[]>(), null, null, 20))
-                .ReturnsAsync(new List<VectorSearchResult>
+            _mockVectorSearch.FindSimilarMediaItemsAsync(
+                Arg.Any<float[]>(), null, null, 20)
+                .Returns(new List<VectorSearchResult>
                 {
                     new VectorSearchResult
                     {
@@ -244,12 +245,12 @@ namespace MyMediaVerse.UnitTests.Application
             await Context.SaveChangesAsync();
 
             var embedding = new float[] { 0.5f, 0.5f };
-            _mockVectorSearch.Setup(v => v.GetMediaItemEmbeddingAsync(likedBook.Id))
-                .ReturnsAsync(embedding);
+            _mockVectorSearch.GetMediaItemEmbeddingAsync(likedBook.Id)
+                .Returns(embedding);
 
-            _mockVectorSearch.Setup(v => v.FindSimilarMediaItemsAsync(
-                It.IsAny<float[]>(), null, null, It.IsAny<int>()))
-                .ReturnsAsync(new List<VectorSearchResult>
+            _mockVectorSearch.FindSimilarMediaItemsAsync(
+                Arg.Any<float[]>(), null, null, Arg.Any<int>())
+                .Returns(new List<VectorSearchResult>
                 {
                     new VectorSearchResult
                     {
@@ -271,8 +272,8 @@ namespace MyMediaVerse.UnitTests.Application
         [Fact]
         public async Task GetMediaRelatedToNoteAsync_NoEmbedding_ReturnsEmptyList()
         {
-            _mockVectorSearch.Setup(v => v.GetNoteEmbeddingAsync(It.IsAny<Guid>()))
-                .ReturnsAsync((float[]?)null);
+            _mockVectorSearch.GetNoteEmbeddingAsync(Arg.Any<Guid>())
+                .Returns((float[]?)null);
 
             var result = await _service.GetMediaRelatedToNoteAsync(Guid.NewGuid());
 
@@ -285,12 +286,12 @@ namespace MyMediaVerse.UnitTests.Application
             var noteId = Guid.NewGuid();
             var embedding = new float[] { 0.1f, 0.2f };
 
-            _mockVectorSearch.Setup(v => v.GetNoteEmbeddingAsync(noteId))
-                .ReturnsAsync(embedding);
+            _mockVectorSearch.GetNoteEmbeddingAsync(noteId)
+                .Returns(embedding);
 
-            _mockVectorSearch.Setup(v => v.FindSimilarMediaItemsAsync(
-                embedding, null, null, 10))
-                .ReturnsAsync(new List<VectorSearchResult>
+            _mockVectorSearch.FindSimilarMediaItemsAsync(
+                embedding, null, null, 10)
+                .Returns(new List<VectorSearchResult>
                 {
                     new VectorSearchResult
                     {
@@ -312,8 +313,8 @@ namespace MyMediaVerse.UnitTests.Application
         [Fact]
         public async Task GetNotesRelatedToMediaAsync_NoEmbedding_ReturnsEmptyList()
         {
-            _mockVectorSearch.Setup(v => v.GetMediaItemEmbeddingAsync(It.IsAny<Guid>()))
-                .ReturnsAsync((float[]?)null);
+            _mockVectorSearch.GetMediaItemEmbeddingAsync(Arg.Any<Guid>())
+                .Returns((float[]?)null);
 
             var result = await _service.GetNotesRelatedToMediaAsync(Guid.NewGuid());
 
@@ -326,12 +327,12 @@ namespace MyMediaVerse.UnitTests.Application
             var mediaItemId = Guid.NewGuid();
             var embedding = new float[] { 0.3f, 0.4f };
 
-            _mockVectorSearch.Setup(v => v.GetMediaItemEmbeddingAsync(mediaItemId))
-                .ReturnsAsync(embedding);
+            _mockVectorSearch.GetMediaItemEmbeddingAsync(mediaItemId)
+                .Returns(embedding);
 
-            _mockVectorSearch.Setup(v => v.FindSimilarNotesAsync(
-                embedding, null, null, 10))
-                .ReturnsAsync(new List<VectorSearchNoteResult>
+            _mockVectorSearch.FindSimilarNotesAsync(
+                embedding, null, null, 10)
+                .Returns(new List<VectorSearchNoteResult>
                 {
                     new VectorSearchNoteResult
                     {

@@ -5,6 +5,7 @@ using MyMediaVerse.Shared.DTOs.YouTube;
 
 namespace MyMediaVerse.UnitTests.Application
 {
+    [Trait("Category", "Unit")]
     public class YouTubeMappingServiceTests
     {
         private readonly YouTubeMappingService _service;

@@ -1,6 +1,6 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
-using Moq;
+using NSubstitute;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Shared.DTOs.ReadwiseReader;
@@ -10,17 +10,18 @@ using MyMediaVerse.UnitTests.TestHelpers;
 
 namespace MyMediaVerse.UnitTests.Application
 {
+    [Trait("Category", "Unit")]
     public class ReaderServiceTests : InMemoryDbTestBase
     {
-        private readonly Mock<IReaderApiClient> _mockReaderClient;
-        private readonly Mock<ILogger<ReaderService>> _mockLogger;
+        private readonly IReaderApiClient _mockReaderClient;
+        private readonly ILogger<ReaderService> _mockLogger;
         private readonly ReaderService _service;
 
         public ReaderServiceTests()
         {
-            _mockReaderClient = new Mock<IReaderApiClient>();
-            _mockLogger = new Mock<ILogger<ReaderService>>();
-            _service = new ReaderService(Context, _mockReaderClient.Object, _mockLogger.Object);
+            _mockReaderClient = Substitute.For<IReaderApiClient>();
+            _mockLogger = Substitute.For<ILogger<ReaderService>>();
+            _service = new ReaderService(Context, _mockReaderClient, _mockLogger);
         }
 
         #region SyncDocumentsAsync
@@ -28,9 +29,9 @@ namespace MyMediaVerse.UnitTests.Application
         [Fact]
         public async Task SyncDocumentsAsync_EmptyResponse_ReturnsZeroResults()
         {
-            _mockReaderClient.Setup(c => c.GetDocumentsAsync(
-                It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>()))
-                .ReturnsAsync(new ReaderDocumentsResponse
+            _mockReaderClient.GetDocumentsAsync(
+                Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>())
+                .Returns(new ReaderDocumentsResponse
                 {
                     results = new List<ReaderDocumentDto>(),
                     nextPageCursor = null
@@ -45,9 +46,9 @@ namespace MyMediaVerse.UnitTests.Application
         [Fact]
         public async Task SyncDocumentsAsync_NewArticles_CreatesInDatabase()
         {
-            _mockReaderClient.Setup(c => c.GetDocumentsAsync(
-                It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>()))
-                .ReturnsAsync(new ReaderDocumentsResponse
+            _mockReaderClient.GetDocumentsAsync(
+                Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>())
+                .Returns(new ReaderDocumentsResponse
                 {
                     results = new List<ReaderDocumentDto>
                     {
@@ -74,9 +75,9 @@ namespace MyMediaVerse.UnitTests.Application
         [Fact]
         public async Task SyncDocumentsAsync_WithLocationFilter_PassesFilterToClient()
         {
-            _mockReaderClient.Setup(c => c.GetDocumentsAsync(
-                It.IsAny<string?>(), "archive", It.IsAny<string?>(), It.IsAny<string?>()))
-                .ReturnsAsync(new ReaderDocumentsResponse
+            _mockReaderClient.GetDocumentsAsync(
+                Arg.Any<string?>(), "archive", Arg.Any<string?>(), Arg.Any<string?>())
+                .Returns(new ReaderDocumentsResponse
                 {
                     results = new List<ReaderDocumentDto>(),
                     nextPageCursor = null
@@ -84,9 +85,8 @@ namespace MyMediaVerse.UnitTests.Application
 
             await _service.SyncDocumentsAsync(location: "archive");
 
-            _mockReaderClient.Verify(c => c.GetDocumentsAsync(
-                It.IsAny<string?>(), "archive", It.IsAny<string?>(), It.IsAny<string?>()),
-                Times.Once);
+            _mockReaderClient.Received(1).GetDocumentsAsync(
+                Arg.Any<string?>(), "archive", Arg.Any<string?>(), Arg.Any<string?>());
         }
 
         #endregion
@@ -122,8 +122,8 @@ namespace MyMediaVerse.UnitTests.Application
             Context.Articles.Add(article);
             await Context.SaveChangesAsync();
 
-            _mockReaderClient.Setup(c => c.GetDocumentByIdAsync("reader_123", true))
-                .ReturnsAsync(new ReaderDocumentDto
+            _mockReaderClient.GetDocumentByIdAsync("reader_123", true)
+                .Returns(new ReaderDocumentDto
                 {
                     id = "reader_123",
                     title = "Test Article",
@@ -143,8 +143,8 @@ namespace MyMediaVerse.UnitTests.Application
             Context.Articles.Add(article);
             await Context.SaveChangesAsync();
 
-            _mockReaderClient.Setup(c => c.GetDocumentByIdAsync("reader_123", true))
-                .ReturnsAsync((ReaderDocumentDto?)null);
+            _mockReaderClient.GetDocumentByIdAsync("reader_123", true)
+                .Returns((ReaderDocumentDto?)null);
 
             var result = await _service.FetchAndStoreArticleContentAsync(article.Id);
 
