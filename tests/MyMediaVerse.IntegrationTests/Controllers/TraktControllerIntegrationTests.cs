@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.TestHost;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
@@ -11,6 +11,7 @@ using System.Text.Json.Serialization;
 
 namespace MyMediaVerse.IntegrationTests.Controllers
 {
+    [Trait("Category", "Integration")]
     public class TraktControllerIntegrationTests : IClassFixture<WebApplicationFactory>
     {
         private readonly WebApplicationFactory _factory;

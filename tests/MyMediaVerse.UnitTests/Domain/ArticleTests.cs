@@ -1,10 +1,11 @@
-﻿using FluentAssertions;
+using FluentAssertions;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Domain.Enums;
 using MyMediaVerse.UnitTests.TestData;
 
 namespace MyMediaVerse.UnitTests.Domain
 {
+    [Trait("Category", "Unit")]
     public class ArticleTests
     {
         #region Constructor Tests

@@ -1,4 +1,4 @@
-﻿using FluentAssertions;
+using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
@@ -11,6 +11,7 @@ using MyMediaVerse.UnitTests.TestHelpers;
 
 namespace MyMediaVerse.UnitTests.Application
 {
+    [Trait("Category", "Unit")]
     public class ReadwiseServiceTests : InMemoryDbTestBase
     {
         private readonly IReadwiseApiClient _mockReadwiseClient;

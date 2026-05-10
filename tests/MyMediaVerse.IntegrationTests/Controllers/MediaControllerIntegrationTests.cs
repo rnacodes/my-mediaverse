@@ -14,6 +14,7 @@ using Xunit;
 
 namespace MyMediaVerse.IntegrationTests.Controllers
 {
+    [Trait("Category", "Integration")]
     public class MediaControllerIntegrationTests : IClassFixture<WebApplicationFactory>
     {
         private readonly WebApplicationFactory _factory;

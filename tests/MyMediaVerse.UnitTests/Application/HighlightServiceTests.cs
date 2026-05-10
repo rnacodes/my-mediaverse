@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -16,6 +16,7 @@ using Xunit;
 
 namespace MyMediaVerse.UnitTests.Application
 {
+    [Trait("Category", "Unit")]
     public class HighlightServiceTests : InMemoryDbTestBase
     {
         private readonly IReadwiseApiClient _mockReadwiseClient;

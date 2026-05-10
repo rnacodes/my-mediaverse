@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Services;
@@ -10,6 +10,7 @@ using Xunit;
 
 namespace MyMediaVerse.UnitTests.Application
 {
+    [Trait("Category", "Unit")]
     public class GoogleBooksServiceTests
     {
         private readonly IGoogleBooksApiClient _mockApiClient;

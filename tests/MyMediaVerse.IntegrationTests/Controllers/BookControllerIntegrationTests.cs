@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -11,6 +11,7 @@ using MyMediaVerse.UnitTests.TestData;
 
 namespace MyMediaVerse.IntegrationTests.Controllers
 {
+    [Trait("Category", "Integration")]
     public class BookControllerIntegrationTests : IClassFixture<WebApplicationFactory>
     {
         private readonly WebApplicationFactory _factory;

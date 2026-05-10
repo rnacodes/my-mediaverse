@@ -1,4 +1,4 @@
-﻿using FluentAssertions;
+using FluentAssertions;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Shared.DTOs.Paperless;
@@ -6,6 +6,7 @@ using MyMediaVerse.UnitTests.TestData;
 
 namespace MyMediaVerse.UnitTests.Application
 {
+    [Trait("Category", "Unit")]
     public class DocumentMappingServiceTests
     {
         private readonly DocumentMappingService _service;

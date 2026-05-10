@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
@@ -13,6 +13,7 @@ using Xunit;
 
 namespace MyMediaVerse.UnitTests.Infrastructure
 {
+    [Trait("Category", "Unit")]
     public class ReaderApiClientTests
     {
         private readonly IConfiguration _mockConfiguration;

@@ -1,4 +1,4 @@
-﻿using Xunit;
+using Xunit;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
@@ -9,6 +9,7 @@ using MyMediaVerse.UnitTests.TestHelpers;
 
 namespace MyMediaVerse.UnitTests.Application
 {
+    [Trait("Category", "Unit")]
     public class VideoServiceTests : InMemoryDbTestBase
     {
         private readonly ILogger<VideoService> _mockLogger;

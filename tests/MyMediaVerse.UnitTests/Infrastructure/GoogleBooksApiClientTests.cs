@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Text;
 using System.Text.Json;
 using FluentAssertions;
@@ -13,6 +13,7 @@ using Xunit;
 
 namespace MyMediaVerse.UnitTests.Infrastructure
 {
+    [Trait("Category", "Unit")]
     public class GoogleBooksApiClientTests
     {
         private readonly ILogger<GoogleBooksApiClient> _mockLogger;

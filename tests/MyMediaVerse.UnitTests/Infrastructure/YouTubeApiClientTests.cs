@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Text;
 using System.Text.Json;
 using FluentAssertions;
@@ -11,6 +11,7 @@ using MyMediaVerse.UnitTests.TestHelpers;
 
 namespace MyMediaVerse.UnitTests.Infrastructure
 {
+    [Trait("Category", "Unit")]
     public class YouTubeApiClientTests
     {
         private readonly TestHttpMessageHandler _mockHttpMessageHandler;

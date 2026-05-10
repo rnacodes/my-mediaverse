@@ -1,4 +1,4 @@
-﻿using FluentAssertions;
+using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using MyMediaVerse.Application.Interfaces;
@@ -10,6 +10,7 @@ using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.UnitTests.Application
 {
+    [Trait("Category", "Unit")]
     public class ListenNotesServiceTests
     {
         private readonly IListenNotesApiClient _mockListenNotesApiClient;

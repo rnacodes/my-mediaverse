@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -10,6 +10,7 @@ using MyMediaVerse.UnitTests.TestHelpers;
 
 namespace MyMediaVerse.UnitTests.Infrastructure
 {
+    [Trait("Category", "Unit")]
     public class GradientAIClientTests : IDisposable
     {
         private readonly TestHttpMessageHandler _mockGradientHandler;

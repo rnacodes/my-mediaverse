@@ -7,6 +7,7 @@ using MyMediaVerse.DTOs;
 
 namespace MyMediaVerse.IntegrationTests.Controllers
 {
+    [Trait("Category", "Integration")]
     public class InputValidationIntegrationTests : IClassFixture<WebApplicationFactory>
     {
         private readonly WebApplicationFactory _factory;

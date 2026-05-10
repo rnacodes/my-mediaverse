@@ -1,4 +1,4 @@
-﻿using Xunit;
+using Xunit;
 using FluentAssertions;
 using MyMediaVerse.Domain.Entities;
 using System;
@@ -6,6 +6,7 @@ using System.Collections.Generic;
 
 namespace MyMediaVerse.UnitTests.Domain
 {
+    [Trait("Category", "Unit")]
     public class VideoTests
     {
         #region Constructor Tests

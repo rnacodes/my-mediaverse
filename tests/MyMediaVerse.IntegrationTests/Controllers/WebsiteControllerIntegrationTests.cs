@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
 using MyMediaVerse.DTOs;
@@ -6,6 +6,7 @@ using MyMediaVerse.UnitTests.TestData;
 
 namespace MyMediaVerse.IntegrationTests.Controllers
 {
+    [Trait("Category", "Integration")]
     public class WebsiteControllerIntegrationTests : IClassFixture<WebApplicationFactory>
     {
         private readonly WebApplicationFactory _factory;

@@ -1,4 +1,4 @@
-﻿using FluentAssertions;
+using FluentAssertions;
 using Microsoft.Extensions.Configuration;
 using NSubstitute;
 using MyMediaVerse.Application.Services;
@@ -8,6 +8,7 @@ using System.IdentityModel.Tokens.Jwt;
 
 namespace MyMediaVerse.UnitTests.Application
 {
+    [Trait("Category", "Unit")]
     public class AuthServiceTests : InMemoryDbTestBase
     {
         private readonly IConfiguration _mockConfiguration;

@@ -1,4 +1,4 @@
-﻿using FluentAssertions;
+using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
@@ -8,6 +8,7 @@ using System.Net;
 
 namespace MyMediaVerse.UnitTests.Infrastructure
 {
+    [Trait("Category", "Unit")]
     public class WebsiteScraperServiceTests
     {
         private readonly ILogger<WebsiteScraperService> _mockLogger;

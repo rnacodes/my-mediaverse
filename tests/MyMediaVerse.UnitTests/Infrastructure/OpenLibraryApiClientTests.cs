@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
@@ -11,6 +11,7 @@ using Xunit;
 
 namespace MyMediaVerse.UnitTests.Infrastructure
 {
+    [Trait("Category", "Unit")]
     public class OpenLibraryApiClientTests
     {
         private readonly ILogger<OpenLibraryApiClient> _mockLogger;

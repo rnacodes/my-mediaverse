@@ -1,4 +1,4 @@
-﻿using Xunit;
+using Xunit;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using FluentAssertions;
@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 
 namespace MyMediaVerse.UnitTests.Application
 {
+    [Trait("Category", "Unit")]
     public class YouTubeServiceTests
     {
         private readonly IYouTubeApiClient _mockApiClient;

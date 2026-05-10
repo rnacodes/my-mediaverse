@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using MyMediaVerse.Application.Interfaces;
@@ -16,6 +16,7 @@ namespace MyMediaVerse.UnitTests.Application
     /// Note: Only basic tests included. Complex many-to-many relationship tests
     /// and import functionality are better suited for integration tests.
     /// </summary>
+    [Trait("Category", "Unit")]
     public class YouTubePlaylistServiceTests : InMemoryDbTestBase
     {
         private readonly IYouTubeApiClient _mockYouTubeApiClient;

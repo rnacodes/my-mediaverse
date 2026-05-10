@@ -11,6 +11,7 @@ namespace MyMediaVerse.IntegrationTests.Fixtures
     /// Per the plan, this [Fact] is deletable at the end of Phase 2.9 once real integration tests
     /// are exercising the same path.
     /// </summary>
+    [Trait("Category", "Integration")]
     public class PgVectorSmokeTests
     {
         [Fact]

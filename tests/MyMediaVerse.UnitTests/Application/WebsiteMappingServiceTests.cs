@@ -1,4 +1,4 @@
-﻿using FluentAssertions;
+using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using MyMediaVerse.Application.Services;
@@ -7,6 +7,7 @@ using MyMediaVerse.UnitTests.TestData;
 
 namespace MyMediaVerse.UnitTests.Application
 {
+    [Trait("Category", "Unit")]
     public class WebsiteMappingServiceTests
     {
         private readonly ILogger<WebsiteMappingService> _mockLogger;

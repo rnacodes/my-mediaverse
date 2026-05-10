@@ -1,4 +1,4 @@
-﻿using FluentAssertions;
+using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using MyMediaVerse.Domain.Entities;
@@ -9,6 +9,7 @@ using MyMediaVerse.UnitTests.TestHelpers;
 
 namespace MyMediaVerse.UnitTests.Infrastructure
 {
+    [Trait("Category", "Unit")]
     public class PodcastEnrichmentServiceTests : InMemoryDbTestBase
     {
         private readonly IListenNotesApiClient _mockListenNotesClient;

@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
@@ -18,6 +18,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
     /// Uses WebApplicationFactory which configures mock ListenNotes API server
     /// Mock server: https://listen-api-test.listennotes.com/api/v2/
     /// </summary>
+    [Trait("Category", "Integration")]
     public class ListenNotesControllerIntegrationTests : IClassFixture<WebApplicationFactory>
     {
         private readonly WebApplicationFactory _factory;
