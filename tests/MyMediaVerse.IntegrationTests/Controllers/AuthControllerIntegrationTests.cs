@@ -1,22 +1,21 @@
 using System.Net;
-using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using MyMediaVerse.DTOs;
+using MyMediaVerse.IntegrationTests.Fixtures;
+using MyMediaVerse.IntegrationTests.Helpers;
 
 namespace MyMediaVerse.IntegrationTests.Controllers
 {
     [Trait("Category", "Integration")]
-    public class AuthControllerIntegrationTests : IClassFixture<WebApplicationFactory>
+    [Collection("Database")]
+    public class AuthControllerIntegrationTests : IAsyncLifetime
     {
-        private readonly WebApplicationFactory _factory;
+        private readonly ApiFactory _factory;
         private readonly HttpClient _client;
         private readonly JsonSerializerOptions _jsonOptions;
-        private readonly string _validUsername;
-        private readonly string _validPassword;
 
-        public AuthControllerIntegrationTests(WebApplicationFactory factory)
+        public AuthControllerIntegrationTests(ApiFactory factory)
         {
             _factory = factory;
             _client = _factory.CreateClient();
@@ -28,11 +27,11 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                 ReferenceHandler = ReferenceHandler.IgnoreCycles,
                 DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
             };
-
-            // Use the same credential resolution chain as AuthController
-            _validUsername = Environment.GetEnvironmentVariable("AUTH_USERNAME") ?? "admin";
-            _validPassword = Environment.GetEnvironmentVariable("AUTH_PASSWORD") ?? "password123";
         }
+
+        public Task InitializeAsync() => _factory.ResetDatabaseAsync();
+
+        public Task DisposeAsync() => Task.CompletedTask;
 
         private StringContent CreateJsonContent(object data)
         {
@@ -42,23 +41,14 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                 "application/json");
         }
 
-        private async Task<string> GetAccessTokenAsync()
-        {
-            var loginData = new { username = _validUsername, password = _validPassword };
-            var response = await _client.PostAsync("/api/auth/login", CreateJsonContent(loginData));
-            response.EnsureSuccessStatusCode();
-            var content = await response.Content.ReadAsStringAsync();
-            var loginResponse = JsonSerializer.Deserialize<JsonElement>(content, _jsonOptions);
-            return loginResponse.GetProperty("token").GetString()!;
-        }
-
         #region Login Tests
 
         [Fact]
         public async Task Login_WithValidCredentials_ShouldReturnOkWithToken()
         {
             // Arrange - use the same credential chain as the controller
-            var loginData = new { username = _validUsername, password = _validPassword };
+            var (username, password) = AuthTestExtensions.ResolveCredentials();
+            var loginData = new { username, password };
 
             // Act
             var response = await _client.PostAsync("/api/auth/login", CreateJsonContent(loginData));
@@ -124,8 +114,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task Validate_WithValidToken_ShouldReturnOk()
         {
             // Arrange
-            var token = await GetAccessTokenAsync();
-            _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            await _client.AuthenticateAsync();
 
             // Act
             var response = await _client.GetAsync("/api/auth/validate");
@@ -136,17 +125,11 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             var content = await response.Content.ReadAsStringAsync();
             var validateResponse = JsonSerializer.Deserialize<JsonElement>(content, _jsonOptions);
             Assert.True(validateResponse.GetProperty("valid").GetBoolean());
-
-            // Cleanup
-            _client.DefaultRequestHeaders.Authorization = null;
         }
 
         [Fact]
         public async Task Validate_WithoutToken_ShouldReturnUnauthorized()
         {
-            // Arrange - ensure no auth header
-            _client.DefaultRequestHeaders.Authorization = null;
-
             // Act
             var response = await _client.GetAsync("/api/auth/validate");
 
@@ -158,16 +141,13 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task Validate_WithInvalidToken_ShouldReturnUnauthorized()
         {
             // Arrange
-            _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "invalid-token");
+            _client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "invalid-token");
 
             // Act
             var response = await _client.GetAsync("/api/auth/validate");
 
             // Assert
             Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-
-            // Cleanup
-            _client.DefaultRequestHeaders.Authorization = null;
         }
 
         #endregion
@@ -178,25 +158,18 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task Logout_WithValidToken_ShouldReturnOk()
         {
             // Arrange
-            var token = await GetAccessTokenAsync();
-            _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            await _client.AuthenticateAsync();
 
             // Act
             var response = await _client.PostAsync("/api/auth/logout", null);
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-
-            // Cleanup
-            _client.DefaultRequestHeaders.Authorization = null;
         }
 
         [Fact]
         public async Task Logout_WithoutToken_ShouldReturnUnauthorized()
         {
-            // Arrange
-            _client.DefaultRequestHeaders.Authorization = null;
-
             // Act
             var response = await _client.PostAsync("/api/auth/logout", null);
 
@@ -212,8 +185,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task CleanupTokens_WithValidToken_ShouldReturnOk()
         {
             // Arrange
-            var token = await GetAccessTokenAsync();
-            _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            await _client.AuthenticateAsync();
 
             // Act
             var response = await _client.PostAsync("/api/auth/cleanup-tokens", null);
@@ -224,17 +196,11 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             var content = await response.Content.ReadAsStringAsync();
             var result = JsonSerializer.Deserialize<JsonElement>(content, _jsonOptions);
             Assert.True(result.TryGetProperty("message", out _));
-
-            // Cleanup
-            _client.DefaultRequestHeaders.Authorization = null;
         }
 
         [Fact]
         public async Task CleanupTokens_WithoutToken_ShouldReturnUnauthorized()
         {
-            // Arrange
-            _client.DefaultRequestHeaders.Authorization = null;
-
             // Act
             var response = await _client.PostAsync("/api/auth/cleanup-tokens", null);
 
