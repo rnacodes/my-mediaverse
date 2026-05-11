@@ -1,7 +1,6 @@
-using Microsoft.AspNetCore.TestHost;
-using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
+using MyMediaVerse.IntegrationTests.Fixtures;
 using MyMediaVerse.Shared.DTOs.Trakt;
 using MyMediaVerse.Shared.Interfaces;
 using System.Net;
@@ -12,12 +11,13 @@ using System.Text.Json.Serialization;
 namespace MyMediaVerse.IntegrationTests.Controllers
 {
     [Trait("Category", "Integration")]
-    public class TraktControllerIntegrationTests : IClassFixture<WebApplicationFactory>
+    [Collection("Database")]
+    public class TraktControllerIntegrationTests : IAsyncLifetime
     {
-        private readonly WebApplicationFactory _factory;
+        private readonly ApiFactory _factory;
         private readonly JsonSerializerOptions _jsonOptions;
 
-        public TraktControllerIntegrationTests(WebApplicationFactory factory)
+        public TraktControllerIntegrationTests(ApiFactory factory)
         {
             _factory = factory;
             _jsonOptions = new JsonSerializerOptions
@@ -30,25 +30,20 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             };
         }
 
+        public Task InitializeAsync() => _factory.ResetDatabaseAsync();
+
+        public Task DisposeAsync() => Task.CompletedTask;
+
         #region Status Tests
 
         [Fact]
         public async Task GetStatus_WhenConnected_ShouldReturnOkWithConnectedStatus()
         {
             // Arrange
-            var mockSyncService = Substitute.For<ITraktSyncService>();
-            var mockApiClient = Substitute.For<ITraktApiClient>();
-            mockSyncService.GetStatusAsync()
-                .Returns(new TraktConnectionStatusDto { Connected = true, Username = "testuser" });
-
-            var client = _factory.WithWebHostBuilder(builder =>
-            {
-                builder.ConfigureTestServices(services =>
-                {
-                    services.AddScoped(_ => mockSyncService);
-                    services.AddScoped(_ => mockApiClient);
-                });
-            }).CreateClient();
+            var (client, _, _) = _factory.CreateClientWithSubstitutes<ITraktSyncService, ITraktApiClient>(
+                sync => sync.GetStatusAsync()
+                    .Returns(new TraktConnectionStatusDto { Connected = true, Username = "testuser" }),
+                null);
 
             // Act
             var response = await client.GetAsync("/api/trakt/status");
@@ -67,19 +62,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task GetStatus_WhenDisconnected_ShouldReturnOkWithDisconnectedStatus()
         {
             // Arrange
-            var mockSyncService = Substitute.For<ITraktSyncService>();
-            var mockApiClient = Substitute.For<ITraktApiClient>();
-            mockSyncService.GetStatusAsync()
-                .Returns(new TraktConnectionStatusDto { Connected = false, Username = null });
-
-            var client = _factory.WithWebHostBuilder(builder =>
-            {
-                builder.ConfigureTestServices(services =>
-                {
-                    services.AddScoped(_ => mockSyncService);
-                    services.AddScoped(_ => mockApiClient);
-                });
-            }).CreateClient();
+            var (client, _, _) = _factory.CreateClientWithSubstitutes<ITraktSyncService, ITraktApiClient>(
+                sync => sync.GetStatusAsync()
+                    .Returns(new TraktConnectionStatusDto { Connected = false, Username = null }),
+                null);
 
             // Act
             var response = await client.GetAsync("/api/trakt/status");
@@ -102,26 +88,16 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task StartDeviceAuth_ShouldReturnOkWithDeviceCode()
         {
             // Arrange
-            var mockSyncService = Substitute.For<ITraktSyncService>();
-            var mockApiClient = Substitute.For<ITraktApiClient>();
-            mockApiClient.GetDeviceCodeAsync()
-                .Returns(new TraktDeviceCodeDto
+            var (client, _, _) = _factory.CreateClientWithSubstitutes<ITraktSyncService, ITraktApiClient>(
+                null,
+                api => api.GetDeviceCodeAsync().Returns(new TraktDeviceCodeDto
                 {
                     DeviceCode = "test-device-code",
                     UserCode = "ABCD1234",
                     VerificationUrl = "https://trakt.tv/activate",
                     ExpiresIn = 600,
                     Interval = 5
-                });
-
-            var client = _factory.WithWebHostBuilder(builder =>
-            {
-                builder.ConfigureTestServices(services =>
-                {
-                    services.AddScoped(_ => mockSyncService);
-                    services.AddScoped(_ => mockApiClient);
-                });
-            }).CreateClient();
+                }));
 
             // Act
             var response = await client.PostAsync("/api/trakt/auth/device-code", null);
@@ -141,19 +117,9 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task StartDeviceAuth_WhenApiThrows_ShouldReturn500()
         {
             // Arrange
-            var mockSyncService = Substitute.For<ITraktSyncService>();
-            var mockApiClient = Substitute.For<ITraktApiClient>();
-            mockApiClient.GetDeviceCodeAsync()
-                .Throws(new Exception("API error"));
-
-            var client = _factory.WithWebHostBuilder(builder =>
-            {
-                builder.ConfigureTestServices(services =>
-                {
-                    services.AddScoped(_ => mockSyncService);
-                    services.AddScoped(_ => mockApiClient);
-                });
-            }).CreateClient();
+            var (client, _, _) = _factory.CreateClientWithSubstitutes<ITraktSyncService, ITraktApiClient>(
+                null,
+                api => api.GetDeviceCodeAsync().Throws(new Exception("API error")));
 
             // Act
             var response = await client.PostAsync("/api/trakt/auth/device-code", null);
@@ -170,19 +136,9 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task PollDeviceToken_WhenPending_ShouldReturnOkWithPendingStatus()
         {
             // Arrange
-            var mockSyncService = Substitute.For<ITraktSyncService>();
-            var mockApiClient = Substitute.For<ITraktApiClient>();
-            mockApiClient.PollDeviceTokenAsync("test-code")
-                .Returns((TraktOAuthTokenDto?)null);
-
-            var client = _factory.WithWebHostBuilder(builder =>
-            {
-                builder.ConfigureTestServices(services =>
-                {
-                    services.AddScoped(_ => mockSyncService);
-                    services.AddScoped(_ => mockApiClient);
-                });
-            }).CreateClient();
+            var (client, _, _) = _factory.CreateClientWithSubstitutes<ITraktSyncService, ITraktApiClient>(
+                null,
+                api => api.PollDeviceTokenAsync("test-code").Returns((TraktOAuthTokenDto?)null));
 
             var requestBody = new StringContent(
                 JsonSerializer.Serialize(new { deviceCode = "test-code" }, _jsonOptions),
@@ -205,9 +161,6 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task PollDeviceToken_WhenAuthorized_ShouldReturnOkWithAuthorizedStatus()
         {
             // Arrange
-            var mockSyncService = Substitute.For<ITraktSyncService>();
-            var mockApiClient = Substitute.For<ITraktApiClient>();
-
             var token = new TraktOAuthTokenDto
             {
                 AccessToken = "test-access-token",
@@ -217,19 +170,9 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                 CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
             };
 
-            mockApiClient.PollDeviceTokenAsync("test-code")
-                .Returns(token);
-            mockSyncService.SaveTokenAsync(Arg.Any<TraktOAuthTokenDto>())
-                .Returns(Task.CompletedTask);
-
-            var client = _factory.WithWebHostBuilder(builder =>
-            {
-                builder.ConfigureTestServices(services =>
-                {
-                    services.AddScoped(_ => mockSyncService);
-                    services.AddScoped(_ => mockApiClient);
-                });
-            }).CreateClient();
+            var (client, mockSyncService, _) = _factory.CreateClientWithSubstitutes<ITraktSyncService, ITraktApiClient>(
+                sync => sync.SaveTokenAsync(Arg.Any<TraktOAuthTokenDto>()).Returns(Task.CompletedTask),
+                api => api.PollDeviceTokenAsync("test-code").Returns(token));
 
             var requestBody = new StringContent(
                 JsonSerializer.Serialize(new { deviceCode = "test-code" }, _jsonOptions),
@@ -247,26 +190,17 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             using var doc = JsonDocument.Parse(content);
             Assert.Equal("authorized", doc.RootElement.GetProperty("status").GetString());
 
-            mockSyncService.Received(1).SaveTokenAsync(Arg.Any<TraktOAuthTokenDto>());
+            await mockSyncService.Received(1).SaveTokenAsync(Arg.Any<TraktOAuthTokenDto>());
         }
 
         [Fact]
         public async Task PollDeviceToken_WhenCodeExpired_ShouldReturnBadRequest()
         {
             // Arrange
-            var mockSyncService = Substitute.For<ITraktSyncService>();
-            var mockApiClient = Substitute.For<ITraktApiClient>();
-            mockApiClient.PollDeviceTokenAsync("test-code")
-                .Throws(new InvalidOperationException("Device code has expired"));
-
-            var client = _factory.WithWebHostBuilder(builder =>
-            {
-                builder.ConfigureTestServices(services =>
-                {
-                    services.AddScoped(_ => mockSyncService);
-                    services.AddScoped(_ => mockApiClient);
-                });
-            }).CreateClient();
+            var (client, _, _) = _factory.CreateClientWithSubstitutes<ITraktSyncService, ITraktApiClient>(
+                null,
+                api => api.PollDeviceTokenAsync("test-code")
+                    .Throws(new InvalidOperationException("Device code has expired")));
 
             var requestBody = new StringContent(
                 JsonSerializer.Serialize(new { deviceCode = "test-code" }, _jsonOptions),
@@ -289,19 +223,9 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task Disconnect_ShouldReturnOk()
         {
             // Arrange
-            var mockSyncService = Substitute.For<ITraktSyncService>();
-            var mockApiClient = Substitute.For<ITraktApiClient>();
-            mockSyncService.DisconnectAsync()
-                .Returns(Task.CompletedTask);
-
-            var client = _factory.WithWebHostBuilder(builder =>
-            {
-                builder.ConfigureTestServices(services =>
-                {
-                    services.AddScoped(_ => mockSyncService);
-                    services.AddScoped(_ => mockApiClient);
-                });
-            }).CreateClient();
+            var (client, mockSyncService, _) = _factory.CreateClientWithSubstitutes<ITraktSyncService, ITraktApiClient>(
+                sync => sync.DisconnectAsync().Returns(Task.CompletedTask),
+                null);
 
             // Act
             var response = await client.PostAsync("/api/trakt/disconnect", null);
@@ -309,7 +233,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-            mockSyncService.Received(1).DisconnectAsync();
+            await mockSyncService.Received(1).DisconnectAsync();
         }
 
         #endregion
@@ -320,10 +244,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task SyncWatched_ShouldReturnOkWithResult()
         {
             // Arrange
-            var mockSyncService = Substitute.For<ITraktSyncService>();
-            var mockApiClient = Substitute.For<ITraktApiClient>();
-            mockSyncService.SyncWatchedAsync()
-                .Returns(new TraktSyncResultDto
+            var (client, _, _) = _factory.CreateClientWithSubstitutes<ITraktSyncService, ITraktApiClient>(
+                sync => sync.SyncWatchedAsync().Returns(new TraktSyncResultDto
                 {
                     Success = true,
                     MoviesCreated = 5,
@@ -331,16 +253,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                     EpisodesCreated = 20,
                     StartedAt = DateTime.UtcNow.AddSeconds(-10),
                     CompletedAt = DateTime.UtcNow
-                });
-
-            var client = _factory.WithWebHostBuilder(builder =>
-            {
-                builder.ConfigureTestServices(services =>
-                {
-                    services.AddScoped(_ => mockSyncService);
-                    services.AddScoped(_ => mockApiClient);
-                });
-            }).CreateClient();
+                }),
+                null);
 
             // Act
             var response = await client.PostAsync("/api/trakt/sync/watched", null);
@@ -361,25 +275,15 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task SyncWatchlist_ShouldReturnOkWithResult()
         {
             // Arrange
-            var mockSyncService = Substitute.For<ITraktSyncService>();
-            var mockApiClient = Substitute.For<ITraktApiClient>();
-            mockSyncService.SyncWatchlistAsync()
-                .Returns(new TraktSyncResultDto
+            var (client, _, _) = _factory.CreateClientWithSubstitutes<ITraktSyncService, ITraktApiClient>(
+                sync => sync.SyncWatchlistAsync().Returns(new TraktSyncResultDto
                 {
                     Success = true,
                     WatchlistItemsProcessed = 10,
                     StartedAt = DateTime.UtcNow.AddSeconds(-5),
                     CompletedAt = DateTime.UtcNow
-                });
-
-            var client = _factory.WithWebHostBuilder(builder =>
-            {
-                builder.ConfigureTestServices(services =>
-                {
-                    services.AddScoped(_ => mockSyncService);
-                    services.AddScoped(_ => mockApiClient);
-                });
-            }).CreateClient();
+                }),
+                null);
 
             // Act
             var response = await client.PostAsync("/api/trakt/sync/watchlist", null);
@@ -398,25 +302,15 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task SyncRatings_ShouldReturnOkWithResult()
         {
             // Arrange
-            var mockSyncService = Substitute.For<ITraktSyncService>();
-            var mockApiClient = Substitute.For<ITraktApiClient>();
-            mockSyncService.SyncRatingsAsync()
-                .Returns(new TraktSyncResultDto
+            var (client, _, _) = _factory.CreateClientWithSubstitutes<ITraktSyncService, ITraktApiClient>(
+                sync => sync.SyncRatingsAsync().Returns(new TraktSyncResultDto
                 {
                     Success = true,
                     RatingsProcessed = 15,
                     StartedAt = DateTime.UtcNow.AddSeconds(-3),
                     CompletedAt = DateTime.UtcNow
-                });
-
-            var client = _factory.WithWebHostBuilder(builder =>
-            {
-                builder.ConfigureTestServices(services =>
-                {
-                    services.AddScoped(_ => mockSyncService);
-                    services.AddScoped(_ => mockApiClient);
-                });
-            }).CreateClient();
+                }),
+                null);
 
             // Act
             var response = await client.PostAsync("/api/trakt/sync/ratings", null);
@@ -435,10 +329,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task SyncAll_ShouldReturnOkWithCombinedResult()
         {
             // Arrange
-            var mockSyncService = Substitute.For<ITraktSyncService>();
-            var mockApiClient = Substitute.For<ITraktApiClient>();
-            mockSyncService.SyncAllAsync()
-                .Returns(new TraktSyncResultDto
+            var (client, _, _) = _factory.CreateClientWithSubstitutes<ITraktSyncService, ITraktApiClient>(
+                sync => sync.SyncAllAsync().Returns(new TraktSyncResultDto
                 {
                     Success = true,
                     MoviesCreated = 5,
@@ -451,16 +343,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                     RatingsProcessed = 15,
                     StartedAt = DateTime.UtcNow.AddSeconds(-30),
                     CompletedAt = DateTime.UtcNow
-                });
-
-            var client = _factory.WithWebHostBuilder(builder =>
-            {
-                builder.ConfigureTestServices(services =>
-                {
-                    services.AddScoped(_ => mockSyncService);
-                    services.AddScoped(_ => mockApiClient);
-                });
-            }).CreateClient();
+                }),
+                null);
 
             // Act
             var response = await client.PostAsync("/api/trakt/sync/all", null);
@@ -486,19 +370,9 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task SyncWatched_WhenServiceThrows_ShouldReturn500()
         {
             // Arrange
-            var mockSyncService = Substitute.For<ITraktSyncService>();
-            var mockApiClient = Substitute.For<ITraktApiClient>();
-            mockSyncService.SyncWatchedAsync()
-                .Throws(new Exception("Sync failed"));
-
-            var client = _factory.WithWebHostBuilder(builder =>
-            {
-                builder.ConfigureTestServices(services =>
-                {
-                    services.AddScoped(_ => mockSyncService);
-                    services.AddScoped(_ => mockApiClient);
-                });
-            }).CreateClient();
+            var (client, _, _) = _factory.CreateClientWithSubstitutes<ITraktSyncService, ITraktApiClient>(
+                sync => sync.SyncWatchedAsync().Throws(new Exception("Sync failed")),
+                null);
 
             // Act
             var response = await client.PostAsync("/api/trakt/sync/watched", null);

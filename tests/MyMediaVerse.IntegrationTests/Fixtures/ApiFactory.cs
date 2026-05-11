@@ -200,5 +200,38 @@ namespace MyMediaVerse.IntegrationTests.Fixtures
 
             return (factory.CreateClient(), mock);
         }
+
+        /// <summary>
+        /// Two-substitute variant for controllers whose handlers resolve two collaborators
+        /// (e.g. <c>IGoogleBooksService</c> + <c>IBookMappingService</c>). Same swap mechanics as the
+        /// single-substitute overload; child host is built once with both substitutions applied.
+        ///
+        /// Stacking two single-substitute calls won't work — the second call would build off the base
+        /// factory, not the first call's child factory, so the first swap would be lost.
+        /// </summary>
+        public (HttpClient Client, T1 Mock1, T2 Mock2) CreateClientWithSubstitutes<T1, T2>(
+            Action<T1>? configure1 = null,
+            Action<T2>? configure2 = null)
+            where T1 : class
+            where T2 : class
+        {
+            var mock1 = Substitute.For<T1>();
+            var mock2 = Substitute.For<T2>();
+            configure1?.Invoke(mock1);
+            configure2?.Invoke(mock2);
+
+            var factory = WithWebHostBuilder(builder =>
+            {
+                builder.ConfigureTestServices(services =>
+                {
+                    services.RemoveAll<T1>();
+                    services.RemoveAll<T2>();
+                    services.AddSingleton(mock1);
+                    services.AddSingleton(mock2);
+                });
+            });
+
+            return (factory.CreateClient(), mock1, mock2);
+        }
     }
 }
