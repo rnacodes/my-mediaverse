@@ -365,3 +365,5 @@ export const SearchFilterSidebar = React.memo(({
         </Grid>
     );
 });
+
+SearchFilterSidebar.displayName = 'SearchFilterSidebar';

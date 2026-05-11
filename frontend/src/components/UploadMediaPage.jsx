@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
     Container, Box, Typography, Button, Paper, Alert, AlertTitle,
     CircularProgress, List, ListItem, ListItemText, Divider,
@@ -10,6 +10,7 @@ import { uploadCsv } from '../api/uploadService';
 
 function UploadMediaPage() {
     const navigate = useNavigate();
+    const fileInputRef = useRef(null);
     const [file, setFile] = useState(null);
     const [uploading, setUploading] = useState(false);
     const [uploadResult, setUploadResult] = useState(null);
@@ -80,10 +81,8 @@ function UploadMediaPage() {
         setFile(null);
         setUploadResult(null);
         setError('');
-        // Reset the file input
-        const fileInput = document.getElementById('csv-file-input');
-        if (fileInput) {
-            fileInput.value = '';
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
         }
     };
 
@@ -119,6 +118,7 @@ function UploadMediaPage() {
 
                 <Box sx={{ mb: 3 }}>
                     <input
+                        ref={fileInputRef}
                         id="csv-file-input"
                         type="file"
                         accept=".csv"

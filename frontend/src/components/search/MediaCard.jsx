@@ -260,3 +260,5 @@ export const MediaCard = React.memo(({ item, isSelected = false, onToggleSelect,
     );
 });
 
+MediaCard.displayName = 'MediaCard';
+

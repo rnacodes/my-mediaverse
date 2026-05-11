@@ -99,3 +99,5 @@ export const SearchBarSection = React.memo(({
         </Paper>
     );
 });
+
+SearchBarSection.displayName = 'SearchBarSection';

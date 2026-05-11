@@ -126,13 +126,13 @@ function YouTubeImportSection({ expanded, onAccordionChange, onSnackbar }) {
             } else if (youtubeSearchType === 'channel') {
                 let channelId = null;
 
-                const channelIdMatch = youtubeUrl.match(/\/channel\/([^\/\n?#]+)/);
+                const channelIdMatch = youtubeUrl.match(/\/channel\/([^/\n?#]+)/);
                 if (channelIdMatch) {
                     channelId = channelIdMatch[1];
                 } else {
-                    const handleMatch = youtubeUrl.match(/\/@([^\/\n?#]+)/);
-                    const customMatch = youtubeUrl.match(/\/c\/([^\/\n?#]+)/);
-                    const userMatch = youtubeUrl.match(/\/user\/([^\/\n?#]+)/);
+                    const handleMatch = youtubeUrl.match(/\/@([^/\n?#]+)/);
+                    const customMatch = youtubeUrl.match(/\/c\/([^/\n?#]+)/);
+                    const userMatch = youtubeUrl.match(/\/user\/([^/\n?#]+)/);
 
                     if (handleMatch || customMatch || userMatch) {
                         result = await importFromYouTubeUrl(youtubeUrl);

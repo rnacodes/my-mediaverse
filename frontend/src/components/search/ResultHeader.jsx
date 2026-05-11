@@ -141,3 +141,5 @@ export const ResultHeader = React.memo(({
         </Box>
     );
 });
+
+ResultHeader.displayName = 'ResultHeader';

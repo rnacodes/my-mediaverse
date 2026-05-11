@@ -37,7 +37,6 @@ function ImportMixlistPage() {
             skipEmptyLines: true,
             complete: (results) => {
                 if (results.data && results.data.length > 0) {
-                    setHeaders(results.meta.fields || []);
                     setCsvData(results.data);
                 } else {
                     alert('CSV file appears to be empty or invalid.');
@@ -125,7 +124,6 @@ function ImportMixlistPage() {
     const resetForm = () => {
         setFile(null);
         setCsvData([]);
-        setHeaders([]);
         setImportResults(null);
     };
 

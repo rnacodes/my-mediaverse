@@ -254,3 +254,5 @@ export const MediaListItem = React.memo(({ item, isSelected = false, onToggleSel
     );
 });
 
+MediaListItem.displayName = 'MediaListItem';
+
