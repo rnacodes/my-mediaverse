@@ -84,7 +84,7 @@ function SearchByTopicOrGenre() {
         setSuccess('');
 
         try {
-            const response = await createTopic({ name: newTopicName.trim() });
+            await createTopic({ name: newTopicName.trim() });
             setSuccess(`Topic "${newTopicName}" created successfully!`);
             setNewTopicName('');
             setOpenTopicDialog(false);
@@ -111,7 +111,7 @@ function SearchByTopicOrGenre() {
         setSuccess('');
 
         try {
-            const response = await createGenre({ name: newGenreName.trim() });
+            await createGenre({ name: newGenreName.trim() });
             setSuccess(`Genre "${newGenreName}" created successfully!`);
             setNewGenreName('');
             setOpenGenreDialog(false);

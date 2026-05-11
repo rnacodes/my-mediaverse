@@ -102,7 +102,7 @@ function TvShowProfile() {
             await deleteTvShow(id);
             setSnackbar({ open: true, message: 'TV show deleted', severity: 'success' });
             setTimeout(() => navigate('/all-media?mediaType=TVShow'), 1500);
-        } catch (error) {
+        } catch {
             setSnackbar({ open: true, message: 'Failed to delete TV show', severity: 'error' });
         }
         setDeleteConfirmDialog(false);

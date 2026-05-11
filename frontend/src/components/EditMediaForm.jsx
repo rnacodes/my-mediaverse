@@ -11,7 +11,7 @@ import { getMediaById, updateMedia, deleteMedia } from '../api/mediaService';
 import { uploadThumbnail } from '../api/uploadService';
 import { getNotesForMedia, getAllNotes, searchNotes, linkNoteToMedia, unlinkNoteFromMedia } from '../api/noteService';
 import { getAllMixlists, addMediaToMixlist, removeMediaFromMixlist } from '../api/mixlistService';
-import { formatStatus, formatMediaType } from '../utils/formatters';
+import { formatStatus } from '../utils/formatters';
 import TopicsGenresSection from './TopicsGenresSection';
 
 function EditMediaForm() {
@@ -57,12 +57,6 @@ function EditMediaForm() {
         genre: '',
         dateCompleted: ''
     });
-
-    // Media type options (not editable)
-    const mediaTypes = [
-        'Article', 'Book', 'Document', 'Movie', 'Music', 'Other',
-        'Podcast', 'TVShow', 'Video', 'VideoGame', 'Website'
-    ];
 
     // Status options
     const statusOptions = [

@@ -26,9 +26,9 @@ import SimilarItemsSection from './SimilarItemsSection';
 import SavedRelatedMediaSection from './SavedRelatedMediaSection';
 import { formatMediaType, formatStatus, getMediaTypeColor, getStatusColor, getRatingIcon, getRatingText } from '../utils/formatters';
 import { getMediaById } from '../api/mediaService';
-import { getAllMixlists, addMediaToMixlist } from '../api/mixlistService';
+import { getAllMixlists } from '../api/mixlistService';
 import { getBookById } from '../api/bookService';
-import { getPodcastSeriesById, getPodcastEpisodeById, getEpisodesBySeriesId } from '../api/podcastService';
+import { getPodcastSeriesById, getPodcastEpisodeById } from '../api/podcastService';
 import { getMovieById } from '../api/movieService';
 import { getTvShowById } from '../api/tvShowService';
 import { getVideoById, getPlaylistsForVideo } from '../api/videoService';
@@ -41,10 +41,7 @@ function MediaProfilePage() {
   const [loading, setLoading] = useState(true);
   const [availableMixlists, setAvailableMixlists] = useState([]);
   const [currentMixlists, setCurrentMixlists] = useState([]);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  const [addToMixlistDialog, setAddToMixlistDialog] = useState(false);
-  const [selectedMixlistId, setSelectedMixlistId] = useState(null);
-  const [mixlistSearchQuery, setMixlistSearchQuery] = useState('');
+  const [_snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [highlights, setHighlights] = useState([]);
   const [highlightsLoading, setHighlightsLoading] = useState(false);
   const [videoPlaylists, setVideoPlaylists] = useState([]);
@@ -106,11 +103,11 @@ function MediaProfilePage() {
           try {
             // Try to fetch as podcast series first
             try {
-              const seriesResponse = await getPodcastSeriesById(id);
+              await getPodcastSeriesById(id);
               // Redirect to dedicated podcast series profile page
               navigate(`/podcast-series/${id}`, { replace: true });
               return;
-            } catch (seriesError) {
+            } catch {
               // If series fetch fails, try as episode
               try {
                 const episodeResponse = await getPodcastEpisodeById(id);
@@ -261,62 +258,6 @@ function MediaProfilePage() {
     } finally {
       setFetchingContent(false);
     }
-  };
-
-  const handleAddToMixlist = async () => {
-    if (!selectedMixlistId) {
-      setSnackbar({ open: true, message: 'Please select a mixlist first', severity: 'warning' });
-      return;
-    }
-    
-    try {
-      await addMediaToMixlist(selectedMixlistId, id);
-      setSnackbar({ open: true, message: 'Media added to mixlist successfully!', severity: 'success' });
-      setAddToMixlistDialog(false);
-      setSelectedMixlistId(null);
-      setMixlistSearchQuery('');
-
-      // Refresh the current mixlists
-      const updatedMediaResponse = await getMediaById(id);
-      const updatedMedia = updatedMediaResponse.data;
-      const mixlistIds = updatedMedia.mixlistIds || [];
-
-      const mixlistsResponse = await getAllMixlists();
-      const allMixlists = mixlistsResponse.data || [];
-      setAvailableMixlists(allMixlists);
-
-      if (mixlistIds.length > 0) {
-        const mixlistIdSet = new Set(mixlistIds);
-        setCurrentMixlists(allMixlists.filter(m => mixlistIdSet.has(m.id)));
-      } else {
-        setCurrentMixlists([]);
-      }
-    } catch (error) {
-      console.error('Failed to add media to mixlist:', error);
-      console.error('Error details:', error.response || error);
-      setSnackbar({ 
-        open: true, 
-        message: `Failed to add media to mixlist: ${error.response?.data?.message || error.message || 'Unknown error'}`, 
-        severity: 'error' 
-      });
-    }
-  };
-
-  const handleCloseMixlistDialog = () => {
-    setAddToMixlistDialog(false);
-    setSelectedMixlistId(null);
-    setMixlistSearchQuery('');
-  };
-
-  const filteredAvailableMixlists = availableMixlists
-    .filter(mixlist => !currentMixlists.some(current => current.id === mixlist.id))
-    .filter(mixlist => 
-      mixlist.name?.toLowerCase().includes(mixlistSearchQuery.toLowerCase()) ||
-      mixlist.description?.toLowerCase().includes(mixlistSearchQuery.toLowerCase())
-    );
-
-  const handleCreateNewMixlist = () => {
-    navigate('/create-mixlist', { state: { returnTo: `/media/${id}` } });
   };
 
   if (loading) {

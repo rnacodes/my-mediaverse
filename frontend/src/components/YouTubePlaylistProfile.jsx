@@ -251,7 +251,7 @@ function YouTubePlaylistProfile() {
             setImportedVideos(newImportedMap);
             setSnackbar({ open: true, message: `Successfully imported "${video.snippet?.title || video.title}"!`, severity: 'success' });
             await fetchPlaylistData();
-        } catch (error) {
+        } catch {
             setSnackbar({ open: true, message: 'Failed to import video', severity: 'error' });
         } finally {
             setImportingVideo(null);

@@ -6,7 +6,7 @@ import {
   Skeleton,
   Grid
 } from '@mui/material';
-import { commonStyles, COLORS } from './DesignSystem';
+import { COLORS } from './DesignSystem';
 
 const LoadingSpinner = ({
   variant = 'spinner', // 'spinner', 'skeleton', 'dots', 'pulse'

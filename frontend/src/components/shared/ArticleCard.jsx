@@ -38,21 +38,6 @@ function ArticleCard({ article }) {
         }
     };
 
-    const getStatusLabel = (status) => {
-        switch (status) {
-            case 'Completed':
-                return 'Completed';
-            case 'ActivelyExploring':
-                return 'Reading';
-            case 'Abandoned':
-                return 'Abandoned';
-            case 'Uncharted':
-                return 'To Read';
-            default:
-                return status;
-        }
-    };
-
     return (
         <Card
             sx={{

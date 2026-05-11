@@ -262,7 +262,7 @@ const SearchBar = ({
                   Media Items
                 </Typography>
                 <List dense>
-                  {searchResults.media.slice(0, 5).map((item, index) => (
+                  {searchResults.media.slice(0, 5).map((item) => (
                     <ListItem
                       key={item.id || item.Id}
                       button
@@ -309,7 +309,7 @@ const SearchBar = ({
                   Mixlists
                 </Typography>
                 <List dense>
-                  {searchResults.mixlists.slice(0, 3).map((mixlist, index) => (
+                  {searchResults.mixlists.slice(0, 3).map((mixlist) => (
                     <ListItem
                       key={mixlist.id || mixlist.Id}
                       button
@@ -430,7 +430,7 @@ const SearchBar = ({
                   </Typography>
                 )}
                 {/* Debug info - remove in production */}
-                {process.env.NODE_ENV === 'development' && query && (
+                {import.meta.env.DEV && query && (
                   <Box sx={{ mt: 2, p: 1, backgroundColor: COLORS.background.elevated, borderRadius: 1 }}>
                     <Typography variant="caption" color={COLORS.text.hint}>
                       Debug: Searched for "{query}" in titles, descriptions, genres, topics, and media types

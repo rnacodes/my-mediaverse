@@ -66,18 +66,6 @@ function MediaInfoCard({
     ? truncateDescription(description, DESCRIPTION_WORD_LIMIT)
     : description;
 
-  const formatDuration = (seconds) => {
-    if (!seconds) return '';
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return '';
-    return new Date(dateString).toLocaleDateString('en-US');
-  };
-
   return (
     <Box sx={{
       display: 'flex',

@@ -32,7 +32,7 @@ export const AuthProvider = ({ children }) => {
                 setToken(newToken);
                 setAccessToken(newToken); // Update token in apiService
                 setUser({ username, expiresAt });
-            } catch (error) {
+            } catch {
                 // No valid refresh token, user needs to login
                 console.log('No valid session found');
             } finally {

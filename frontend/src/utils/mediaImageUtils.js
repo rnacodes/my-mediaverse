@@ -55,6 +55,6 @@ export const getAspectRatioPadding = (mediaType) => {
  * 'contain' shows the full image (with background bars if needed).
  * 'cover' fills the container but may crop edges.
  */
-export const getObjectFit = (mediaType) => {
+export const getObjectFit = () => {
   return 'contain';
 };

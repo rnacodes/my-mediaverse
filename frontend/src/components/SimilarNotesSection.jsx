@@ -31,7 +31,7 @@ const vaultColors = {
   programming: '#2196f3',
 };
 
-function SimilarNotesSection({ note, setSnackbar }) {
+function SimilarNotesSection({ note }) {
   const [similarNotes, setSimilarNotes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);

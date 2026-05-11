@@ -15,8 +15,6 @@ import Papa from 'papaparse';
 function ImportMixlistPage() {
     const [file, setFile] = useState(null);
     const [csvData, setCsvData] = useState([]);
-    const [headers, setHeaders] = useState([]);
-    const [loading, setLoading] = useState(false);
     const [importing, setImporting] = useState(false);
     const [importResults, setImportResults] = useState(null);
     const [previewDialogOpen, setPreviewDialogOpen] = useState(false);

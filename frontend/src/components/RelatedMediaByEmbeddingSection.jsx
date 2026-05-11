@@ -23,7 +23,7 @@ import {
 import { getMediaForNote as getRecommendedMediaForNote } from '../api/recommendationService';
 import { formatMediaType } from '../utils/formatters';
 
-function RelatedMediaByEmbeddingSection({ note, setSnackbar }) {
+function RelatedMediaByEmbeddingSection({ note }) {
   const [relatedMedia, setRelatedMedia] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);

@@ -30,7 +30,7 @@ import {
   Search as SearchIcon,
   AutoAwesome as AutoAwesomeIcon,
 } from '@mui/icons-material';
-import { searchByVibe, getRecommendationStatus } from '../api/recommendationService';
+import { searchByVibe } from '../api/recommendationService';
 import { formatMediaType } from '../utils/formatters';
 
 function SearchByVibePage() {

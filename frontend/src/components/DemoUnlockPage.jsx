@@ -67,7 +67,7 @@ const DemoUnlockPage = () => {
             } else {
                 setStatusError('Failed to fetch status from demo API.');
             }
-        } catch (error) {
+        } catch {
             setStatusError(
                 'Could not connect to the demo API. Use "Check Status Directly" to view in a new tab.'
             );

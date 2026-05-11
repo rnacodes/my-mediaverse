@@ -131,11 +131,6 @@ const DemoPage = () => {
   const [selectedMedia, setSelectedMedia] = useState(null);
   const [viewMode, setViewMode] = useState('card');
 
-  const handleSearch = (query) => {
-    setSearchQuery(query);
-    console.log('Searching for:', query);
-  };
-
   const handleMediaClick = (media) => {
     setSelectedMedia(media);
     console.log('Selected media:', media);

@@ -208,8 +208,7 @@ export const typesenseAdvancedSearch = async (options) => {
             status = null,
             ratings = [],
             page = 1,
-            perPage = 20,
-            sortBy = 'relevance'
+            perPage = 20
         } = options;
 
         // Build filter string
@@ -308,8 +307,7 @@ export const typesenseAdvancedSearchMixlists = async (options) => {
             topics = [],
             genres = [],
             page = 1,
-            perPage = 20,
-            sortBy = 'relevance'
+            perPage = 20
         } = options;
 
         // Build filter string

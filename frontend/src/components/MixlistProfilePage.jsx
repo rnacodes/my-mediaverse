@@ -99,33 +99,6 @@ function MixlistProfilePage() {
         }
     };
 
-    const handleAddMedia = async (mediaItemId) => {
-        try {
-            console.log('Adding media to mixlist:', { mixlistId: id, mediaItemId });
-            await addMediaToMixlist(id, mediaItemId);
-            
-            // Reload the mixlist to update the display
-            const response = await getMixlistById(id);
-            console.log('Reloaded mixlist:', response);
-            setMixlist(response.data);
-            
-            // Close dialog and clear search
-            setAddMediaDialogOpen(false);
-            setSearchQuery('');
-            setSearchResults([]);
-            
-            setSnackbar({ open: true, message: 'Media added successfully!', severity: 'success' });
-        } catch (error) {
-            console.error('Error adding media to mixlist:', error);
-            console.error('Error details:', error.response?.data);
-            setSnackbar({ 
-                open: true, 
-                message: `Failed to add media: ${error.response?.data?.error || error.message}`, 
-                severity: 'error' 
-            });
-        }
-    };
-
     const handleToggleMediaSelection = (mediaItemId) => {
         setSelectedMediaIds(prev => {
             if (prev.includes(mediaItemId)) {

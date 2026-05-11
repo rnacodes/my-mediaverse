@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Pagination, Autoplay, EffectCoverflow } from 'swiper/modules';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import {
   Box,
   IconButton,
@@ -24,7 +24,7 @@ import 'swiper/css/pagination';
 import 'swiper/css/effect-coverflow';
 
 import MediaCard from './MediaCard';
-import { COLORS, commonStyles } from './DesignSystem';
+import { COLORS } from './DesignSystem';
 
 const MediaCarousel = ({
   mediaItems = [],
@@ -35,9 +35,7 @@ const MediaCarousel = ({
   autoplayDelay = 3000,
   showNavigation = true,
   showPagination = true,
-  slidesPerView = 'auto',
   spaceBetween = 30,
-  centeredSlides = true,
   loop = true,
   onMediaClick,
   sx = {},

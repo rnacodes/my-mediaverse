@@ -195,7 +195,7 @@ function PodcastSeriesProfile() {
             setImportedEpisodes(newImportedMap);
             setSnackbar({ open: true, message: `Successfully imported "${episode.title}"!`, severity: 'success' });
             await fetchSeriesData();
-        } catch (error) {
+        } catch {
             setSnackbar({ open: true, message: 'Failed to import episode', severity: 'error' });
         } finally {
             setImportingEpisode(null);
@@ -212,7 +212,7 @@ function PodcastSeriesProfile() {
                 severity: 'success' 
             });
             await fetchSeriesData();
-        } catch (error) {
+        } catch {
             setSnackbar({ open: true, message: 'Failed to sync episodes', severity: 'error' });
         } finally {
             setSyncing(false);
@@ -224,7 +224,7 @@ function PodcastSeriesProfile() {
             await deletePodcastSeries(id);
             setSnackbar({ open: true, message: 'Podcast series deleted', severity: 'success' });
             setTimeout(() => navigate('/'), 1500);
-        } catch (error) {
+        } catch {
             setSnackbar({ open: true, message: 'Failed to delete podcast series', severity: 'error' });
         }
         setDeleteConfirmDialog(false);

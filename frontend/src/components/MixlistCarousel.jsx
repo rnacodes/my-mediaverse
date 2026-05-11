@@ -186,7 +186,7 @@ function MixlistCarousel({
                 }
               }}
             >
-              {currentMixlists.map((mixlist, index) => (
+              {currentMixlists.map((mixlist) => (
                 <Card 
                   key={mixlist.id} 
                   sx={{

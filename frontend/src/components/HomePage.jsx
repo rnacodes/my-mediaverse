@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Container, Box, Typography, TextField, IconButton, Grid, Card, CardMedia, CardContent, Button, useTheme, CircularProgress } from '@mui/material';
 import {
     Search, Book, Movie, Tv, Article, LibraryMusic, Podcasts, SportsEsports, YouTube, Language, MenuBook, AutoAwesome,
-    AddCircleOutline, BookmarkAdd, CloudUpload, Settings, Info, Help, Share, AccountCircle, ArrowForwardIos,
+    AddCircleOutline, BookmarkAdd, Settings, Info, Help, Share, AccountCircle, ArrowForwardIos,
     NoteAlt, ImportExport, Topic, FileDownload, LocalLibrary, Apps, FormatQuote
 } from '@mui/icons-material';
 import { getAllMixlists, seedMixlists } from '../api/mixlistService';
@@ -91,63 +91,6 @@ const Section = ({ title, children }) => (
         {children}
     </Box>
 );
-
-const UploadArea = () => {
-    const theme = useTheme();
-    const [isDragging, setIsDragging] = useState(false);
-
-    const handleDragEnter = (e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true); };
-    const handleDragLeave = (e) => { e.preventDefault(); e.stopPropagation(); setIsDragging(false); };
-    const handleDragOver = (e) => { e.preventDefault(); e.stopPropagation(); };
-    const handleDrop = (e) => {
-        e.preventDefault(); e.stopPropagation(); setIsDragging(false);
-        const files = [...e.dataTransfer.files]; console.log("Files dropped:", files);
-    };
-
-    return (
-        <Box
-            onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDragOver={handleDragOver} onDrop={handleDrop}
-            sx={{
-                border: `3px dashed ${isDragging ? theme.palette.primary.main : theme.palette.text.secondary}`,
-                borderRadius: '16px', 
-                p: { xs: 2, sm: 3, md: 4 }, 
-                textAlign: 'center',
-                backgroundColor: isDragging ? 'rgba(54, 39, 89, 0.1)' : 'transparent',
-                transition: 'border-color 0.3s ease, background-color 0.3s ease, transform 0.3s ease',
-                cursor: 'pointer', 
-                minHeight: { xs: '150px', sm: '180px' },
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                '&:hover': { 
-                    transform: { xs: 'none', sm: 'scale(1.02)' }, 
-                    borderColor: theme.palette.primary.main 
-                },
-                '&:active': {
-                    transform: 'scale(0.98)'
-                }
-            }}
-        >
-            <CloudUpload sx={{ fontSize: { xs: 48, sm: 60 }, color: 'text.secondary', mb: 2 }} />
-            <Typography 
-                variant="h6" 
-                color="text.primary"
-                sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}
-            >
-                Upload new media list here
-            </Typography>
-            <Typography 
-                variant="body2" 
-                color="text.secondary"
-                sx={{ fontSize: { xs: '0.8rem', sm: '0.875rem' } }}
-            >
-                Drag & Drop a file or click to select
-            </Typography>
-        </Box>
-    );
-};
-
 
 // MAIN HOMEPAGE COMPONENT
 export default function HomePage() {
@@ -327,7 +270,7 @@ export default function HomePage() {
           </Typography>
           <SearchBar 
             placeholder="Your next adventure awaits..."
-            onSearch={(query, results) => {
+            onSearch={(query) => {
               navigate(`/search?q=${encodeURIComponent(query)}`);
             }}
             showSuggestions={true}

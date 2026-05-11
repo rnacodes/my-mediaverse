@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import {
     Container, Box, Typography, Grid,
     Chip, Button, ButtonGroup, Divider, Collapse,
@@ -23,12 +23,6 @@ import { getAllMixlists, addMediaToMixlist } from '../api/mixlistService';
 import { bulkDeleteMedia } from '../api/mediaService';
 
 
-const sortOptions = [
-    { value: 'relevance', label: 'Most Relevant' },
-    { value: 'dateAdded', label: 'Recently Added' },
-    { value: 'rating', label: 'Highest Rated' },
-    { value: 'title', label: 'Title (A-Z)' }
-];
 
 const mediaTypeOptions = [
     { value: 'all', label: 'All Media Types' },
@@ -54,7 +48,6 @@ const mediaTypeOptions = [
 
 // MAIN COMPONENT
 export default function Search() {
-    const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const [searchQuery, setSearchQuery] = useState('');
     const [viewMode, setViewMode] = useState('card');
@@ -547,12 +540,6 @@ export default function Search() {
     const handleGenreToggle = (genre) => {
         setSelectedGenres(prev =>
             prev.includes(genre) ? prev.filter(g => g !== genre) : [...prev, genre]
-        );
-    };
-
-    const handleRatingToggle = (rating) => {
-        setSelectedRatings(prev =>
-            prev.includes(rating) ? prev.filter(r => r !== rating) : [...prev, rating]
         );
     };
 

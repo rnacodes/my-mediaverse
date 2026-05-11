@@ -191,7 +191,7 @@ function YouTubeChannelProfile() {
             setImportedVideos(newImportedMap);
             setSnackbar({ open: true, message: `Successfully imported "${video.snippet?.title || video.title}"!`, severity: 'success' });
             await fetchChannelData();
-        } catch (error) {
+        } catch {
             setSnackbar({ open: true, message: 'Failed to import video', severity: 'error' });
         } finally {
             setImportingVideo(null);
@@ -208,7 +208,7 @@ function YouTubeChannelProfile() {
                 severity: 'success'
             });
             await fetchChannelData();
-        } catch (error) {
+        } catch {
             setSnackbar({ open: true, message: 'Failed to sync channel', severity: 'error' });
         } finally {
             setSyncing(false);
@@ -220,31 +220,10 @@ function YouTubeChannelProfile() {
             await deleteYouTubeChannel(id);
             setSnackbar({ open: true, message: 'YouTube channel deleted', severity: 'success' });
             setTimeout(() => navigate('/youtube-channels'), 1500);
-        } catch (error) {
+        } catch {
             setSnackbar({ open: true, message: 'Failed to delete channel', severity: 'error' });
         }
         setDeleteConfirmDialog(false);
-    };
-
-    const formatDuration = (duration) => {
-        if (!duration) return 'N/A';
-        // Handle ISO 8601 duration format (PT1H2M3S) or seconds
-        if (typeof duration === 'string' && duration.startsWith('PT')) {
-            const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
-            if (match) {
-                const h = parseInt(match[1] || 0);
-                const m = parseInt(match[2] || 0);
-                const s = parseInt(match[3] || 0);
-                return h > 0 ? `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}` : `${m}:${s.toString().padStart(2, '0')}`;
-            }
-        }
-        if (typeof duration === 'number') {
-            const h = Math.floor(duration / 3600);
-            const m = Math.floor((duration % 3600) / 60);
-            const s = duration % 60;
-            return h > 0 ? `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}` : `${m}:${s.toString().padStart(2, '0')}`;
-        }
-        return duration;
     };
 
     const getYouTubeUrl = () => {

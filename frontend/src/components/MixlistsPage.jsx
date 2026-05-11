@@ -16,7 +16,7 @@ function MixlistsPage() {
     const [viewMode, setViewMode] = useState('card'); // 'card' or 'list'
     const [selectedItems, setSelectedItems] = useState(new Set());
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-    const [deleting, setDeleting] = useState(false);
+    const [deleting, _setDeleting] = useState(false);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
     const navigate = useNavigate();
 

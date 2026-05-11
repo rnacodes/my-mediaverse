@@ -245,7 +245,7 @@ function YouTubeCallback() {
         )}
 
         {/* Debug information (only in development) */}
-        {process.env.NODE_ENV === 'development' && (
+        {import.meta.env.DEV && (
           <Box sx={{ mt: 4, p: 2, backgroundColor: 'rgba(0, 0, 0, 0.3)', borderRadius: 1 }}>
             <Typography variant="caption" sx={{ color: '#b0b0b0', display: 'block', mb: 1 }}>
               Debug Information:

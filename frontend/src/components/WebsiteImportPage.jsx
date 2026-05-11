@@ -63,7 +63,7 @@ function WebsiteImportPage() {
         // Basic URL validation
         try {
             new URL(url);
-        } catch (e) {
+        } catch {
             setError('Please enter a valid URL (e.g., https://example.com)');
             return;
         }
