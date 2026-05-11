@@ -37,8 +37,8 @@ const LoadingSpinner = ({
   const SkeletonLoader = () => (
     <Box sx={{ width: '100%' }}>
       <Grid container spacing={2}>
-        {[...Array(6)].map((_, index) => (
-          <Grid item xs={12} sm={6} md={4} key={index}>
+        {['s1', 's2', 's3', 's4', 's5', 's6'].map((id) => (
+          <Grid item xs={12} sm={6} md={4} key={id}>
             <Skeleton
               variant="rectangular"
               height={200}
@@ -68,16 +68,16 @@ const LoadingSpinner = ({
   // Dots loader
   const DotsLoader = () => (
     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1 }}>
-      {[...Array(3)].map((_, index) => (
+      {[0, 1, 2].map((i) => (
         <Box
-          key={index}
+          key={`dot-${i}`}
           sx={{
             width: 8,
             height: 8,
             borderRadius: '50%',
             backgroundColor: COLORS.primary.main,
             animation: 'pulse 1.4s ease-in-out infinite both',
-            animationDelay: `${index * 0.16}s`
+            animationDelay: `${i * 0.16}s`
           }}
         />
       ))}

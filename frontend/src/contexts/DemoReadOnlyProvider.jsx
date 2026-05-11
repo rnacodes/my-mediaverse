@@ -1,23 +1,12 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-
-const DemoReadOnlyContext = createContext(null);
-
-export const useDemoReadOnly = () => {
-    const context = useContext(DemoReadOnlyContext);
-    if (!context) {
-        throw new Error('useDemoReadOnly must be used within a DemoReadOnlyProvider');
-    }
-    return context;
-};
+import { useState, useEffect, useCallback } from 'react';
+import { DemoReadOnlyContext } from './DemoReadOnlyContext';
 
 export const DemoReadOnlyProvider = ({ children }) => {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [blockedAction, setBlockedAction] = useState(null);
-    // Track when user last dismissed to avoid repeated popups
     const [lastDismissedAt, setLastDismissedAt] = useState(0);
 
     const showReadOnlyDialog = useCallback((actionInfo = null) => {
-        // Don't show if dismissed within the last 2 seconds (prevents rapid re-triggering)
         const now = Date.now();
         if (now - lastDismissedAt < 2000) {
             return;
@@ -32,7 +21,6 @@ export const DemoReadOnlyProvider = ({ children }) => {
         setLastDismissedAt(Date.now());
     }, []);
 
-    // Listen for custom event from apiClient
     useEffect(() => {
         const handleDemoWriteBlocked = (event) => {
             showReadOnlyDialog(event.detail);
@@ -57,5 +45,3 @@ export const DemoReadOnlyProvider = ({ children }) => {
         </DemoReadOnlyContext.Provider>
     );
 };
-
-export default DemoReadOnlyContext;

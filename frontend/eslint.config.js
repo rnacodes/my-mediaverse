@@ -59,4 +59,10 @@ export default defineConfig([
       globals: globals.node,
     },
   },
+  {
+    files: ['src/test-mocks/**/*.{js,jsx}'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])

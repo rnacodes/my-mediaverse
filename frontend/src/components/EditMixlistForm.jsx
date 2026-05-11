@@ -461,7 +461,7 @@ function EditMixlistForm() {
                 <DialogTitle>Confirm Delete</DialogTitle>
                 <DialogContent>
                     <DialogContentText>
-                        Are you sure you want to delete the mixlist "{formData.name}"? 
+                        Are you sure you want to delete the mixlist &quot;{formData.name}&quot;? 
                         This will remove the mixlist but will NOT delete the media items in it.
                         This action cannot be undone.
                     </DialogContentText>

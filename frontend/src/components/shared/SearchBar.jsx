@@ -433,7 +433,7 @@ const SearchBar = ({
                 {import.meta.env.DEV && query && (
                   <Box sx={{ mt: 2, p: 1, backgroundColor: COLORS.background.elevated, borderRadius: 1 }}>
                     <Typography variant="caption" color={COLORS.text.hint}>
-                      Debug: Searched for "{query}" in titles, descriptions, genres, topics, and media types
+                      Debug: Searched for &quot;{query}&quot; in titles, descriptions, genres, topics, and media types
                     </Typography>
                   </Box>
                 )}

@@ -665,7 +665,7 @@ export default function HomePage() {
                       fontSize: { xs: '0.875rem', sm: '0.875rem' }
                   }}
               >
-                Start exploring some media and mark them as "Actively Exploring" to see them here
+                Start exploring some media and mark them as &quot;Actively Exploring&quot; to see them here
               </Typography>
               <Button 
                 variant="contained" 

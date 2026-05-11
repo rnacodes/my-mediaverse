@@ -387,7 +387,7 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
                         </Box>
                     ) : (
                         <Typography variant="body1" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                            No topics assigned. Click "Add Topic" to add one.
+                            No topics assigned. Click &quot;Add Topic&quot; to add one.
                         </Typography>
                     )}
                 </Box>
@@ -429,7 +429,7 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
                         </Box>
                     ) : (
                         <Typography variant="body1" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                            No genres assigned. Click "Add Genre" to add one.
+                            No genres assigned. Click &quot;Add Genre&quot; to add one.
                         </Typography>
                     )}
                 </Box>
@@ -462,7 +462,7 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
                 </DialogTitle>
                 <DialogContent>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        Select topics to add to "{mediaItem?.title}":
+                        Select topics to add to &quot;{mediaItem?.title}&quot;:
                     </Typography>
 
                     {/* Search Bar */}
@@ -632,7 +632,7 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
                 </DialogTitle>
                 <DialogContent>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        Select genres to add to "{mediaItem?.title}":
+                        Select genres to add to &quot;{mediaItem?.title}&quot;:
                     </Typography>
 
                     {/* Search Bar */}

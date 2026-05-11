@@ -374,7 +374,7 @@ function PodcastSeriesProfile() {
             {/* Delete Dialog */}
             <Dialog open={deleteConfirmDialog} onClose={() => setDeleteConfirmDialog(false)}>
                 <DialogTitle>Delete Series?</DialogTitle>
-                <DialogContent><Typography>This will remove "{series?.title}" and all its imported episodes.</Typography></DialogContent>
+                <DialogContent><Typography>This will remove &quot;{series?.title}&quot; and all its imported episodes.</Typography></DialogContent>
                 <DialogActions>
                     <Button onClick={() => setDeleteConfirmDialog(false)} sx={{ color: '#fcfafa' }}>Cancel</Button>
                     <Button onClick={handleDelete} color="error" variant="contained">Delete Forever</Button>

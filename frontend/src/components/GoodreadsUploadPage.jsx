@@ -79,7 +79,7 @@ const GoodreadsUploadPage = () => {
         <h2>How to Export from Goodreads</h2>
         <ol className="instructions-list">
           <li>Go to <a href="https://www.goodreads.com/review/import" target="_blank" rel="noopener noreferrer">Goodreads Export</a></li>
-          <li>Click "Export Library" at the top of the page</li>
+          <li>Click &quot;Export Library&quot; at the top of the page</li>
           <li>Wait for the export to complete (this may take a few minutes for large libraries)</li>
           <li>Download the CSV file when ready</li>
           <li>Upload the CSV file below</li>
@@ -244,7 +244,7 @@ const GoodreadsUploadPage = () => {
           <h3>Deduplication</h3>
           <p>
             Books are matched first by ISBN, then by Title + Author combination.
-            If a match is found and "Update existing books" is enabled, the existing book will be updated with the new data.
+            If a match is found and &quot;Update existing books&quot; is enabled, the existing book will be updated with the new data.
           </p>
 
           <h3>Large Libraries</h3>

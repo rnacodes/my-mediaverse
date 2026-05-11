@@ -273,7 +273,7 @@ function MixlistCarousel({
         </DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Select mixlists to add "{mediaItem?.title}" to:
+            Select mixlists to add &quot;{mediaItem?.title}&quot; to:
             {selectedMixlistIds.size > 0 && (
               <Chip
                 label={`${selectedMixlistIds.size} selected`}

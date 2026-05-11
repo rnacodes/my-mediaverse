@@ -3,9 +3,9 @@ import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
 import { ThemeProvider, CssBaseline, Typography, Button, Box } from '@mui/material';
 
 // --- Import Auth Context ---
-import { AuthProvider } from './contexts/AuthContext';
-import { DemoAdminProvider } from './contexts/DemoAdminContext';
-import { DemoReadOnlyProvider } from './contexts/DemoReadOnlyContext';
+import { AuthProvider } from './contexts/AuthProvider';
+import { DemoAdminProvider } from './contexts/DemoAdminProvider';
+import { DemoReadOnlyProvider } from './contexts/DemoReadOnlyProvider';
 
 // --- Import Route Protection ---
 import ConditionalProtectedRoute from './components/ConditionalProtectedRoute';
@@ -222,7 +222,7 @@ function App() {
           <Route path="*" element={
             <div style={{ padding: '2rem', textAlign: 'center' }}>
               <Typography variant="h4">Page Not Found</Typography>
-              <Typography variant="body1">The page you're looking for doesn't exist.</Typography>
+              <Typography variant="body1">The page you&apos;re looking for doesn&apos;t exist.</Typography>
               <Button component={Link} to="/" variant="contained" sx={{ mt: 2 }}>
                 Go Home
               </Button>

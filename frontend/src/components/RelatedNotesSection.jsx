@@ -300,7 +300,7 @@ function RelatedNotesSection({ mediaItem, setSnackbar, onUpdate }) {
                                                     mb: 1
                                                 }}
                                             >
-                                                "{note.linkDescription}"
+                                                &quot;{note.linkDescription}&quot;
                                             </Typography>
                                         )}
                                         {note.tags && note.tags.length > 0 && (
@@ -377,7 +377,7 @@ function RelatedNotesSection({ mediaItem, setSnackbar, onUpdate }) {
                     </Box>
                 ) : (
                     <Typography variant="body1" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                        No related notes. Click "Link Note" to connect Obsidian notes to this media item.
+                        No related notes. Click &quot;Link Note&quot; to connect Obsidian notes to this media item.
                     </Typography>
                 )}
             </CardContent>
@@ -409,7 +409,7 @@ function RelatedNotesSection({ mediaItem, setSnackbar, onUpdate }) {
                 </DialogTitle>
                 <DialogContent>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        Select notes to link to "{mediaItem?.title}":
+                        Select notes to link to &quot;{mediaItem?.title}&quot;:
                         {selectedNoteIds.size > 0 && (
                             <Chip
                                 label={`${selectedNoteIds.size} selected`}

@@ -119,7 +119,7 @@ function ImportGenresTopicsPage() {
                             <strong>CSV Format Requirements:</strong>
                         </Typography>
                         <Typography variant="body2">
-                            • The CSV file must have a header row with a "Name" column
+                            • The CSV file must have a header row with a &quot;Name&quot; column
                         </Typography>
                         <Typography variant="body2">
                             • Each row should contain one {activeTab === 0 ? 'genre' : 'topic'} name

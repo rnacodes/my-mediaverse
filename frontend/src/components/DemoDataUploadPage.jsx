@@ -256,7 +256,7 @@ function ArticleUploadTab() {
             <Box>
                 <Alert severity="success" sx={{ mb: 3 }}>
                     <Typography variant="body1">
-                        Article "<strong>{savedArticle.title}</strong>" created successfully!
+                        Article &quot;<strong>{savedArticle.title}</strong>&quot; created successfully!
                     </Typography>
                 </Alert>
                 <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
@@ -784,7 +784,7 @@ function HighlightUploadTab() {
                                                 whiteSpace: 'pre-wrap'
                                             }}
                                         >
-                                            "{h.text}"
+                                            &quot;{h.text}&quot;
                                         </Typography>
                                         <IconButton
                                             size="small"

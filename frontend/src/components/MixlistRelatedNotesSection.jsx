@@ -297,7 +297,7 @@ function MixlistRelatedNotesSection({ mixlistId, mixlistName, setSnackbar }) {
                                                     mb: 1
                                                 }}
                                             >
-                                                "{note.linkDescription}"
+                                                &quot;{note.linkDescription}&quot;
                                             </Typography>
                                         )}
                                         {note.tags && note.tags.length > 0 && (
@@ -374,7 +374,7 @@ function MixlistRelatedNotesSection({ mixlistId, mixlistName, setSnackbar }) {
                     </Box>
                 ) : (
                     <Typography variant="body1" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                        No related notes. Click "Link Note" to connect Obsidian notes to this mixlist.
+                        No related notes. Click &quot;Link Note&quot; to connect Obsidian notes to this mixlist.
                     </Typography>
                 )}
             </CardContent>
@@ -406,7 +406,7 @@ function MixlistRelatedNotesSection({ mixlistId, mixlistName, setSnackbar }) {
                 </DialogTitle>
                 <DialogContent>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        Select notes to link to "{mixlistName}":
+                        Select notes to link to &quot;{mixlistName}&quot;:
                         {selectedNoteIds.size > 0 && (
                             <Chip label={`${selectedNoteIds.size} selected`} size="small" color="success" sx={{ ml: 1 }} />
                         )}

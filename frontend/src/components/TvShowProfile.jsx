@@ -335,7 +335,7 @@ function TvShowProfile() {
             <Dialog open={deleteConfirmDialog} onClose={() => setDeleteConfirmDialog(false)}>
                 <DialogTitle>Delete TV Show?</DialogTitle>
                 <DialogContent>
-                    <Typography>This will remove "{show?.title}" and all its tracked episodes.</Typography>
+                    <Typography>This will remove &quot;{show?.title}&quot; and all its tracked episodes.</Typography>
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setDeleteConfirmDialog(false)} sx={{ color: '#fcfafa' }}>Cancel</Button>

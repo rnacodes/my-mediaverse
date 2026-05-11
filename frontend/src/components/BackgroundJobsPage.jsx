@@ -522,7 +522,7 @@ const BackgroundJobsPage = () => {
                 </Box>
 
                 <Alert severity="info" icon={<InfoIcon />} sx={{ mb: 3 }}>
-                    Fetches metadata from TMDB for movies and TV shows that don't have a TMDB ID.
+                    Fetches metadata from TMDB for movies and TV shows that don&apos;t have a TMDB ID.
                     Enriches titles, descriptions, posters, and other metadata.
                 </Alert>
 

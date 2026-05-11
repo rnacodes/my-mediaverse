@@ -309,7 +309,7 @@ function YouTubeChannelProfile() {
                             ))}
                             {videos.length === 0 && (
                                 <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-                                    No videos imported yet. Click "All Videos" to browse and import videos from this channel.
+                                    No videos imported yet. Click &quot;All Videos&quot; to browse and import videos from this channel.
                                 </Typography>
                             )}
                         </List>
@@ -378,7 +378,7 @@ function YouTubeChannelProfile() {
             {/* Delete Dialog */}
             <Dialog open={deleteConfirmDialog} onClose={() => setDeleteConfirmDialog(false)}>
                 <DialogTitle>Delete Channel?</DialogTitle>
-                <DialogContent><Typography>This will remove "{channel?.title}" from your library. Associated videos will remain in the database.</Typography></DialogContent>
+                <DialogContent><Typography>This will remove &quot;{channel?.title}&quot; from your library. Associated videos will remain in the database.</Typography></DialogContent>
                 <DialogActions>
                     <Button onClick={() => setDeleteConfirmDialog(false)} sx={{ color: '#fcfafa' }}>Cancel</Button>
                     <Button onClick={handleDelete} color="error" variant="contained">Delete Forever</Button>

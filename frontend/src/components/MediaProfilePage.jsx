@@ -308,7 +308,7 @@ function MediaProfilePage() {
         }}>
           <Typography variant="h6">Media item not found.</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            The media item you're looking for doesn't exist or couldn't be loaded.
+            The media item you&apos;re looking for doesn&apos;t exist or couldn&apos;t be loaded.
           </Typography>
           <Button 
             onClick={() => navigate('/all-media')} 

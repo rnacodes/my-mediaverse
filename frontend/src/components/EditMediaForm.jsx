@@ -788,7 +788,7 @@ function EditMediaForm() {
                                             color="text.secondary"
                                             sx={{ fontStyle: 'italic', textAlign: 'center', py: 1 }}
                                         >
-                                            Not part of any mixlists. Click "Add to Mixlist" to assign.
+                                            Not part of any mixlists. Click &quot;Add to Mixlist&quot; to assign.
                                         </Typography>
                                     )}
                                 </Box>
@@ -889,7 +889,7 @@ function EditMediaForm() {
                                                                     fontStyle: 'italic'
                                                                 }}
                                                             >
-                                                                "{note.linkDescription}"
+                                                                &quot;{note.linkDescription}&quot;
                                                             </Typography>
                                                         )}
                                                     </Box>
@@ -939,7 +939,7 @@ function EditMediaForm() {
                                             color="text.secondary"
                                             sx={{ fontStyle: 'italic', textAlign: 'center', py: 1 }}
                                         >
-                                            No linked notes. Click "Link Note" to connect Obsidian notes.
+                                            No linked notes. Click &quot;Link Note&quot; to connect Obsidian notes.
                                         </Typography>
                                     )}
                                 </Box>
@@ -1042,7 +1042,7 @@ function EditMediaForm() {
                 <DialogTitle>Confirm Delete</DialogTitle>
                 <DialogContent>
                     <DialogContentText>
-                        Are you sure you want to delete "{formData.title}"? This action cannot be undone.
+                        Are you sure you want to delete &quot;{formData.title}&quot;? This action cannot be undone.
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions>
@@ -1082,7 +1082,7 @@ function EditMediaForm() {
                 </DialogTitle>
                 <DialogContent>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        Select notes to link to "{formData.title}":
+                        Select notes to link to &quot;{formData.title}&quot;:
                         {selectedNoteIds.size > 0 && (
                             <Chip label={`${selectedNoteIds.size} selected`} size="small" color="success" sx={{ ml: 1 }} />
                         )}
@@ -1263,7 +1263,7 @@ function EditMediaForm() {
                 </DialogTitle>
                 <DialogContent>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        Select mixlists to add "{formData.title}" to:
+                        Select mixlists to add &quot;{formData.title}&quot; to:
                         {selectedMixlistIds.size > 0 && (
                             <Chip label={`${selectedMixlistIds.size} selected`} size="small" color="success" sx={{ ml: 1 }} />
                         )}

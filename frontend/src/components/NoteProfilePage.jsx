@@ -204,7 +204,7 @@ function NoteProfilePage() {
                 }}>
                     <Typography variant="h6">Note not found.</Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                        The note you're looking for doesn't exist or couldn't be loaded.
+                        The note you&apos;re looking for doesn&apos;t exist or couldn&apos;t be loaded.
                     </Typography>
                     <Button
                         onClick={() => navigate(-1)}
@@ -554,7 +554,7 @@ function NoteProfilePage() {
                                                             whiteSpace: 'nowrap'
                                                         }}
                                                     >
-                                                        "{item.linkDescription}"
+                                                        &quot;{item.linkDescription}&quot;
                                                     </Typography>
                                                 )}
                                             </Box>
@@ -567,7 +567,7 @@ function NoteProfilePage() {
                                     color="text.secondary"
                                     sx={{ fontStyle: 'italic' }}
                                 >
-                                    This note isn't linked to any media items yet. Link it from a media item's profile page.
+                                    This note isn&apos;t linked to any media items yet. Link it from a media item&apos;s profile page.
                                 </Typography>
                             )}
                         </Box>

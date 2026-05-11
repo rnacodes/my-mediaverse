@@ -446,7 +446,7 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
                   <strong>My Review:</strong>
                 </Typography>
                 <Typography variant="body1" sx={{ fontSize: '0.9rem', pl: 2, fontStyle: 'italic' }}>
-                  "{mediaItem.myReview}"
+                  &quot;{mediaItem.myReview}&quot;
                 </Typography>
               </Box>
             )}
@@ -660,7 +660,7 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
                 <Typography variant="body1" sx={{ mr: 1, minWidth: { sm: '120px' }, fontSize: '0.875rem' }}>
                   <strong>Tagline:</strong>
                 </Typography>
-                <Typography variant="body1" sx={{ fontStyle: 'italic', fontSize: '0.875rem' }}>"{mediaItem.tagline}"</Typography>
+                <Typography variant="body1" sx={{ fontStyle: 'italic', fontSize: '0.875rem' }}>&quot;{mediaItem.tagline}&quot;</Typography>
               </Box>
             )}
             
@@ -890,7 +890,7 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
                 <Typography variant="body1" sx={{ mr: 1, minWidth: { sm: '120px' }, fontSize: '0.875rem' }}>
                   <strong>Tagline:</strong>
                 </Typography>
-                <Typography variant="body1" sx={{ fontStyle: 'italic', fontSize: '0.875rem' }}>"{mediaItem.tagline}"</Typography>
+                <Typography variant="body1" sx={{ fontStyle: 'italic', fontSize: '0.875rem' }}>&quot;{mediaItem.tagline}&quot;</Typography>
               </Box>
             )}
             

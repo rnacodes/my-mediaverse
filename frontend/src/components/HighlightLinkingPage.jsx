@@ -410,7 +410,7 @@ export default function HighlightLinkingPage() {
                                                             color: 'text.primary'
                                                         }}
                                                     >
-                                                        "{truncateText(highlight.text, 300)}"
+                                                        &quot;{truncateText(highlight.text, 300)}&quot;
                                                     </Typography>
                                                     {highlight.note && (
                                                         <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>

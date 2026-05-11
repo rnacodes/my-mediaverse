@@ -199,7 +199,7 @@ function HighlightProfilePage() {
                         {/* Highlight Text - Quote Style */}
                         <Box sx={{ mb: 3, pl: 3, borderLeft: '4px solid rgba(255,255,255,0.3)', py: 1 }}>
                             <Typography variant="body1" sx={{ fontStyle: 'italic', fontSize: '1.1rem', lineHeight: 1.8, color: 'rgba(255,255,255,0.95)' }}>
-                                "{highlight.text}"
+                                &quot;{highlight.text}&quot;
                             </Typography>
                         </Box>
 

@@ -407,7 +407,7 @@ function UploadMediaPage() {
                         <br />• <strong>Status</strong> (Optional): Uncharted, ActivelyExploring, Completed, Abandoned
                         <br />• <strong>Rating</strong> (Optional): SuperLike, Like, Neutral, Dislike
                         <br />• <strong>OwnershipStatus</strong> (Optional): Own, Rented, Streamed
-                        <br />• <strong>DateCompleted</strong> (Optional): Date format like "2024-01-15"
+                        <br />• <strong>DateCompleted</strong> (Optional): Date format like &quot;2024-01-15&quot;
                         <br />• <strong>Topics</strong> (Optional): Comma-separated topic names (will be converted to lowercase)
                         <br />• <strong>Genres</strong> (Optional): Comma-separated genre names (will be converted to lowercase)
                     </Typography>
@@ -507,14 +507,14 @@ function UploadMediaPage() {
                 <Alert severity="warning" sx={{ mt: 2, mb: 2 }}>
                     <Typography variant="body2">
                         <strong>Important Tips:</strong>
-                        <br />• Your CSV file MUST include a "MediaType" column
+                        <br />• Your CSV file MUST include a &quot;MediaType&quot; column
                         <br />• <strong>NEW:</strong> You can mix different media types in the same CSV! Each row can have its own MediaType.
                         <br />• Only these types are supported via CSV: Article, Book, Movie, TVShow, Video, Website
                         <br />• For Podcasts, use the Import Media page (ListenNotes integration)
                         <br />• Ensure your CSV file is properly formatted with commas as separators
                         <br />• Use quotes around text that contains commas
-                        <br />• For boolean fields, use "TRUE" or "FALSE" (case-insensitive)
-                        <br />• For date fields, use formats like "2024-01-15" or "01/15/2024"
+                        <br />• For boolean fields, use &quot;TRUE&quot; or &quot;FALSE&quot; (case-insensitive)
+                        <br />• For date fields, use formats like &quot;2024-01-15&quot; or &quot;01/15/2024&quot;
                         <br />• Multiple topics/genres within a cell can be separated by semicolons (they will be converted to lowercase)
                         <br />• Leave optional columns empty if not applicable
                     </Typography>

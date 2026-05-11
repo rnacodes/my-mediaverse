@@ -709,7 +709,7 @@ function MixlistProfilePage() {
                     {!searching && searchQuery && searchResults.length === 0 && (
                         <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
                             <Typography variant="body2" color="text.secondary">
-                                No media found matching "{searchQuery}"
+                                No media found matching &quot;{searchQuery}&quot;
                             </Typography>
                         </Box>
                     )}

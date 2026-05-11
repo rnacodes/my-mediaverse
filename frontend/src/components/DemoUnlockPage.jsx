@@ -267,13 +267,13 @@ const DemoUnlockPage = () => {
                 {unlockClicked && (
                     <Alert severity="info" sx={{ mt: 2 }}>
                         Unlock request opened in a new tab. If the TOTP code was valid, write access is now enabled
-                        for 20 minutes in that browser session. Click "Refresh" or "Check Directly" to verify.
+                        for 20 minutes in that browser session. Click &quot;Refresh&quot; or &quot;Check Directly&quot; to verify.
                     </Alert>
                 )}
 
                 <Typography variant="body2" sx={{ mt: 2, color: 'rgba(255,255,255,0.6)', fontStyle: 'italic' }}>
-                    Status may not reflect the demo site's cookie state when viewed from a different domain.
-                    Use "Check Directly" to open the status endpoint in a new tab for the most accurate result.
+                    Status may not reflect the demo site&apos;s cookie state when viewed from a different domain.
+                    Use &quot;Check Directly&quot; to open the status endpoint in a new tab for the most accurate result.
                 </Typography>
             </Paper>
 
@@ -284,8 +284,8 @@ const DemoUnlockPage = () => {
                 </Typography>
 
                 <Alert severity="info" sx={{ mb: 3 }}>
-                    Open Google Authenticator on your phone, find <strong>"MyMediaVerse Demo"</strong>, and enter the 6-digit code below.
-                    Clicking "Unlock" opens the demo API unlock endpoint in a new tab, setting a 20-minute write access cookie.
+                    Open Google Authenticator on your phone, find <strong>&quot;MyMediaVerse Demo&quot;</strong>, and enter the 6-digit code below.
+                    Clicking &quot;Unlock&quot; opens the demo API unlock endpoint in a new tab, setting a 20-minute write access cookie.
                     Then visit the demo site to make changes.
                 </Alert>
 
@@ -348,7 +348,7 @@ const DemoUnlockPage = () => {
 
                 <Alert severity="warning" sx={{ mb: 3 }}>
                     Click below to immediately revoke write access on the demo site. This opens the lock endpoint
-                    in a new tab, clearing the write access cookie. Use this when you're done making changes or
+                    in a new tab, clearing the write access cookie. Use this when you&apos;re done making changes or
                     want to return the demo site to read-only mode early.
                 </Alert>
 
@@ -457,7 +457,7 @@ const DemoUnlockPage = () => {
                     </List>
 
                     <Alert severity="warning" sx={{ mt: 2 }}>
-                        <strong>Note:</strong> Write access automatically expires after 20 minutes. You'll need to
+                        <strong>Note:</strong> Write access automatically expires after 20 minutes. You&apos;ll need to
                         enter a new code to continue making changes.
                     </Alert>
                 </AccordionDetails>

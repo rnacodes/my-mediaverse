@@ -189,7 +189,7 @@ const DemoPage = () => {
         </Box>
         {searchQuery && (
           <Typography variant="body2" sx={{ mt: 2 }}>
-            Search query: "{searchQuery}"
+            Search query: &quot;{searchQuery}&quot;
           </Typography>
         )}
       </Paper>

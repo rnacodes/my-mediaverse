@@ -259,7 +259,7 @@ const ScriptExecutionPage = () => {
 
                 {!healthStatus && !healthLoading && (
                     <Alert severity="warning">
-                        Click "Refresh" to check service status. Make sure the Python FastAPI service is running on port 8001.
+                        Click &quot;Refresh&quot; to check service status. Make sure the Python FastAPI service is running on port 8001.
                     </Alert>
                 )}
             </Paper>

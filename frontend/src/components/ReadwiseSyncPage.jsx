@@ -316,7 +316,7 @@ const ReadwiseSyncPage = () => {
       <section className="sync-section">
         <h2>Fetch Article Content (Archival)</h2>
         <p>
-          Downloads the full HTML content for articles you've archived in Reader.
+          Downloads the full HTML content for articles you&apos;ve archived in Reader.
           This creates a permanent local copy for archival purposes.
         </p>
 
@@ -350,7 +350,7 @@ const ReadwiseSyncPage = () => {
         </div>
 
         <div className="info-note">
-          This is slower - content is fetched one article at a time from Reader's servers.
+          This is slower - content is fetched one article at a time from Reader&apos;s servers.
         </div>
 
         {fetchResult && (
@@ -453,7 +453,7 @@ const ReadwiseSyncPage = () => {
               {unlinkedHighlights.map((highlight) => (
                 <div key={highlight.id} className="highlight-card">
                   <div className="highlight-text">
-                    "{expandedText.has(highlight.id) ? highlight.text : truncateText(highlight.text)}"
+                    &quot;{expandedText.has(highlight.id) ? highlight.text : truncateText(highlight.text)}&quot;
                     {isTextLong(highlight.text) && (
                       <button
                         className="read-more-btn"

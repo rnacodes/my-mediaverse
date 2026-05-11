@@ -222,7 +222,7 @@ function SavedRelatedMediaSection({ mediaItem, setSnackbar, refreshTrigger }) {
                   No saved related items yet
                 </Typography>
                 <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 2 }}>
-                  Save items from "Similar Items" section or add manually
+                  Save items from &quot;Similar Items&quot; section or add manually
                 </Typography>
                 <Button
                   startIcon={<AddIcon />}

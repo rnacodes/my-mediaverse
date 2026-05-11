@@ -241,9 +241,9 @@ function AllMedia() {
               {/* Topics and Genres */}
               {((item.topics?.length > 0) || (item.Topics?.length > 0) || (item.genres?.length > 0) || (item.Genres?.length > 0)) && (
                 <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                  {(item.topics || item.Topics || []).map((topic, index) => (
+                  {(item.topics || item.Topics || []).map((topic) => (
                     <Chip
-                      key={`topic-${index}`}
+                      key={`topic-${typeof topic === 'string' ? topic : topic.id || topic.Id || topic.name || topic.Name}`}
                       label={typeof topic === 'string' ? topic : topic.name || topic.Name}
                       size="small"
                       color="primary"
@@ -254,9 +254,9 @@ function AllMedia() {
                       }}
                     />
                   ))}
-                  {(item.genres || item.Genres || []).map((genre, index) => (
+                  {(item.genres || item.Genres || []).map((genre) => (
                     <Chip
-                      key={`genre-${index}`}
+                      key={`genre-${typeof genre === 'string' ? genre : genre.id || genre.Id || genre.name || genre.Name}`}
                       label={typeof genre === 'string' ? genre : genre.name || genre.Name}
                       size="small"
                       color="secondary"
@@ -388,9 +388,9 @@ function AllMedia() {
                   {/* Topics and Genres */}
                   {((item.topics?.length > 0) || (item.Topics?.length > 0) || (item.genres?.length > 0) || (item.Genres?.length > 0)) && (
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 0.5 }}>
-                      {(item.topics || item.Topics || []).map((topic, index) => (
+                      {(item.topics || item.Topics || []).map((topic) => (
                         <Chip
-                          key={`topic-${index}`}
+                          key={`topic-${typeof topic === 'string' ? topic : topic.id || topic.Id || topic.name || topic.Name}`}
                           label={typeof topic === 'string' ? topic : topic.name || topic.Name}
                           size="small"
                           color="primary"
@@ -401,9 +401,9 @@ function AllMedia() {
                           }}
                         />
                       ))}
-                      {(item.genres || item.Genres || []).map((genre, index) => (
+                      {(item.genres || item.Genres || []).map((genre) => (
                         <Chip
-                          key={`genre-${index}`}
+                          key={`genre-${typeof genre === 'string' ? genre : genre.id || genre.Id || genre.name || genre.Name}`}
                           label={typeof genre === 'string' ? genre : genre.name || genre.Name}
                           size="small"
                           color="secondary"

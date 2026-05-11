@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Infrastructure.Data;
 using MyMediaVerse.Shared.Interfaces;
@@ -170,6 +171,34 @@ namespace MyMediaVerse.IntegrationTests.Fixtures
             }
             var substitute = Substitute.For<TService>();
             services.AddScoped(_ => substitute);
+        }
+
+        /// <summary>
+        /// Builds a child factory with <typeparamref name="T"/> swapped for an NSubstitute mock, then
+        /// returns a client paired with the mock so tests can both drive HTTP calls and verify
+        /// invocations (e.g. <c>mock.Received(1).DoX(...)</c>).
+        ///
+        /// Replaces the per-test <c>WithWebHostBuilder(...)</c> + manual descriptor swap pattern used
+        /// before Phase 2.4. Each call produces a fresh substitute and a fresh child host — the
+        /// underlying Postgres container is still shared via the collection fixture, so DB state is
+        /// preserved across the swap (reset between tests via <see cref="ResetDatabaseAsync"/>).
+        /// </summary>
+        public (HttpClient Client, T Mock) CreateClientWithSubstitute<T>(Action<T>? configure = null)
+            where T : class
+        {
+            var mock = Substitute.For<T>();
+            configure?.Invoke(mock);
+
+            var factory = WithWebHostBuilder(builder =>
+            {
+                builder.ConfigureTestServices(services =>
+                {
+                    services.RemoveAll<T>();
+                    services.AddSingleton(mock);
+                });
+            });
+
+            return (factory.CreateClient(), mock);
         }
     }
 }

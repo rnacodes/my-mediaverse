@@ -684,7 +684,7 @@ function SearchByTopicOrGenre() {
                     </DialogTitle>
                     <DialogContent>
                         <DialogContentText>
-                            Are you sure you want to delete <strong>"{deleteTarget?.name}"</strong>?
+                            Are you sure you want to delete <strong>&quot;{deleteTarget?.name}&quot;</strong>?
                         </DialogContentText>
                         {deleteTarget && deleteTarget.mediaItemCount > 0 && (
                             <Alert severity="warning" sx={{ mt: 2 }}>
@@ -733,7 +733,7 @@ function SearchByTopicOrGenre() {
                     </DialogTitle>
                     <DialogContent>
                         <DialogContentText sx={{ mb: 2 }}>
-                            Enter a new name for <strong>"{editTarget?.name}"</strong>:
+                            Enter a new name for <strong>&quot;{editTarget?.name}&quot;</strong>:
                         </DialogContentText>
                         <TextField
                             autoFocus

@@ -262,7 +262,7 @@ const TraktSyncPage = () => {
           <section className="sync-section">
             <h2>Sync Watchlist</h2>
             <p>
-              Import your Trakt watchlist. New items will be added to your library with "Uncharted" status.
+              Import your Trakt watchlist. New items will be added to your library with &quot;Uncharted&quot; status.
               Existing items will not have their status changed.
             </p>
 
@@ -279,7 +279,7 @@ const TraktSyncPage = () => {
             <h2>Sync Ratings</h2>
             <p>
               Import your Trakt ratings. Ratings are stored as the raw 1-10 Trakt value.
-              Your app rating will only be set if you haven't rated the item yet.
+              Your app rating will only be set if you haven&apos;t rated the item yet.
             </p>
 
             <div className="status-mapping-info">
@@ -394,7 +394,7 @@ const TraktSyncPage = () => {
         <h3>How It Works</h3>
         <ul>
           <li><strong>Watch History:</strong> Imports watched movies and TV show episodes with play counts</li>
-          <li><strong>Watchlist:</strong> Adds unwatched items to your library as "Uncharted"</li>
+          <li><strong>Watchlist:</strong> Adds unwatched items to your library as &quot;Uncharted&quot;</li>
           <li><strong>Ratings:</strong> Stores your Trakt ratings and maps them to app ratings</li>
           <li><strong>Matching:</strong> Items are matched by TMDB ID, then by title + year</li>
           <li><strong>Safe:</strong> Existing status and ratings are never overwritten</li>

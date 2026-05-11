@@ -864,7 +864,7 @@ const TypesenseAdminPage = () => {
 
               {duplicates.count > 0 ? (
                 <Alert severity="warning" sx={{ mb: 2 }}>
-                  Found {duplicates.totalDuplicates} duplicate article{duplicates.totalDuplicates !== 1 ? 's' : ''} across {duplicates.count} URL{duplicates.count !== 1 ? 's' : ''}. Click "Merge Duplicates" to combine them.
+                  Found {duplicates.totalDuplicates} duplicate article{duplicates.totalDuplicates !== 1 ? 's' : ''} across {duplicates.count} URL{duplicates.count !== 1 ? 's' : ''}. Click &quot;Merge Duplicates&quot; to combine them.
                 </Alert>
               ) : (
                 <Alert severity="success">
@@ -1280,7 +1280,7 @@ const TypesenseAdminPage = () => {
                 </List>
               ) : (
                 <Alert severity="info">
-                  No results found for "{searchQuery}"
+                  No results found for &quot;{searchQuery}&quot;
                 </Alert>
               )}
 

@@ -402,7 +402,7 @@ const AiAdminPage = () => {
         </Typography>
 
         <Alert severity="info" icon={<InfoIcon />} sx={{ mb: 2 }}>
-          Generate AI descriptions for notes that don't have manual descriptions.
+          Generate AI descriptions for notes that don&apos;t have manual descriptions.
           The AI analyzes note content and creates concise summaries.
         </Alert>
 
@@ -473,7 +473,7 @@ const AiAdminPage = () => {
 
         <Alert severity="info" icon={<InfoIcon />} sx={{ mb: 2 }}>
           Generate vector embeddings for semantic search and recommendations.
-          Embeddings enable "similar items" and "search by vibe" features.
+          Embeddings enable &quot;similar items&quot; and &quot;search by vibe&quot; features.
         </Alert>
 
         <Grid container spacing={2}>
@@ -613,7 +613,7 @@ const AiAdminPage = () => {
 
         <Alert severity="info" icon={<TuneIcon />} sx={{ mb: 2 }}>
           Adjust the similarity threshold used to filter recommended items.
-          Items below this threshold are hidden from "Similar Items" results.
+          Items below this threshold are hidden from &quot;Similar Items&quot; results.
           Stored locally in your browser.
         </Alert>
 

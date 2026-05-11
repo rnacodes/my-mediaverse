@@ -238,7 +238,7 @@ function SearchByVibePage() {
             Search by Vibe
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            Describe what you're looking for in natural language
+            Describe what you&apos;re looking for in natural language
           </Typography>
         </Box>
       </Box>

@@ -1,22 +1,12 @@
-import { createContext, useContext, useState, useEffect } from 'react';
-
-const DemoAdminContext = createContext(null);
+import { useState, useEffect } from 'react';
+import { DemoAdminContext } from './DemoAdminContext';
 
 const STORAGE_KEY = 'demoAdminKey';
-
-export const useDemoAdmin = () => {
-    const context = useContext(DemoAdminContext);
-    if (!context) {
-        throw new Error('useDemoAdmin must be used within a DemoAdminProvider');
-    }
-    return context;
-};
 
 export const DemoAdminProvider = ({ children }) => {
     const [isAdminMode, setIsAdminMode] = useState(false);
     const [adminKey, setAdminKey] = useState(null);
 
-    // Check for existing key in sessionStorage on mount
     useEffect(() => {
         const storedKey = sessionStorage.getItem(STORAGE_KEY);
         if (storedKey) {
