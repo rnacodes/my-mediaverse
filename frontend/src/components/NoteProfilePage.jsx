@@ -389,9 +389,9 @@ function NoteProfilePage() {
                                     Tags
                                 </Typography>
                                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                                    {note.tags.map((tag, idx) => (
+                                    {note.tags.map((tag) => (
                                         <Chip
-                                            key={idx}
+                                            key={`tag-${tag}`}
                                             label={tag}
                                             size="small"
                                             sx={{

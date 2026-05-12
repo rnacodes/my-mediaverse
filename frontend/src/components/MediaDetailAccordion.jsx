@@ -461,9 +461,9 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
                   <strong>Goodreads Tags:</strong>
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', pl: 2 }}>
-                  {mediaItem.goodreadsTags.map((tag, index) => (
+                  {mediaItem.goodreadsTags.map((tag) => (
                     <Chip
-                      key={index}
+                      key={`gr-tag-${tag}`}
                       label={tag}
                       size="small"
                       sx={{
@@ -1512,9 +1512,9 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
 
                 {!loadingRss && rssFeedItems.length > 0 && (
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    {rssFeedItems.map((item, index) => (
+                    {rssFeedItems.map((item) => (
                       <Box
-                        key={index}
+                        key={`rss-${item.link || item.guid || item.title}`}
                         sx={{
                           p: 2,
                           backgroundColor: 'rgba(255, 255, 255, 0.03)',

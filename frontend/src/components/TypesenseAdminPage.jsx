@@ -1,40 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Container,
-  Paper,
-  Typography,
-  Button,
-  Box,
-  Alert,
-  CircularProgress,
-  Card,
-  CardContent,
-  Grid,
-  Chip,
-  TextField,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Divider,
-  List,
-  ListItem,
-  ListItemText,
-  IconButton,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  Switch,
-  FormControlLabel,
-} from '@mui/material';
-import {
-  Refresh as RefreshIcon,
-  Search as SearchIcon,
-  ExpandMore as ExpandMoreIcon,
-  CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
-  Info as InfoIcon,
-} from '@mui/icons-material';
+import { Container, Paper, Typography, Button, Box, Alert, CircularProgress, Card, CardContent, Grid, Chip, TextField, Select, MenuItem, FormControl, InputLabel, Divider, List, ListItem, ListItemText, Switch, FormControlLabel } from '@mui/material';
+import { Refresh as RefreshIcon, Search as SearchIcon, CheckCircle as CheckCircleIcon, Error as ErrorIcon, Info as InfoIcon } from '@mui/icons-material';
 import { typesenseReindex, reindexMixlists, typesenseHealth, typesenseSearch, typesenseResetMediaItems, typesenseResetMixlists, reindexNotes, resetNotesCollection, reindexHighlights, resetHighlightsCollection, getRealTimeIndexingStatus, setRealTimeIndexingStatus } from '../api/typesenseService';
 import { findDuplicateArticles, deduplicateArticles } from '../api/articleService';
 import { syncAllVaults, getSyncStatus } from '../api/noteService';
@@ -878,8 +844,8 @@ const TypesenseAdminPage = () => {
                     Duplicate Groups (showing first 5):
                   </Typography>
                   <List>
-                    {duplicates.groups.slice(0, 5).map((group, index) => (
-                      <ListItem key={index} divider>
+                    {duplicates.groups.slice(0, 5).map((group) => (
+                      <ListItem key={`dup-${group.normalizedUrl}`} divider>
                         <ListItemText
                           primary={group.normalizedUrl}
                           secondary={`${group.articles.length} articles with this URL`}
@@ -1055,7 +1021,7 @@ const TypesenseAdminPage = () => {
 
               <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                 {syncNotesResult.results && syncNotesResult.results.map((result, index) => (
-                  <Box key={index} sx={{ textAlign: 'center', p: 2, bgcolor: 'background.paper', borderRadius: 1, minWidth: 120 }}>
+                  <Box key={`sync-${result.vaultName || index}`} sx={{ textAlign: 'center', p: 2, bgcolor: 'background.paper', borderRadius: 1, minWidth: 120 }}>
                     <Typography variant="subtitle2" color="textSecondary">
                       {result.vaultName || `Vault ${index + 1}`}
                     </Typography>

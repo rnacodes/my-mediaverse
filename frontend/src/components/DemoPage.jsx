@@ -1,48 +1,10 @@
 import React, { useState } from 'react';
-import {
-  Container,
-  Box,
-  Typography,
-  Grid,
-  Button,
-  Chip,
-  Paper,
-  Card,
-  CardContent,
-  CardMedia,
-  TextField,
-  CircularProgress,
-  Skeleton,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  ButtonGroup,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText
-} from '@mui/material';
+import { Container, Box, Typography, Grid, Button, Chip, Paper, TextField, CircularProgress, Skeleton, FormControl, InputLabel, Select, MenuItem, ButtonGroup, List, ListItem, ListItemIcon, ListItemText } from '@mui/material';
 import WhiteOutlineButton from './shared/WhiteOutlineButton';
 import MediaCard from './shared/MediaCard';
 import { formatMediaType, formatStatus, getRatingIcon, getRatingText } from '../utils/formatters';
-import {
-  Book,
-  Movie,
-  Tv,
-  Article,
-  LibraryMusic,
-  Podcasts,
-  SportsEsports,
-  YouTube,
-  Language,
-  MenuBook,
-  AutoAwesome,
-  Search,
-  ViewModule,
-  ViewList
-} from '@mui/icons-material';
-import { COLORS, SPACING, BORDER_RADIUS, SHADOWS, TRANSITIONS } from './shared';
+import { Book, Movie, Tv, Article, LibraryMusic, Podcasts, SportsEsports, YouTube, Language, MenuBook, AutoAwesome, ViewModule, ViewList } from '@mui/icons-material';
+import { COLORS, BORDER_RADIUS, SHADOWS } from './shared';
 import SearchBar from './shared/SearchBar';
 import SimpleMediaCarousel from './shared/SimpleMediaCarousel';
 
@@ -226,16 +188,16 @@ const DemoPage = () => {
           <Grid item xs={12} md={3}>
             <Box sx={{ textAlign: 'center' }}>
               <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1 }}>
-                {[...Array(3)].map((_, index) => (
+                {[0, 1, 2].map((i) => (
                   <Box
-                    key={index}
+                    key={`dot-${i}`}
                     sx={{
                       width: 8,
                       height: 8,
                       borderRadius: '50%',
                       backgroundColor: COLORS.primary.main,
                       animation: 'pulse 1.4s ease-in-out infinite both',
-                      animationDelay: `${index * 0.16}s`
+                      animationDelay: `${i * 0.16}s`
                     }}
                   />
                 ))}
@@ -247,8 +209,8 @@ const DemoPage = () => {
         {loading && (
           <Box sx={{ mt: 2 }}>
             <Grid container spacing={2}>
-              {[...Array(6)].map((_, index) => (
-                <Grid item xs={12} sm={6} md={4} key={index}>
+              {['s1', 's2', 's3', 's4', 's5', 's6'].map((id) => (
+                <Grid item xs={12} sm={6} md={4} key={id}>
                   <Skeleton
                     variant="rectangular"
                     height={200}

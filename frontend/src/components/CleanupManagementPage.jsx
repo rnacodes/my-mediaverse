@@ -225,8 +225,8 @@ const CleanupManagementPage = () => {
             </Box>
 
             <Grid container spacing={3}>
-                {cleanupActions.map((item, index) => (
-                    <Grid item xs={12} sm={6} md={4} key={index}>
+                {cleanupActions.map((item) => (
+                    <Grid item xs={12} sm={6} md={4} key={item.title}>
                         <Card
                             sx={{
                                 height: '100%',
@@ -334,6 +334,7 @@ const CleanupManagementPage = () => {
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions>
+                    {/* eslint-disable-next-line jsx-a11y/no-autofocus -- focuses Cancel on confirm-dialog open */}
                     <Button onClick={handleCloseDialog} color="primary" autoFocus>
                         Cancel
                     </Button>

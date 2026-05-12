@@ -218,8 +218,8 @@ function HighlightProfilePage() {
                             <Box sx={{ mb: 3 }}>
                                 <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1 }}>Tags</Typography>
                                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                                    {tags.map((tag, idx) => (
-                                        <Chip key={idx} label={tag} size="small" sx={{ backgroundColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }} />
+                                    {tags.map((tag) => (
+                                        <Chip key={`tag-${tag}`} label={tag} size="small" sx={{ backgroundColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.8)' }} />
                                     ))}
                                 </Box>
                             </Box>

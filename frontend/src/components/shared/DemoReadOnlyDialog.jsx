@@ -43,6 +43,7 @@ const DemoReadOnlyDialog = () => {
                     onClick={hideReadOnlyDialog}
                     variant="contained"
                     color="primary"
+                    // eslint-disable-next-line jsx-a11y/no-autofocus -- focuses action button on dialog open
                     autoFocus
                 >
                     Got it

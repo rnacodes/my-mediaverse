@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Paper, Typography, Grid, Checkbox, Chip } from '@mui/material';
-import { AccessTime, Star } from '@mui/icons-material';
+import { Star } from '@mui/icons-material';
 import { formatMediaType, formatStatus, getRatingIcon } from '../../utils/formatters';
 
 export const MediaListItem = React.memo(({ item, isSelected = false, onToggleSelect, showCheckbox = false }) => {
@@ -175,9 +175,9 @@ export const MediaListItem = React.memo(({ item, isSelected = false, onToggleSel
             {/* Topics Column */}
             <Grid item xs={12} md={3}>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                    {item.topics.slice(0, 4).map((topic, index) => (
+                    {item.topics.slice(0, 4).map((topic) => (
                         <Chip
-                            key={`topic-${index}`}
+                            key={`topic-${topic}`}
                             label={topic}
                             size="small"
                             sx={{ 

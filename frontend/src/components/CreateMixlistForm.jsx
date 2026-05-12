@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import {
-    TextField, Button, Box, Typography, Container, Chip, Autocomplete
-} from '@mui/material';
+import { TextField, Button, Box, Typography, Chip, Autocomplete } from '@mui/material';
 import { createMixlist } from '../api/mixlistService';
 import { uploadThumbnail } from '../api/uploadService';
 import { searchTopics, searchGenres } from '../api/topicGenreService';
@@ -308,7 +306,7 @@ function CreateMixlistForm() {
                     renderTags={(value, getTagProps) =>
                         value.map((option, index) => (
                             <Chip
-                                key={index}
+                                key={`topic-${option}`}
                                 label={option}
                                 size="small"
                                 sx={{
@@ -353,7 +351,7 @@ function CreateMixlistForm() {
                     renderTags={(value, getTagProps) =>
                         value.map((option, index) => (
                             <Chip
-                                key={index}
+                                key={`genre-${option}`}
                                 label={option}
                                 size="small"
                                 sx={{

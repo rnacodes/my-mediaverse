@@ -1,18 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import {
-    Container, Box, Typography, Grid,
-    Chip, Button, ButtonGroup, Divider, Collapse,
-    CircularProgress, Paper, Alert, Checkbox, Toolbar,
-    Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
-    Snackbar, FormControl, InputLabel, Select, MenuItem
-} from '@mui/material';
+import { Container, Box, Typography, Grid, Button, ButtonGroup, Collapse, CircularProgress, Paper, Alert, Toolbar, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Snackbar, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import { SearchBarSection } from './search/SearchBarSection';
 import { SearchFilterSidebar } from './search/SearchFilterSidebar';
-import {
-    Search as SearchIcon, ViewModule, ViewList, FilterList, Clear,
-    Delete, CheckBox, CheckBoxOutlineBlank, PlaylistAdd
-} from '@mui/icons-material';
+import { Search as SearchIcon, Delete, CheckBox, CheckBoxOutlineBlank, PlaylistAdd } from '@mui/icons-material';
 import { ResultHeader } from './search/ResultHeader';
 import { MediaCard } from './search/MediaCard';
 import { MediaListItem } from './search/MediaListItem';

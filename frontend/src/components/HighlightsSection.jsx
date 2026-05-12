@@ -3,7 +3,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import {
     Box, Card, CardContent, Typography, CircularProgress, Chip, Paper, Link, IconButton, Collapse
 } from '@mui/material';
-import { Notes, OpenInNew, Star, ExpandMore, ExpandLess } from '@mui/icons-material';
+import { Notes, OpenInNew, ExpandMore, ExpandLess } from '@mui/icons-material';
 
 function HighlightsSection({ mediaItem, highlights, highlightsLoading }) {
   const [expanded, setExpanded] = useState(false);
@@ -168,9 +168,9 @@ function HighlightsSection({ mediaItem, highlights, highlightsLoading }) {
                           )}
                           {highlight.tags && highlight.tags.length > 0 && (
                             <>
-                              {highlight.tags.slice(0, 3).map((tag, tagIndex) => (
+                              {highlight.tags.slice(0, 3).map((tag) => (
                                 <Chip
-                                  key={tagIndex}
+                                  key={`tag-${tag}`}
                                   label={tag}
                                   size="small"
                                   sx={{

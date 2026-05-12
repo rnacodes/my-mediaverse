@@ -380,6 +380,7 @@ function SavedRelatedMediaSection({ mediaItem, setSnackbar, refreshTrigger }) {
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyPress={handleKeyPress}
               size="small"
+              // eslint-disable-next-line jsx-a11y/no-autofocus -- focuses search field on add-related-media dialog open
               autoFocus
             />
             <Button

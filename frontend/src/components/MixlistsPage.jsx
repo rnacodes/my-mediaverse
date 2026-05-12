@@ -1,13 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-    Container, Typography, Button, Grid, Card, CardContent, CardMedia,
-    Box, CircularProgress, Chip, Fab, ButtonGroup, List, ListItem, ListItemText,
-    ListItemSecondaryAction, IconButton, Divider, Checkbox, Toolbar,
-    Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
-    Snackbar, Alert
-} from '@mui/material';
-import { Add, FileDownload, Upload, ViewModule, ViewList, OpenInNew, Delete, CheckBox, CheckBoxOutlineBlank } from '@mui/icons-material';
+import { Typography, Button, Grid, Card, CardContent, CardMedia, Box, CircularProgress, Chip, Fab, ButtonGroup, List, ListItem, ListItemText, ListItemSecondaryAction, IconButton, Divider, Checkbox, Toolbar, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Snackbar, Alert } from '@mui/material';
+import { Add, ViewModule, ViewList, OpenInNew, Delete, CheckBox, CheckBoxOutlineBlank } from '@mui/icons-material';
 import { getAllMixlists } from '../api/mixlistService';
 
 function MixlistsPage() {

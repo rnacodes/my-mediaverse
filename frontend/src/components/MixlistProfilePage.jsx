@@ -1,12 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import {
-    Box, Typography, Button, Card, CardContent, CardMedia,
-    Chip, IconButton, Collapse, Divider, Paper, Link,
-    Dialog, DialogTitle, DialogContent, DialogActions,
-    TextField, List, ListItem, ListItemText, Snackbar, Alert, InputAdornment,
-    Checkbox, ListItemIcon
-} from '@mui/material';
+import { Box, Typography, Button, Card, CardContent, CardMedia, Chip, IconButton, Collapse, Paper, Link, Dialog, DialogTitle, DialogContent, DialogActions, TextField, List, ListItem, ListItemText, Snackbar, Alert, InputAdornment, Checkbox, ListItemIcon } from '@mui/material';
 import {
     ArrowBack, ExpandMore, ExpandLess, OpenInNew, Edit,
     Search, Upload, FileDownload, AddCircle, Add, Delete, Sync
@@ -357,9 +351,9 @@ function MixlistProfilePage() {
                                         Topics
                                     </Typography>
                                     <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                                        {(mixlist.Topics || mixlist.topics).map((topic, idx) => (
+                                        {(mixlist.Topics || mixlist.topics).map((topic) => (
                                             <Chip
-                                                key={idx}
+                                                key={`topic-${topic}`}
                                                 label={topic}
                                                 size="small"
                                                 sx={{
@@ -380,9 +374,9 @@ function MixlistProfilePage() {
                                         Genres
                                     </Typography>
                                     <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                                        {(mixlist.Genres || mixlist.genres).map((genre, idx) => (
+                                        {(mixlist.Genres || mixlist.genres).map((genre) => (
                                             <Chip
-                                                key={idx}
+                                                key={`genre-${genre}`}
                                                 label={genre}
                                                 size="small"
                                                 sx={{

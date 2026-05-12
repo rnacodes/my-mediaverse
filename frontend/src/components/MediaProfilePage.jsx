@@ -2,19 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
-import {
-    Box, Card, CardContent,
-    Divider, Link, Fab,
-    Dialog, DialogTitle, DialogContent, DialogActions,
-    List, ListItem, ListItemText, Collapse, Snackbar, Alert,
-    CircularProgress,
-    TextField, InputAdornment,
-    IconButton, Typography, Button
-} from '@mui/material';
-import {
-    PlaylistAdd,
-    Search, Close,
-} from '@mui/icons-material';
+import { Box, Card, CardContent, CircularProgress, Typography, Button } from '@mui/material';
+
 import MediaHeader from './MediaHeader';
 import MixlistCarousel from './MixlistCarousel';
 import MediaInfoCard from './MediaInfoCard';

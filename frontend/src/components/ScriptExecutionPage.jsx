@@ -1,30 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import {
-    Container,
-    Paper,
-    Typography,
-    Button,
-    Box,
-    Alert,
-    CircularProgress,
-    Card,
-    CardContent,
-    Grid,
-    Chip,
-    Switch,
-    FormControlLabel,
-    TextField,
-    LinearProgress,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    Collapse,
-    IconButton,
-} from '@mui/material';
+import { Container, Paper, Typography, Button, Box, Alert, CircularProgress, Grid, Chip, Switch, FormControlLabel, TextField, LinearProgress, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Collapse, IconButton } from '@mui/material';
 import {
     Refresh as RefreshIcon,
     PlayArrow as PlayIcon,
@@ -533,7 +509,8 @@ const ScriptExecutionPage = () => {
                                                             <Typography variant="subtitle2">Logs ({job.logs.length}):</Typography>
                                                             <Box sx={{ maxHeight: 150, overflow: 'auto', bgcolor: 'grey.900', p: 1, borderRadius: 1, fontSize: '0.75rem', fontFamily: 'monospace' }}>
                                                                 {job.logs.slice(-20).map((log, idx) => (
-                                                                    <div key={idx}>{log}</div>
+                                                                    // eslint-disable-next-line react/no-array-index-key -- log lines are non-unique strings; positional key is intentional for an append-only log
+                                                                    <div key={`log-${idx}`}>{log}</div>
                                                                 ))}
                                                             </Box>
                                                         </Box>

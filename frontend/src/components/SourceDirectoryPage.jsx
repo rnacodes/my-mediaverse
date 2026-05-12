@@ -281,8 +281,8 @@ function SourceDirectoryPage() {
                                             color: 'text.secondary'
                                         }
                                     }}>
-                                        {source.features.map((feature, idx) => (
-                                            <li key={idx}>
+                                        {source.features.map((feature) => (
+                                            <li key={`feat-${feature}`}>
                                                 <Typography variant="body2" component="span">
                                                     {feature}
                                                 </Typography>

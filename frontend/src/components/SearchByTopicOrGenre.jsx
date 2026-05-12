@@ -1,11 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-    Container, Typography, Box, Accordion, AccordionSummary, AccordionDetails,
-    List, ListItem, ListItemText, ListItemButton, Chip, CircularProgress,
-    Alert, Grid, Card, CardContent, Button, TextField, Dialog, DialogTitle,
-    DialogContent, DialogActions, IconButton, DialogContentText
-} from '@mui/material';
+import { Container, Typography, Box, Accordion, AccordionSummary, AccordionDetails, Chip, CircularProgress, Alert, Grid, Card, CardContent, Button, TextField, Dialog, DialogTitle, DialogContent, DialogActions, IconButton, DialogContentText } from '@mui/material';
 import { ExpandMore, Topic as TopicIcon, Category as GenreIcon, Add as AddIcon, Delete as DeleteIcon, CloudUpload as UploadIcon, Edit as EditIcon, PlaylistAdd } from '@mui/icons-material';
 import { getAllTopics, getAllGenres, createTopic, createGenre, deleteTopic, deleteGenre, updateTopic, updateGenre } from '../api/topicGenreService';
 
@@ -582,6 +577,7 @@ function SearchByTopicOrGenre() {
                     <DialogTitle>Create New Topic</DialogTitle>
                     <DialogContent>
                         <TextField
+                            // eslint-disable-next-line jsx-a11y/no-autofocus -- focuses name field on dialog open
                             autoFocus
                             margin="dense"
                             label="Topic Name"
@@ -632,6 +628,7 @@ function SearchByTopicOrGenre() {
                     <DialogTitle>Create New Genre</DialogTitle>
                     <DialogContent>
                         <TextField
+                            // eslint-disable-next-line jsx-a11y/no-autofocus -- focuses name field on dialog open
                             autoFocus
                             margin="dense"
                             label="Genre Name"
@@ -736,6 +733,7 @@ function SearchByTopicOrGenre() {
                             Enter a new name for <strong>&quot;{editTarget?.name}&quot;</strong>:
                         </DialogContentText>
                         <TextField
+                            // eslint-disable-next-line jsx-a11y/no-autofocus -- focuses name field on rename-dialog open
                             autoFocus
                             margin="dense"
                             label={editTarget?.type === 'topic' ? 'Topic Name' : 'Genre Name'}

@@ -110,14 +110,14 @@ const SimpleMediaCarousel = ({
           overflow: 'hidden',
           px: 6
         }}>
-          {visibleItems.map((media, index) => {
+          {visibleItems.map((media) => {
             const isCenter = media.offset === 0;
             const scale = isCenter ? 1 : 0.8;
             const opacity = Math.abs(media.offset) > 1 ? 0.3 : 1;
-            
+
             return (
               <Card
-                key={`${media.id || media.Id}-${index}`}
+                key={`carousel-${media.id || media.Id}-${media.offset}`}
                 sx={{
                   minWidth: cardWidth,
                   maxWidth: cardWidth,
@@ -203,9 +203,9 @@ const SimpleMediaCarousel = ({
       {/* Pagination Dots */}
       {mediaItems.length > 1 && (
         <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mt: 3 }}>
-          {mediaItems.map((_, index) => (
+          {mediaItems.map((m, index) => (
             <Box
-              key={index}
+              key={`dot-${m.id || m.Id || index}`}
               onClick={() => setCurrentIndex(index)}
               sx={{
                 width: 10,

@@ -359,9 +359,9 @@ function BookImportSection({ expanded, onAccordionChange }) {
                                                         )}
                                                         {book.subjects && book.subjects.length > 0 && (
                                                             <Box sx={{ mb: 1 }}>
-                                                                {book.subjects.slice(0, 3).map((subject, idx) => (
+                                                                {book.subjects.slice(0, 3).map((subject) => (
                                                                     <Chip
-                                                                        key={idx}
+                                                                        key={`subj-${subject}`}
                                                                         label={subject}
                                                                         size="small"
                                                                         sx={{ mr: 0.5, mb: 0.5 }}

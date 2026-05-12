@@ -377,8 +377,8 @@ function YouTubeImportSection({ expanded, onAccordionChange, onSnackbar }) {
                                     <Typography variant="h6" gutterBottom>
                                         Search Results ({youtubeSearchResults.length})
                                     </Typography>
-                                    {displayedResults.map((item, index) => (
-                                        <Card key={`${item.id}-${index}`} sx={{ mb: 2 }}>
+                                    {displayedResults.map((item) => (
+                                        <Card key={`yt-${item.id}`} sx={{ mb: 2 }}>
                                             <CardContent>
                                                 <Box sx={{ display: 'flex', gap: 2 }}>
                                                     <Box

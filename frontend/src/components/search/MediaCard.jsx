@@ -227,9 +227,9 @@ export const MediaCard = React.memo(({ item, isSelected = false, onToggleSelect,
 
             {/* TOPICS - First 3 with overflow indicator */}
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
-                {item.topics.slice(0, 3).map((topic, index) => (
+                {item.topics.slice(0, 3).map((topic) => (
                     <Chip
-                        key={`topic-${index}`}
+                        key={`topic-${topic}`}
                         label={topic}
                         size="small"
                         sx={{ 

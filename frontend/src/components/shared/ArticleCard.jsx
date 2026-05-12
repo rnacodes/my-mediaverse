@@ -211,9 +211,9 @@ function ArticleCard({ article }) {
 
                 {article.topics && article.topics.length > 0 && (
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
-                        {article.topics.slice(0, 3).map((topic, index) => (
+                        {article.topics.slice(0, 3).map((topic) => (
                             <Chip
-                                key={index}
+                                key={`topic-${topic}`}
                                 label={topic}
                                 size="small"
                                 sx={{

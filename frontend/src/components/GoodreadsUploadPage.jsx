@@ -188,8 +188,8 @@ const GoodreadsUploadPage = () => {
             <div className="errors-list">
               <h3>Errors</h3>
               <ul>
-                {result.errors.slice(0, 10).map((err, index) => (
-                  <li key={index}>{err}</li>
+                {result.errors.slice(0, 10).map((err) => (
+                  <li key={`err-${err}`}>{err}</li>
                 ))}
                 {result.errors.length > 10 && (
                   <li className="more-errors">...and {result.errors.length - 10} more errors</li>

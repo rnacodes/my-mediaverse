@@ -1,11 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Container, Box, Typography, TextField, IconButton, Grid, Card, CardMedia, CardContent, Button, useTheme, CircularProgress } from '@mui/material';
-import {
-    Search, Book, Movie, Tv, Article, LibraryMusic, Podcasts, SportsEsports, YouTube, Language, MenuBook, AutoAwesome,
-    AddCircleOutline, BookmarkAdd, Settings, Info, Help, Share, AccountCircle, ArrowForwardIos,
-    NoteAlt, ImportExport, Topic, FileDownload, LocalLibrary, Apps, FormatQuote
-} from '@mui/icons-material';
+import { Container, Box, Typography, Grid, Card, CardMedia, CardContent, Button, useTheme, CircularProgress } from '@mui/material';
+import { Book, Movie, Tv, Article, LibraryMusic, Podcasts, SportsEsports, YouTube, Language, MenuBook, AutoAwesome, AddCircleOutline, BookmarkAdd, ArrowForwardIos, NoteAlt, ImportExport, Topic, LocalLibrary, Apps, FormatQuote } from '@mui/icons-material';
 import { getAllMixlists, seedMixlists } from '../api/mixlistService';
 import { getAllMedia } from '../api/mediaService';
 
@@ -282,8 +278,8 @@ export default function HomePage() {
             {/* Alphabetized Icons */}
             <Box sx={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
               <Grid container spacing={{ xs: 1, sm: 2 }} justifyContent="center" sx={{ mt: { xs: 2, sm: 3, md: 4 }, mb: 2, maxWidth: '900px' }}>
-                {mainMediaIcons.map((item, index) => (
-                    <Grid item xs={4} sm={3} md={2} key={`media-${index}`} sx={{ display: 'flex', justifyContent: 'center' }}>
+                {mainMediaIcons.map((item) => (
+                    <Grid item xs={4} sm={3} md={2} key={`media-${item.name}`} sx={{ display: 'flex', justifyContent: 'center' }}>
                         <Box
                             onClick={() => {
                                 if (item.supported) {
@@ -738,8 +734,8 @@ export default function HomePage() {
                       </Button>
                   </Grid>
               ) : (
-                  mixlists.slice(0, 6).map((item, index) => (
-                      <Grid item key={index} xs={12} sm={6} md={4}>
+                  mixlists.slice(0, 6).map((item) => (
+                      <Grid item key={`mixlist-${item.id || item.Id || item.name}`} xs={12} sm={6} md={4}>
                           <MixlistCard mixlist={item} onNavigate={navigate} />
                       </Grid>
                   ))

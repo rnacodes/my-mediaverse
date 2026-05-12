@@ -1,18 +1,8 @@
 //Update purple outline buttons to white
 
 import React, { useState, useEffect, useMemo } from 'react';
-import {
-    Box, Container, Typography, Paper, TextField, Button, Checkbox,
-    Chip, CircularProgress, Alert, Snackbar, Dialog, DialogTitle,
-    DialogContent, DialogActions, FormControlLabel, InputAdornment,
-    Accordion, AccordionSummary, AccordionDetails, Divider
-} from '@mui/material';
-import {
-    Search as SearchIcon, ExpandMore as ExpandMoreIcon,
-    Link as LinkIcon, CheckBox as CheckBoxIcon,
-    CheckBoxOutlineBlank as CheckBoxOutlineBlankIcon,
-    MenuBook as BookIcon, Article as ArticleIcon
-} from '@mui/icons-material';
+import { Box, Container, Typography, Paper, TextField, Button, Checkbox, Chip, CircularProgress, Alert, Snackbar, Dialog, DialogTitle, DialogContent, DialogActions, InputAdornment, Accordion, AccordionSummary, AccordionDetails, Divider } from '@mui/material';
+import { Search as SearchIcon, ExpandMore as ExpandMoreIcon, Link as LinkIcon, MenuBook as BookIcon, Article as ArticleIcon } from '@mui/icons-material';
 import { getUnlinkedHighlights, updateHighlight } from '../api/highlightService';
 import { getAllBooks } from '../api/bookService';
 import { getAllArticles } from '../api/articleService';
@@ -452,6 +442,7 @@ export default function HighlightLinkingPage() {
                         placeholder="Search books or articles..."
                         value={mediaSearchQuery}
                         onChange={(e) => setMediaSearchQuery(e.target.value)}
+                        // eslint-disable-next-line jsx-a11y/no-autofocus -- focuses search field on link-dialog open
                         autoFocus
                         InputProps={{
                             startAdornment: (

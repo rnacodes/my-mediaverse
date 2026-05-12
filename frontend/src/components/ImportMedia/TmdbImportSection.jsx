@@ -277,8 +277,8 @@ function TmdbImportSection({ expanded, onAccordionChange }) {
                                 <Typography variant="h6" gutterBottom>
                                     Search Results ({tmdbSearchResults.length})
                                 </Typography>
-                                {displayedResults.map((item, index) => (
-                                    <Card key={`${item.id}-${index}`} sx={{ mb: 2 }}>
+                                {displayedResults.map((item) => (
+                                    <Card key={`tmdb-${item.id}`} sx={{ mb: 2 }}>
                                         <CardContent>
                                             <Box sx={{ display: 'flex', gap: 2 }}>
                                                 <Box
@@ -525,9 +525,9 @@ function TmdbImportSection({ expanded, onAccordionChange }) {
                                             Genres
                                         </Typography>
                                         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                                            {selectedTmdbItem.genres.map((genre, index) => (
+                                            {selectedTmdbItem.genres.map((genre) => (
                                                 <Chip
-                                                    key={index}
+                                                    key={`genre-${genre.id || genre.name}`}
                                                     label={genre.name}
                                                     size="small"
                                                     variant="outlined"

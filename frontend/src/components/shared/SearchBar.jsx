@@ -1,20 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import {
-  Box,
-  TextField,
-  IconButton,
-  InputAdornment,
-  Popper,
-  Paper,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  Typography,
-  CircularProgress,
-  Chip,
-  Button
-} from '@mui/material';
+import { Box, TextField, IconButton, InputAdornment, Popper, Paper, List, ListItem, ListItemText, ListItemIcon, Typography, CircularProgress, Chip } from '@mui/material';
 import {
   Search,
   Clear,
@@ -356,9 +341,9 @@ const SearchBar = ({
                   Recent Searches
                 </Typography>
                 <List dense>
-                  {recentSearches.slice(0, 3).map((search, index) => (
+                  {recentSearches.slice(0, 3).map((search) => (
                     <ListItem
-                      key={index}
+                      key={`recent-${search}`}
                       button
                       onClick={() => handleSuggestionClick(search)}
                       sx={{
@@ -398,9 +383,9 @@ const SearchBar = ({
                   Trending
                 </Typography>
                 <Box sx={{ p: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  {trendingSearches.slice(0, 6).map((trend, index) => (
+                  {trendingSearches.slice(0, 6).map((trend) => (
                     <Chip
-                      key={index}
+                      key={`trend-${trend}`}
                       label={trend}
                       size="small"
                       icon={<TrendingUp />}

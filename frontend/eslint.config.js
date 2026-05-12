@@ -63,6 +63,12 @@ export default defineConfig([
     files: ['src/test-mocks/**/*.{js,jsx}'],
     rules: {
       'react-refresh/only-export-components': 'off',
+      'no-unused-vars': 'off',
+      'jsx-a11y/no-autofocus': 'off',
+      'jsx-a11y/click-events-have-key-events': 'off',
+      'jsx-a11y/no-static-element-interactions': 'off',
+      'jsx-a11y/interactive-supports-focus': 'off',
+      'jsx-a11y/no-noninteractive-element-to-interactive-role': 'off',
     },
   },
 ])

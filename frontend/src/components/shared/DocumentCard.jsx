@@ -223,9 +223,9 @@ function DocumentCard({ document }) {
 
                 {document.topics && document.topics.length > 0 && (
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
-                        {document.topics.slice(0, 3).map((topic, index) => (
+                        {document.topics.slice(0, 3).map((topic) => (
                             <Chip
-                                key={index}
+                                key={`topic-${topic}`}
                                 label={topic}
                                 size="small"
                                 sx={{

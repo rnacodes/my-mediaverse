@@ -1,12 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import {
-    Box, Typography, Button, Card, CardContent, 
-    Chip, Divider, IconButton, CircularProgress, Alert,
-    Accordion, AccordionSummary, AccordionDetails, List, ListItem, ListItemText,
-    Dialog, DialogTitle, DialogContent, DialogActions, Snackbar, ListItemButton,
-    Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper
-} from '@mui/material';
+import { Box, Typography, Button, Card, CardContent, Chip, Divider, IconButton, CircularProgress, Alert, Accordion, AccordionSummary, AccordionDetails, List, Dialog, DialogTitle, DialogContent, DialogActions, Snackbar, ListItemButton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper } from '@mui/material';
 import {
     ArrowBack, Edit, OpenInNew, Sync, Delete,
     ExpandMore, Visibility, Add, CheckCircle, Close as CloseIcon

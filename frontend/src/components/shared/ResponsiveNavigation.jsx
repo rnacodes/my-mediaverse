@@ -19,50 +19,7 @@ import {
   MenuItem,
   Collapse
 } from '@mui/material';
-import {
-  Menu as MenuIcon,
-  Close as CloseIcon,
-  Home,
-  Movie,
-  QueueMusic,
-  Add,
-  Upload,
-  Download,
-  Search,
-  Science,
-  Apps,
-  CleaningServices,
-  Login as LoginIcon,
-  Logout as LogoutIcon,
-  Person as PersonIcon,
-  Storage as StorageIcon,
-  Article,
-  Language,
-  Category,
-  AdminPanelSettings,
-  Sync,
-  ImportExport,
-  ExpandMore,
-  Work,
-  ExpandLess,
-  Book,
-  Tv,
-  Podcasts,
-  VideoLibrary,
-  YouTube,
-  MusicNote,
-  SportsEsports,
-  Description,
-  Note as NoteIcon,
-  AutoAwesome,
-  Psychology,
-  Terminal,
-  FormatQuote,
-  AddLink,
-  LockOpen,
-  PlaylistAdd,
-  Phonelink
-} from '@mui/icons-material';
+import { Menu as MenuIcon, Close as CloseIcon, Home, Movie, QueueMusic, Add, Upload, Download, Search, Apps, CleaningServices, Login as LoginIcon, Logout as LogoutIcon, Person as PersonIcon, Storage as StorageIcon, Article, Language, Category, AdminPanelSettings, Sync, ExpandMore, Work, ExpandLess, Book, Tv, Podcasts, VideoLibrary, YouTube, Note as NoteIcon, Psychology, Terminal, FormatQuote, AddLink, LockOpen, PlaylistAdd, Phonelink } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 
 const ResponsiveNavigation = () => {

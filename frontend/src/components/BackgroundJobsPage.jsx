@@ -1,22 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-    Container,
-    Paper,
-    Typography,
-    Button,
-    Box,
-    Alert,
-    CircularProgress,
-    Card,
-    CardContent,
-    Grid,
-    Chip,
-    TextField,
-    Slider,
-    Accordion,
-    AccordionSummary,
-    AccordionDetails,
-} from '@mui/material';
+import { Container, Paper, Typography, Button, Box, Alert, CircularProgress, Card, CardContent, Grid, Chip, Slider, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
 import {
     Refresh as RefreshIcon,
     PlayArrow as PlayIcon,
@@ -348,8 +331,8 @@ const BackgroundJobsPage = () => {
                 <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
                     Errors ({errors.length}):
                 </Typography>
-                {errors.slice(0, 5).map((err, idx) => (
-                    <Typography key={idx} variant="caption" display="block">{err}</Typography>
+                {errors.slice(0, 5).map((err) => (
+                    <Typography key={`err-${err}`} variant="caption" display="block">{err}</Typography>
                 ))}
                 {errors.length > 5 && (
                     <Typography variant="caption">...and {errors.length - 5} more</Typography>

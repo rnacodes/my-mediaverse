@@ -7,11 +7,7 @@ import {
     InputLabel, Paper, Divider, IconButton, Tooltip,
     List, ListItem, ListItemText
 } from '@mui/material';
-import {
-    ArrowBack, Add, CloudDownload, ViewModule, ViewList,
-    Search, FilterList, Star, Archive, CheckCircle,
-    Inbox, Sort, Refresh, OpenInNew
-} from '@mui/icons-material';
+import { ArrowBack, CloudDownload, ViewModule, ViewList, Search, FilterList, Star, CheckCircle, Inbox, Sort, Refresh, OpenInNew } from '@mui/icons-material';
 import { getAllArticles } from '../api/articleService';
 import ArticleCard from './shared/ArticleCard';
 import { formatStatus } from '../utils/formatters';

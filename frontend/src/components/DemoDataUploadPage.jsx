@@ -6,10 +6,7 @@ import {
     FormControl, InputLabel, Select, MenuItem, Checkbox,
     FormControlLabel, Slider, IconButton, Paper, Collapse, Autocomplete
 } from '@mui/material';
-import {
-    ArrowBack, CloudUpload, Search as SearchIcon, CheckCircle,
-    Error as ErrorIcon, Delete, ExpandMore, ExpandLess, Link as LinkIcon
-} from '@mui/icons-material';
+import { ArrowBack, CloudUpload, Search as SearchIcon, CheckCircle, Delete, ExpandMore, ExpandLess, Link as LinkIcon } from '@mui/icons-material';
 import { scrapeArticlePreview, createArticle } from '../api/articleService';
 import { bulkCreateHighlights } from '../api/highlightService';
 import { searchTopics, searchGenres } from '../api/topicGenreService';
@@ -411,7 +408,7 @@ function ArticleUploadTab() {
                             renderTags={(value, getTagProps) =>
                                 value.map((option, index) => (
                                     <Chip
-                                        key={index}
+                                        key={`topic-${option}`}
                                         label={option}
                                         size="small"
                                         sx={{
@@ -451,7 +448,7 @@ function ArticleUploadTab() {
                             renderTags={(value, getTagProps) =>
                                 value.map((option, index) => (
                                     <Chip
-                                        key={index}
+                                        key={`genre-${option}`}
                                         label={option}
                                         size="small"
                                         sx={{
@@ -636,8 +633,8 @@ function HighlightUploadTab() {
                 {uploadResult.errors && uploadResult.errors.length > 0 && (
                     <Alert severity="warning" sx={{ mb: 3 }}>
                         <Typography variant="body2" gutterBottom><strong>Errors ({uploadResult.errors.length}):</strong></Typography>
-                        {uploadResult.errors.map((err, i) => (
-                            <Typography key={i} variant="body2">- {err}</Typography>
+                        {uploadResult.errors.map((err) => (
+                            <Typography key={`err-${err}`} variant="body2">- {err}</Typography>
                         ))}
                     </Alert>
                 )}
@@ -764,7 +761,7 @@ function HighlightUploadTab() {
                         >
                             {parsed.highlights.map((h, index) => (
                                 <Box
-                                    key={index}
+                                    key={`hl-${h.text}`}
                                     sx={{
                                         mb: 2,
                                         p: 2,

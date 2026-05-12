@@ -488,6 +488,7 @@ const ReadwiseSyncPage = () => {
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="search-input"
+                        // eslint-disable-next-line jsx-a11y/no-autofocus -- focuses search input when link panel expands
                         autoFocus
                       />
 

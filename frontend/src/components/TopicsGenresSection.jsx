@@ -6,10 +6,7 @@ import {
     List, ListItem, ListItemText, ListItemIcon, IconButton, CircularProgress, Checkbox
 } from '@mui/material';
 import { useMediaQuery, useTheme } from '@mui/material';
-import {
-    Topic as TopicIcon, Category as GenreIcon, Add as AddIcon,
-    Search, Close, Remove as RemoveIcon
-} from '@mui/icons-material';
+import { Topic as TopicIcon, Category as GenreIcon, Search, Close } from '@mui/icons-material';
 import { getAllTopics, getAllGenres, createTopic, createGenre } from '../api/topicGenreService';
 import { updateMediaTopicsGenres } from '../api/mediaService';
 
@@ -360,9 +357,9 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
                     </Box>
                     {currentTopics.length > 0 ? (
                         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                            {currentTopics.map((topic, index) => (
+                            {currentTopics.map((topic) => (
                                 <Chip
-                                    key={`topic-${index}`}
+                                    key={`topic-${topic}`}
                                     label={topic}
                                     onClick={() => handleTopicClick(topic)}
                                     onDelete={() => handleRemoveTopic(topic)}
@@ -402,9 +399,9 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
                     </Box>
                     {currentGenres.length > 0 ? (
                         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                            {currentGenres.map((genre, index) => (
+                            {currentGenres.map((genre) => (
                                 <Chip
-                                    key={`genre-${index}`}
+                                    key={`genre-${genre}`}
                                     label={genre}
                                     onClick={() => handleGenreClick(genre)}
                                     onDelete={() => handleRemoveGenre(genre)}

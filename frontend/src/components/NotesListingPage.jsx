@@ -196,9 +196,9 @@ function NotesListingPage() {
 
               {note.tags && note.tags.length > 0 && (
                 <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                  {note.tags.slice(0, 4).map((tag, index) => (
+                  {note.tags.slice(0, 4).map((tag) => (
                     <Chip
-                      key={index}
+                      key={`tag-${tag}`}
                       label={tag}
                       size="small"
                       variant="outlined"
@@ -267,9 +267,9 @@ function NotesListingPage() {
                 )}
                 {note.tags && note.tags.length > 0 && (
                   <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
-                    {note.tags.slice(0, 6).map((tag, index) => (
+                    {note.tags.slice(0, 6).map((tag) => (
                       <Chip
-                        key={index}
+                        key={`tag-${tag}`}
                         label={tag}
                         size="small"
                         variant="outlined"

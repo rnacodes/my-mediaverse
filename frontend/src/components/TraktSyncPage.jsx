@@ -379,8 +379,8 @@ const TraktSyncPage = () => {
 
               {syncResult.errors && syncResult.errors.length > 0 && (
                 <ul className="error-list">
-                  {syncResult.errors.map((err, i) => (
-                    <li key={i}>{err}</li>
+                  {syncResult.errors.map((err) => (
+                    <li key={`err-${err}`}>{err}</li>
                   ))}
                 </ul>
               )}

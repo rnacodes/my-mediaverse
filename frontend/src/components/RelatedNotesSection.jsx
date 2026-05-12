@@ -1,11 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import {
-    Box, Typography, Button, Card, CardContent, Dialog,
-    DialogTitle, DialogContent, DialogActions, TextField, InputAdornment,
-    List, ListItem, ListItemText, ListItemSecondaryAction, IconButton,
-    CircularProgress, Chip, Link, Tooltip, useMediaQuery, useTheme, Checkbox
-} from '@mui/material';
+import { Box, Typography, Button, Card, CardContent, Dialog, DialogTitle, DialogContent, DialogActions, TextField, InputAdornment, List, ListItem, ListItemText, IconButton, CircularProgress, Chip, Link, Tooltip, useMediaQuery, useTheme, Checkbox } from '@mui/material';
 import {
     Article as NoteIcon, Add as AddIcon, Search, Close,
     OpenInNew as OpenInNewIcon, Delete as DeleteIcon
@@ -305,9 +300,9 @@ function RelatedNotesSection({ mediaItem, setSnackbar, onUpdate }) {
                                         )}
                                         {note.tags && note.tags.length > 0 && (
                                             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                                                {note.tags.slice(0, 5).map((tag, idx) => (
+                                                {note.tags.slice(0, 5).map((tag) => (
                                                     <Chip
-                                                        key={idx}
+                                                        key={`tag-${tag}`}
                                                         label={tag}
                                                         size="small"
                                                         sx={{

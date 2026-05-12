@@ -338,9 +338,9 @@ function WebsitesPage() {
 
                                     {website.topics && website.topics.length > 0 && (
                                         <Box sx={{ mt: 2, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                                            {website.topics.slice(0, 3).map((topic, index) => (
+                                            {website.topics.slice(0, 3).map((topic) => (
                                                 <Chip
-                                                    key={index}
+                                                    key={`topic-${topic}`}
                                                     label={topic}
                                                     size="small"
                                                     variant="outlined"

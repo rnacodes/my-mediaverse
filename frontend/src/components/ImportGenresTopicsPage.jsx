@@ -1,10 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-    Box, Typography, Button, Card, CardContent, TextField,
-    Alert, CircularProgress, Paper, Divider, Chip,
-    Tab, Tabs, List, ListItem, ListItemText
-} from '@mui/material';
+import { Box, Typography, Button, Card, CardContent, Alert, CircularProgress, Paper, Divider, Chip, Tab, Tabs, List, ListItem, ListItemText } from '@mui/material';
 import {
     ArrowBack, CloudUpload, FileDownload, CheckCircle,
     Error, Info
@@ -244,8 +240,8 @@ function ImportGenresTopicsPage() {
                                 </Typography>
                                 <Paper sx={{ maxHeight: 200, overflow: 'auto', p: 2 }}>
                                     <List dense>
-                                        {importResults.imported.map((item, index) => (
-                                            <ListItem key={index}>
+                                        {importResults.imported.map((item) => (
+                                            <ListItem key={`imp-${item.id}`}>
                                                 <ListItemText
                                                     primary={item.name}
                                                     secondary={`ID: ${item.id}`}
@@ -264,8 +260,8 @@ function ImportGenresTopicsPage() {
                                 </Typography>
                                 <Paper sx={{ maxHeight: 200, overflow: 'auto', p: 2 }}>
                                     <List dense>
-                                        {importResults.skipped.map((message, index) => (
-                                            <ListItem key={index}>
+                                        {importResults.skipped.map((message) => (
+                                            <ListItem key={`skip-${message}`}>
                                                 <ListItemText primary={message} />
                                             </ListItem>
                                         ))}
@@ -281,8 +277,8 @@ function ImportGenresTopicsPage() {
                                 </Typography>
                                 <Paper sx={{ maxHeight: 200, overflow: 'auto', p: 2, bgcolor: '#ffebee' }}>
                                     <List dense>
-                                        {importResults.errors.map((error, index) => (
-                                            <ListItem key={index}>
+                                        {importResults.errors.map((error) => (
+                                            <ListItem key={`err-${error}`}>
                                                 <ListItemText primary={error} />
                                             </ListItem>
                                         ))}

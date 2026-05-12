@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Container, Typography, Link } from '@mui/material';
-import { COLORS, SPACING, BORDER_RADIUS } from './DesignSystem';
+import { COLORS, SPACING } from './DesignSystem';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();

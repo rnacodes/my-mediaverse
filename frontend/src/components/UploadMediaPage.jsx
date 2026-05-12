@@ -362,8 +362,8 @@ function UploadMediaPage() {
                             </AccordionSummary>
                             <AccordionDetails>
                                 <List>
-                                    {uploadResult.Errors.map((error, index) => (
-                                        <React.Fragment key={index}>
+                                    {uploadResult.Errors.map((error) => (
+                                        <React.Fragment key={`err-${error}`}>
                                             <ListItem>
                                                 <ListItemText
                                                     primary={error}

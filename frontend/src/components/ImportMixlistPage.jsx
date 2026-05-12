@@ -1,15 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-    Box, Typography, Button, Card, CardContent, TextField,
-    Alert, CircularProgress, Paper, Divider, Chip,
-    Dialog, DialogTitle, DialogContent, DialogActions,
-    List, ListItem, ListItemText, IconButton
-} from '@mui/material';
-import { 
-    ArrowBack, CloudUpload, FileDownload, CheckCircle, 
-    Error, Info, Delete, Preview
-} from '@mui/icons-material';
+import { Box, Typography, Button, Card, CardContent, Alert, CircularProgress, Paper, Chip, Dialog, DialogTitle, DialogContent, DialogActions, List, ListItem, ListItemText, IconButton } from '@mui/material';
+import { ArrowBack, CloudUpload, FileDownload, CheckCircle, Error, Delete, Preview } from '@mui/icons-material';
 import Papa from 'papaparse';
 
 function ImportMixlistPage() {
@@ -220,7 +212,7 @@ function ImportMixlistPage() {
                             <List>
                                 {csvData.map((row, index) => (
                                     <ListItem
-                                        key={index}
+                                        key={`row-${row.Name || row.name || row.Description || index}`}
                                         divider
                                         secondaryAction={
                                             <Box sx={{ display: 'flex', gap: 1 }}>
@@ -294,8 +286,8 @@ function ImportMixlistPage() {
                                     Successfully Imported:
                                 </Typography>
                                 <List dense>
-                                    {importResults.ImportedMixlists.map((mixlist, index) => (
-                                        <ListItem key={index}>
+                                    {importResults.ImportedMixlists.map((mixlist) => (
+                                        <ListItem key={`imp-${mixlist.Id}`}>
                                             <ListItemText
                                                 primary={mixlist.Name}
                                                 secondary={`ID: ${mixlist.Id} • ${mixlist.MediaItemCount} media items`}
@@ -313,8 +305,8 @@ function ImportMixlistPage() {
                                     Errors:
                                 </Typography>
                                 <List dense>
-                                    {importResults.Errors.map((error, index) => (
-                                        <ListItem key={index}>
+                                    {importResults.Errors.map((error) => (
+                                        <ListItem key={`err-${error}`}>
                                             <ListItemText
                                                 primary={error}
                                                 sx={{ color: 'error.main' }}

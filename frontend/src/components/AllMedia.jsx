@@ -7,7 +7,7 @@ import {
     Checkbox, Toolbar, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
     Snackbar, Alert
 } from '@mui/material';
-import { ViewModule, ViewList, OpenInNew, FileDownload, Delete, CheckBox, CheckBoxOutlineBlank } from '@mui/icons-material';
+import { ViewModule, ViewList, OpenInNew, Delete, CheckBox, CheckBoxOutlineBlank } from '@mui/icons-material';
 import { getAllMedia, getMediaByType, bulkDeleteMedia } from '../api/mediaService';
 import { formatMediaType, formatStatus } from '../utils/formatters';
 import { getAspectRatioPadding } from '../utils/mediaImageUtils';

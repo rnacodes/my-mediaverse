@@ -302,9 +302,9 @@ function MixlistRelatedNotesSection({ mixlistId, mixlistName, setSnackbar }) {
                                         )}
                                         {note.tags && note.tags.length > 0 && (
                                             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                                                {note.tags.slice(0, 5).map((tag, idx) => (
+                                                {note.tags.slice(0, 5).map((tag) => (
                                                     <Chip
-                                                        key={idx}
+                                                        key={`tag-${tag}`}
                                                         label={tag}
                                                         size="small"
                                                         sx={{

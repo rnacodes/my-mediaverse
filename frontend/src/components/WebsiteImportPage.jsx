@@ -1,10 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-    TextField, Button, Box, Typography, Container,
-    Card, CardContent, CircularProgress, Alert,
-    Chip, Grid, Paper, Autocomplete
-} from '@mui/material';
+import { TextField, Button, Box, Typography, Container, CircularProgress, Alert, Chip, Grid, Paper, Autocomplete } from '@mui/material';
 import { Language, Download, Visibility, OpenInNew, RssFeed, ArrowBack } from '@mui/icons-material';
 import { scrapeWebsitePreview, importWebsite } from '../api/websiteService';
 import { searchTopics, searchGenres } from '../api/topicGenreService';
@@ -336,7 +332,7 @@ function WebsiteImportPage() {
                         renderTags={(value, getTagProps) =>
                             value.map((option, index) => (
                                 <Chip
-                                    key={index}
+                                    key={`topic-${option}`}
                                     label={option}
                                     size="small"
                                     sx={{
@@ -377,7 +373,7 @@ function WebsiteImportPage() {
                         renderTags={(value, getTagProps) =>
                             value.map((option, index) => (
                                 <Chip
-                                    key={index}
+                                    key={`genre-${option}`}
                                     label={option}
                                     size="small"
                                     sx={{

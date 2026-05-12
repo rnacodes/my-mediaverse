@@ -322,7 +322,7 @@ function EditMixlistForm() {
                                         renderTags={(value, getTagProps) =>
                                             value.map((option, index) => (
                                                 <Chip
-                                                    key={index}
+                                                    key={`topic-${option}`}
                                                     label={option}
                                                     size="small"
                                                     sx={{
@@ -363,7 +363,7 @@ function EditMixlistForm() {
                                         renderTags={(value, getTagProps) =>
                                             value.map((option, index) => (
                                                 <Chip
-                                                    key={index}
+                                                    key={`genre-${option}`}
                                                     label={option}
                                                     size="small"
                                                     sx={{
