@@ -1,23 +1,21 @@
 using System.Net;
-using System.Net.Http.Headers;
-using System.Net.Http.Json;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FluentAssertions;
+using MyMediaVerse.IntegrationTests.Fixtures;
+using MyMediaVerse.IntegrationTests.Helpers;
 
 namespace MyMediaVerse.IntegrationTests.Controllers
 {
     [Trait("Category", "Integration")]
-    public class SearchControllerIntegrationTests : IClassFixture<WebApplicationFactory>
+    [Collection("Database")]
+    public class SearchControllerIntegrationTests : IAsyncLifetime
     {
-        private readonly WebApplicationFactory _factory;
+        private readonly ApiFactory _factory;
         private readonly HttpClient _client;
         private readonly JsonSerializerOptions _jsonOptions;
-        private readonly string _validUsername;
-        private readonly string _validPassword;
 
-        public SearchControllerIntegrationTests(WebApplicationFactory factory)
+        public SearchControllerIntegrationTests(ApiFactory factory)
         {
             _factory = factory;
             _client = _factory.CreateClient();
@@ -29,20 +27,11 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                 ReferenceHandler = ReferenceHandler.IgnoreCycles,
                 DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
             };
-            _validUsername = Environment.GetEnvironmentVariable("AUTH_USERNAME") ?? "admin";
-            _validPassword = Environment.GetEnvironmentVariable("AUTH_PASSWORD") ?? "password123";
         }
 
-        private async Task<string> GetAccessTokenAsync()
-        {
-            var loginData = new { username = _validUsername, password = _validPassword };
-            var content = new StringContent(JsonSerializer.Serialize(loginData, _jsonOptions), Encoding.UTF8, "application/json");
-            var response = await _client.PostAsync("/api/auth/login", content);
-            response.EnsureSuccessStatusCode();
-            var responseContent = await response.Content.ReadAsStringAsync();
-            var loginResponse = JsonSerializer.Deserialize<JsonElement>(responseContent, _jsonOptions);
-            return loginResponse.GetProperty("token").GetString()!;
-        }
+        public Task InitializeAsync() => _factory.ResetDatabaseAsync();
+
+        public Task DisposeAsync() => Task.CompletedTask;
 
         #region Health
 
@@ -56,7 +45,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
         #endregion
 
-        #region Search (Typesense mocked - returns NoContent for empty results)
+        #region Search (Typesense auto-substituted by ApiFactory)
 
         [Fact]
         public async Task Search_ShouldReturnSuccessfully_WhenQueryProvided()
@@ -105,8 +94,6 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         [Fact]
         public async Task Reindex_ShouldReturnUnauthorized_WithoutToken()
         {
-            _client.DefaultRequestHeaders.Authorization = null;
-
             var response = await _client.PostAsync("/api/search/reindex", null);
 
             response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
@@ -115,8 +102,6 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         [Fact]
         public async Task ReindexMixlists_ShouldReturnUnauthorized_WithoutToken()
         {
-            _client.DefaultRequestHeaders.Authorization = null;
-
             var response = await _client.PostAsync("/api/search/reindex-mixlists", null);
 
             response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
@@ -125,8 +110,6 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         [Fact]
         public async Task Reset_ShouldReturnUnauthorized_WithoutToken()
         {
-            _client.DefaultRequestHeaders.Authorization = null;
-
             var response = await _client.PostAsync("/api/search/reset", null);
 
             response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
@@ -135,13 +118,11 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         [Fact]
         public async Task Reindex_ShouldReturnOk_WithValidToken()
         {
-            var token = await GetAccessTokenAsync();
-            _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            await _client.AuthenticateAsync();
 
             var response = await _client.PostAsync("/api/search/reindex", null);
 
             response.StatusCode.Should().Be(HttpStatusCode.OK);
-            _client.DefaultRequestHeaders.Authorization = null;
         }
 
         #endregion

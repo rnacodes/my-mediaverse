@@ -5,17 +5,19 @@ using System.Text.Json.Serialization;
 using FluentAssertions;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
+using MyMediaVerse.IntegrationTests.Fixtures;
 
 namespace MyMediaVerse.IntegrationTests.Controllers
 {
     [Trait("Category", "Integration")]
-    public class YouTubeChannelControllerIntegrationTests : IClassFixture<WebApplicationFactory>
+    [Collection("Database")]
+    public class YouTubeChannelControllerIntegrationTests : IAsyncLifetime
     {
-        private readonly WebApplicationFactory _factory;
+        private readonly ApiFactory _factory;
         private readonly HttpClient _client;
         private readonly JsonSerializerOptions _jsonOptions;
 
-        public YouTubeChannelControllerIntegrationTests(WebApplicationFactory factory)
+        public YouTubeChannelControllerIntegrationTests(ApiFactory factory)
         {
             _factory = factory;
             _client = _factory.CreateClient();
@@ -28,6 +30,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                 DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
             };
         }
+
+        public Task InitializeAsync() => _factory.ResetDatabaseAsync();
+
+        public Task DisposeAsync() => Task.CompletedTask;
 
         private CreateYouTubeChannelDto CreateValidChannelDto(string? suffix = null)
         {

@@ -3,22 +3,22 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using FluentAssertions;
-using Microsoft.Extensions.DependencyInjection;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
-using MyMediaVerse.Infrastructure.Data;
+using MyMediaVerse.IntegrationTests.Fixtures;
 using MyMediaVerse.UnitTests.TestData;
 
 namespace MyMediaVerse.IntegrationTests.Controllers
 {
     [Trait("Category", "Integration")]
-    public class BookControllerIntegrationTests : IClassFixture<WebApplicationFactory>
+    [Collection("Database")]
+    public class BookControllerIntegrationTests : IAsyncLifetime
     {
-        private readonly WebApplicationFactory _factory;
+        private readonly ApiFactory _factory;
         private readonly HttpClient _client;
         private readonly JsonSerializerOptions _jsonOptions;
 
-        public BookControllerIntegrationTests(WebApplicationFactory factory)
+        public BookControllerIntegrationTests(ApiFactory factory)
         {
             _factory = factory;
             _client = _factory.CreateClient();
@@ -31,6 +31,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                 DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
             };
         }
+
+        public Task InitializeAsync() => _factory.ResetDatabaseAsync();
+
+        public Task DisposeAsync() => Task.CompletedTask;
 
         [Fact]
         public async Task GetAllBooks_ShouldReturnOk()
@@ -47,9 +51,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         [Fact]
         public async Task CreateBook_ShouldCreateBook_WhenValidDataProvided()
         {
-            // Arrange - use unique title/author to avoid collision with other tests sharing the in-memory DB
-            var uniqueSuffix = Guid.NewGuid().ToString()[..8];
-            var dto = TestDataFactory.CreateBookDto($"Test Book {uniqueSuffix}", $"Test Author {uniqueSuffix}");
+            // Arrange
+            var dto = TestDataFactory.CreateBookDto("Test Book", "Test Author");
             dto.Description = "A test book description";
             dto.Status = Status.Uncharted;
             dto.Format = BookFormat.Digital;
@@ -190,14 +193,13 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         [Fact]
         public async Task GetBooksByAuthor_ShouldReturnBooksByAuthor()
         {
-            // Arrange - use unique author to avoid collision with other tests sharing the in-memory DB
-            var uniqueSuffix = Guid.NewGuid().ToString()[..8];
-            var author = $"UniqueAuthor {uniqueSuffix}";
+            // Arrange
+            var author = "UniqueAuthor";
             var books = new[]
             {
-                TestDataFactory.CreateBookDto($"Book 1 {uniqueSuffix}", author),
-                TestDataFactory.CreateBookDto($"Book 2 {uniqueSuffix}", author),
-                TestDataFactory.CreateBookDto($"Book 3 {uniqueSuffix}", $"Other Author {uniqueSuffix}")
+                TestDataFactory.CreateBookDto("Book 1", author),
+                TestDataFactory.CreateBookDto("Book 2", author),
+                TestDataFactory.CreateBookDto("Book 3", "Other Author")
             };
 
             foreach (var book in books)

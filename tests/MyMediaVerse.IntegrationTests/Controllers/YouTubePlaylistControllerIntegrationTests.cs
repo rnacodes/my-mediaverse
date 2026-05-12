@@ -4,17 +4,19 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using FluentAssertions;
 using MyMediaVerse.DTOs;
+using MyMediaVerse.IntegrationTests.Fixtures;
 
 namespace MyMediaVerse.IntegrationTests.Controllers
 {
     [Trait("Category", "Integration")]
-    public class YouTubePlaylistControllerIntegrationTests : IClassFixture<WebApplicationFactory>
+    [Collection("Database")]
+    public class YouTubePlaylistControllerIntegrationTests : IAsyncLifetime
     {
-        private readonly WebApplicationFactory _factory;
+        private readonly ApiFactory _factory;
         private readonly HttpClient _client;
         private readonly JsonSerializerOptions _jsonOptions;
 
-        public YouTubePlaylistControllerIntegrationTests(WebApplicationFactory factory)
+        public YouTubePlaylistControllerIntegrationTests(ApiFactory factory)
         {
             _factory = factory;
             _client = _factory.CreateClient();
@@ -27,6 +29,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                 DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
             };
         }
+
+        public Task InitializeAsync() => _factory.ResetDatabaseAsync();
+
+        public Task DisposeAsync() => Task.CompletedTask;
 
         #region GetAllPlaylists
 

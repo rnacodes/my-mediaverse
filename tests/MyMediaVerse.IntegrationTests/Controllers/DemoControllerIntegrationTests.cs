@@ -1,20 +1,20 @@
 using System.Net;
-using System.Net.Http;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Threading.Tasks;
+using MyMediaVerse.IntegrationTests.Fixtures;
 using Xunit;
 
 namespace MyMediaVerse.IntegrationTests.Controllers
 {
     [Trait("Category", "Integration")]
-    public class DemoControllerIntegrationTests : IClassFixture<WebApplicationFactory>
+    [Collection("Database")]
+    public class DemoControllerIntegrationTests : IAsyncLifetime
     {
-        private readonly WebApplicationFactory _factory;
+        private readonly ApiFactory _factory;
         private readonly HttpClient _client;
         private readonly JsonSerializerOptions _jsonOptions;
 
-        public DemoControllerIntegrationTests(WebApplicationFactory factory)
+        public DemoControllerIntegrationTests(ApiFactory factory)
         {
             _factory = factory;
             _client = _factory.CreateClient();
@@ -25,6 +25,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                 Converters = { new JsonStringEnumConverter() }
             };
         }
+
+        public Task InitializeAsync() => _factory.ResetDatabaseAsync();
+
+        public Task DisposeAsync() => Task.CompletedTask;
 
         #region Status Endpoint Tests
 
