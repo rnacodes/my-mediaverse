@@ -1,28 +1,22 @@
-using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.DependencyInjection;
-using MyMediaVerse.Domain.Entities;
-using MyMediaVerse.DTOs;
-using MyMediaVerse.Infrastructure.Data;
-using System;
-using System.Collections.Generic;
 using System.Net;
-using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Threading.Tasks;
-using Xunit;
+using MyMediaVerse.Domain.Entities;
+using MyMediaVerse.DTOs;
+using MyMediaVerse.IntegrationTests.Fixtures;
 
 namespace MyMediaVerse.IntegrationTests.Controllers
 {
     [Trait("Category", "Integration")]
-    public class PodcastControllerIntegrationTests : IClassFixture<WebApplicationFactory>
+    [Collection("Database")]
+    public class PodcastControllerIntegrationTests : IAsyncLifetime
     {
-        private readonly WebApplicationFactory _factory;
+        private readonly ApiFactory _factory;
         private readonly HttpClient _client;
         private readonly JsonSerializerOptions _jsonOptions;
 
-        public PodcastControllerIntegrationTests(WebApplicationFactory factory)
+        public PodcastControllerIntegrationTests(ApiFactory factory)
         {
             _factory = factory;
             _client = _factory.CreateClient();
@@ -35,6 +29,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                 DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
             };
         }
+
+        public Task InitializeAsync() => _factory.ResetDatabaseAsync();
+
+        public Task DisposeAsync() => Task.CompletedTask;
 
         #region GET Tests
 
@@ -108,6 +106,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
             var createResponseContent = await createResponse.Content.ReadAsStringAsync();
             var createdSeries = JsonSerializer.Deserialize<PodcastSeriesResponseDto>(createResponseContent, _jsonOptions);
+            Assert.NotNull(createdSeries);
 
             // Act
             var response = await _client.GetAsync($"/api/podcast/series/{createdSeries.Id}");
@@ -202,6 +201,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             Assert.Equal(HttpStatusCode.Created, seriesResponse.StatusCode);
             var seriesResponseContent = await seriesResponse.Content.ReadAsStringAsync();
             var createdSeries = JsonSerializer.Deserialize<PodcastSeriesResponseDto>(seriesResponseContent, _jsonOptions);
+            Assert.NotNull(createdSeries);
 
             // Now create an episode
             var episodeDto = new CreatePodcastEpisodeDto
@@ -245,6 +245,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             Assert.Equal(HttpStatusCode.Created, seriesResponse.StatusCode);
             var seriesResponseContent = await seriesResponse.Content.ReadAsStringAsync();
             var createdSeries = JsonSerializer.Deserialize<PodcastSeriesResponseDto>(seriesResponseContent, _jsonOptions);
+            Assert.NotNull(createdSeries);
 
             var episodeDto = new CreatePodcastEpisodeDto
             {
@@ -291,6 +292,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
             var createResponseContent = await createResponse.Content.ReadAsStringAsync();
             var createdSeries = JsonSerializer.Deserialize<PodcastSeriesResponseDto>(createResponseContent, _jsonOptions);
+            Assert.NotNull(createdSeries);
 
             // Act
             var response = await _client.DeleteAsync($"/api/podcast/series/{createdSeries.Id}");
@@ -333,6 +335,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             Assert.Equal(HttpStatusCode.Created, seriesResponse.StatusCode);
             var seriesResponseContent = await seriesResponse.Content.ReadAsStringAsync();
             var createdSeries = JsonSerializer.Deserialize<PodcastSeriesResponseDto>(seriesResponseContent, _jsonOptions);
+            Assert.NotNull(createdSeries);
 
             // Create episodes
             var episode1Dto = new CreatePodcastEpisodeDto
@@ -355,6 +358,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             Assert.Equal(HttpStatusCode.Created, episode1Response.StatusCode);
             var episode1ResponseContent = await episode1Response.Content.ReadAsStringAsync();
             var createdEpisode1 = JsonSerializer.Deserialize<PodcastEpisodeResponseDto>(episode1ResponseContent, _jsonOptions);
+            Assert.NotNull(createdEpisode1);
 
             var episode2Json = JsonSerializer.Serialize(episode2Dto, _jsonOptions);
             var episode2Content = new StringContent(episode2Json, Encoding.UTF8, "application/json");
@@ -362,6 +366,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             Assert.Equal(HttpStatusCode.Created, episode2Response.StatusCode);
             var episode2ResponseContent = await episode2Response.Content.ReadAsStringAsync();
             var createdEpisode2 = JsonSerializer.Deserialize<PodcastEpisodeResponseDto>(episode2ResponseContent, _jsonOptions);
+            Assert.NotNull(createdEpisode2);
 
             // Act - Delete the series
             var deleteResponse = await _client.DeleteAsync($"/api/podcast/series/{createdSeries.Id}");

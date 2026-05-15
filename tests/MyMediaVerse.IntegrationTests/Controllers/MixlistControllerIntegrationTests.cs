@@ -1,27 +1,22 @@
-using Microsoft.AspNetCore.Mvc.Testing;
-using MyMediaVerse.Domain.Entities;
-using MyMediaVerse.DTOs;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
-using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Threading.Tasks;
-using Xunit;
+using MyMediaVerse.Domain.Entities;
+using MyMediaVerse.DTOs;
+using MyMediaVerse.IntegrationTests.Fixtures;
 
 namespace MyMediaVerse.IntegrationTests.Controllers
 {
     [Trait("Category", "Integration")]
-    public class MixlistControllerIntegrationTests : IClassFixture<WebApplicationFactory>
+    [Collection("Database")]
+    public class MixlistControllerIntegrationTests : IAsyncLifetime
     {
-        private readonly WebApplicationFactory _factory;
+        private readonly ApiFactory _factory;
         private readonly HttpClient _client;
         private readonly JsonSerializerOptions _jsonOptions;
 
-        public MixlistControllerIntegrationTests(WebApplicationFactory factory)
+        public MixlistControllerIntegrationTests(ApiFactory factory)
         {
             _factory = factory;
             _client = _factory.CreateClient();
@@ -35,6 +30,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             };
         }
 
+        public Task InitializeAsync() => _factory.ResetDatabaseAsync();
+
+        public Task DisposeAsync() => Task.CompletedTask;
+
         #region GET Tests
 
         [Fact]
@@ -45,7 +44,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var content = await response.Content.ReadAsStringAsync();
             var mixlists = JsonSerializer.Deserialize<List<MixlistResponseDto>>(content, _jsonOptions);
             Assert.NotNull(mixlists);
@@ -69,16 +68,17 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             var createResponse = await _client.PostAsync("/api/mixlist", createContent);
             var createdMixlist = JsonSerializer.Deserialize<MixlistResponseDto>(
-                await createResponse.Content.ReadAsStringAsync(), 
+                await createResponse.Content.ReadAsStringAsync(),
                 _jsonOptions
             );
+            Assert.NotNull(createdMixlist);
 
             // Act
             var response = await _client.GetAsync($"/api/mixlist/{createdMixlist.Id}");
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var content = await response.Content.ReadAsStringAsync();
             var mixlist = JsonSerializer.Deserialize<MixlistResponseDto>(content, _jsonOptions);
             Assert.NotNull(mixlist);
@@ -109,7 +109,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             // Arrange
             var createDto = new CreateMixlistDto
             {
-                Name = "New Test Mixlist " + Guid.NewGuid().ToString()[..8],
+                Name = "New Test Mixlist",
                 Description = "A comprehensive test mixlist",
                 Thumbnail = "https://example.com/thumb.jpg"
             };
@@ -125,15 +125,14 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-            
+
             var responseContent = await response.Content.ReadAsStringAsync();
             var createdMixlist = JsonSerializer.Deserialize<MixlistResponseDto>(responseContent, _jsonOptions);
-            
+
             Assert.NotNull(createdMixlist);
-            Assert.Contains("New Test Mixlist", createdMixlist.Name);
+            Assert.Equal("New Test Mixlist", createdMixlist.Name);
             Assert.Equal("A comprehensive test mixlist", createdMixlist.Description);
             Assert.Equal("https://example.com/thumb.jpg", createdMixlist.Thumbnail);
-            Assert.NotNull(createdMixlist.DateCreated);
             Assert.Empty(createdMixlist.MediaItemIds);
         }
 
@@ -143,7 +142,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             // Arrange
             var createDto = new CreateMixlistDto
             {
-                Name = "Minimal Mixlist " + Guid.NewGuid().ToString()[..8]
+                Name = "Minimal Mixlist"
             };
 
             var content = new StringContent(
@@ -157,12 +156,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-            
+
             var responseContent = await response.Content.ReadAsStringAsync();
             var createdMixlist = JsonSerializer.Deserialize<MixlistResponseDto>(responseContent, _jsonOptions);
-            
+
             Assert.NotNull(createdMixlist);
-            Assert.Contains("Minimal Mixlist", createdMixlist.Name);
+            Assert.Equal("Minimal Mixlist", createdMixlist.Name);
         }
 
         [Fact]
@@ -206,9 +205,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             var createResponse = await _client.PostAsync("/api/mixlist", createContent);
             var createdMixlist = JsonSerializer.Deserialize<MixlistResponseDto>(
-                await createResponse.Content.ReadAsStringAsync(), 
+                await createResponse.Content.ReadAsStringAsync(),
                 _jsonOptions
             );
+            Assert.NotNull(createdMixlist);
 
             // Now update it
             var updateDto = new CreateMixlistDto
@@ -229,10 +229,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var responseContent = await response.Content.ReadAsStringAsync();
             var updatedMixlist = JsonSerializer.Deserialize<MixlistResponseDto>(responseContent, _jsonOptions);
-            
+
             Assert.NotNull(updatedMixlist);
             Assert.Equal("Updated Mixlist Name", updatedMixlist.Name);
             Assert.Equal("Updated description", updatedMixlist.Description);
@@ -269,7 +269,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             // Arrange - First create a mixlist
             var createDto = new CreateMixlistDto
             {
-                Name = "Mixlist to Delete " + Guid.NewGuid().ToString()[..8]
+                Name = "Mixlist to Delete"
             };
 
             var createContent = new StringContent(
@@ -280,9 +280,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             var createResponse = await _client.PostAsync("/api/mixlist", createContent);
             var createdMixlist = JsonSerializer.Deserialize<MixlistResponseDto>(
-                await createResponse.Content.ReadAsStringAsync(), 
+                await createResponse.Content.ReadAsStringAsync(),
                 _jsonOptions
             );
+            Assert.NotNull(createdMixlist);
 
             // Act
             var response = await _client.DeleteAsync($"/api/mixlist/{createdMixlist.Id}");
@@ -316,10 +317,11 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task AddMediaItemToMixlist_WithValidIds_ShouldReturnOk()
         {
             // Arrange - Create a mixlist
-            var mixlistDto = new CreateMixlistDto { Name = "Mixlist for Media " + Guid.NewGuid().ToString()[..8] };
+            var mixlistDto = new CreateMixlistDto { Name = "Mixlist for Media" };
             var mixlistContent = new StringContent(JsonSerializer.Serialize(mixlistDto, _jsonOptions), Encoding.UTF8, "application/json");
             var mixlistResponse = await _client.PostAsync("/api/mixlist", mixlistContent);
             var mixlist = JsonSerializer.Deserialize<MixlistResponseDto>(await mixlistResponse.Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.NotNull(mixlist);
 
             // Create a media item
             var mediaDto = new CreateMediaItemDto
@@ -331,6 +333,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             var mediaContent = new StringContent(JsonSerializer.Serialize(mediaDto, _jsonOptions), Encoding.UTF8, "application/json");
             var mediaResponse = await _client.PostAsync("/api/media", mediaContent);
             var media = JsonSerializer.Deserialize<MediaItemResponseDto>(await mediaResponse.Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.NotNull(media);
 
             // Act
             var response = await _client.PostAsync($"/api/mixlist/{mixlist.Id}/items/{media.Id}", null);
@@ -341,6 +344,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             // Verify the media item was added
             var getMixlistResponse = await _client.GetAsync($"/api/mixlist/{mixlist.Id}");
             var updatedMixlist = JsonSerializer.Deserialize<MixlistResponseDto>(await getMixlistResponse.Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.NotNull(updatedMixlist);
             Assert.Contains(media.Id, updatedMixlist.MediaItemIds);
         }
 
@@ -357,6 +361,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             var mediaContent = new StringContent(JsonSerializer.Serialize(mediaDto, _jsonOptions), Encoding.UTF8, "application/json");
             var mediaResponse = await _client.PostAsync("/api/media", mediaContent);
             var media = JsonSerializer.Deserialize<MediaItemResponseDto>(await mediaResponse.Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.NotNull(media);
 
             var invalidMixlistId = Guid.NewGuid();
 
@@ -371,15 +376,17 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task RemoveMediaItemFromMixlist_WithValidIds_ShouldReturnOk()
         {
             // Arrange - Create mixlist and media, then add media to mixlist
-            var mixlistDto = new CreateMixlistDto { Name = "Mixlist for Removal " + Guid.NewGuid().ToString()[..8] };
+            var mixlistDto = new CreateMixlistDto { Name = "Mixlist for Removal" };
             var mixlistContent = new StringContent(JsonSerializer.Serialize(mixlistDto, _jsonOptions), Encoding.UTF8, "application/json");
             var mixlistResponse = await _client.PostAsync("/api/mixlist", mixlistContent);
             var mixlist = JsonSerializer.Deserialize<MixlistResponseDto>(await mixlistResponse.Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.NotNull(mixlist);
 
             var mediaDto = new CreateMediaItemDto { Title = "Media to Remove", MediaType = MediaType.Article, Status = Status.Uncharted };
             var mediaContent = new StringContent(JsonSerializer.Serialize(mediaDto, _jsonOptions), Encoding.UTF8, "application/json");
             var mediaResponse = await _client.PostAsync("/api/media", mediaContent);
             var media = JsonSerializer.Deserialize<MediaItemResponseDto>(await mediaResponse.Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.NotNull(media);
 
             await _client.PostAsync($"/api/mixlist/{mixlist.Id}/items/{media.Id}", null);
 
@@ -392,6 +399,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             // Verify the media item was removed
             var getMixlistResponse = await _client.GetAsync($"/api/mixlist/{mixlist.Id}");
             var updatedMixlist = JsonSerializer.Deserialize<MixlistResponseDto>(await getMixlistResponse.Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.NotNull(updatedMixlist);
             Assert.DoesNotContain(media.Id, updatedMixlist.MediaItemIds);
         }
 
@@ -399,13 +407,14 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task GetMixlist_ShouldReturnMediaItemDescriptions()
         {
             // Arrange - Create a mixlist
-            var mixlistDto = new CreateMixlistDto { Name = "Mixlist for Description Test " + Guid.NewGuid().ToString()[..8] };
+            var mixlistDto = new CreateMixlistDto { Name = "Mixlist for Description Test" };
             var mixlistContent = new StringContent(JsonSerializer.Serialize(mixlistDto, _jsonOptions), Encoding.UTF8, "application/json");
             var mixlistResponse = await _client.PostAsync("/api/mixlist", mixlistContent);
             var mixlist = JsonSerializer.Deserialize<MixlistResponseDto>(await mixlistResponse.Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.NotNull(mixlist);
 
             // Create a media item with a description
-            var mediaDescription = "This is a detailed description for testing " + Guid.NewGuid().ToString()[..8];
+            var mediaDescription = "This is a detailed description for testing";
             var mediaDto = new CreateMediaItemDto
             {
                 Title = "Media with Description",
@@ -416,6 +425,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             var mediaContent = new StringContent(JsonSerializer.Serialize(mediaDto, _jsonOptions), Encoding.UTF8, "application/json");
             var mediaResponse = await _client.PostAsync("/api/media", mediaContent);
             var media = JsonSerializer.Deserialize<MediaItemResponseDto>(await mediaResponse.Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.NotNull(media);
 
             // Add media item to mixlist
             await _client.PostAsync($"/api/mixlist/{mixlist.Id}/items/{media.Id}", null);
@@ -443,14 +453,15 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task GetAllMixlists_ShouldReturnMediaItemDescriptions()
         {
             // Arrange - Create a mixlist
-            var uniqueName = "Mixlist All Desc Test " + Guid.NewGuid().ToString()[..8];
-            var mixlistDto = new CreateMixlistDto { Name = uniqueName };
+            var mixlistName = "Mixlist All Desc Test";
+            var mixlistDto = new CreateMixlistDto { Name = mixlistName };
             var mixlistContent = new StringContent(JsonSerializer.Serialize(mixlistDto, _jsonOptions), Encoding.UTF8, "application/json");
             var mixlistResponse = await _client.PostAsync("/api/mixlist", mixlistContent);
             var mixlist = JsonSerializer.Deserialize<MixlistResponseDto>(await mixlistResponse.Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.NotNull(mixlist);
 
             // Create a media item with a description
-            var mediaDescription = "Description for GetAll test " + Guid.NewGuid().ToString()[..8];
+            var mediaDescription = "Description for GetAll test";
             var mediaDto = new CreateMediaItemDto
             {
                 Title = "Media for GetAll Test",
@@ -461,6 +472,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             var mediaContent = new StringContent(JsonSerializer.Serialize(mediaDto, _jsonOptions), Encoding.UTF8, "application/json");
             var mediaResponse = await _client.PostAsync("/api/media", mediaContent);
             var media = JsonSerializer.Deserialize<MediaItemResponseDto>(await mediaResponse.Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.NotNull(media);
 
             // Add media item to mixlist
             await _client.PostAsync($"/api/mixlist/{mixlist.Id}/items/{media.Id}", null);
@@ -475,10 +487,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             var mixlists = JsonSerializer.Deserialize<List<MixlistResponseDto>>(content, _jsonOptions);
 
             Assert.NotNull(mixlists);
+            Assert.Single(mixlists);
 
-            // Find our mixlist by name
-            var retrievedMixlist = mixlists.FirstOrDefault(m => m.Name == uniqueName);
-            Assert.NotNull(retrievedMixlist);
+            var retrievedMixlist = mixlists[0];
+            Assert.Equal(mixlistName, retrievedMixlist.Name);
             Assert.NotNull(retrievedMixlist.MediaItems);
             Assert.Single(retrievedMixlist.MediaItems);
 
@@ -495,9 +507,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task SearchMixlists_WithValidQuery_ShouldReturnMatchingMixlists()
         {
             // Arrange - Create mixlists with searchable names
-            var uniquePrefix = "SearchTest" + Guid.NewGuid().ToString()[..8];
-            var createDto1 = new CreateMixlistDto { Name = $"{uniquePrefix} Mixlist One" };
-            var createDto2 = new CreateMixlistDto { Name = $"{uniquePrefix} Mixlist Two" };
+            var createDto1 = new CreateMixlistDto { Name = "SearchTest Mixlist One" };
+            var createDto2 = new CreateMixlistDto { Name = "SearchTest Mixlist Two" };
             var createDto3 = new CreateMixlistDto { Name = "Different Mixlist" };
 
             var content1 = new StringContent(JsonSerializer.Serialize(createDto1, _jsonOptions), Encoding.UTF8, "application/json");
@@ -509,16 +520,16 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             await _client.PostAsync("/api/mixlist", content3);
 
             // Act
-            var response = await _client.GetAsync($"/api/mixlist/search?query={uniquePrefix}");
+            var response = await _client.GetAsync("/api/mixlist/search?query=SearchTest");
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var content = await response.Content.ReadAsStringAsync();
             var mixlists = JsonSerializer.Deserialize<List<MixlistResponseDto>>(content, _jsonOptions);
             Assert.NotNull(mixlists);
-            Assert.True(mixlists.Count >= 2);
-            Assert.All(mixlists, m => Assert.Contains(uniquePrefix, m.Name, StringComparison.OrdinalIgnoreCase));
+            Assert.Equal(2, mixlists.Count);
+            Assert.All(mixlists, m => Assert.Contains("SearchTest", m.Name, StringComparison.OrdinalIgnoreCase));
         }
 
         [Fact]
@@ -535,7 +546,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task SearchMixlists_ByDescription_ShouldReturnMatches()
         {
             // Arrange - Create a mixlist with a searchable description
-            var uniqueDesc = "UniqueDescription" + Guid.NewGuid().ToString()[..8];
+            var uniqueDesc = "UniqueDescription";
             var createDto = new CreateMixlistDto
             {
                 Name = "Test Mixlist",
@@ -550,11 +561,11 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var content = await response.Content.ReadAsStringAsync();
             var mixlists = JsonSerializer.Deserialize<List<MixlistResponseDto>>(content, _jsonOptions);
             Assert.NotNull(mixlists);
-            Assert.True(mixlists.Count >= 1);
+            Assert.Single(mixlists);
         }
 
         #endregion
@@ -591,4 +602,3 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         #endregion
     }
 }
-

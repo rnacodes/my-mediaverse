@@ -1,26 +1,21 @@
-using Microsoft.AspNetCore.Mvc.Testing;
-using MyMediaVerse.DTOs;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
-using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Threading.Tasks;
-using Xunit;
+using MyMediaVerse.DTOs;
+using MyMediaVerse.IntegrationTests.Fixtures;
 
 namespace MyMediaVerse.IntegrationTests.Controllers
 {
     [Trait("Category", "Integration")]
-    public class TopicsControllerIntegrationTests : IClassFixture<WebApplicationFactory>
+    [Collection("Database")]
+    public class TopicsControllerIntegrationTests : IAsyncLifetime
     {
-        private readonly WebApplicationFactory _factory;
+        private readonly ApiFactory _factory;
         private readonly HttpClient _client;
         private readonly JsonSerializerOptions _jsonOptions;
 
-        public TopicsControllerIntegrationTests(WebApplicationFactory factory)
+        public TopicsControllerIntegrationTests(ApiFactory factory)
         {
             _factory = factory;
             _client = _factory.CreateClient();
@@ -34,6 +29,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             };
         }
 
+        public Task InitializeAsync() => _factory.ResetDatabaseAsync();
+
+        public Task DisposeAsync() => Task.CompletedTask;
+
         #region GET Tests
 
         [Fact]
@@ -44,7 +43,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var content = await response.Content.ReadAsStringAsync();
             var topics = JsonSerializer.Deserialize<List<TopicResponseDto>>(content, _jsonOptions);
             Assert.NotNull(topics);
@@ -67,16 +66,17 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             var createResponse = await _client.PostAsync("/api/topics", createContent);
             var createdTopic = JsonSerializer.Deserialize<TopicResponseDto>(
-                await createResponse.Content.ReadAsStringAsync(), 
+                await createResponse.Content.ReadAsStringAsync(),
                 _jsonOptions
             );
+            Assert.NotNull(createdTopic);
 
             // Act
             var response = await _client.GetAsync($"/api/topics/{createdTopic.Id}");
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var content = await response.Content.ReadAsStringAsync();
             var topic = JsonSerializer.Deserialize<TopicResponseDto>(content, _jsonOptions);
             Assert.NotNull(topic);
@@ -107,7 +107,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             // Arrange
             var createDto = new CreateTopicDto
             {
-                Name = "New Unique Topic Name " + Guid.NewGuid().ToString()[..8]
+                Name = "New Unique Topic Name"
             };
 
             var content = new StringContent(
@@ -121,10 +121,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-            
+
             var responseContent = await response.Content.ReadAsStringAsync();
             var createdTopic = JsonSerializer.Deserialize<TopicResponseDto>(responseContent, _jsonOptions);
-            
+
             Assert.NotNull(createdTopic);
             Assert.NotEqual(Guid.Empty, createdTopic.Id);
             Assert.Contains("new unique topic name", createdTopic.Name);
@@ -134,7 +134,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task CreateTopic_WithDuplicateName_ShouldReturnExistingTopic()
         {
             // Arrange - Create a topic first
-            var topicName = "Duplicate Topic Test " + Guid.NewGuid().ToString()[..8];
+            var topicName = "Duplicate Topic Test";
             var createDto = new CreateTopicDto { Name = topicName };
 
             var content1 = new StringContent(
@@ -145,9 +145,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             var firstResponse = await _client.PostAsync("/api/topics", content1);
             var firstTopic = JsonSerializer.Deserialize<TopicResponseDto>(
-                await firstResponse.Content.ReadAsStringAsync(), 
+                await firstResponse.Content.ReadAsStringAsync(),
                 _jsonOptions
             );
+            Assert.NotNull(firstTopic);
 
             // Try to create the same topic again
             var content2 = new StringContent(
@@ -161,10 +162,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode); // Returns OK with existing topic
-            
+
             var responseContent = await response.Content.ReadAsStringAsync();
             var returnedTopic = JsonSerializer.Deserialize<TopicResponseDto>(responseContent, _jsonOptions);
-            
+
             Assert.NotNull(returnedTopic);
             Assert.Equal(firstTopic.Id, returnedTopic.Id); // Same ID as first topic
         }
@@ -173,7 +174,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task CreateTopic_WithCaseInsensitiveDuplicate_ShouldReturnExistingTopic()
         {
             // Arrange - Create a topic first
-            var topicName = "CaseInsensitive Test " + Guid.NewGuid().ToString()[..8];
+            var topicName = "CaseInsensitive Test";
             var createDto1 = new CreateTopicDto { Name = topicName.ToLower() };
 
             var content1 = new StringContent(
@@ -184,9 +185,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             var firstResponse = await _client.PostAsync("/api/topics", content1);
             var firstTopic = JsonSerializer.Deserialize<TopicResponseDto>(
-                await firstResponse.Content.ReadAsStringAsync(), 
+                await firstResponse.Content.ReadAsStringAsync(),
                 _jsonOptions
             );
+            Assert.NotNull(firstTopic);
 
             // Try to create with different case
             var createDto2 = new CreateTopicDto { Name = topicName.ToUpper() };
@@ -201,10 +203,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var responseContent = await response.Content.ReadAsStringAsync();
             var returnedTopic = JsonSerializer.Deserialize<TopicResponseDto>(responseContent, _jsonOptions);
-            
+
             Assert.NotNull(returnedTopic);
             Assert.Equal(firstTopic.Id, returnedTopic.Id);
         }
@@ -251,7 +253,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task CreateTopic_WithTrimmableWhitespace_ShouldTrimAndCreate()
         {
             // Arrange
-            var createDto = new CreateTopicDto { Name = "  Trimmed Topic " + Guid.NewGuid().ToString()[..8] + "  " };
+            var createDto = new CreateTopicDto { Name = "  Trimmed Topic  " };
 
             var content = new StringContent(
                 JsonSerializer.Serialize(createDto, _jsonOptions),
@@ -264,10 +266,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-            
+
             var responseContent = await response.Content.ReadAsStringAsync();
             var createdTopic = JsonSerializer.Deserialize<TopicResponseDto>(responseContent, _jsonOptions);
-            
+
             Assert.NotNull(createdTopic);
             Assert.DoesNotContain("  ", createdTopic.Name); // Whitespace should be trimmed
         }
@@ -280,7 +282,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task DeleteTopic_WithValidIdAndNoMediaItems_ShouldReturnNoContent()
         {
             // Arrange - Create a topic
-            var createDto = new CreateTopicDto { Name = "Topic to Delete " + Guid.NewGuid().ToString()[..8] };
+            var createDto = new CreateTopicDto { Name = "Topic to Delete" };
 
             var createContent = new StringContent(
                 JsonSerializer.Serialize(createDto, _jsonOptions),
@@ -290,9 +292,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             var createResponse = await _client.PostAsync("/api/topics", createContent);
             var createdTopic = JsonSerializer.Deserialize<TopicResponseDto>(
-                await createResponse.Content.ReadAsStringAsync(), 
+                await createResponse.Content.ReadAsStringAsync(),
                 _jsonOptions
             );
+            Assert.NotNull(createdTopic);
 
             // Act
             var response = await _client.DeleteAsync($"/api/topics/{createdTopic.Id}");
@@ -326,9 +329,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task SearchTopics_WithValidQuery_ShouldReturnMatchingTopics()
         {
             // Arrange - Create topics with searchable names
-            var uniquePrefix = "SearchTest" + Guid.NewGuid().ToString()[..8];
-            var createDto1 = new CreateTopicDto { Name = $"{uniquePrefix} Topic One" };
-            var createDto2 = new CreateTopicDto { Name = $"{uniquePrefix} Topic Two" };
+            var createDto1 = new CreateTopicDto { Name = "SearchTest Topic One" };
+            var createDto2 = new CreateTopicDto { Name = "SearchTest Topic Two" };
             var createDto3 = new CreateTopicDto { Name = "Different Topic" };
 
             var content1 = new StringContent(JsonSerializer.Serialize(createDto1, _jsonOptions), Encoding.UTF8, "application/json");
@@ -340,16 +342,16 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             await _client.PostAsync("/api/topics", content3);
 
             // Act
-            var response = await _client.GetAsync($"/api/topics/search?query={uniquePrefix.ToLower()}");
+            var response = await _client.GetAsync("/api/topics/search?query=searchtest");
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var content = await response.Content.ReadAsStringAsync();
             var topics = JsonSerializer.Deserialize<List<TopicResponseDto>>(content, _jsonOptions);
             Assert.NotNull(topics);
-            Assert.True(topics.Count >= 2);
-            Assert.All(topics, t => Assert.Contains(uniquePrefix.ToLower(), t.Name));
+            Assert.Equal(2, topics.Count);
+            Assert.All(topics, t => Assert.Contains("searchtest", t.Name));
         }
 
         [Fact]
@@ -366,11 +368,11 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task SearchTopics_WithNoMatches_ShouldReturnEmptyList()
         {
             // Act
-            var response = await _client.GetAsync($"/api/topics/search?query=NonExistentSearchTerm{Guid.NewGuid()}");
+            var response = await _client.GetAsync("/api/topics/search?query=NonExistentSearchTerm");
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var content = await response.Content.ReadAsStringAsync();
             var topics = JsonSerializer.Deserialize<List<TopicResponseDto>>(content, _jsonOptions);
             Assert.NotNull(topics);
@@ -381,7 +383,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task SearchTopics_IsCaseInsensitive_ShouldReturnMatches()
         {
             // Arrange - Create a topic
-            var uniqueName = "CaseSearchTest" + Guid.NewGuid().ToString()[..8];
+            var uniqueName = "CaseSearchTest";
             var createDto = new CreateTopicDto { Name = uniqueName };
 
             var createContent = new StringContent(
@@ -397,11 +399,11 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var content = await response.Content.ReadAsStringAsync();
             var topics = JsonSerializer.Deserialize<List<TopicResponseDto>>(content, _jsonOptions);
             Assert.NotNull(topics);
-            Assert.True(topics.Count >= 1);
+            Assert.Single(topics);
             Assert.Contains(topics, t => t.Name.Contains(uniqueName.ToLower()));
         }
 
@@ -443,9 +445,9 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         [Fact]
         public async Task CreateMediaWithTopic_ShouldAssociateTopicWithMedia()
         {
-            // Arrange - Create a unique topic name
-            var topicName = "MediaAssocTest" + Guid.NewGuid().ToString()[..8];
-            
+            // Arrange - Create a topic
+            var topicName = "MediaAssocTest";
+
             // Create media item with the topic
             var mediaDto = new CreateMediaItemDto
             {
@@ -493,7 +495,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task TopicName_ShouldBeNormalizedToLowerCase()
         {
             // Arrange
-            var createDto = new CreateTopicDto { Name = "UPPERCASE TOPIC " + Guid.NewGuid().ToString()[..8] };
+            var createDto = new CreateTopicDto { Name = "UPPERCASE TOPIC" };
 
             var content = new StringContent(
                 JsonSerializer.Serialize(createDto, _jsonOptions),
@@ -506,10 +508,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-            
+
             var responseContent = await response.Content.ReadAsStringAsync();
             var createdTopic = JsonSerializer.Deserialize<TopicResponseDto>(responseContent, _jsonOptions);
-            
+
             Assert.NotNull(createdTopic);
             Assert.Equal(createDto.Name.Trim().ToLowerInvariant(), createdTopic.Name);
         }
@@ -517,4 +519,3 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         #endregion
     }
 }
-

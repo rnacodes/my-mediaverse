@@ -1,28 +1,22 @@
-using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.DependencyInjection;
-using MyMediaVerse.Domain.Entities;
-using MyMediaVerse.DTOs;
-using MyMediaVerse.Infrastructure.Data;
-using System;
-using System.Collections.Generic;
 using System.Net;
-using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Threading.Tasks;
-using Xunit;
+using MyMediaVerse.Domain.Entities;
+using MyMediaVerse.DTOs;
+using MyMediaVerse.IntegrationTests.Fixtures;
 
 namespace MyMediaVerse.IntegrationTests.Controllers
 {
     [Trait("Category", "Integration")]
-    public class VideoControllerIntegrationTests : IClassFixture<WebApplicationFactory>
+    [Collection("Database")]
+    public class VideoControllerIntegrationTests : IAsyncLifetime
     {
-        private readonly WebApplicationFactory _factory;
+        private readonly ApiFactory _factory;
         private readonly HttpClient _client;
         private readonly JsonSerializerOptions _jsonOptions;
 
-        public VideoControllerIntegrationTests(WebApplicationFactory factory)
+        public VideoControllerIntegrationTests(ApiFactory factory)
         {
             _factory = factory;
             _client = _factory.CreateClient();
@@ -36,6 +30,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             };
         }
 
+        public Task InitializeAsync() => _factory.ResetDatabaseAsync();
+
+        public Task DisposeAsync() => Task.CompletedTask;
+
         #region GET Tests
 
         [Fact]
@@ -46,7 +44,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var content = await response.Content.ReadAsStringAsync();
             var videos = JsonSerializer.Deserialize<List<VideoResponseDto>>(content, _jsonOptions);
             Assert.NotNull(videos);
@@ -60,7 +58,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var content = await response.Content.ReadAsStringAsync();
             var series = JsonSerializer.Deserialize<List<VideoResponseDto>>(content, _jsonOptions);
             Assert.NotNull(series);
@@ -88,16 +86,17 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             var createResponse = await _client.PostAsync("/api/video", createContent);
             var createdVideo = JsonSerializer.Deserialize<VideoResponseDto>(
-                await createResponse.Content.ReadAsStringAsync(), 
+                await createResponse.Content.ReadAsStringAsync(),
                 _jsonOptions
             );
+            Assert.NotNull(createdVideo);
 
             // Act
             var response = await _client.GetAsync($"/api/video/{createdVideo.Id}");
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var content = await response.Content.ReadAsStringAsync();
             var video = JsonSerializer.Deserialize<VideoResponseDto>(content, _jsonOptions);
             Assert.NotNull(video);
@@ -158,10 +157,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-            
+
             var responseContent = await response.Content.ReadAsStringAsync();
             var createdVideo = JsonSerializer.Deserialize<VideoResponseDto>(responseContent, _jsonOptions);
-            
+
             Assert.NotNull(createdVideo);
             Assert.Equal("New Test Video", createdVideo.Title);
             Assert.Equal("YouTube", createdVideo.Platform);
@@ -198,9 +197,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             var seriesResponse = await _client.PostAsync("/api/video", seriesContent);
             var parentSeries = JsonSerializer.Deserialize<VideoResponseDto>(
-                await seriesResponse.Content.ReadAsStringAsync(), 
+                await seriesResponse.Content.ReadAsStringAsync(),
                 _jsonOptions
             );
+            Assert.NotNull(parentSeries);
 
             // Now create an episode
             var episodeDto = new CreateVideoDto
@@ -225,10 +225,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-            
+
             var responseContent = await response.Content.ReadAsStringAsync();
             var createdEpisode = JsonSerializer.Deserialize<VideoResponseDto>(responseContent, _jsonOptions);
-            
+
             Assert.NotNull(createdEpisode);
             Assert.Equal("Episode 1", createdEpisode.Title);
             Assert.Equal(VideoType.Episode, createdEpisode.VideoType);
@@ -286,9 +286,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             var createResponse = await _client.PostAsync("/api/video", createContent);
             var createdVideo = JsonSerializer.Deserialize<VideoResponseDto>(
-                await createResponse.Content.ReadAsStringAsync(), 
+                await createResponse.Content.ReadAsStringAsync(),
                 _jsonOptions
             );
+            Assert.NotNull(createdVideo);
 
             // Now update it
             var updateDto = new CreateVideoDto
@@ -313,10 +314,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var responseContent = await response.Content.ReadAsStringAsync();
             var updatedVideo = JsonSerializer.Deserialize<VideoResponseDto>(responseContent, _jsonOptions);
-            
+
             Assert.NotNull(updatedVideo);
             Assert.Equal("Updated Title", updatedVideo.Title);
             Assert.Equal("Vimeo", updatedVideo.Platform);
@@ -381,9 +382,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             var createResponse = await _client.PostAsync("/api/video", createContent);
             var createdVideo = JsonSerializer.Deserialize<VideoResponseDto>(
-                await createResponse.Content.ReadAsStringAsync(), 
+                await createResponse.Content.ReadAsStringAsync(),
                 _jsonOptions
             );
+            Assert.NotNull(createdVideo);
 
             // Act
             var response = await _client.DeleteAsync($"/api/video/{createdVideo.Id}");

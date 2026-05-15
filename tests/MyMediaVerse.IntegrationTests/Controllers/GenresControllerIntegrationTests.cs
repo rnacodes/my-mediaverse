@@ -1,26 +1,21 @@
-using Microsoft.AspNetCore.Mvc.Testing;
-using MyMediaVerse.DTOs;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
-using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Threading.Tasks;
-using Xunit;
+using MyMediaVerse.DTOs;
+using MyMediaVerse.IntegrationTests.Fixtures;
 
 namespace MyMediaVerse.IntegrationTests.Controllers
 {
     [Trait("Category", "Integration")]
-    public class GenresControllerIntegrationTests : IClassFixture<WebApplicationFactory>
+    [Collection("Database")]
+    public class GenresControllerIntegrationTests : IAsyncLifetime
     {
-        private readonly WebApplicationFactory _factory;
+        private readonly ApiFactory _factory;
         private readonly HttpClient _client;
         private readonly JsonSerializerOptions _jsonOptions;
 
-        public GenresControllerIntegrationTests(WebApplicationFactory factory)
+        public GenresControllerIntegrationTests(ApiFactory factory)
         {
             _factory = factory;
             _client = _factory.CreateClient();
@@ -34,6 +29,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             };
         }
 
+        public Task InitializeAsync() => _factory.ResetDatabaseAsync();
+
+        public Task DisposeAsync() => Task.CompletedTask;
+
         #region GET Tests
 
         [Fact]
@@ -44,7 +43,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var content = await response.Content.ReadAsStringAsync();
             var genres = JsonSerializer.Deserialize<List<GenreResponseDto>>(content, _jsonOptions);
             Assert.NotNull(genres);
@@ -67,16 +66,17 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             var createResponse = await _client.PostAsync("/api/genres", createContent);
             var createdGenre = JsonSerializer.Deserialize<GenreResponseDto>(
-                await createResponse.Content.ReadAsStringAsync(), 
+                await createResponse.Content.ReadAsStringAsync(),
                 _jsonOptions
             );
+            Assert.NotNull(createdGenre);
 
             // Act
             var response = await _client.GetAsync($"/api/genres/{createdGenre.Id}");
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var content = await response.Content.ReadAsStringAsync();
             var genre = JsonSerializer.Deserialize<GenreResponseDto>(content, _jsonOptions);
             Assert.NotNull(genre);
@@ -107,7 +107,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             // Arrange
             var createDto = new CreateGenreDto
             {
-                Name = "New Unique Genre Name " + Guid.NewGuid().ToString()[..8]
+                Name = "New Unique Genre Name"
             };
 
             var content = new StringContent(
@@ -121,10 +121,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-            
+
             var responseContent = await response.Content.ReadAsStringAsync();
             var createdGenre = JsonSerializer.Deserialize<GenreResponseDto>(responseContent, _jsonOptions);
-            
+
             Assert.NotNull(createdGenre);
             Assert.NotEqual(Guid.Empty, createdGenre.Id);
             Assert.Contains("new unique genre name", createdGenre.Name);
@@ -134,7 +134,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task CreateGenre_WithDuplicateName_ShouldReturnExistingGenre()
         {
             // Arrange - Create a genre first
-            var genreName = "Duplicate Genre Test " + Guid.NewGuid().ToString()[..8];
+            var genreName = "Duplicate Genre Test";
             var createDto = new CreateGenreDto { Name = genreName };
 
             var content1 = new StringContent(
@@ -145,9 +145,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             var firstResponse = await _client.PostAsync("/api/genres", content1);
             var firstGenre = JsonSerializer.Deserialize<GenreResponseDto>(
-                await firstResponse.Content.ReadAsStringAsync(), 
+                await firstResponse.Content.ReadAsStringAsync(),
                 _jsonOptions
             );
+            Assert.NotNull(firstGenre);
 
             // Try to create the same genre again
             var content2 = new StringContent(
@@ -161,10 +162,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode); // Returns OK with existing genre
-            
+
             var responseContent = await response.Content.ReadAsStringAsync();
             var returnedGenre = JsonSerializer.Deserialize<GenreResponseDto>(responseContent, _jsonOptions);
-            
+
             Assert.NotNull(returnedGenre);
             Assert.Equal(firstGenre.Id, returnedGenre.Id); // Same ID as first genre
         }
@@ -173,7 +174,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task CreateGenre_WithCaseInsensitiveDuplicate_ShouldReturnExistingGenre()
         {
             // Arrange - Create a genre first
-            var genreName = "CaseInsensitive Genre Test " + Guid.NewGuid().ToString()[..8];
+            var genreName = "CaseInsensitive Genre Test";
             var createDto1 = new CreateGenreDto { Name = genreName.ToLower() };
 
             var content1 = new StringContent(
@@ -184,9 +185,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             var firstResponse = await _client.PostAsync("/api/genres", content1);
             var firstGenre = JsonSerializer.Deserialize<GenreResponseDto>(
-                await firstResponse.Content.ReadAsStringAsync(), 
+                await firstResponse.Content.ReadAsStringAsync(),
                 _jsonOptions
             );
+            Assert.NotNull(firstGenre);
 
             // Try to create with different case
             var createDto2 = new CreateGenreDto { Name = genreName.ToUpper() };
@@ -201,10 +203,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var responseContent = await response.Content.ReadAsStringAsync();
             var returnedGenre = JsonSerializer.Deserialize<GenreResponseDto>(responseContent, _jsonOptions);
-            
+
             Assert.NotNull(returnedGenre);
             Assert.Equal(firstGenre.Id, returnedGenre.Id);
         }
@@ -251,7 +253,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task CreateGenre_WithTrimmableWhitespace_ShouldTrimAndCreate()
         {
             // Arrange
-            var createDto = new CreateGenreDto { Name = "  Trimmed Genre " + Guid.NewGuid().ToString()[..8] + "  " };
+            var createDto = new CreateGenreDto { Name = "  Trimmed Genre  " };
 
             var content = new StringContent(
                 JsonSerializer.Serialize(createDto, _jsonOptions),
@@ -264,10 +266,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-            
+
             var responseContent = await response.Content.ReadAsStringAsync();
             var createdGenre = JsonSerializer.Deserialize<GenreResponseDto>(responseContent, _jsonOptions);
-            
+
             Assert.NotNull(createdGenre);
             Assert.DoesNotContain("  ", createdGenre.Name); // Whitespace should be trimmed
         }
@@ -280,7 +282,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task DeleteGenre_WithValidIdAndNoMediaItems_ShouldReturnNoContent()
         {
             // Arrange - Create a genre
-            var createDto = new CreateGenreDto { Name = "Genre to Delete " + Guid.NewGuid().ToString()[..8] };
+            var createDto = new CreateGenreDto { Name = "Genre to Delete" };
 
             var createContent = new StringContent(
                 JsonSerializer.Serialize(createDto, _jsonOptions),
@@ -290,9 +292,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             var createResponse = await _client.PostAsync("/api/genres", createContent);
             var createdGenre = JsonSerializer.Deserialize<GenreResponseDto>(
-                await createResponse.Content.ReadAsStringAsync(), 
+                await createResponse.Content.ReadAsStringAsync(),
                 _jsonOptions
             );
+            Assert.NotNull(createdGenre);
 
             // Act
             var response = await _client.DeleteAsync($"/api/genres/{createdGenre.Id}");
@@ -326,9 +329,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task SearchGenres_WithValidQuery_ShouldReturnMatchingGenres()
         {
             // Arrange - Create genres with searchable names
-            var uniquePrefix = "GenreSearchTest" + Guid.NewGuid().ToString()[..8];
-            var createDto1 = new CreateGenreDto { Name = $"{uniquePrefix} Genre One" };
-            var createDto2 = new CreateGenreDto { Name = $"{uniquePrefix} Genre Two" };
+            var createDto1 = new CreateGenreDto { Name = "GenreSearchTest Genre One" };
+            var createDto2 = new CreateGenreDto { Name = "GenreSearchTest Genre Two" };
             var createDto3 = new CreateGenreDto { Name = "Different Genre" };
 
             var content1 = new StringContent(JsonSerializer.Serialize(createDto1, _jsonOptions), Encoding.UTF8, "application/json");
@@ -340,16 +342,16 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             await _client.PostAsync("/api/genres", content3);
 
             // Act
-            var response = await _client.GetAsync($"/api/genres/search?query={uniquePrefix.ToLower()}");
+            var response = await _client.GetAsync("/api/genres/search?query=genresearchtest");
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var content = await response.Content.ReadAsStringAsync();
             var genres = JsonSerializer.Deserialize<List<GenreResponseDto>>(content, _jsonOptions);
             Assert.NotNull(genres);
-            Assert.True(genres.Count >= 2);
-            Assert.All(genres, g => Assert.Contains(uniquePrefix.ToLower(), g.Name));
+            Assert.Equal(2, genres.Count);
+            Assert.All(genres, g => Assert.Contains("genresearchtest", g.Name));
         }
 
         [Fact]
@@ -366,11 +368,11 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task SearchGenres_WithNoMatches_ShouldReturnEmptyList()
         {
             // Act
-            var response = await _client.GetAsync($"/api/genres/search?query=NonExistentSearchTerm{Guid.NewGuid()}");
+            var response = await _client.GetAsync("/api/genres/search?query=NonExistentSearchTerm");
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var content = await response.Content.ReadAsStringAsync();
             var genres = JsonSerializer.Deserialize<List<GenreResponseDto>>(content, _jsonOptions);
             Assert.NotNull(genres);
@@ -381,7 +383,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task SearchGenres_IsCaseInsensitive_ShouldReturnMatches()
         {
             // Arrange - Create a genre
-            var uniqueName = "GenreCaseSearchTest" + Guid.NewGuid().ToString()[..8];
+            var uniqueName = "GenreCaseSearchTest";
             var createDto = new CreateGenreDto { Name = uniqueName };
 
             var createContent = new StringContent(
@@ -397,11 +399,11 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var content = await response.Content.ReadAsStringAsync();
             var genres = JsonSerializer.Deserialize<List<GenreResponseDto>>(content, _jsonOptions);
             Assert.NotNull(genres);
-            Assert.True(genres.Count >= 1);
+            Assert.Single(genres);
             Assert.Contains(genres, g => g.Name.Contains(uniqueName.ToLower()));
         }
 
@@ -443,9 +445,9 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         [Fact]
         public async Task CreateMediaWithGenre_ShouldAssociateGenreWithMedia()
         {
-            // Arrange - Create a unique genre name
-            var genreName = "MediaAssocGenreTest" + Guid.NewGuid().ToString()[..8];
-            
+            // Arrange - Create a genre
+            var genreName = "MediaAssocGenreTest";
+
             // Create media item with the genre
             var mediaDto = new CreateMediaItemDto
             {
@@ -493,7 +495,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         public async Task GenreName_ShouldBeNormalizedToLowerCase()
         {
             // Arrange
-            var createDto = new CreateGenreDto { Name = "UPPERCASE GENRE " + Guid.NewGuid().ToString()[..8] };
+            var createDto = new CreateGenreDto { Name = "UPPERCASE GENRE" };
 
             var content = new StringContent(
                 JsonSerializer.Serialize(createDto, _jsonOptions),
@@ -506,10 +508,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-            
+
             var responseContent = await response.Content.ReadAsStringAsync();
             var createdGenre = JsonSerializer.Deserialize<GenreResponseDto>(responseContent, _jsonOptions);
-            
+
             Assert.NotNull(createdGenre);
             Assert.Equal(createDto.Name.Trim().ToLowerInvariant(), createdGenre.Name);
         }
@@ -517,4 +519,3 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         #endregion
     }
 }
-
