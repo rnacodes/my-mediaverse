@@ -625,10 +625,8 @@ export default function HomePage() {
             <SimpleMediaCarousel
               mediaItems={activelyExploringMedia}
               title=""
-              subtitle="Continue exploring these items"
+              subtitle="Click on any item to jump to its profile"
               onMediaClick={(media) => {
-                // Navigate to appropriate profile page based on media type
-                // Podcast episodes have seriesId, series don't
                 if (media.mediaType === 'Podcast' && !media.seriesId) {
                   navigate(`/podcast-series/${media.id || media.Id}`);
                 } else if (media.mediaType === 'Channel') {
@@ -639,7 +637,7 @@ export default function HomePage() {
               }}
               cardWidth={250}
               cardHeight={350}
-              showCardContent={true}
+              showCardContent={false}
             />
           ) : (
             <Box sx={{ textAlign: 'center', py: { xs: 4, sm: 6 }, px: 2 }}>

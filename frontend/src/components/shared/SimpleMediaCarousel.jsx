@@ -5,18 +5,23 @@ import {
 import { ChevronLeft, ChevronRight } from '@mui/icons-material';
 import { formatMediaType } from '../../utils/formatters';
 
+const VISIBLE_ITEMS = 5;
+const MAX_DOTS = 6;
+
 const SimpleMediaCarousel = ({
   mediaItems = [],
   title = 'Featured Media',
   subtitle,
   onMediaClick,
-  cardWidth = 250,
-  cardHeight = 350,
+  cardWidth = 320,
+  cardHeight = 380,
+  imageHeight,
   showCardContent = true,
   sx = {},
   ...props
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const effectiveImageHeight = imageHeight ?? (showCardContent ? Math.round(cardHeight * 0.58) : cardHeight);
   
   if (!mediaItems || mediaItems.length === 0) {
     return (
@@ -54,10 +59,10 @@ const SimpleMediaCarousel = ({
 
   // Show current item and 2 items on each side (5 total)
   const getVisibleItems = () => {
-    if (mediaItems.length <= 5) {
-      return mediaItems;
+    if (mediaItems.length <= VISIBLE_ITEMS) {
+      return mediaItems.map((item, index) => ({ ...item, offset: index - currentIndex }));
     }
-    
+
     const visible = [];
     for (let i = -2; i <= 2; i++) {
       const index = (currentIndex + i + mediaItems.length) % mediaItems.length;
@@ -67,6 +72,18 @@ const SimpleMediaCarousel = ({
   };
 
   const visibleItems = getVisibleItems();
+
+  const showDots = mediaItems.length > VISIBLE_ITEMS;
+  const dotCount = Math.min(mediaItems.length, MAX_DOTS);
+  const activeDotIndex = dotCount >= mediaItems.length
+    ? currentIndex
+    : Math.min(dotCount - 1, Math.floor((currentIndex / mediaItems.length) * dotCount));
+  const handleDotClick = (dotIdx) => {
+    const target = dotCount >= mediaItems.length
+      ? dotIdx
+      : Math.round((dotIdx / dotCount) * mediaItems.length);
+    setCurrentIndex(target % mediaItems.length);
+  };
 
   return (
     <Box sx={{ width: '100%', ...sx }} {...props}>
@@ -112,8 +129,6 @@ const SimpleMediaCarousel = ({
         }}>
           {visibleItems.map((media) => {
             const isCenter = media.offset === 0;
-            const scale = isCenter ? 1 : 0.8;
-            const opacity = Math.abs(media.offset) > 1 ? 0.3 : 1;
 
             return (
               <Card
@@ -122,12 +137,10 @@ const SimpleMediaCarousel = ({
                   minWidth: cardWidth,
                   maxWidth: cardWidth,
                   height: cardHeight,
-                  transform: `scale(${scale})`,
-                  opacity: opacity,
                   transition: 'all 0.3s ease',
                   cursor: 'pointer',
                   '&:hover': {
-                    transform: `scale(${scale * 1.05})`,
+                    transform: 'scale(1.05)',
                     zIndex: 1
                   }
                 }}
@@ -136,14 +149,15 @@ const SimpleMediaCarousel = ({
                 {(media.thumbnailUrl || media.thumbnail || media.Thumbnail) && (
                   <CardMedia
                     component="img"
-                    height={cardHeight}
+                    height={effectiveImageHeight}
                     image={media.thumbnailUrl || media.thumbnail || media.Thumbnail}
                     alt={media.title || media.Title}
-                    sx={{ 
+                    sx={{
                       width: '100%',
-                      maxHeight: cardHeight,
-                      objectFit: 'cover',
-                      backgroundColor: 'rgba(0, 0, 0, 0.1)'
+                      height: effectiveImageHeight,
+                      objectFit: 'contain',
+                      backgroundColor: 'rgba(0, 0, 0, 0.35)',
+                      p: 1
                     }}
                   />
                 )}
@@ -200,22 +214,22 @@ const SimpleMediaCarousel = ({
         )}
       </Box>
 
-      {/* Pagination Dots */}
-      {mediaItems.length > 1 && (
+      {/* Pagination Dots — only when there's more than fits on screen, capped at MAX_DOTS */}
+      {showDots && (
         <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mt: 3 }}>
-          {mediaItems.map((m, index) => (
+          {Array.from({ length: dotCount }, (_, index) => index).map((index) => (
             <Box
-              key={`dot-${m.id || m.Id || index}`}
-              onClick={() => setCurrentIndex(index)}
+              key={`dot-of-${dotCount}-${index}`}
+              onClick={() => handleDotClick(index)}
               sx={{
                 width: 10,
                 height: 10,
                 borderRadius: '50%',
-                backgroundColor: index === currentIndex ? 'primary.main' : 'grey.300',
+                backgroundColor: index === activeDotIndex ? 'primary.main' : 'grey.300',
                 cursor: 'pointer',
                 transition: 'background-color 0.3s ease',
                 '&:hover': {
-                  backgroundColor: index === currentIndex ? 'primary.dark' : 'grey.400'
+                  backgroundColor: index === activeDotIndex ? 'primary.dark' : 'grey.400'
                 }
               }}
             />
