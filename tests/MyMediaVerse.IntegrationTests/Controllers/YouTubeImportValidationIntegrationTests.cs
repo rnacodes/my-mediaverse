@@ -2,7 +2,10 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.IntegrationTests.Fixtures;
+using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Xunit;
 
 namespace MyMediaVerse.IntegrationTests.Controllers
@@ -60,9 +63,14 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         [Fact]
         public async Task ImportVideo_WithInvalidVideoId_ShouldReturnErrorResponse()
         {
-            // Arrange - an invalid video ID (not a real YouTube video)
+            // Arrange - substitute IYouTubeService so the test never reaches the real YouTube API.
+            // The controller catches InvalidOperationException as NotFound, which matches the assertion.
+            var (client, _) = _factory.CreateClientWithSubstitute<IYouTubeService>(mock =>
+                mock.ImportVideoAsync(Arg.Any<string>())
+                    .Throws(new InvalidOperationException("Video not found")));
+
             // Act
-            var response = await _client.PostAsync("/api/youtube/import/video/INVALID_ID_X", null);
+            var response = await client.PostAsync("/api/youtube/import/video/INVALID_ID_X", null);
 
             // Assert - should fail (either 400 or 500 depending on YouTube API behavior)
             Assert.True(
@@ -237,8 +245,14 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         [Fact]
         public async Task ImportYouTubePlaylist_WithInvalidExternalId_ShouldReturnErrorResponse()
         {
+            // Arrange - substitute IYouTubePlaylistService so the test never reaches the real YouTube API.
+            // The controller catches InvalidOperationException as NotFound, which matches the assertion.
+            var (client, _) = _factory.CreateClientWithSubstitute<IYouTubePlaylistService>(mock =>
+                mock.ImportPlaylistFromYouTubeAsync(Arg.Any<string>())
+                    .Throws(new InvalidOperationException("Playlist not found")));
+
             // Act - use a clearly invalid playlist ID
-            var response = await _client.PostAsync("/api/youtubeplaylist/import/INVALID_PL_ID", null);
+            var response = await client.PostAsync("/api/youtubeplaylist/import/INVALID_PL_ID", null);
 
             // Assert
             Assert.True(
