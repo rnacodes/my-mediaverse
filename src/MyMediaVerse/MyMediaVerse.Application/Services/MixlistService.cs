@@ -309,6 +309,7 @@ namespace MyMediaVerse.Application.Services
         public async Task<bool> DeleteMixlistAsync(Guid id)
         {
             var mixlist = await _context.Mixlists
+                .AsSplitQuery()
                 .Include(m => m.MediaItems)
                 .Include(m => m.MixlistNotes)
                 .Include(m => m.Topics)

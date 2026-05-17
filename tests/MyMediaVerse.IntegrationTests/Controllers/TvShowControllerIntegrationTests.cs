@@ -1,26 +1,26 @@
-using Microsoft.AspNetCore.Mvc.Testing;
-using MyMediaVerse.Domain.Entities;
-using MyMediaVerse.DTOs;
-using System;
-using System.Collections.Generic;
 using System.Net;
-using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Threading.Tasks;
+using MyMediaVerse.Application.Interfaces;
+using MyMediaVerse.Domain.Entities;
+using MyMediaVerse.DTOs;
+using MyMediaVerse.IntegrationTests.Fixtures;
+using MyMediaVerse.Shared.DTOs.TMDB;
+using NSubstitute;
 using Xunit;
 
 namespace MyMediaVerse.IntegrationTests.Controllers
 {
     [Trait("Category", "Integration")]
-    public class TvShowControllerIntegrationTests : IClassFixture<WebApplicationFactory>
+    [Collection("Database")]
+    public class TvShowControllerIntegrationTests : IAsyncLifetime
     {
-        private readonly WebApplicationFactory _factory;
+        private readonly ApiFactory _factory;
         private readonly HttpClient _client;
         private readonly JsonSerializerOptions _jsonOptions;
 
-        public TvShowControllerIntegrationTests(WebApplicationFactory factory)
+        public TvShowControllerIntegrationTests(ApiFactory factory)
         {
             _factory = factory;
             _client = _factory.CreateClient();
@@ -34,6 +34,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             };
         }
 
+        public Task InitializeAsync() => _factory.ResetDatabaseAsync();
+
+        public Task DisposeAsync() => Task.CompletedTask;
+
         #region GET Tests
 
         [Fact]
@@ -44,7 +48,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var content = await response.Content.ReadAsStringAsync();
             var tvShows = JsonSerializer.Deserialize<List<TvShowResponseDto>>(content, _jsonOptions);
             Assert.NotNull(tvShows);
@@ -77,16 +81,16 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             var createResponse = await _client.PostAsync("/api/tvshow", createContent);
             var createdTvShow = JsonSerializer.Deserialize<TvShowResponseDto>(
-                await createResponse.Content.ReadAsStringAsync(), 
+                await createResponse.Content.ReadAsStringAsync(),
                 _jsonOptions
             );
 
             // Act
-            var response = await _client.GetAsync($"/api/tvshow/{createdTvShow.Id}");
+            var response = await _client.GetAsync($"/api/tvshow/{createdTvShow!.Id}");
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var content = await response.Content.ReadAsStringAsync();
             var tvShow = JsonSerializer.Deserialize<TvShowResponseDto>(content, _jsonOptions);
             Assert.NotNull(tvShow);
@@ -138,7 +142,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var content = await response.Content.ReadAsStringAsync();
             var tvShows = JsonSerializer.Deserialize<List<TvShowResponseDto>>(content, _jsonOptions);
             Assert.NotNull(tvShows);
@@ -176,7 +180,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var content = await response.Content.ReadAsStringAsync();
             var tvShows = JsonSerializer.Deserialize<List<TvShowResponseDto>>(content, _jsonOptions);
             Assert.NotNull(tvShows);
@@ -221,10 +225,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-            
+
             var responseContent = await response.Content.ReadAsStringAsync();
             var createdTvShow = JsonSerializer.Deserialize<TvShowResponseDto>(responseContent, _jsonOptions);
-            
+
             Assert.NotNull(createdTvShow);
             Assert.Equal("New Test TV Show", createdTvShow.Title);
             Assert.Equal("A comprehensive test TV show", createdTvShow.Description);
@@ -269,10 +273,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-            
+
             var responseContent = await response.Content.ReadAsStringAsync();
             var createdTvShow = JsonSerializer.Deserialize<TvShowResponseDto>(responseContent, _jsonOptions);
-            
+
             Assert.NotNull(createdTvShow);
             Assert.Equal(2015, createdTvShow.FirstAirYear);
             Assert.Equal(2020, createdTvShow.LastAirYear);
@@ -312,10 +316,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-            
+
             var responseContent = await response.Content.ReadAsStringAsync();
             var createdTvShow = JsonSerializer.Deserialize<TvShowResponseDto>(responseContent, _jsonOptions);
-            
+
             Assert.NotNull(createdTvShow);
             Assert.Equal("54321", createdTvShow.TmdbId);
             Assert.Equal(9.0, createdTvShow.TmdbRating);
@@ -348,10 +352,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-            
+
             var responseContent = await response.Content.ReadAsStringAsync();
             var createdTvShow = JsonSerializer.Deserialize<TvShowResponseDto>(responseContent, _jsonOptions);
-            
+
             Assert.NotNull(createdTvShow);
             Assert.Equal("Minimal TV Show", createdTvShow.Title);
             Assert.Equal(MediaType.TVShow, createdTvShow.MediaType);
@@ -410,7 +414,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             var createResponse = await _client.PostAsync("/api/tvshow", createContent);
             var createdTvShow = JsonSerializer.Deserialize<TvShowResponseDto>(
-                await createResponse.Content.ReadAsStringAsync(), 
+                await createResponse.Content.ReadAsStringAsync(),
                 _jsonOptions
             );
 
@@ -440,14 +444,14 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             );
 
             // Act
-            var response = await _client.PutAsync($"/api/tvshow/{createdTvShow.Id}", updateContent);
+            var response = await _client.PutAsync($"/api/tvshow/{createdTvShow!.Id}", updateContent);
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var responseContent = await response.Content.ReadAsStringAsync();
             var updatedTvShow = JsonSerializer.Deserialize<TvShowResponseDto>(responseContent, _jsonOptions);
-            
+
             Assert.NotNull(updatedTvShow);
             Assert.Equal("Updated TV Show Title", updatedTvShow.Title);
             Assert.Equal("Updated description", updatedTvShow.Description);
@@ -516,12 +520,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             var createResponse = await _client.PostAsync("/api/tvshow", createContent);
             var createdTvShow = JsonSerializer.Deserialize<TvShowResponseDto>(
-                await createResponse.Content.ReadAsStringAsync(), 
+                await createResponse.Content.ReadAsStringAsync(),
                 _jsonOptions
             );
 
             // Act
-            var response = await _client.DeleteAsync($"/api/tvshow/{createdTvShow.Id}");
+            var response = await _client.DeleteAsync($"/api/tvshow/{createdTvShow!.Id}");
 
             // Assert
             Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
@@ -687,12 +691,18 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         [Fact]
         public async Task SearchTmdbTvShows_WithValidQuery_ShouldReturnOk()
         {
+            // Arrange - substitute ITmdbService so the controller's external call is hermetic.
+            // Default NSubstitute returns null for reference types; the controller dereferences
+            // SearchTvShowsAsync(...).Results, so we explicitly return an empty result envelope.
+            var (client, _) = _factory.CreateClientWithSubstitute<ITmdbService>(mock =>
+                mock.SearchTvShowsAsync("breaking bad", 1).Returns(new TmdbTvSearchResultDto()));
+
             // Act
-            var response = await _client.GetAsync("/api/tvshow/search-tmdb?query=breaking+bad");
+            var response = await client.GetAsync("/api/tvshow/search-tmdb?query=breaking+bad");
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var content = await response.Content.ReadAsStringAsync();
             var searchResults = JsonSerializer.Deserialize<List<TvShowSearchResultDto>>(content, _jsonOptions);
             Assert.NotNull(searchResults);
@@ -701,6 +711,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         [Fact]
         public async Task SearchTmdbTvShows_WithEmptyQuery_ShouldReturnBadRequest()
         {
+            // The controller validates the query before reaching ITmdbService, so no substitute needed.
+
             // Act
             var response = await _client.GetAsync("/api/tvshow/search-tmdb?query=");
 
@@ -711,8 +723,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         [Fact]
         public async Task SearchTmdbTvShows_WithPagination_ShouldReturnOk()
         {
+            // Arrange
+            var (client, _) = _factory.CreateClientWithSubstitute<ITmdbService>(mock =>
+                mock.SearchTvShowsAsync("game of thrones", 2).Returns(new TmdbTvSearchResultDto()));
+
             // Act
-            var response = await _client.GetAsync("/api/tvshow/search-tmdb?query=game+of+thrones&page=2");
+            var response = await client.GetAsync("/api/tvshow/search-tmdb?query=game+of+thrones&page=2");
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -721,4 +737,3 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         #endregion
     }
 }
-

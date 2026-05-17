@@ -1,26 +1,26 @@
-using Microsoft.AspNetCore.Mvc.Testing;
-using MyMediaVerse.Domain.Entities;
-using MyMediaVerse.DTOs;
-using System;
-using System.Collections.Generic;
 using System.Net;
-using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Threading.Tasks;
+using MyMediaVerse.Application.Interfaces;
+using MyMediaVerse.Domain.Entities;
+using MyMediaVerse.DTOs;
+using MyMediaVerse.IntegrationTests.Fixtures;
+using MyMediaVerse.Shared.DTOs.TMDB;
+using NSubstitute;
 using Xunit;
 
 namespace MyMediaVerse.IntegrationTests.Controllers
 {
     [Trait("Category", "Integration")]
-    public class MovieControllerIntegrationTests : IClassFixture<WebApplicationFactory>
+    [Collection("Database")]
+    public class MovieControllerIntegrationTests : IAsyncLifetime
     {
-        private readonly WebApplicationFactory _factory;
+        private readonly ApiFactory _factory;
         private readonly HttpClient _client;
         private readonly JsonSerializerOptions _jsonOptions;
 
-        public MovieControllerIntegrationTests(WebApplicationFactory factory)
+        public MovieControllerIntegrationTests(ApiFactory factory)
         {
             _factory = factory;
             _client = _factory.CreateClient();
@@ -34,6 +34,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             };
         }
 
+        public Task InitializeAsync() => _factory.ResetDatabaseAsync();
+
+        public Task DisposeAsync() => Task.CompletedTask;
+
         #region GET Tests
 
         [Fact]
@@ -44,7 +48,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var content = await response.Content.ReadAsStringAsync();
             var movies = JsonSerializer.Deserialize<List<MovieResponseDto>>(content, _jsonOptions);
             Assert.NotNull(movies);
@@ -75,16 +79,16 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             var createResponse = await _client.PostAsync("/api/movie", createContent);
             var createdMovie = JsonSerializer.Deserialize<MovieResponseDto>(
-                await createResponse.Content.ReadAsStringAsync(), 
+                await createResponse.Content.ReadAsStringAsync(),
                 _jsonOptions
             );
 
             // Act
-            var response = await _client.GetAsync($"/api/movie/{createdMovie.Id}");
+            var response = await _client.GetAsync($"/api/movie/{createdMovie!.Id}");
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var content = await response.Content.ReadAsStringAsync();
             var movie = JsonSerializer.Deserialize<MovieResponseDto>(content, _jsonOptions);
             Assert.NotNull(movie);
@@ -135,7 +139,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var content = await response.Content.ReadAsStringAsync();
             var movies = JsonSerializer.Deserialize<List<MovieResponseDto>>(content, _jsonOptions);
             Assert.NotNull(movies);
@@ -173,7 +177,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var content = await response.Content.ReadAsStringAsync();
             var movies = JsonSerializer.Deserialize<List<MovieResponseDto>>(content, _jsonOptions);
             Assert.NotNull(movies);
@@ -217,10 +221,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-            
+
             var responseContent = await response.Content.ReadAsStringAsync();
             var createdMovie = JsonSerializer.Deserialize<MovieResponseDto>(responseContent, _jsonOptions);
-            
+
             Assert.NotNull(createdMovie);
             Assert.Equal("New Test Movie", createdMovie.Title);
             Assert.Equal("A comprehensive test movie", createdMovie.Description);
@@ -258,10 +262,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-            
+
             var responseContent = await response.Content.ReadAsStringAsync();
             var createdMovie = JsonSerializer.Deserialize<MovieResponseDto>(responseContent, _jsonOptions);
-            
+
             Assert.NotNull(createdMovie);
             Assert.Equal("Minimal Movie", createdMovie.Title);
             Assert.Equal(MediaType.Movie, createdMovie.MediaType);
@@ -299,10 +303,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             // Assert
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-            
+
             var responseContent = await response.Content.ReadAsStringAsync();
             var createdMovie = JsonSerializer.Deserialize<MovieResponseDto>(responseContent, _jsonOptions);
-            
+
             Assert.NotNull(createdMovie);
             Assert.Equal("12345", createdMovie.TmdbId);
             Assert.Equal(8.5, createdMovie.TmdbRating);
@@ -366,7 +370,7 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             var createResponse = await _client.PostAsync("/api/movie", createContent);
             var createdMovie = JsonSerializer.Deserialize<MovieResponseDto>(
-                await createResponse.Content.ReadAsStringAsync(), 
+                await createResponse.Content.ReadAsStringAsync(),
                 _jsonOptions
             );
 
@@ -394,14 +398,14 @@ namespace MyMediaVerse.IntegrationTests.Controllers
             );
 
             // Act
-            var response = await _client.PutAsync($"/api/movie/{createdMovie.Id}", updateContent);
+            var response = await _client.PutAsync($"/api/movie/{createdMovie!.Id}", updateContent);
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var responseContent = await response.Content.ReadAsStringAsync();
             var updatedMovie = JsonSerializer.Deserialize<MovieResponseDto>(responseContent, _jsonOptions);
-            
+
             Assert.NotNull(updatedMovie);
             Assert.Equal("Updated Movie Title", updatedMovie.Title);
             Assert.Equal("Updated description", updatedMovie.Description);
@@ -469,12 +473,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
 
             var createResponse = await _client.PostAsync("/api/movie", createContent);
             var createdMovie = JsonSerializer.Deserialize<MovieResponseDto>(
-                await createResponse.Content.ReadAsStringAsync(), 
+                await createResponse.Content.ReadAsStringAsync(),
                 _jsonOptions
             );
 
             // Act
-            var response = await _client.DeleteAsync($"/api/movie/{createdMovie.Id}");
+            var response = await _client.DeleteAsync($"/api/movie/{createdMovie!.Id}");
 
             // Assert
             Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
@@ -615,12 +619,18 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         [Fact]
         public async Task SearchTmdbMovies_WithValidQuery_ShouldReturnOk()
         {
+            // Arrange - substitute ITmdbService so the controller's external call is hermetic.
+            // Default NSubstitute returns null for reference types; the controller dereferences
+            // SearchMoviesAsync(...).Results, so we explicitly return an empty result envelope.
+            var (client, _) = _factory.CreateClientWithSubstitute<ITmdbService>(mock =>
+                mock.SearchMoviesAsync("inception", 1).Returns(new TmdbMovieSearchResultDto()));
+
             // Act
-            var response = await _client.GetAsync("/api/movie/search-tmdb?query=inception");
+            var response = await client.GetAsync("/api/movie/search-tmdb?query=inception");
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            
+
             var content = await response.Content.ReadAsStringAsync();
             var searchResults = JsonSerializer.Deserialize<List<MovieSearchResultDto>>(content, _jsonOptions);
             Assert.NotNull(searchResults);
@@ -629,6 +639,8 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         [Fact]
         public async Task SearchTmdbMovies_WithEmptyQuery_ShouldReturnBadRequest()
         {
+            // The controller validates the query before reaching ITmdbService, so no substitute needed.
+
             // Act
             var response = await _client.GetAsync("/api/movie/search-tmdb?query=");
 
@@ -639,8 +651,12 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         [Fact]
         public async Task SearchTmdbMovies_WithPagination_ShouldReturnOk()
         {
+            // Arrange
+            var (client, _) = _factory.CreateClientWithSubstitute<ITmdbService>(mock =>
+                mock.SearchMoviesAsync("matrix", 2).Returns(new TmdbMovieSearchResultDto()));
+
             // Act
-            var response = await _client.GetAsync("/api/movie/search-tmdb?query=matrix&page=2");
+            var response = await client.GetAsync("/api/movie/search-tmdb?query=matrix&page=2");
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -649,4 +665,3 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         #endregion
     }
 }
-

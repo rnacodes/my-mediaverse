@@ -2,19 +2,20 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using MyMediaVerse.Domain.Entities;
-using MyMediaVerse.DTOs;
+using MyMediaVerse.IntegrationTests.Fixtures;
+using Xunit;
 
 namespace MyMediaVerse.IntegrationTests.Controllers
 {
     [Trait("Category", "Integration")]
-    public class InputValidationIntegrationTests : IClassFixture<WebApplicationFactory>
+    [Collection("Database")]
+    public class InputValidationIntegrationTests : IAsyncLifetime
     {
-        private readonly WebApplicationFactory _factory;
+        private readonly ApiFactory _factory;
         private readonly HttpClient _client;
         private readonly JsonSerializerOptions _jsonOptions;
 
-        public InputValidationIntegrationTests(WebApplicationFactory factory)
+        public InputValidationIntegrationTests(ApiFactory factory)
         {
             _factory = factory;
             _client = _factory.CreateClient();
@@ -27,6 +28,10 @@ namespace MyMediaVerse.IntegrationTests.Controllers
                 DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
             };
         }
+
+        public Task InitializeAsync() => _factory.ResetDatabaseAsync();
+
+        public Task DisposeAsync() => Task.CompletedTask;
 
         private StringContent CreateJsonContent(object data)
         {
