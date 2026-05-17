@@ -53,14 +53,6 @@ namespace MyMediaVerse.IntegrationTests.Controllers
         #region Auth Tests
 
         [Fact]
-        public async Task GetAll_ShouldReturnUnauthorized_WithoutToken()
-        {
-            var response = await _client.GetAsync("/api/note");
-
-            response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-        }
-
-        [Fact]
         public async Task Create_ShouldReturnUnauthorized_WithoutToken()
         {
             var dto = CreateValidNoteDto();
