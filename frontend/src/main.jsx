@@ -2,8 +2,11 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ErrorBoundary } from 'react-error-boundary'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import './index.css'
 import App from './App.jsx'
+import { queryClient } from './api/queryClient'
 
 function RootErrorFallback({ error }) {
   return (
@@ -27,7 +30,10 @@ function RootErrorFallback({ error }) {
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ErrorBoundary FallbackComponent={RootErrorFallback} onError={(error, info) => console.error('Top-level error:', error, info)}>
-      <App />
+      <QueryClientProvider client={queryClient}>
+        <App />
+        {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
+      </QueryClientProvider>
     </ErrorBoundary>
   </StrictMode>,
 )
