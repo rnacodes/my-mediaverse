@@ -30,18 +30,33 @@ import {
   Search as SearchIcon,
   AutoAwesome as AutoAwesomeIcon,
 } from '@mui/icons-material';
-import { searchByVibe } from '../api/recommendationService';
+import { useVibeSearch } from '../hooks/useRecommendation';
 import { formatMediaType } from '../utils/formatters';
 
 function SearchByVibePage() {
   const [query, setQuery] = useState('');
   const [mediaType, setMediaType] = useState('');
   const [limit, setLimit] = useState(20);
-  const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [viewMode, setViewMode] = useState('card');
-  const [hasSearched, setHasSearched] = useState(false);
+  const [validationError, setValidationError] = useState(null);
+
+  // Submitted-* mirror the active query — only changes on explicit submit.
+  const [submittedQuery, setSubmittedQuery] = useState('');
+  const [submittedMediaType, setSubmittedMediaType] = useState('');
+  const [submittedLimit, setSubmittedLimit] = useState(20);
+
+  const vibeQuery = useVibeSearch(submittedQuery, submittedMediaType || null, submittedLimit);
+  const results = vibeQuery.data ?? [];
+  const loading = vibeQuery.isFetching;
+  const hasSearched = !!submittedQuery;
+
+  const fetchError = vibeQuery.error;
+  const fetchErrorMessage = fetchError
+    ? (fetchError.response?.status === 503 || fetchError.response?.data?.message?.includes('unavailable')
+        ? 'Vibe search requires embeddings. Please generate embeddings in the AI Admin page first.'
+        : (fetchError.response?.data?.message || fetchError.message || 'Search failed'))
+    : null;
+  const error = validationError || fetchErrorMessage;
 
   const mediaTypes = [
     { value: '', label: 'All Types' },
@@ -54,30 +69,16 @@ function SearchByVibePage() {
     { value: 'Website', label: 'Websites' },
   ];
 
-  const handleSearch = async () => {
+  const handleSearch = () => {
     if (!query.trim()) {
-      setError('Please enter a description of what you\'re looking for');
+      setValidationError('Please enter a description of what you\'re looking for');
       return;
     }
 
-    setLoading(true);
-    setError(null);
-    setHasSearched(true);
-
-    try {
-      const searchResults = await searchByVibe(query, mediaType || null, limit);
-      setResults(searchResults || []);
-    } catch (err) {
-      console.error('Error searching by vibe:', err);
-      if (err.response?.status === 503 || err.response?.data?.message?.includes('unavailable')) {
-        setError('Vibe search requires embeddings. Please generate embeddings in the AI Admin page first.');
-      } else {
-        setError(err.response?.data?.message || err.message || 'Search failed');
-      }
-      setResults([]);
-    } finally {
-      setLoading(false);
-    }
+    setValidationError(null);
+    setSubmittedQuery(query);
+    setSubmittedMediaType(mediaType);
+    setSubmittedLimit(limit);
   };
 
   const handleKeyPress = (e) => {

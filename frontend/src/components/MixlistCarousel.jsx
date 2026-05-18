@@ -6,7 +6,7 @@ import {
 } from '@mui/material';
 import { PlaylistAdd, Search, Close } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { addMediaToMixlist } from '../api/mixlistService';
+import { useAddMediaToMixlist } from '../hooks/useMixlist';
 
 function MixlistCarousel({
   mediaItem,
@@ -22,6 +22,7 @@ function MixlistCarousel({
   const [mixlistSearchQuery, setMixlistSearchQuery] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
+  const addMediaMutation = useAddMediaToMixlist();
 
   const toggleMixlistSelection = useCallback((mixlistId) => {
     setSelectedMixlistIds(prev => {
@@ -48,7 +49,7 @@ function MixlistCarousel({
 
       for (const mixlistId of selectedMixlistIds) {
         try {
-          await addMediaToMixlist(mixlistId, mediaItem.id);
+          await addMediaMutation.mutateAsync({ mixlistId, mediaItemId: mediaItem.id });
           successCount++;
           const addedMixlist = availableMixlists.find(m => m.id === mixlistId);
           if (addedMixlist) addedMixlists.push(addedMixlist);
@@ -85,7 +86,7 @@ function MixlistCarousel({
         severity: 'error'
       });
     }
-  }, [selectedMixlistIds, mediaItem.id, setSnackbar, availableMixlists, setCurrentMixlists, setAvailableMixlists]);
+  }, [selectedMixlistIds, mediaItem.id, setSnackbar, availableMixlists, setCurrentMixlists, setAvailableMixlists, addMediaMutation]);
 
   const handleCloseMixlistDialog = useCallback(() => {
     setAddToMixlistDialog(false);

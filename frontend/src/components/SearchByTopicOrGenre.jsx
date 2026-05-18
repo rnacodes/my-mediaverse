@@ -1,125 +1,120 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Container, Typography, Box, Accordion, AccordionSummary, AccordionDetails, Chip, CircularProgress, Alert, Grid, Card, CardContent, Button, TextField, Dialog, DialogTitle, DialogContent, DialogActions, IconButton, DialogContentText } from '@mui/material';
 import { ExpandMore, Topic as TopicIcon, Category as GenreIcon, Add as AddIcon, Delete as DeleteIcon, CloudUpload as UploadIcon, Edit as EditIcon, PlaylistAdd } from '@mui/icons-material';
-import { getAllTopics, getAllGenres, createTopic, createGenre, deleteTopic, deleteGenre, updateTopic, updateGenre } from '../api/topicGenreService';
+import {
+    useAllTopics,
+    useAllGenres,
+    useCreateTopic,
+    useCreateGenre,
+    useDeleteTopic,
+    useDeleteGenre,
+    useUpdateTopic,
+    useUpdateGenre,
+} from '../hooks/useTopicGenre';
+
+const sortByName = (items) =>
+    [...items].sort((a, b) => (a.name || a.Name).localeCompare(b.name || b.Name));
 
 function SearchByTopicOrGenre() {
     const [expanded, setExpanded] = useState(false);
-    const [topics, setTopics] = useState([]);
-    const [genres, setGenres] = useState([]);
-    const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
-    
+
     // Dialog states
     const [openTopicDialog, setOpenTopicDialog] = useState(false);
     const [openGenreDialog, setOpenGenreDialog] = useState(false);
     const [newTopicName, setNewTopicName] = useState('');
     const [newGenreName, setNewGenreName] = useState('');
-    const [creating, setCreating] = useState(false);
-    
+
     // Delete dialog states
     const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
-    const [deleteTarget, setDeleteTarget] = useState(null); // { type: 'topic' | 'genre', id, name }
-    const [deleting, setDeleting] = useState(false);
+    const [deleteTarget, setDeleteTarget] = useState(null);
 
     // Edit dialog states
     const [openEditDialog, setOpenEditDialog] = useState(false);
-    const [editTarget, setEditTarget] = useState(null); // { type: 'topic' | 'genre', id, name }
+    const [editTarget, setEditTarget] = useState(null);
     const [editName, setEditName] = useState('');
-    const [editing, setEditing] = useState(false);
 
     const navigate = useNavigate();
 
-    useEffect(() => {
-        const loadData = async () => {
-            try {
-                setLoading(true);
-                const [topicsResponse, genresResponse] = await Promise.all([
-                    getAllTopics(),
-                    getAllGenres()
-                ]);
-                
-                setTopics(topicsResponse.data.sort((a, b) => (a.name || a.Name).localeCompare(b.name || b.Name)));
-                setGenres(genresResponse.data.sort((a, b) => (a.name || a.Name).localeCompare(b.name || b.Name)));
-            } catch (err) {
-                console.error('Error loading topics and genres:', err);
-                setError('Failed to load topics and genres');
-            } finally {
-                setLoading(false);
-            }
-        };
+    const topicsQuery = useAllTopics();
+    const genresQuery = useAllGenres();
+    const topics = useMemo(() => sortByName(topicsQuery.data ?? []), [topicsQuery.data]);
+    const genres = useMemo(() => sortByName(genresQuery.data ?? []), [genresQuery.data]);
+    const loading = topicsQuery.isLoading || genresQuery.isLoading;
 
-        loadData();
-    }, []);
+    const createTopicMutation = useCreateTopic();
+    const createGenreMutation = useCreateGenre();
+    const deleteTopicMutation = useDeleteTopic();
+    const deleteGenreMutation = useDeleteGenre();
+    const updateTopicMutation = useUpdateTopic();
+    const updateGenreMutation = useUpdateGenre();
+
+    const creating = createTopicMutation.isPending || createGenreMutation.isPending;
+    const deleting = deleteTopicMutation.isPending || deleteGenreMutation.isPending;
+    const editing = updateTopicMutation.isPending || updateGenreMutation.isPending;
 
     const handleAccordionChange = (panel) => (event, isExpanded) => {
         setExpanded(isExpanded ? panel : false);
     };
 
     const handleTopicClick = (topic) => {
-        // Navigate to unified search with topic filter
         navigate(`/search?topics=${encodeURIComponent(topic.name || topic.Name)}`);
     };
 
     const handleGenreClick = (genre) => {
-        // Navigate to unified search with genre filter
         navigate(`/search?genres=${encodeURIComponent(genre.name || genre.Name)}`);
     };
 
-    const handleCreateTopic = async () => {
+    const handleCreateTopic = () => {
         if (!newTopicName.trim()) {
             setError('Topic name cannot be empty');
             return;
         }
 
-        setCreating(true);
         setError('');
         setSuccess('');
 
-        try {
-            await createTopic({ name: newTopicName.trim() });
-            setSuccess(`Topic "${newTopicName}" created successfully!`);
-            setNewTopicName('');
-            setOpenTopicDialog(false);
-            
-            // Refresh the topics list
-            const topicsResponse = await getAllTopics();
-            setTopics(topicsResponse.data.sort((a, b) => (a.name || a.Name).localeCompare(b.name || b.Name)));
-        } catch (err) {
-            console.error('Error creating topic:', err);
-            setError(err.response?.data?.message || 'Failed to create topic');
-        } finally {
-            setCreating(false);
-        }
+        createTopicMutation.mutate(
+            { name: newTopicName.trim() },
+            {
+                onSuccess: () => {
+                    setSuccess(`Topic "${newTopicName}" created successfully!`);
+                    setNewTopicName('');
+                    setOpenTopicDialog(false);
+                },
+                onError: (err) => {
+                    console.error('Error creating topic:', err);
+                    setError(err.response?.data?.message || 'Failed to create topic');
+                },
+            }
+        );
     };
 
-    const handleCreateGenre = async () => {
+    const handleCreateGenre = () => {
         if (!newGenreName.trim()) {
             setError('Genre name cannot be empty');
             return;
         }
 
-        setCreating(true);
         setError('');
         setSuccess('');
 
-        try {
-            await createGenre({ name: newGenreName.trim() });
-            setSuccess(`Genre "${newGenreName}" created successfully!`);
-            setNewGenreName('');
-            setOpenGenreDialog(false);
-            
-            // Refresh the genres list
-            const genresResponse = await getAllGenres();
-            setGenres(genresResponse.data.sort((a, b) => (a.name || a.Name).localeCompare(b.name || b.Name)));
-        } catch (err) {
-            console.error('Error creating genre:', err);
-            setError(err.response?.data?.message || 'Failed to create genre');
-        } finally {
-            setCreating(false);
-        }
+        createGenreMutation.mutate(
+            { name: newGenreName.trim() },
+            {
+                onSuccess: () => {
+                    setSuccess(`Genre "${newGenreName}" created successfully!`);
+                    setNewGenreName('');
+                    setOpenGenreDialog(false);
+                },
+                onError: (err) => {
+                    console.error('Error creating genre:', err);
+                    setError(err.response?.data?.message || 'Failed to create genre');
+                },
+            }
+        );
     };
 
     const handleDeleteClick = (type, item) => {
@@ -132,39 +127,27 @@ function SearchByTopicOrGenre() {
         setOpenDeleteDialog(true);
     };
 
-    const handleConfirmDelete = async () => {
+    const handleConfirmDelete = () => {
         if (!deleteTarget) return;
 
-        setDeleting(true);
         setError('');
         setSuccess('');
 
-        try {
-            if (deleteTarget.type === 'topic') {
-                await deleteTopic(deleteTarget.id);
-                setSuccess(`Topic "${deleteTarget.name}" deleted successfully!`);
-                
-                // Refresh the topics list
-                const topicsResponse = await getAllTopics();
-                setTopics(topicsResponse.data.sort((a, b) => (a.name || a.Name).localeCompare(b.name || b.Name)));
-            } else {
-                await deleteGenre(deleteTarget.id);
-                setSuccess(`Genre "${deleteTarget.name}" deleted successfully!`);
-                
-                // Refresh the genres list
-                const genresResponse = await getAllGenres();
-                setGenres(genresResponse.data.sort((a, b) => (a.name || a.Name).localeCompare(b.name || b.Name)));
-            }
-            
-            setOpenDeleteDialog(false);
-            setDeleteTarget(null);
-        } catch (err) {
-            console.error(`Error deleting ${deleteTarget.type}:`, err);
-            const errorMessage = err.response?.data?.message || err.response?.data || `Failed to delete ${deleteTarget.type}`;
-            setError(errorMessage);
-        } finally {
-            setDeleting(false);
-        }
+        const mutation = deleteTarget.type === 'topic' ? deleteTopicMutation : deleteGenreMutation;
+        const label = deleteTarget.type === 'topic' ? 'Topic' : 'Genre';
+
+        mutation.mutate(deleteTarget.id, {
+            onSuccess: () => {
+                setSuccess(`${label} "${deleteTarget.name}" deleted successfully!`);
+                setOpenDeleteDialog(false);
+                setDeleteTarget(null);
+            },
+            onError: (err) => {
+                console.error(`Error deleting ${deleteTarget.type}:`, err);
+                const errorMessage = err.response?.data?.message || err.response?.data || `Failed to delete ${deleteTarget.type}`;
+                setError(errorMessage);
+            },
+        });
     };
 
     const handleCancelDelete = () => {
@@ -182,40 +165,35 @@ function SearchByTopicOrGenre() {
         setOpenEditDialog(true);
     };
 
-    const handleConfirmEdit = async () => {
+    const handleConfirmEdit = () => {
         if (!editTarget || !editName.trim()) return;
 
-        setEditing(true);
         setError('');
         setSuccess('');
 
-        try {
-            if (editTarget.type === 'topic') {
-                await updateTopic(editTarget.id, { name: editName.trim() });
-                setSuccess(`Topic renamed to "${editName.trim()}" successfully!`);
+        const trimmedName = editName.trim();
+        const isTopic = editTarget.type === 'topic';
+        const mutation = isTopic ? updateTopicMutation : updateGenreMutation;
+        const idField = isTopic ? 'topicId' : 'genreId';
+        const dataField = isTopic ? 'topicData' : 'genreData';
+        const label = isTopic ? 'Topic' : 'Genre';
 
-                // Refresh the topics list
-                const topicsResponse = await getAllTopics();
-                setTopics(topicsResponse.data.sort((a, b) => (a.name || a.Name).localeCompare(b.name || b.Name)));
-            } else {
-                await updateGenre(editTarget.id, { name: editName.trim() });
-                setSuccess(`Genre renamed to "${editName.trim()}" successfully!`);
-
-                // Refresh the genres list
-                const genresResponse = await getAllGenres();
-                setGenres(genresResponse.data.sort((a, b) => (a.name || a.Name).localeCompare(b.name || b.Name)));
+        mutation.mutate(
+            { [idField]: editTarget.id, [dataField]: { name: trimmedName } },
+            {
+                onSuccess: () => {
+                    setSuccess(`${label} renamed to "${trimmedName}" successfully!`);
+                    setOpenEditDialog(false);
+                    setEditTarget(null);
+                    setEditName('');
+                },
+                onError: (err) => {
+                    console.error(`Error updating ${editTarget.type}:`, err);
+                    const errorMessage = err.response?.data?.message || err.response?.data || `Failed to update ${editTarget.type}`;
+                    setError(errorMessage);
+                },
             }
-
-            setOpenEditDialog(false);
-            setEditTarget(null);
-            setEditName('');
-        } catch (err) {
-            console.error(`Error updating ${editTarget.type}:`, err);
-            const errorMessage = err.response?.data?.message || err.response?.data || `Failed to update ${editTarget.type}`;
-            setError(errorMessage);
-        } finally {
-            setEditing(false);
-        }
+        );
     };
 
     const handleCancelEdit = () => {

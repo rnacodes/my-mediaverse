@@ -9,9 +9,9 @@ import { MediaCard } from './search/MediaCard';
 import { MediaListItem } from './search/MediaListItem';
 import { typesenseAdvancedSearch, typesenseAdvancedSearchMixlists, searchHighlights } from '../api/typesenseService';
 import { searchNotes } from '../api/noteService';
-import { getAllTopics, getAllGenres } from '../api/topicGenreService';
-import { getAllMixlists, addMediaToMixlist } from '../api/mixlistService';
-import { bulkDeleteMedia } from '../api/mediaService';
+import { useAllTopics, useAllGenres } from '../hooks/useTopicGenre';
+import { useAllMixlists, useAddMediaToMixlist } from '../hooks/useMixlist';
+import { useBulkDeleteMedia } from '../hooks/useMedia';
 
 
 
@@ -80,12 +80,15 @@ export default function Search() {
         setSelectedItems(new Set());
     };
 
+    // Mutations
+    const bulkDeleteMutation = useBulkDeleteMedia();
+    const addMediaToMixlistMutation = useAddMediaToMixlist();
+
     // Bulk delete handler
     const handleBulkDelete = async () => {
+        const idsArray = Array.from(selectedItems);
         try {
-            setDeleting(true);
-            const idsArray = Array.from(selectedItems);
-            await bulkDeleteMedia(idsArray);
+            await bulkDeleteMutation.mutateAsync(idsArray);
 
             setSnackbar({
                 open: true,
@@ -104,7 +107,6 @@ export default function Search() {
                 severity: 'error'
             });
         } finally {
-            setDeleting(false);
             setDeleteDialogOpen(false);
         }
     };
@@ -113,13 +115,13 @@ export default function Search() {
     const handleAddToMixlist = async () => {
         if (!selectedMixlistForAdd) return;
 
+        const idsArray = Array.from(selectedItems);
         try {
-            setAddingToMixlist(true);
-            const idsArray = Array.from(selectedItems);
-
-            // Add each selected item to the mixlist
             for (const mediaId of idsArray) {
-                await addMediaToMixlist(selectedMixlistForAdd, mediaId);
+                await addMediaToMixlistMutation.mutateAsync({
+                    mixlistId: selectedMixlistForAdd,
+                    mediaItemId: mediaId,
+                });
             }
 
             setSnackbar({
@@ -138,31 +140,17 @@ export default function Search() {
                 severity: 'error'
             });
         } finally {
-            setAddingToMixlist(false);
             setAddToMixlistDialogOpen(false);
         }
     };
 
-    // Open add to mixlist dialog and fetch mixlists
-    const openAddToMixlistDialog = async () => {
-        try {
-            const response = await getAllMixlists();
-            setAvailableMixlists(response.data || []);
-            setAddToMixlistDialogOpen(true);
-        } catch (error) {
-            console.error('Failed to fetch mixlists:', error);
-            setSnackbar({
-                open: true,
-                message: 'Failed to load mixlists',
-                severity: 'error'
-            });
-        }
+    // Open add to mixlist dialog — mixlists are auto-fetched by useAllMixlists when dialog opens.
+    const openAddToMixlistDialog = () => {
+        setAddToMixlistDialogOpen(true);
     };
 
     // Data state
     const [searchResults, setSearchResults] = useState([]);
-    const [allTopics, setAllTopics] = useState([]);
-    const [allGenres, setAllGenres] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [totalResults, setTotalResults] = useState(0);
@@ -173,11 +161,20 @@ export default function Search() {
     // Bulk actions state
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [addToMixlistDialogOpen, setAddToMixlistDialogOpen] = useState(false);
-    const [deleting, setDeleting] = useState(false);
-    const [addingToMixlist, setAddingToMixlist] = useState(false);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-    const [availableMixlists, setAvailableMixlists] = useState([]);
     const [selectedMixlistForAdd, setSelectedMixlistForAdd] = useState('');
+
+    // Filter/dialog data loaded via TanStack Query.
+    const topicsQuery = useAllTopics();
+    const genresQuery = useAllGenres();
+    const allTopics = (topicsQuery.data ?? []).map((t) => t.name);
+    const allGenres = (genresQuery.data ?? []).map((g) => g.name);
+
+    const mixlistsQuery = useAllMixlists({ enabled: addToMixlistDialogOpen });
+    const availableMixlists = mixlistsQuery.data ?? [];
+
+    const deleting = bulkDeleteMutation.isPending;
+    const addingToMixlist = addMediaToMixlistMutation.isPending;
 
     // Load URL parameters on mount
     useEffect(() => {
@@ -201,23 +198,6 @@ export default function Search() {
 
         loadUrlParams();
     }, [searchParams]);
-
-    // Fetch topics and genres on mount
-    useEffect(() => {
-        const fetchFiltersData = async () => {
-            try {
-                const [topicsResponse, genresResponse] = await Promise.all([
-                    getAllTopics(),
-                    getAllGenres()
-                ]);
-                setAllTopics(topicsResponse.data.map(t => t.name));
-                setAllGenres(genresResponse.data.map(g => g.name));
-            } catch (err) {
-                console.error('Error fetching filter data:', err);
-            }
-        };
-        fetchFiltersData();
-    }, []);
 
     // Perform search when filters change (but wait for URL params to load first)
     useEffect(() => {

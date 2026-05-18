@@ -1,9 +1,42 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Container, Box, Typography, Grid, Card, CardMedia, CardContent, Button, useTheme, CircularProgress } from '@mui/material';
 import { Book, Movie, Tv, Article, LibraryMusic, Podcasts, SportsEsports, YouTube, Language, MenuBook, AutoAwesome, AddCircleOutline, BookmarkAdd, ArrowForwardIos, NoteAlt, ImportExport, Topic, LocalLibrary, Apps, FormatQuote } from '@mui/icons-material';
-import { getAllMixlists, seedMixlists } from '../api/mixlistService';
+import { useAllMixlists, useSeedMixlists } from '../hooks/useMixlist';
+import { useAllMedia } from '../hooks/useMedia';
+import { getAllMixlists } from '../api/mixlistService';
 import { getAllMedia } from '../api/mediaService';
+
+const REQUEST_TIMEOUT_MS = 30000;
+const MAX_RETRIES = 2;
+
+// Race the query against a timeout so a hung server surfaces as a retryable error
+// instead of leaving the UI on a permanent spinner (cold-start protection).
+const withTimeout = (promise) => Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), REQUEST_TIMEOUT_MS)),
+]);
+
+const isRetryableError = (error) =>
+    error?.message === 'TIMEOUT' ||
+    error?.code === 'ERR_NETWORK' ||
+    error?.message === 'Network Error';
+
+const getErrorMessage = (error, context) => {
+    if (error?.message === 'TIMEOUT') {
+        return 'Request timed out. The server may still be starting up — please try again.';
+    }
+    if (error?.code === 'ERR_NETWORK' || error?.message === 'Network Error') {
+        return 'Unable to connect to the server. Please make sure the backend API is running.';
+    }
+    if (error?.response?.status === 404) {
+        return 'API endpoint not found. Please check the backend configuration.';
+    }
+    if (error?.response?.status >= 500) {
+        return 'Server error occurred. Please try again later.';
+    }
+    return `Failed to load ${context}. Please check your connection.`;
+};
 
 // MOCK DATA
 const mainMediaIcons = [
@@ -92,90 +125,46 @@ const Section = ({ title, children }) => (
 export default function HomePage() {
   const theme = useTheme();
   const navigate = useNavigate();
-  const [mixlists, setMixlists] = useState([]);
-  const [mixlistsLoading, setMixlistsLoading] = useState(true);
-  const [mixlistsError, setMixlistsError] = useState(null);
-  const [activelyExploringMedia, setActivelyExploringMedia] = useState([]);
-  const [activelyExploringLoading, setActivelyExploringLoading] = useState(true);
-  const [activelyExploringError, setActivelyExploringError] = useState(null);
-  const [wakingUp, setWakingUp] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    const TIMEOUT_MS = 30000;
-    const MAX_RETRIES = 2;
+  const sharedQueryOptions = {
+    retry: (failureCount, error) => isRetryableError(error) && failureCount < MAX_RETRIES,
+    refetchOnWindowFocus: false,
+  };
 
-    const fetchWithRetry = async (apiFn, onSuccess, onError, attempt = 0) => {
-      try {
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('TIMEOUT')), TIMEOUT_MS)
-        );
-        const response = await Promise.race([apiFn(), timeoutPromise]);
-        if (!cancelled) onSuccess(response);
-      } catch (error) {
-        if (cancelled) return;
-        const isRetryable = error.message === 'TIMEOUT' ||
-          error.code === 'ERR_NETWORK' || error.message === 'Network Error';
+  // Override queryFn to add a per-request timeout race so cold-starts surface as
+  // retryable errors. Cache key still matches the shared one from useAllMixlists/useAllMedia.
+  const mixlistsQuery = useAllMixlists({
+    ...sharedQueryOptions,
+    queryFn: async () => withTimeout(getAllMixlists().then((r) => r.data)),
+  });
 
-        if (isRetryable && attempt < MAX_RETRIES) {
-          setWakingUp(true);
-          return fetchWithRetry(apiFn, onSuccess, onError, attempt + 1);
-        }
-        onError(error);
-      }
-    };
+  const mediaQuery = useAllMedia({
+    ...sharedQueryOptions,
+    queryFn: async () => withTimeout(getAllMedia().then((r) => r.data)),
+  });
 
-    const getErrorMessage = (error, context) => {
-      if (error.message === 'TIMEOUT') {
-        return `Request timed out. The server may still be starting up — please try again.`;
-      } else if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
-        return "Unable to connect to the server. Please make sure the backend API is running.";
-      } else if (error.response?.status === 404) {
-        return "API endpoint not found. Please check the backend configuration.";
-      } else if (error.response?.status >= 500) {
-        return "Server error occurred. Please try again later.";
-      }
-      return `Failed to load ${context}. Please check your connection.`;
-    };
+  const mixlists = mixlistsQuery.data ?? [];
+  const mixlistsLoading = mixlistsQuery.isLoading;
+  const mixlistsError = mixlistsQuery.error ? getErrorMessage(mixlistsQuery.error, 'mixlists') : null;
+  // `isFetching` plus `failureCount` tells us a retry is in flight — surface "waking up the server".
+  const wakingUp = (mixlistsQuery.isFetching && mixlistsQuery.failureCount > 0)
+    || (mediaQuery.isFetching && mediaQuery.failureCount > 0);
 
-    fetchWithRetry(
-      getAllMixlists,
-      (response) => {
-        setMixlists(response.data);
-        setMixlistsLoading(false);
-        setWakingUp(false);
-      },
-      (error) => {
-        console.error("Error fetching mixlists:", error);
-        setWakingUp(false);
-        setMixlistsError(getErrorMessage(error, "mixlists"));
-        setMixlistsLoading(false);
-      }
-    );
+  const activelyExploringMedia = useMemo(() => {
+    const items = mediaQuery.data ?? [];
+    return items.filter((item) => {
+      const status = item.status || item.Status;
+      return status && (
+        status.toLowerCase() === 'actively exploring' ||
+        status.toLowerCase() === 'activelyexploring' ||
+        status.toLowerCase() === 'inprogress'
+      );
+    });
+  }, [mediaQuery.data]);
+  const activelyExploringLoading = mediaQuery.isLoading;
+  const activelyExploringError = mediaQuery.error ? getErrorMessage(mediaQuery.error, 'actively exploring media') : null;
 
-    fetchWithRetry(
-      getAllMedia,
-      (response) => {
-        const activelyExploring = response.data.filter(item => {
-          const status = item.status || item.Status;
-          return status && (
-            status.toLowerCase() === 'actively exploring' ||
-            status.toLowerCase() === 'activelyexploring' ||
-            status.toLowerCase() === 'inprogress'
-          );
-        });
-        setActivelyExploringMedia(activelyExploring);
-        setActivelyExploringLoading(false);
-      },
-      (error) => {
-        console.error("Error fetching actively exploring media:", error);
-        setActivelyExploringError(getErrorMessage(error, "actively exploring media"));
-        setActivelyExploringLoading(false);
-      }
-    );
-
-    return () => { cancelled = true; };
-  }, []);
+  const seedMutation = useSeedMixlists();
 
   const handleCreateMixlist = () => {
     navigate('/create-mixlist', { state: { returnTo: '/' } });
@@ -197,18 +186,10 @@ export default function HomePage() {
     navigate('/sources');
   };
 
-  const handleSeedMixlists = async () => {
-    try {
-      setMixlistsLoading(true);
-      await seedMixlists();
-      // Refresh the mixlists after seeding
-      const response = await getAllMixlists();
-      setMixlists(response.data);
-    } catch (error) {
-      console.error("Error seeding mixlists:", error);
-    } finally {
-      setMixlistsLoading(false);
-    }
+  const handleSeedMixlists = () => {
+    seedMutation.mutate(undefined, {
+      onError: (error) => console.error('Error seeding mixlists:', error),
+    });
   };
   
   return (
