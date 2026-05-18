@@ -13,7 +13,7 @@ using MyMediaVerse.Shared.DTOs.GoogleBooks;
 using MyMediaVerse.UnitTests.TestData;
 using Xunit;
 
-namespace MyMediaVerse.IntegrationTests.Controllers
+namespace MyMediaVerse.IntegrationTests.Api
 {
     [Trait("Category", "Integration")]
     [Collection("Database")]

@@ -9,7 +9,7 @@ namespace MyMediaVerse.IntegrationTests.Fixtures
 {
     /// <summary>
     /// Standalone Postgres + pgvector fixture for non-HTTP infrastructure tests
-    /// (repositories, EF behaviour, vector search, jsonb queries). No WebApplicationFactory.
+    /// (repositories, EF behaviour, vector search, jsonb queries).
     ///
     /// Use via <c>[Collection("Database")]</c> + constructor injection so the same container
     /// is shared across the run. Reset between tests with <see cref="ResetAsync"/>.

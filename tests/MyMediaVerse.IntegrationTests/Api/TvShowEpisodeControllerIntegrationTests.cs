@@ -6,7 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace MyMediaVerse.IntegrationTests.Controllers
+namespace MyMediaVerse.IntegrationTests.Api
 {
     [Trait("Category", "Integration")]
     [Collection("Database")]

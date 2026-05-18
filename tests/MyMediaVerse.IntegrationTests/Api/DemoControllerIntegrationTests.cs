@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 using MyMediaVerse.IntegrationTests.Fixtures;
 using Xunit;
 
-namespace MyMediaVerse.IntegrationTests.Controllers
+namespace MyMediaVerse.IntegrationTests.Api
 {
     [Trait("Category", "Integration")]
     [Collection("Database")]

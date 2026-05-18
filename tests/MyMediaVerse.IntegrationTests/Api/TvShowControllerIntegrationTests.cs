@@ -10,7 +10,7 @@ using MyMediaVerse.Shared.DTOs.TMDB;
 using NSubstitute;
 using Xunit;
 
-namespace MyMediaVerse.IntegrationTests.Controllers
+namespace MyMediaVerse.IntegrationTests.Api
 {
     [Trait("Category", "Integration")]
     [Collection("Database")]

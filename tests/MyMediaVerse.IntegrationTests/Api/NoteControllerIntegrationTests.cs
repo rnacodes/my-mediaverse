@@ -8,7 +8,7 @@ using MyMediaVerse.IntegrationTests.Fixtures;
 using MyMediaVerse.IntegrationTests.Helpers;
 using MyMediaVerse.UnitTests.TestData;
 
-namespace MyMediaVerse.IntegrationTests.Controllers
+namespace MyMediaVerse.IntegrationTests.Api
 {
     [Trait("Category", "Integration")]
     [Collection("Database")]

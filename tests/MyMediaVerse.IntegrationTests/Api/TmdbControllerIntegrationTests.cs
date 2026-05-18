@@ -11,7 +11,7 @@ using MyMediaVerse.IntegrationTests.Fixtures;
 using MyMediaVerse.Shared.DTOs.TMDB;
 using MyMediaVerse.UnitTests.TestData;
 
-namespace MyMediaVerse.IntegrationTests.Controllers
+namespace MyMediaVerse.IntegrationTests.Api
 {
     [Trait("Category", "Integration")]
     [Collection("Database")]

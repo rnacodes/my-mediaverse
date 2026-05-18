@@ -18,7 +18,6 @@ namespace MyMediaVerse.IntegrationTests.Fixtures
 {
     /// <summary>
     /// HTTP integration test factory backed by a real PostgreSQL container with pgvector.
-    /// Replaces the in-memory <c>WebApplicationFactory</c> from Phase 1.0.
     ///
     /// Lifecycle:
     /// - <c>InitializeAsync</c> starts the container, builds the host, runs EF migrations,
@@ -117,8 +116,7 @@ namespace MyMediaVerse.IntegrationTests.Fixtures
             builder.ConfigureTestServices(services =>
             {
                 // Drop any DbContext registrations Program.cs may have added (it short-circuits
-                // under "Testing", so this is defensive — the legacy WebApplicationFactory also
-                // ran this loop and we want ApiFactory to be safe regardless of how that path evolves).
+                // under "Testing", so this is defensive).
                 var dbContextDescriptors = services.Where(d =>
                     d.ServiceType == typeof(DbContextOptions<MediaLibraryDbContext>) ||
                     d.ServiceType == typeof(MediaLibraryDbContext) ||
@@ -178,10 +176,9 @@ namespace MyMediaVerse.IntegrationTests.Fixtures
         /// returns a client paired with the mock so tests can both drive HTTP calls and verify
         /// invocations (e.g. <c>mock.Received(1).DoX(...)</c>).
         ///
-        /// Replaces the per-test <c>WithWebHostBuilder(...)</c> + manual descriptor swap pattern used
-        /// before Phase 2.4. Each call produces a fresh substitute and a fresh child host — the
-        /// underlying Postgres container is still shared via the collection fixture, so DB state is
-        /// preserved across the swap (reset between tests via <see cref="ResetDatabaseAsync"/>).
+        /// Each call produces a fresh substitute and a fresh child host — the underlying Postgres
+        /// container is still shared via the collection fixture, so DB state is preserved across
+        /// the swap (reset between tests via <see cref="ResetDatabaseAsync"/>).
         /// </summary>
         public (HttpClient Client, T Mock) CreateClientWithSubstitute<T>(Action<T>? configure = null)
             where T : class

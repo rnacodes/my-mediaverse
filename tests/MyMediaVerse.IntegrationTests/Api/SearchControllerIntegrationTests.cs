@@ -5,7 +5,7 @@ using FluentAssertions;
 using MyMediaVerse.IntegrationTests.Fixtures;
 using MyMediaVerse.IntegrationTests.Helpers;
 
-namespace MyMediaVerse.IntegrationTests.Controllers
+namespace MyMediaVerse.IntegrationTests.Api
 {
     [Trait("Category", "Integration")]
     [Collection("Database")]
