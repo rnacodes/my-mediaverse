@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Box, Typography, Chip, Button, Card, CardContent, Dialog,
@@ -7,8 +7,8 @@ import {
 } from '@mui/material';
 import { useMediaQuery, useTheme } from '@mui/material';
 import { Topic as TopicIcon, Category as GenreIcon, Search, Close } from '@mui/icons-material';
-import { getAllTopics, getAllGenres, createTopic, createGenre } from '../api/topicGenreService';
-import { updateMediaTopicsGenres } from '../api/mediaService';
+import { useAllTopics, useAllGenres, useCreateTopic, useCreateGenre } from '../hooks/useTopicGenre';
+import { useUpdateMediaTopicsGenres } from '../hooks/useMedia';
 
 function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
     const navigate = useNavigate();
@@ -24,14 +24,6 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
     // State for inline create
     const [newTopicName, setNewTopicName] = useState('');
     const [newGenreName, setNewGenreName] = useState('');
-    const [creating, setCreating] = useState(false);
-
-    // State for available topics/genres
-    const [availableTopics, setAvailableTopics] = useState([]);
-    const [availableGenres, setAvailableGenres] = useState([]);
-    const [loadingTopics, setLoadingTopics] = useState(false);
-    const [loadingGenres, setLoadingGenres] = useState(false);
-    const [saving, setSaving] = useState(false);
 
     // Extract current topics and genres from mediaItem
     const currentTopics = (mediaItem?.topics || mediaItem?.topicNames || []).map(t =>
@@ -42,42 +34,24 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
         typeof g === 'string' ? g : (g?.name || g?.Name || '')
     ).filter(Boolean);
 
-    // Fetch available topics when dialog opens
-    const fetchTopics = useCallback(async () => {
-        setLoadingTopics(true);
-        try {
-            const response = await getAllTopics();
-            setAvailableTopics(response.data || []);
-        } catch (error) {
-            console.error('Error fetching topics:', error);
-        } finally {
-            setLoadingTopics(false);
-        }
-    }, []);
+    // Queries — fetched lazily once the relevant dialog is open
+    const topicsQuery = useAllTopics({ enabled: addTopicDialog });
+    const genresQuery = useAllGenres({ enabled: addGenreDialog });
+    const availableTopics = topicsQuery.data ?? [];
+    const availableGenres = genresQuery.data ?? [];
+    const loadingTopics = topicsQuery.isLoading;
+    const loadingGenres = genresQuery.isLoading;
 
-    // Fetch available genres when dialog opens
-    const fetchGenres = useCallback(async () => {
-        setLoadingGenres(true);
-        try {
-            const response = await getAllGenres();
-            setAvailableGenres(response.data || []);
-        } catch (error) {
-            console.error('Error fetching genres:', error);
-        } finally {
-            setLoadingGenres(false);
-        }
-    }, []);
+    // Mutations
+    const updateTopicsGenresMutation = useUpdateMediaTopicsGenres();
+    const createTopicMutation = useCreateTopic();
+    const createGenreMutation = useCreateGenre();
+    const saving = updateTopicsGenresMutation.isPending;
+    const creating = createTopicMutation.isPending || createGenreMutation.isPending;
 
     // Open dialogs
-    const handleOpenTopicDialog = () => {
-        setAddTopicDialog(true);
-        fetchTopics();
-    };
-
-    const handleOpenGenreDialog = () => {
-        setAddGenreDialog(true);
-        fetchGenres();
-    };
+    const handleOpenTopicDialog = () => setAddTopicDialog(true);
+    const handleOpenGenreDialog = () => setAddGenreDialog(true);
 
     // Close dialogs
     const handleCloseTopicDialog = () => {
@@ -110,6 +84,9 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
         );
     };
 
+    const persistTopicsGenres = (topics, genres) =>
+        updateTopicsGenresMutation.mutateAsync({ mediaId: mediaItem.id, topics, genres });
+
     // Add selected topics to media item
     const handleAddTopics = async () => {
         if (selectedTopicIds.length === 0) {
@@ -117,7 +94,6 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
             return;
         }
 
-        setSaving(true);
         try {
             const selectedNames = selectedTopicIds.map(id => {
                 const topic = availableTopics.find(t => (t.id || t.Id) === id);
@@ -125,7 +101,7 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
             }).filter(Boolean);
             const newTopics = [...currentTopics, ...selectedNames];
 
-            await updateMediaTopicsGenres(mediaItem.id, newTopics, currentGenres);
+            await persistTopicsGenres(newTopics, currentGenres);
             const count = selectedNames.length;
             setSnackbar?.({ open: true, message: `Added ${count} topic${count > 1 ? 's' : ''}`, severity: 'success' });
             handleCloseTopicDialog();
@@ -133,8 +109,6 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
         } catch (error) {
             console.error('Error adding topics:', error);
             setSnackbar?.({ open: true, message: 'Failed to add topics', severity: 'error' });
-        } finally {
-            setSaving(false);
         }
     };
 
@@ -145,7 +119,6 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
             return;
         }
 
-        setSaving(true);
         try {
             const selectedNames = selectedGenreIds.map(id => {
                 const genre = availableGenres.find(g => (g.id || g.Id) === id);
@@ -153,7 +126,7 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
             }).filter(Boolean);
             const newGenres = [...currentGenres, ...selectedNames];
 
-            await updateMediaTopicsGenres(mediaItem.id, currentTopics, newGenres);
+            await persistTopicsGenres(currentTopics, newGenres);
             const count = selectedNames.length;
             setSnackbar?.({ open: true, message: `Added ${count} genre${count > 1 ? 's' : ''}`, severity: 'success' });
             handleCloseGenreDialog();
@@ -161,40 +134,32 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
         } catch (error) {
             console.error('Error adding genres:', error);
             setSnackbar?.({ open: true, message: 'Failed to add genres', severity: 'error' });
-        } finally {
-            setSaving(false);
         }
     };
 
     // Remove topic from media item
     const handleRemoveTopic = async (topicToRemove) => {
-        setSaving(true);
         try {
             const newTopics = currentTopics.filter(t => t !== topicToRemove);
-            await updateMediaTopicsGenres(mediaItem.id, newTopics, currentGenres);
+            await persistTopicsGenres(newTopics, currentGenres);
             setSnackbar?.({ open: true, message: `Removed topic "${topicToRemove}"`, severity: 'success' });
             onUpdate?.();
         } catch (error) {
             console.error('Error removing topic:', error);
             setSnackbar?.({ open: true, message: 'Failed to remove topic', severity: 'error' });
-        } finally {
-            setSaving(false);
         }
     };
 
     // Remove genre from media item
     const handleRemoveGenre = async (genreToRemove) => {
-        setSaving(true);
         try {
             const newGenres = currentGenres.filter(g => g !== genreToRemove);
-            await updateMediaTopicsGenres(mediaItem.id, currentTopics, newGenres);
+            await persistTopicsGenres(currentTopics, newGenres);
             setSnackbar?.({ open: true, message: `Removed genre "${genreToRemove}"`, severity: 'success' });
             onUpdate?.();
         } catch (error) {
             console.error('Error removing genre:', error);
             setSnackbar?.({ open: true, message: 'Failed to remove genre', severity: 'error' });
-        } finally {
-            setSaving(false);
         }
     };
 
@@ -203,14 +168,12 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
         const name = newTopicName.trim().toLowerCase();
         if (!name) return;
 
-        setCreating(true);
         try {
-            const response = await createTopic({ name });
-            const createdTopic = response.data;
+            const createdTopic = await createTopicMutation.mutateAsync({ name });
             const topicName = createdTopic?.name || createdTopic?.Name || name;
             const newTopics = [...currentTopics, topicName];
 
-            await updateMediaTopicsGenres(mediaItem.id, newTopics, currentGenres);
+            await persistTopicsGenres(newTopics, currentGenres);
             setSnackbar?.({ open: true, message: `Created and added topic "${topicName}"`, severity: 'success' });
             setNewTopicName('');
             handleCloseTopicDialog();
@@ -219,8 +182,6 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
             console.error('Error creating topic:', error);
             const msg = error.response?.data?.error || error.response?.data?.message || 'Failed to create topic';
             setSnackbar?.({ open: true, message: msg, severity: 'error' });
-        } finally {
-            setCreating(false);
         }
     };
 
@@ -229,14 +190,12 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
         const name = newGenreName.trim().toLowerCase();
         if (!name) return;
 
-        setCreating(true);
         try {
-            const response = await createGenre({ name });
-            const createdGenre = response.data;
+            const createdGenre = await createGenreMutation.mutateAsync({ name });
             const genreName = createdGenre?.name || createdGenre?.Name || name;
             const newGenres = [...currentGenres, genreName];
 
-            await updateMediaTopicsGenres(mediaItem.id, currentTopics, newGenres);
+            await persistTopicsGenres(currentTopics, newGenres);
             setSnackbar?.({ open: true, message: `Created and added genre "${genreName}"`, severity: 'success' });
             setNewGenreName('');
             handleCloseGenreDialog();
@@ -245,8 +204,6 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
             console.error('Error creating genre:', error);
             const msg = error.response?.data?.error || error.response?.data?.message || 'Failed to create genre';
             setSnackbar?.({ open: true, message: msg, severity: 'error' });
-        } finally {
-            setCreating(false);
         }
     };
 

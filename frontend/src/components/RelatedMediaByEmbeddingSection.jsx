@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import {
   Box,
@@ -20,50 +20,27 @@ import {
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
 } from '@mui/icons-material';
-import { getMediaForNote as getRecommendedMediaForNote } from '../api/recommendationService';
+import { useMediaForNoteByEmbedding } from '../hooks/useRecommendation';
 import { formatMediaType } from '../utils/formatters';
 
 function RelatedMediaByEmbeddingSection({ note }) {
-  const [relatedMedia, setRelatedMedia] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [hasEmbedding, setHasEmbedding] = useState(true);
   const [expanded, setExpanded] = useState(false);
-  const [hasFetched, setHasFetched] = useState(false);
 
-  const fetchRelatedMedia = useCallback(async () => {
-    if (!note?.id) return;
+  const query = useMediaForNoteByEmbedding(note?.id, 8, null, { enabled: !!note?.id && expanded });
+  const relatedMedia = query.data ?? [];
+  const loading = query.isFetching;
+  const hasFetched = query.isFetched;
 
-    setLoading(true);
-    setError(null);
-
-    try {
-      const media = await getRecommendedMediaForNote(note.id, 8);
-      setRelatedMedia(media || []);
-      setHasEmbedding(true);
-      setHasFetched(true);
-    } catch (err) {
-      console.error('Error fetching related media:', err);
-      // Check if error is due to missing embedding
-      if (err.response?.status === 400 || err.response?.data?.message?.includes('embedding')) {
-        setHasEmbedding(false);
-        setRelatedMedia([]);
-      } else {
-        setError(err.response?.data?.message || err.message || 'Failed to load related media');
-      }
-      setHasFetched(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [note?.id]);
+  const fetchError = query.error;
+  // Treat 400 / embedding-related errors as "no embedding yet" rather than a real failure.
+  const hasEmbedding = !fetchError
+    || !(fetchError.response?.status === 400 || fetchError.response?.data?.message?.includes('embedding'));
+  const error = fetchError && hasEmbedding
+    ? (fetchError.response?.data?.message || fetchError.message || 'Failed to load related media')
+    : null;
 
   const handleExpandClick = () => {
-    const newExpanded = !expanded;
-    setExpanded(newExpanded);
-    // Fetch on first expand
-    if (newExpanded && !hasFetched) {
-      fetchRelatedMedia();
-    }
+    setExpanded((prev) => !prev);
   };
 
   // Don't render if no embedding (only show after we've fetched)
@@ -112,7 +89,7 @@ function RelatedMediaByEmbeddingSection({ note }) {
                 <IconButton
                   onClick={(e) => {
                     e.stopPropagation();
-                    fetchRelatedMedia();
+                    query.refetch();
                   }}
                   disabled={loading}
                   size="small"

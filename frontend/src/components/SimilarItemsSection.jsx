@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { Box, Typography, Card, CardContent, CardMedia, CircularProgress, Chip, Alert, IconButton, Tooltip, Collapse } from '@mui/material';
 import {
@@ -9,8 +9,8 @@ import {
   AddCircle as AddCircleIcon,
   CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material';
-import { getSimilarMedia } from '../api/recommendationService';
-import { saveRelatedMedia, getRelatedMedia } from '../api/relatedMediaService';
+import { useSimilarMedia } from '../hooks/useRecommendation';
+import { useRelatedMedia, useSaveRelatedMedia } from '../hooks/useRelatedMedia';
 import { formatMediaType } from '../utils/formatters';
 import { getAspectRatio } from '../utils/mediaImageUtils';
 
@@ -25,96 +25,79 @@ const getSimilarityThreshold = () => {
   return DEFAULT_SIMILARITY_THRESHOLD;
 };
 
+// eslint-disable-next-line no-unused-vars -- onRelatedMediaSaved kept for API compatibility; useSaveRelatedMedia invalidates the related-media query for the SavedRelatedMediaSection automatically.
 function SimilarItemsSection({ mediaItem, setSnackbar, onRelatedMediaSaved }) {
-  const [similarItems, setSimilarItems] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [hasEmbedding, setHasEmbedding] = useState(true);
   const [expanded, setExpanded] = useState(false);
-  const [hasFetched, setHasFetched] = useState(false);
-  const [savedItemIds, setSavedItemIds] = useState(new Set());
   const [savingItemId, setSavingItemId] = useState(null);
 
-  const generateSimilarItems = useCallback(async () => {
-    if (!mediaItem?.id) return;
+  const similarQuery = useSimilarMedia(mediaItem?.id, 20, null, {
+    enabled: !!mediaItem?.id && expanded,
+  });
+  const relatedQuery = useRelatedMedia(mediaItem?.id, true, {
+    enabled: !!mediaItem?.id && expanded,
+  });
+  const saveMutation = useSaveRelatedMedia();
 
-    setLoading(true);
-    setError(null);
+  const loading = similarQuery.isFetching || relatedQuery.isFetching;
+  const hasFetched = similarQuery.isFetched;
 
-    try {
-      // Fetch existing related media to exclude from results and initialize saved IDs
-      let relatedIds = new Set();
-      try {
-        const relatedItems = await getRelatedMedia(mediaItem.id);
-        relatedIds = new Set(
-          (relatedItems || []).map(r => r.relatedMediaItem?.id).filter(Boolean)
-        );
-        setSavedItemIds(relatedIds);
-      } catch {
-        // If fetching related media fails, continue without exclusion
-      }
+  const fetchError = similarQuery.error;
+  const hasEmbedding = !fetchError
+    || !(fetchError.response?.status === 400 || fetchError.response?.data?.message?.includes('embedding'));
+  const error = fetchError && hasEmbedding
+    ? (fetchError.response?.data?.message || fetchError.message || 'Failed to load similar items')
+    : null;
 
-      // Request more items to account for filtering
-      const items = await getSimilarMedia(mediaItem.id, 20);
+  const savedItemIds = useMemo(
+    () => new Set((relatedQuery.data ?? []).map(r => r.relatedMediaItem?.id).filter(Boolean)),
+    [relatedQuery.data]
+  );
 
-      // Filter: exclude already-saved related items and items below threshold
-      const threshold = getSimilarityThreshold();
-      const filtered = (items || []).filter(item =>
-        !relatedIds.has(item.id) &&
-        item.similarityScore >= threshold
-      );
-
-      setSimilarItems(filtered);
-      setHasEmbedding(true);
-      setHasFetched(true);
-    } catch (err) {
-      console.error('Error fetching similar items:', err);
-      if (err.response?.status === 400 || err.response?.data?.message?.includes('embedding')) {
-        setHasEmbedding(false);
-        setSimilarItems([]);
-      } else {
-        setError(err.response?.data?.message || err.message || 'Failed to load similar items');
-      }
-      setHasFetched(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [mediaItem?.id]);
+  const similarItems = useMemo(() => {
+    const items = similarQuery.data ?? [];
+    const threshold = getSimilarityThreshold();
+    return items.filter(item =>
+      !savedItemIds.has(item.id) &&
+      item.similarityScore >= threshold
+    );
+  }, [similarQuery.data, savedItemIds]);
 
   const handleExpandClick = () => {
-    const newExpanded = !expanded;
-    setExpanded(newExpanded);
-    // Fetch on first expand
-    if (newExpanded && !hasFetched) {
-      generateSimilarItems();
-    }
+    setExpanded((prev) => !prev);
   };
 
-  const handleSaveAsRelated = async (item, e) => {
+  const handleRegenerate = () => {
+    similarQuery.refetch();
+    relatedQuery.refetch();
+  };
+
+  const handleSaveAsRelated = (item, e) => {
     e.preventDefault();
     e.stopPropagation();
 
     if (savedItemIds.has(item.id) || savingItemId === item.id) return;
 
     setSavingItemId(item.id);
-    try {
-      await saveRelatedMedia(
-        mediaItem.id,
-        item.id,
-        'AiRecommended',
-        item.similarityScore,
-        null
-      );
-      setSavedItemIds(prev => new Set([...prev, item.id]));
-      setSnackbar?.({ open: true, message: `"${item.title}" saved as related`, severity: 'success' });
-      onRelatedMediaSaved?.();
-    } catch (err) {
-      console.error('Error saving related media:', err);
-      const errorMsg = err.response?.data?.error || err.message || 'Failed to save';
-      setSnackbar?.({ open: true, message: errorMsg, severity: 'error' });
-    } finally {
-      setSavingItemId(null);
-    }
+    saveMutation.mutate(
+      {
+        sourceMediaItemId: mediaItem.id,
+        relatedMediaItemId: item.id,
+        source: 'AiRecommended',
+        similarityScore: item.similarityScore,
+        note: null,
+      },
+      {
+        onSuccess: () => {
+          setSnackbar?.({ open: true, message: `"${item.title}" saved as related`, severity: 'success' });
+        },
+        onError: (err) => {
+          console.error('Error saving related media:', err);
+          const errorMsg = err.response?.data?.error || err.message || 'Failed to save';
+          setSnackbar?.({ open: true, message: errorMsg, severity: 'error' });
+        },
+        onSettled: () => setSavingItemId(null),
+      }
+    );
   };
 
   // Don't render if no embedding (only show after we've fetched)
@@ -163,7 +146,7 @@ function SimilarItemsSection({ mediaItem, setSnackbar, onRelatedMediaSaved }) {
                 <IconButton
                   onClick={(e) => {
                     e.stopPropagation();
-                    generateSimilarItems();
+                    handleRegenerate();
                   }}
                   disabled={loading}
                   size="small"

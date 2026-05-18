@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import {
   Box,
@@ -34,110 +34,96 @@ import {
   Search as SearchIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import { getRelatedMedia, saveRelatedMedia, removeRelatedMedia } from '../api/relatedMediaService';
-import { searchMedia } from '../api/mediaService';
+import {
+  useRelatedMedia,
+  useSaveRelatedMedia,
+  useRemoveRelatedMedia,
+} from '../hooks/useRelatedMedia';
+import { useMediaSearch } from '../hooks/useMedia';
 import { formatMediaType } from '../utils/formatters';
 import { getAspectRatio } from '../utils/mediaImageUtils';
 
+// eslint-disable-next-line no-unused-vars -- refreshTrigger kept for API compatibility; mutation hooks now invalidate the related-media query automatically.
 function SavedRelatedMediaSection({ mediaItem, setSnackbar, refreshTrigger }) {
-  const [relatedItems, setRelatedItems] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [expanded, setExpanded] = useState(false);
-  const [hasFetched, setHasFetched] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [searching, setSearching] = useState(false);
+  const [submittedSearch, setSubmittedSearch] = useState('');
   const [removingId, setRemovingId] = useState(null);
 
-  const fetchRelatedItems = useCallback(async () => {
-    if (!mediaItem?.id) return;
+  const relatedQuery = useRelatedMedia(mediaItem?.id, true, {
+    enabled: !!mediaItem?.id && expanded,
+  });
+  const relatedItems = relatedQuery.data ?? [];
+  const loading = relatedQuery.isFetching;
+  const hasFetched = relatedQuery.isFetched;
+  const error = relatedQuery.error
+    ? (relatedQuery.error.response?.data?.error || relatedQuery.error.message || 'Failed to load related items')
+    : null;
 
-    setLoading(true);
-    setError(null);
+  const searchQueryResult = useMediaSearch(submittedSearch);
+  const searching = searchQueryResult.isFetching;
+  const searchResults = useMemo(() => {
+    const items = searchQueryResult.data ?? [];
+    const sourceItems = relatedQuery.data ?? [];
+    const relatedIds = new Set(sourceItems.map(r => r.relatedMediaItem?.id));
+    return items
+      .filter(item => item.id !== mediaItem?.id && !relatedIds.has(item.id))
+      .slice(0, 10);
+  }, [searchQueryResult.data, relatedQuery.data, mediaItem?.id]);
 
-    try {
-      const items = await getRelatedMedia(mediaItem.id);
-      setRelatedItems(items || []);
-      setHasFetched(true);
-    } catch (err) {
-      console.error('Error fetching related items:', err);
-      setError(err.response?.data?.error || err.message || 'Failed to load related items');
-      setHasFetched(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [mediaItem?.id]);
-
-  // Refresh when trigger changes (e.g., when a new item is saved from SimilarItemsSection)
-  useEffect(() => {
-    if (expanded && refreshTrigger) {
-      fetchRelatedItems();
-    }
-  }, [refreshTrigger, expanded, fetchRelatedItems]);
+  const saveMutation = useSaveRelatedMedia();
+  const removeMutation = useRemoveRelatedMedia();
 
   const handleExpandClick = () => {
-    const newExpanded = !expanded;
-    setExpanded(newExpanded);
-    if (newExpanded && !hasFetched) {
-      fetchRelatedItems();
-    }
+    setExpanded((prev) => !prev);
   };
 
-  const handleRemoveRelated = async (relation) => {
+  const handleRemoveRelated = (relation) => {
     const relatedItemId = relation.relatedMediaItem?.id;
     if (!relatedItemId || removingId) return;
 
     setRemovingId(relatedItemId);
-    try {
-      await removeRelatedMedia(relation.sourceMediaItemId, relation.relatedMediaItemId);
-      setRelatedItems(prev => prev.filter(r =>
-        !(r.sourceMediaItemId === relation.sourceMediaItemId &&
-          r.relatedMediaItemId === relation.relatedMediaItemId)
-      ));
-      setSnackbar?.({ open: true, message: 'Related item removed', severity: 'success' });
-    } catch (err) {
-      console.error('Error removing related item:', err);
-      setSnackbar?.({ open: true, message: 'Failed to remove related item', severity: 'error' });
-    } finally {
-      setRemovingId(null);
-    }
+    removeMutation.mutate(
+      {
+        sourceMediaItemId: relation.sourceMediaItemId,
+        relatedMediaItemId: relation.relatedMediaItemId,
+      },
+      {
+        onSuccess: () => {
+          setSnackbar?.({ open: true, message: 'Related item removed', severity: 'success' });
+        },
+        onError: (err) => {
+          console.error('Error removing related item:', err);
+          setSnackbar?.({ open: true, message: 'Failed to remove related item', severity: 'error' });
+        },
+        onSettled: () => setRemovingId(null),
+      }
+    );
   };
 
-  const handleSearch = async () => {
+  const handleSearch = () => {
     if (!searchQuery.trim()) return;
-    setSearching(true);
-    try {
-      const response = await searchMedia(searchQuery);
-      const items = response?.data || response || [];
-      // Filter out current item and already related items
-      const relatedIds = new Set(relatedItems.map(r => r.relatedMediaItem?.id));
-      const filtered = items.filter(item =>
-        item.id !== mediaItem.id && !relatedIds.has(item.id)
-      );
-      setSearchResults(filtered.slice(0, 10));
-    } catch (err) {
-      console.error('Search error:', err);
-      setSnackbar?.({ open: true, message: 'Search failed', severity: 'error' });
-    } finally {
-      setSearching(false);
-    }
+    setSubmittedSearch(searchQuery.trim());
   };
 
-  const handleAddFromSearch = async (item) => {
-    try {
-      await saveRelatedMedia(mediaItem.id, item.id, 'ManuallyAdded');
-      setAddDialogOpen(false);
-      setSearchQuery('');
-      setSearchResults([]);
-      fetchRelatedItems();
-      setSnackbar?.({ open: true, message: `Added "${item.title}" as related`, severity: 'success' });
-    } catch (err) {
-      console.error('Error adding related item:', err);
-      const errorMsg = err.response?.data?.error || err.message || 'Failed to add';
-      setSnackbar?.({ open: true, message: errorMsg, severity: 'error' });
-    }
+  const handleAddFromSearch = (item) => {
+    saveMutation.mutate(
+      { sourceMediaItemId: mediaItem.id, relatedMediaItemId: item.id, source: 'ManuallyAdded' },
+      {
+        onSuccess: () => {
+          setAddDialogOpen(false);
+          setSearchQuery('');
+          setSubmittedSearch('');
+          setSnackbar?.({ open: true, message: `Added "${item.title}" as related`, severity: 'success' });
+        },
+        onError: (err) => {
+          console.error('Error adding related item:', err);
+          const errorMsg = err.response?.data?.error || err.message || 'Failed to add';
+          setSnackbar?.({ open: true, message: errorMsg, severity: 'error' });
+        },
+      }
+    );
   };
 
   const handleKeyPress = (e) => {
@@ -176,7 +162,7 @@ function SavedRelatedMediaSection({ mediaItem, setSnackbar, refreshTrigger }) {
                   <IconButton
                     onClick={(e) => {
                       e.stopPropagation();
-                      fetchRelatedItems();
+                      relatedQuery.refetch();
                     }}
                     size="small"
                     disabled={loading}
@@ -365,7 +351,7 @@ function SavedRelatedMediaSection({ mediaItem, setSnackbar, refreshTrigger }) {
         onClose={() => {
           setAddDialogOpen(false);
           setSearchQuery('');
-          setSearchResults([]);
+          setSubmittedSearch('');
         }}
         maxWidth="sm"
         fullWidth
@@ -433,7 +419,7 @@ function SavedRelatedMediaSection({ mediaItem, setSnackbar, refreshTrigger }) {
             onClick={() => {
               setAddDialogOpen(false);
               setSearchQuery('');
-              setSearchResults([]);
+              setSubmittedSearch('');
             }}
             sx={{ color: '#fcfafa' }}
           >

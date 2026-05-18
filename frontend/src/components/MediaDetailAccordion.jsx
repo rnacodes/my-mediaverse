@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
     Button, Card, Box, Typography, Accordion, AccordionSummary, AccordionDetails, Link, Chip, IconButton, Tooltip, Alert,
     CircularProgress, Divider, Dialog, DialogTitle, DialogContent, List, ListItem, ListItemButton, ListItemText
 } from '@mui/material';
 import { ExpandMore, OpenInNew, Star, RssFeed, ContentCopy, Language, Schedule, Article, AutoFixHigh, Download } from '@mui/icons-material';
-import { getWebsiteRssFeedItems } from '../api/websiteService';
-import { enrichBookById } from '../api/backgroundJobsService';
-import { getAllYouTubeChannels } from '../api/youtubeService';
-import { updateVideo } from '../api/videoService';
+import { useWebsiteRssFeedItems } from '../hooks/useWebsite';
+import { useEnrichBookById } from '../hooks/useBackgroundJobs';
+import { useAllYouTubeChannels } from '../hooks/useYoutube';
+import { useUpdateVideo } from '../hooks/useVideo';
 
 function getJustWatchUrl(title) {
   // Simple heuristic for generating a JustWatch search URL.
@@ -16,97 +16,83 @@ function getJustWatchUrl(title) {
 }
 
 function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBookEnriched, onVideoLinked, onFetchContent, fetchingContent }) {
-  const [rssFeedItems, setRssFeedItems] = useState([]);
-  const [loadingRss, setLoadingRss] = useState(false);
-  const [rssError, setRssError] = useState(null);
-  const [enriching, setEnriching] = useState(false);
   const [enrichResult, setEnrichResult] = useState(null);
   const [channelDialogOpen, setChannelDialogOpen] = useState(false);
-  const [channels, setChannels] = useState([]);
-  const [loadingChannels, setLoadingChannels] = useState(false);
-  const [linkingChannel, setLinkingChannel] = useState(false);
 
-  // Fetch RSS feed items for websites with RSS feeds
-  useEffect(() => {
-    const fetchRssItems = async () => {
-      if (mediaItem.mediaType === 'Website' && mediaItem.rssFeedUrl && mediaItem.id) {
-        setLoadingRss(true);
-        setRssError(null);
-        try {
-          const items = await getWebsiteRssFeedItems(mediaItem.id, 3);
-          setRssFeedItems(items);
-        } catch (err) {
-          console.error('Error fetching RSS items:', err);
-          setRssError('Failed to load RSS feed');
-        } finally {
-          setLoadingRss(false);
-        }
-      }
-    };
+  // RSS feed items for websites — auto-fetched when conditions match.
+  const isWebsiteWithRss = mediaItem.mediaType === 'Website' && !!mediaItem.rssFeedUrl;
+  const rssFeedQuery = useWebsiteRssFeedItems(mediaItem.id, 3, {
+    enabled: isWebsiteWithRss && !!mediaItem.id,
+  });
+  const rssFeedItems = rssFeedQuery.data ?? [];
+  const loadingRss = rssFeedQuery.isLoading;
+  const rssError = rssFeedQuery.error ? 'Failed to load RSS feed' : null;
 
-    fetchRssItems();
-  }, [mediaItem.id, mediaItem.mediaType, mediaItem.rssFeedUrl]);
+  // Channels — fetched lazily when the link-to-channel dialog opens.
+  const channelsQuery = useAllYouTubeChannels({ enabled: channelDialogOpen });
+  const channels = channelsQuery.data ?? [];
+  const loadingChannels = channelsQuery.isLoading;
 
-  const handleEnrichBook = async () => {
-    setEnriching(true);
+  // Mutations
+  const enrichBookMutation = useEnrichBookById();
+  const updateVideoMutation = useUpdateVideo();
+  const enriching = enrichBookMutation.isPending;
+  const linkingChannel = updateVideoMutation.isPending;
+
+  const handleEnrichBook = () => {
     setEnrichResult(null);
-    try {
-      const result = await enrichBookById(mediaItem.id);
-      setEnrichResult(result);
-      if (result.success && onBookEnriched) {
-        onBookEnriched();
-      }
-    } catch (error) {
-      setEnrichResult({
-        success: false,
-        errorMessage: error.response?.data?.error || error.message || 'Failed to enrich book'
-      });
-    } finally {
-      setEnriching(false);
-    }
+    enrichBookMutation.mutate(mediaItem.id, {
+      onSuccess: (result) => {
+        setEnrichResult(result);
+        if (result?.success && onBookEnriched) {
+          onBookEnriched();
+        }
+      },
+      onError: (error) => {
+        setEnrichResult({
+          success: false,
+          errorMessage: error.response?.data?.error || error.message || 'Failed to enrich book',
+        });
+      },
+    });
   };
 
-  const handleOpenChannelDialog = async () => {
+  const handleOpenChannelDialog = () => {
     setChannelDialogOpen(true);
-    setLoadingChannels(true);
-    try {
-      const channelList = await getAllYouTubeChannels();
-      setChannels(channelList || []);
-    } catch (error) {
-      console.error('Failed to fetch channels:', error);
-      setChannels([]);
-    } finally {
-      setLoadingChannels(false);
-    }
   };
 
-  const handleLinkToChannel = async (channelId) => {
-    setLinkingChannel(true);
-    try {
-      await updateVideo(mediaItem.id, {
-        title: mediaItem.title,
-        mediaType: mediaItem.mediaType,
-        link: mediaItem.link || '',
-        notes: mediaItem.notes || '',
-        status: mediaItem.status,
-        description: mediaItem.description || '',
-        thumbnail: mediaItem.thumbnail || '',
-        topics: mediaItem.topicNames || mediaItem.topics || [],
-        genres: mediaItem.genreNames || mediaItem.genres || [],
-        videoType: mediaItem.videoType,
-        platform: mediaItem.platform || 'YouTube',
-        lengthInSeconds: mediaItem.lengthInSeconds || 0,
-        externalId: mediaItem.externalId || '',
-        parentVideoId: mediaItem.parentVideoId || null,
-        channelId: channelId
-      });
-      setChannelDialogOpen(false);
-      if (onVideoLinked) onVideoLinked();
-    } catch (error) {
-      console.error('Failed to link video to channel:', error);
-    } finally {
-      setLinkingChannel(false);
-    }
+  const handleLinkToChannel = (channelId) => {
+    updateVideoMutation.mutate(
+      {
+        id: mediaItem.id,
+        videoData: {
+          title: mediaItem.title,
+          mediaType: mediaItem.mediaType,
+          link: mediaItem.link || '',
+          notes: mediaItem.notes || '',
+          status: mediaItem.status,
+          description: mediaItem.description || '',
+          thumbnail: mediaItem.thumbnail || '',
+          topics: mediaItem.topicNames || mediaItem.topics || [],
+          genres: mediaItem.genreNames || mediaItem.genres || [],
+          videoType: mediaItem.videoType,
+          platform: mediaItem.platform || 'YouTube',
+          lengthInSeconds: mediaItem.lengthInSeconds || 0,
+          externalId: mediaItem.externalId || '',
+          parentVideoId: mediaItem.parentVideoId || null,
+          channelId,
+        },
+      },
+      {
+        onSuccess: () => {
+          setChannelDialogOpen(false);
+          if (onVideoLinked) onVideoLinked();
+        },
+        onError: (error) => {
+          console.error('Failed to link video to channel:', error);
+        },
+      }
+    );
   };
 
   return (

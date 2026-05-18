@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import {
     Box, Typography, Button, Card, CardContent, Dialog,
@@ -10,76 +10,43 @@ import {
     Article as NoteIcon, Add as AddIcon, Search, Close,
     OpenInNew as OpenInNewIcon, Delete as DeleteIcon
 } from '@mui/icons-material';
-import { getNotesForMixlist, linkNoteToMixlist, unlinkNoteFromMixlist } from '../api/mixlistService';
-import { getAllNotes, searchNotes } from '../api/noteService';
+import {
+    useNotesForMixlist,
+    useLinkNoteToMixlist,
+    useUnlinkNoteFromMixlist,
+} from '../hooks/useMixlist';
+import { useAllNotes, useNoteSearch } from '../hooks/useNote';
 
 function MixlistRelatedNotesSection({ mixlistId, mixlistName, setSnackbar }) {
-    // State for linked notes
-    const [linkedNotes, setLinkedNotes] = useState([]);
-    const [loading, setLoading] = useState(true);
-
     // State for dialog
     const [linkDialog, setLinkDialog] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [availableNotes, setAvailableNotes] = useState([]);
-    const [loadingAvailable, setLoadingAvailable] = useState(false);
     const [selectedNoteIds, setSelectedNoteIds] = useState(new Set());
     const [linkDescription, setLinkDescription] = useState('');
-    const [saving, setSaving] = useState(false);
 
-    // Fetch linked notes
-    const fetchLinkedNotes = useCallback(async () => {
-        if (!mixlistId) return;
+    // Queries
+    const linkedNotesQuery = useNotesForMixlist(mixlistId);
+    const linkedNotes = linkedNotesQuery.data ?? [];
+    const loading = linkedNotesQuery.isLoading;
 
-        setLoading(true);
-        try {
-            const response = await getNotesForMixlist(mixlistId);
-            setLinkedNotes(response?.data || []);
-        } catch (error) {
-            console.error('Error fetching linked notes:', error);
-            setLinkedNotes([]);
-        } finally {
-            setLoading(false);
+    const allNotesQuery = useAllNotes(null, { enabled: linkDialog && searchQuery.length < 2 });
+    const searchActive = linkDialog && searchQuery.length >= 2;
+    const noteSearchQuery = useNoteSearch(searchActive ? searchQuery : '');
+
+    const availableNotes = useMemo(() => {
+        if (searchActive) {
+            if (noteSearchQuery.error) return allNotesQuery.data ?? [];
+            return noteSearchQuery.data?.hits?.map(hit => hit.document) ?? [];
         }
-    }, [mixlistId]);
+        return allNotesQuery.data ?? [];
+    }, [searchActive, noteSearchQuery.data, noteSearchQuery.error, allNotesQuery.data]);
 
-    useEffect(() => {
-        fetchLinkedNotes();
-    }, [fetchLinkedNotes]);
+    const loadingAvailable = searchActive ? noteSearchQuery.isLoading : allNotesQuery.isLoading;
 
-    // Fetch available notes when dialog opens
-    const fetchAvailableNotes = useCallback(async () => {
-        setLoadingAvailable(true);
-        try {
-            const notes = await getAllNotes();
-            setAvailableNotes(notes || []);
-        } catch (error) {
-            console.error('Error fetching available notes:', error);
-            setAvailableNotes([]);
-        } finally {
-            setLoadingAvailable(false);
-        }
-    }, []);
-
-    // Search notes
-    const handleSearch = useCallback(async (query) => {
-        if (!query || query.length < 2) {
-            fetchAvailableNotes();
-            return;
-        }
-
-        setLoadingAvailable(true);
-        try {
-            const results = await searchNotes(query);
-            const hits = results?.hits?.map(hit => hit.document) || [];
-            setAvailableNotes(hits);
-        } catch (error) {
-            console.error('Error searching notes:', error);
-            fetchAvailableNotes();
-        } finally {
-            setLoadingAvailable(false);
-        }
-    }, [fetchAvailableNotes]);
+    // Mutations
+    const linkMutation = useLinkNoteToMixlist();
+    const unlinkMutation = useUnlinkNoteFromMixlist();
+    const saving = linkMutation.isPending || unlinkMutation.isPending;
 
     // Toggle note selection
     const toggleNoteSelection = (noteId) => {
@@ -100,7 +67,6 @@ function MixlistRelatedNotesSection({ mixlistId, mixlistName, setSnackbar }) {
         setSearchQuery('');
         setSelectedNoteIds(new Set());
         setLinkDescription('');
-        fetchAvailableNotes();
     };
 
     // Close dialog
@@ -118,51 +84,47 @@ function MixlistRelatedNotesSection({ mixlistId, mixlistName, setSnackbar }) {
             return;
         }
 
-        setSaving(true);
-        try {
-            let successCount = 0;
-            let errorCount = 0;
-            for (const noteId of selectedNoteIds) {
-                try {
-                    await linkNoteToMixlist(mixlistId, noteId, linkDescription || null);
-                    successCount++;
-                } catch (err) {
-                    console.error(`Error linking note ${noteId}:`, err);
-                    errorCount++;
-                }
-            }
-            if (successCount > 0) {
-                setSnackbar?.({
-                    open: true,
-                    message: `Linked ${successCount} note${successCount !== 1 ? 's' : ''}${errorCount > 0 ? ` (${errorCount} failed)` : ''}`,
-                    severity: errorCount > 0 ? 'warning' : 'success'
+        let successCount = 0;
+        let errorCount = 0;
+        for (const noteId of selectedNoteIds) {
+            try {
+                await linkMutation.mutateAsync({
+                    mixlistId,
+                    noteId,
+                    linkDescription: linkDescription || null,
                 });
-            } else {
-                setSnackbar?.({ open: true, message: 'Failed to link notes', severity: 'error' });
+                successCount++;
+            } catch (err) {
+                console.error(`Error linking note ${noteId}:`, err);
+                errorCount++;
             }
-            handleCloseDialog();
-            fetchLinkedNotes();
-        } catch (error) {
-            console.error('Error linking notes:', error);
-            setSnackbar?.({ open: true, message: 'Failed to link notes', severity: 'error' });
-        } finally {
-            setSaving(false);
         }
+        if (successCount > 0) {
+            setSnackbar?.({
+                open: true,
+                message: `Linked ${successCount} note${successCount !== 1 ? 's' : ''}${errorCount > 0 ? ` (${errorCount} failed)` : ''}`,
+                severity: errorCount > 0 ? 'warning' : 'success'
+            });
+        } else {
+            setSnackbar?.({ open: true, message: 'Failed to link notes', severity: 'error' });
+        }
+        handleCloseDialog();
     };
 
     // Unlink note from mixlist
-    const handleUnlinkNote = async (noteId, noteTitle) => {
-        setSaving(true);
-        try {
-            await unlinkNoteFromMixlist(mixlistId, noteId);
-            setSnackbar?.({ open: true, message: `Unlinked note "${noteTitle}"`, severity: 'success' });
-            fetchLinkedNotes();
-        } catch (error) {
-            console.error('Error unlinking note:', error);
-            setSnackbar?.({ open: true, message: 'Failed to unlink note', severity: 'error' });
-        } finally {
-            setSaving(false);
-        }
+    const handleUnlinkNote = (noteId, noteTitle) => {
+        unlinkMutation.mutate(
+            { mixlistId, noteId },
+            {
+                onSuccess: () => {
+                    setSnackbar?.({ open: true, message: `Unlinked note "${noteTitle}"`, severity: 'success' });
+                },
+                onError: (error) => {
+                    console.error('Error unlinking note:', error);
+                    setSnackbar?.({ open: true, message: 'Failed to unlink note', severity: 'error' });
+                },
+            }
+        );
     };
 
     // Filter available notes (exclude already linked)
@@ -418,10 +380,7 @@ function MixlistRelatedNotesSection({ mixlistId, mixlistName, setSnackbar }) {
                             fullWidth
                             placeholder="Search notes..."
                             value={searchQuery}
-                            onChange={(e) => {
-                                setSearchQuery(e.target.value);
-                                handleSearch(e.target.value);
-                            }}
+                            onChange={(e) => setSearchQuery(e.target.value)}
                             variant="outlined"
                             size="small"
                             InputProps={{

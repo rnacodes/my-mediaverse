@@ -1,81 +1,49 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { Box, Typography, Button, Card, CardContent, Dialog, DialogTitle, DialogContent, DialogActions, TextField, InputAdornment, List, ListItem, ListItemText, IconButton, CircularProgress, Chip, Link, Tooltip, useMediaQuery, useTheme, Checkbox } from '@mui/material';
 import {
     Article as NoteIcon, Add as AddIcon, Search, Close,
     OpenInNew as OpenInNewIcon, Delete as DeleteIcon
 } from '@mui/icons-material';
-import { getNotesForMedia, getAllNotes, linkNoteToMedia, unlinkNoteFromMedia, searchNotes } from '../api/noteService';
+import {
+    useNotesForMedia,
+    useAllNotes,
+    useNoteSearch,
+    useLinkNoteToMedia,
+    useUnlinkNoteFromMedia,
+} from '../hooks/useNote';
 
 function RelatedNotesSection({ mediaItem, setSnackbar, onUpdate }) {
-    // State for linked notes
-    const [linkedNotes, setLinkedNotes] = useState([]);
-    const [loading, setLoading] = useState(true);
-
     // State for dialog
     const [linkDialog, setLinkDialog] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [availableNotes, setAvailableNotes] = useState([]);
-    const [loadingAvailable, setLoadingAvailable] = useState(false);
     const [selectedNoteIds, setSelectedNoteIds] = useState(new Set());
     const [linkDescription, setLinkDescription] = useState('');
-    const [saving, setSaving] = useState(false);
 
-    // Fetch linked notes
-    const fetchLinkedNotes = useCallback(async () => {
-        if (!mediaItem?.id) return;
+    // Queries
+    const linkedNotesQuery = useNotesForMedia(mediaItem?.id);
+    const linkedNotes = linkedNotesQuery.data ?? [];
+    const loading = linkedNotesQuery.isLoading;
 
-        setLoading(true);
-        try {
-            const notes = await getNotesForMedia(mediaItem.id);
-            setLinkedNotes(notes || []);
-        } catch (error) {
-            console.error('Error fetching linked notes:', error);
-            setLinkedNotes([]);
-        } finally {
-            setLoading(false);
+    const allNotesQuery = useAllNotes(null, { enabled: linkDialog && searchQuery.length < 2 });
+    const searchActive = linkDialog && searchQuery.length >= 2;
+    const noteSearchQuery = useNoteSearch(searchActive ? searchQuery : '');
+
+    const availableNotes = useMemo(() => {
+        if (searchActive) {
+            // Extract hits from Typesense response, fall back to all-notes data on error.
+            if (noteSearchQuery.error) return allNotesQuery.data ?? [];
+            return noteSearchQuery.data?.hits?.map(hit => hit.document) ?? [];
         }
-    }, [mediaItem?.id]);
+        return allNotesQuery.data ?? [];
+    }, [searchActive, noteSearchQuery.data, noteSearchQuery.error, allNotesQuery.data]);
 
-    useEffect(() => {
-        fetchLinkedNotes();
-    }, [fetchLinkedNotes]);
+    const loadingAvailable = searchActive ? noteSearchQuery.isLoading : allNotesQuery.isLoading;
 
-    // Fetch available notes when dialog opens
-    const fetchAvailableNotes = useCallback(async () => {
-        setLoadingAvailable(true);
-        try {
-            const notes = await getAllNotes();
-            setAvailableNotes(notes || []);
-        } catch (error) {
-            console.error('Error fetching available notes:', error);
-            setAvailableNotes([]);
-        } finally {
-            setLoadingAvailable(false);
-        }
-    }, []);
-
-    // Search notes
-    const handleSearch = useCallback(async (query) => {
-        if (!query || query.length < 2) {
-            fetchAvailableNotes();
-            return;
-        }
-
-        setLoadingAvailable(true);
-        try {
-            const results = await searchNotes(query);
-            // Extract hits from Typesense response
-            const hits = results?.hits?.map(hit => hit.document) || [];
-            setAvailableNotes(hits);
-        } catch (error) {
-            console.error('Error searching notes:', error);
-            // Fallback to regular fetch
-            fetchAvailableNotes();
-        } finally {
-            setLoadingAvailable(false);
-        }
-    }, [fetchAvailableNotes]);
+    // Mutations
+    const linkMutation = useLinkNoteToMedia();
+    const unlinkMutation = useUnlinkNoteFromMedia();
+    const saving = linkMutation.isPending || unlinkMutation.isPending;
 
     // Open dialog
     const handleOpenDialog = () => {
@@ -83,7 +51,6 @@ function RelatedNotesSection({ mediaItem, setSnackbar, onUpdate }) {
         setSearchQuery('');
         setSelectedNoteIds(new Set());
         setLinkDescription('');
-        fetchAvailableNotes();
     };
 
     // Close dialog
@@ -114,53 +81,49 @@ function RelatedNotesSection({ mediaItem, setSnackbar, onUpdate }) {
             return;
         }
 
-        setSaving(true);
-        try {
-            let successCount = 0;
-            let errorCount = 0;
-            for (const noteId of selectedNoteIds) {
-                try {
-                    await linkNoteToMedia(noteId, mediaItem.id, linkDescription || null);
-                    successCount++;
-                } catch (err) {
-                    console.error(`Error linking note ${noteId}:`, err);
-                    errorCount++;
-                }
-            }
-            if (successCount > 0) {
-                setSnackbar?.({
-                    open: true,
-                    message: `Linked ${successCount} note${successCount !== 1 ? 's' : ''}${errorCount > 0 ? ` (${errorCount} failed)` : ''}`,
-                    severity: errorCount > 0 ? 'warning' : 'success'
+        let successCount = 0;
+        let errorCount = 0;
+        for (const noteId of selectedNoteIds) {
+            try {
+                await linkMutation.mutateAsync({
+                    noteId,
+                    mediaItemId: mediaItem.id,
+                    linkDescription: linkDescription || null,
                 });
-            } else {
-                setSnackbar?.({ open: true, message: 'Failed to link notes', severity: 'error' });
+                successCount++;
+            } catch (err) {
+                console.error(`Error linking note ${noteId}:`, err);
+                errorCount++;
             }
-            handleCloseDialog();
-            fetchLinkedNotes();
-            onUpdate?.();
-        } catch (error) {
-            console.error('Error linking notes:', error);
-            setSnackbar?.({ open: true, message: 'Failed to link notes', severity: 'error' });
-        } finally {
-            setSaving(false);
         }
+        if (successCount > 0) {
+            setSnackbar?.({
+                open: true,
+                message: `Linked ${successCount} note${successCount !== 1 ? 's' : ''}${errorCount > 0 ? ` (${errorCount} failed)` : ''}`,
+                severity: errorCount > 0 ? 'warning' : 'success'
+            });
+        } else {
+            setSnackbar?.({ open: true, message: 'Failed to link notes', severity: 'error' });
+        }
+        handleCloseDialog();
+        onUpdate?.();
     };
 
     // Unlink note from media
-    const handleUnlinkNote = async (noteId, noteTitle) => {
-        setSaving(true);
-        try {
-            await unlinkNoteFromMedia(noteId, mediaItem.id);
-            setSnackbar?.({ open: true, message: `Unlinked note "${noteTitle}"`, severity: 'success' });
-            fetchLinkedNotes();
-            onUpdate?.();
-        } catch (error) {
-            console.error('Error unlinking note:', error);
-            setSnackbar?.({ open: true, message: 'Failed to unlink note', severity: 'error' });
-        } finally {
-            setSaving(false);
-        }
+    const handleUnlinkNote = (noteId, noteTitle) => {
+        unlinkMutation.mutate(
+            { noteId, mediaItemId: mediaItem.id },
+            {
+                onSuccess: () => {
+                    setSnackbar?.({ open: true, message: `Unlinked note "${noteTitle}"`, severity: 'success' });
+                    onUpdate?.();
+                },
+                onError: (error) => {
+                    console.error('Error unlinking note:', error);
+                    setSnackbar?.({ open: true, message: 'Failed to unlink note', severity: 'error' });
+                },
+            }
+        );
     };
 
     // Filter available notes (exclude already linked)
@@ -421,10 +384,7 @@ function RelatedNotesSection({ mediaItem, setSnackbar, onUpdate }) {
                             fullWidth
                             placeholder="Search notes..."
                             value={searchQuery}
-                            onChange={(e) => {
-                                setSearchQuery(e.target.value);
-                                handleSearch(e.target.value);
-                            }}
+                            onChange={(e) => setSearchQuery(e.target.value)}
                             variant="outlined"
                             size="small"
                             InputProps={{

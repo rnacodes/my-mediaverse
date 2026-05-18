@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import {
   Box,
@@ -23,7 +23,7 @@ import {
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
 } from '@mui/icons-material';
-import { getSimilarNotes } from '../api/recommendationService';
+import { useSimilarNotes } from '../hooks/useRecommendation';
 
 // Vault color mapping
 const vaultColors = {
@@ -32,50 +32,28 @@ const vaultColors = {
 };
 
 function SimilarNotesSection({ note }) {
-  const [similarNotes, setSimilarNotes] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [hasEmbedding, setHasEmbedding] = useState(true);
   const [expanded, setExpanded] = useState(false);
-  const [hasFetched, setHasFetched] = useState(false);
 
   const getVaultColor = (vaultName) => {
     return vaultColors[vaultName?.toLowerCase()] || '#9e9e9e';
   };
 
-  const fetchSimilarNotes = useCallback(async () => {
-    if (!note?.id) return;
+  const query = useSimilarNotes(note?.id, 6, null, {
+    enabled: !!note?.id && expanded,
+  });
+  const similarNotes = query.data ?? [];
+  const loading = query.isFetching;
+  const hasFetched = query.isFetched;
 
-    setLoading(true);
-    setError(null);
-
-    try {
-      const notes = await getSimilarNotes(note.id, 6);
-      setSimilarNotes(notes || []);
-      setHasEmbedding(true);
-      setHasFetched(true);
-    } catch (err) {
-      console.error('Error fetching similar notes:', err);
-      // Check if error is due to missing embedding
-      if (err.response?.status === 400 || err.response?.data?.message?.includes('embedding')) {
-        setHasEmbedding(false);
-        setSimilarNotes([]);
-      } else {
-        setError(err.response?.data?.message || err.message || 'Failed to load similar notes');
-      }
-      setHasFetched(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [note?.id]);
+  const fetchError = query.error;
+  const hasEmbedding = !fetchError
+    || !(fetchError.response?.status === 400 || fetchError.response?.data?.message?.includes('embedding'));
+  const error = fetchError && hasEmbedding
+    ? (fetchError.response?.data?.message || fetchError.message || 'Failed to load similar notes')
+    : null;
 
   const handleExpandClick = () => {
-    const newExpanded = !expanded;
-    setExpanded(newExpanded);
-    // Fetch on first expand
-    if (newExpanded && !hasFetched) {
-      fetchSimilarNotes();
-    }
+    setExpanded((prev) => !prev);
   };
 
   // Don't render if no embedding (only show after we've fetched)
@@ -124,7 +102,7 @@ function SimilarNotesSection({ note }) {
                 <IconButton
                   onClick={(e) => {
                     e.stopPropagation();
-                    fetchSimilarNotes();
+                    query.refetch();
                   }}
                   disabled={loading}
                   size="small"
