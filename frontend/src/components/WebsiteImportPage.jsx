@@ -2,61 +2,40 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TextField, Button, Box, Typography, Container, CircularProgress, Alert, Chip, Grid, Paper, Autocomplete } from '@mui/material';
 import { Language, Download, Visibility, OpenInNew, RssFeed, ArrowBack } from '@mui/icons-material';
-import { scrapeWebsitePreview, importWebsite } from '../api/websiteService';
-import { searchTopics, searchGenres } from '../api/topicGenreService';
+import { useScrapeWebsitePreview, useImportWebsite } from '../hooks/useWebsite';
+import { useTopicSearch, useGenreSearch } from '../hooks/useTopicGenre';
 
 function WebsiteImportPage() {
     const [url, setUrl] = useState('');
     const [notes, setNotes] = useState('');
     const [topics, setTopics] = useState([]);
     const [genres, setGenres] = useState([]);
-    const [topicSuggestions, setTopicSuggestions] = useState([]);
-    const [genreSuggestions, setGenreSuggestions] = useState([]);
+    const [topicInput, setTopicInput] = useState('');
+    const [genreInput, setGenreInput] = useState('');
     const [titleOverride, setTitleOverride] = useState('');
 
     const [previewData, setPreviewData] = useState(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [isImporting, setIsImporting] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
     const navigate = useNavigate();
 
-    const handleTopicSearch = async (inputValue) => {
-        if (inputValue.length > 0) {
-            try {
-                const response = await searchTopics(inputValue);
-                setTopicSuggestions(response.data);
-            } catch (error) {
-                console.error('Error searching topics:', error);
-                setTopicSuggestions([]);
-            }
-        } else {
-            setTopicSuggestions([]);
-        }
-    };
+    const scrapeMutation = useScrapeWebsitePreview();
+    const importMutation = useImportWebsite();
+    const isLoading = scrapeMutation.isPending;
+    const isImporting = importMutation.isPending;
 
-    const handleGenreSearch = async (inputValue) => {
-        if (inputValue.length > 0) {
-            try {
-                const response = await searchGenres(inputValue);
-                setGenreSuggestions(response.data);
-            } catch (error) {
-                console.error('Error searching genres:', error);
-                setGenreSuggestions([]);
-            }
-        } else {
-            setGenreSuggestions([]);
-        }
-    };
+    const topicSearchQuery = useTopicSearch(topicInput);
+    const genreSearchQuery = useGenreSearch(genreInput);
+    const topicSuggestions = topicSearchQuery.data ?? [];
+    const genreSuggestions = genreSearchQuery.data ?? [];
 
-    const handlePreview = async () => {
+    const handlePreview = () => {
         if (!url.trim()) {
             setError('Please enter a URL');
             return;
         }
 
-        // Basic URL validation
         try {
             new URL(url);
         } catch {
@@ -64,53 +43,45 @@ function WebsiteImportPage() {
             return;
         }
 
-        setIsLoading(true);
         setError('');
         setPreviewData(null);
 
-        try {
-            const data = await scrapeWebsitePreview(url);
-            setPreviewData(data);
-            setIsLoading(false);
-        } catch (err) {
-            console.error('Preview error:', err);
-            setError(err.response?.data?.error || 'Failed to scrape website. Please check the URL and try again.');
-            setIsLoading(false);
-        }
+        scrapeMutation.mutate(url, {
+            onSuccess: (data) => setPreviewData(data),
+            onError: (err) => {
+                console.error('Preview error:', err);
+                setError(err.response?.data?.error || 'Failed to scrape website. Please check the URL and try again.');
+            },
+        });
     };
 
-    const handleImport = async () => {
+    const handleImport = () => {
         if (!url.trim()) {
             setError('Please enter a URL');
             return;
         }
 
-        setIsImporting(true);
         setError('');
         setSuccess('');
 
-        try {
-            const websiteData = {
-                url: url.trim(),
-                notes: notes.trim() || null,
-                topics: topics.length > 0 ? topics : null,
-                genres: genres.length > 0 ? genres : null,
-                titleOverride: titleOverride.trim() || null
-            };
+        const websiteData = {
+            url: url.trim(),
+            notes: notes.trim() || null,
+            topics: topics.length > 0 ? topics : null,
+            genres: genres.length > 0 ? genres : null,
+            titleOverride: titleOverride.trim() || null
+        };
 
-            const result = await importWebsite(websiteData);
-            setSuccess(`Website "${result.title}" imported successfully! Redirecting...`);
-            setIsImporting(false);
-
-            // Redirect to the newly created media profile after a short delay
-            setTimeout(() => {
-                navigate(`/media/${result.id}`);
-            }, 1500);
-        } catch (err) {
-            console.error('Import error:', err);
-            setError(err.response?.data?.error || 'Failed to import website. Please try again.');
-            setIsImporting(false);
-        }
+        importMutation.mutate(websiteData, {
+            onSuccess: (result) => {
+                setSuccess(`Website "${result.title}" imported successfully! Redirecting...`);
+                setTimeout(() => navigate(`/media/${result.id}`), 1500);
+            },
+            onError: (err) => {
+                console.error('Import error:', err);
+                setError(err.response?.data?.error || 'Failed to import website. Please try again.');
+            },
+        });
     };
 
     const handleKeyPress = (event) => {
@@ -325,9 +296,7 @@ function WebsiteImportPage() {
                         onChange={(event, newValue) => {
                             setTopics(newValue.map(t => t.toLowerCase()));
                         }}
-                        onInputChange={(event, newInputValue) => {
-                            handleTopicSearch(newInputValue);
-                        }}
+                        onInputChange={(event, newInputValue) => setTopicInput(newInputValue)}
                         disabled={isLoading || isImporting}
                         renderTags={(value, getTagProps) =>
                             value.map((option, index) => (
@@ -366,9 +335,7 @@ function WebsiteImportPage() {
                         onChange={(event, newValue) => {
                             setGenres(newValue.map(g => g.toLowerCase()));
                         }}
-                        onInputChange={(event, newInputValue) => {
-                            handleGenreSearch(newInputValue);
-                        }}
+                        onInputChange={(event, newInputValue) => setGenreInput(newInputValue)}
                         disabled={isLoading || isImporting}
                         renderTags={(value, getTagProps) =>
                             value.map((option, index) => (

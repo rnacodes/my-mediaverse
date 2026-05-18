@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     TextField, Button, Box, Typography, Container,
@@ -7,15 +7,15 @@ import {
     FormLabel, Chip, OutlinedInput, Paper, Grid,
     Autocomplete
 } from '@mui/material';
-import { addMedia } from '../api/mediaService';
-import { getAllMixlists, addMediaToMixlist } from '../api/mixlistService';
-import { createPodcastEpisode, searchPodcastSeries } from '../api/podcastService';
-import { searchTopics, searchGenres } from '../api/topicGenreService';
-import { createBook } from '../api/bookService';
-import { createMovie } from '../api/movieService';
-import { createTvShow } from '../api/tvShowService';
-import { createVideo } from '../api/videoService';
-import { uploadThumbnail } from '../api/uploadService';
+import { useAddMedia } from '../hooks/useMedia';
+import { useAllMixlists, useAddMediaToMixlist } from '../hooks/useMixlist';
+import { useCreatePodcastEpisode, usePodcastSeriesSearch } from '../hooks/usePodcast';
+import { useTopicSearch, useGenreSearch } from '../hooks/useTopicGenre';
+import { useCreateBook } from '../hooks/useBook';
+import { useCreateMovie } from '../hooks/useMovie';
+import { useCreateTvShow } from '../hooks/useTvShow';
+import { useCreateVideo } from '../hooks/useVideo';
+import { useUploadThumbnail } from '../hooks/useUpload';
 
 function AddMediaForm() {
     const [title, setTitle] = useState('');
@@ -82,38 +82,37 @@ function AddMediaForm() {
     const [externalId, setExternalId] = useState('');
     
     // Mixlist selection
-    const [availableMixlists, setAvailableMixlists] = useState([]);
     const [selectedMixlists, setSelectedMixlists] = useState([]);
     const [mixlistInput, setMixlistInput] = useState('');
-    
-    // Autocomplete states
-    const [topicSuggestions, setTopicSuggestions] = useState([]);
-    const [genreSuggestions, setGenreSuggestions] = useState([]);
-    const [podcastSeriesSuggestions, setPodcastSeriesSuggestions] = useState([]);
+
+    // Autocomplete inputs (drive react-query hooks) — topicInput/genreInput are declared above
+    const [podcastSeriesInput, setPodcastSeriesInput] = useState('');
     const [selectedPodcastSeries, setSelectedPodcastSeries] = useState(null);
-    
+
     // Validation errors
     const [validationErrors, setValidationErrors] = useState({});
-    
+
     const navigate = useNavigate();
 
-    // Load available mixlists on component mount
-    useEffect(() => {
-        const loadMixlists = async () => {
-            try {
-                console.log('Loading mixlists...');
-                const response = await getAllMixlists();
-                console.log('Mixlists response:', response);
-                console.log('Mixlists data:', response.data);
-                setAvailableMixlists(response.data);
-            } catch (error) {
-                console.error('Error loading mixlists:', error);
-                console.error('Error details:', error.response?.data);
-                console.error('Error status:', error.response?.status);
-            }
-        };
-        loadMixlists();
-    }, []);
+    // Queries + mutations
+    const mixlistsQuery = useAllMixlists();
+    const availableMixlists = mixlistsQuery.data ?? [];
+
+    const topicSearchQuery = useTopicSearch(topicInput);
+    const genreSearchQuery = useGenreSearch(genreInput);
+    const podcastSeriesSearchQuery = usePodcastSeriesSearch(podcastSeriesInput);
+    const topicSuggestions = topicSearchQuery.data ?? [];
+    const genreSuggestions = genreSearchQuery.data ?? [];
+    const podcastSeriesSuggestions = podcastSeriesSearchQuery.data ?? [];
+
+    const addMediaMutation = useAddMedia();
+    const createBookMutation = useCreateBook();
+    const createMovieMutation = useCreateMovie();
+    const createTvShowMutation = useCreateTvShow();
+    const createVideoMutation = useCreateVideo();
+    const createPodcastEpisodeMutation = useCreatePodcastEpisode();
+    const addMediaToMixlistMutation = useAddMediaToMixlist();
+    const uploadThumbnailMutation = useUploadThumbnail();
 
     // Handle mixlist selection
     const handleMixlistKeyPress = (event) => {
@@ -172,71 +171,19 @@ function AddMediaForm() {
         setTopics(topics.filter(topic => topic !== topicToRemove));
     };
 
-    // Autocomplete search functions
-    const handleTopicSearch = async (inputValue) => {
-        if (inputValue.length > 0) {
-            try {
-                const response = await searchTopics(inputValue);
-                setTopicSuggestions(response.data);
-            } catch (error) {
-                console.error('Error searching topics:', error);
-                setTopicSuggestions([]);
-            }
-        } else {
-            setTopicSuggestions([]);
-        }
-    };
-
-    const handleGenreSearch = async (inputValue) => {
-        if (inputValue.length > 0) {
-            try {
-                const response = await searchGenres(inputValue);
-                setGenreSuggestions(response.data);
-            } catch (error) {
-                console.error('Error searching genres:', error);
-                setGenreSuggestions([]);
-            }
-        } else {
-            setGenreSuggestions([]);
-        }
-    };
-
-    const handlePodcastSeriesSearch = async (inputValue) => {
-        if (inputValue.length > 0) {
-            try {
-                const response = await searchPodcastSeries(inputValue);
-                setPodcastSeriesSuggestions(response.data);
-            } catch (error) {
-                console.error('Error searching podcast series:', error);
-                setPodcastSeriesSuggestions([]);
-            }
-        } else {
-            setPodcastSeriesSuggestions([]);
-        }
-    };
-
     // Handle thumbnail file upload
-    const handleThumbnailUpload = async (event) => {
+    const handleThumbnailUpload = (event) => {
         const file = event.target.files[0];
-        if (file) {
-            setThumbnailFile(file);
-            console.log('Thumbnail file selected:', file.name);
-            
-            try {
-                // Upload thumbnail to DigitalOcean Spaces
-                console.log('Uploading thumbnail to DigitalOcean Spaces...');
-                const response = await uploadThumbnail(file);
-                const thumbnailUrl = response.data.url;
-                
-                // Set the thumbnail URL from the upload response
-                setThumbnail(thumbnailUrl);
-                console.log('Thumbnail uploaded successfully:', thumbnailUrl);
-            } catch (error) {
+        if (!file) return;
+        setThumbnailFile(file);
+        uploadThumbnailMutation.mutate(file, {
+            onSuccess: (data) => setThumbnail(data.url),
+            onError: (error) => {
                 console.error('Error uploading thumbnail:', error);
                 alert('Failed to upload thumbnail. Please try again.');
                 setThumbnailFile(null);
-            }
-        }
+            },
+        });
     };
 
     const handleSubmit = async (event) => {
@@ -289,8 +236,8 @@ function AddMediaForm() {
                 return;
             }
             
-            let response;
-            
+            let data;
+
             // Handle book-specific creation
             if (mediaType === 'Book') {
                 const bookData = {
@@ -315,13 +262,13 @@ function AddMediaForm() {
                     goodreadsRating: goodreadsRating ? parseFloat(goodreadsRating) : null
                 };
                 
-                response = await createBook(bookData);
+                data = await createBookMutation.mutateAsync(bookData);
             }
             // Handle podcast-specific creation
             else if (mediaType === 'Podcast') {
                 if (podcastType === 'Series') {
                     // For now, create as regular media until PodcastSeriesController exists
-                    response = await addMedia(mediaData);
+                    data = await addMediaMutation.mutateAsync(mediaData);
                 } else if (podcastType === 'Episode') {
                     // Create podcast episode with additional fields - camelCase for backend
                     const episodeData = {
@@ -344,10 +291,10 @@ function AddMediaForm() {
                         durationInSeconds: durationInSeconds ? parseInt(durationInSeconds) : 0
                     };
                     
-                    response = await createPodcastEpisode(episodeData);
+                    data = await createPodcastEpisodeMutation.mutateAsync(episodeData);
                 } else {
                     // No podcast type selected, create as regular media
-                    response = await addMedia(mediaData);
+                    data = await addMediaMutation.mutateAsync(mediaData);
                 }
             }
             // Handle movie-specific creation
@@ -380,7 +327,7 @@ function AddMediaForm() {
                     originalTitle: originalTitle || null
                 };
                 
-                response = await createMovie(movieData);
+                data = await createMovieMutation.mutateAsync(movieData);
             }
             // Handle TV show-specific creation
             else if (mediaType === 'TVShow') {
@@ -413,7 +360,7 @@ function AddMediaForm() {
                     originalName: originalName || null
                 };
                 
-                response = await createTvShow(tvShowData);
+                data = await createTvShowMutation.mutateAsync(tvShowData);
             }
             // Handle video-specific creation
             else if (mediaType === 'Video') {
@@ -439,31 +386,21 @@ function AddMediaForm() {
                     externalId: externalId || null
                 };
                 
-                response = await createVideo(videoData);
+                data = await createVideoMutation.mutateAsync(videoData);
             } else {
                 // Create regular media item
-                response = await addMedia(mediaData);
+                data = await addMediaMutation.mutateAsync(mediaData);
             }
 
-            // Handle different response types
-            let data;
-            if (response.json) {
-                // Fetch response
-                data = await response.json();
-            } else {
-                // addMedia response (axios)
-                data = response.data;
-            }
-            
-            console.log('Response data received:', data);
-            
             // Add media to selected mixlists
             const mediaId = data.id || data.Id; // Handle both lowercase and uppercase Id
             if (selectedMixlists.length > 0 && mediaId) {
                 for (const mixlist of selectedMixlists) {
                     try {
-                        await addMediaToMixlist(mixlist.Id || mixlist.id, mediaId);
-                        console.log(`Added media to mixlist: ${mixlist.Name || mixlist.name}`);
+                        await addMediaToMixlistMutation.mutateAsync({
+                            mixlistId: mixlist.Id || mixlist.id,
+                            mediaItemId: mediaId,
+                        });
                     } catch (mixlistError) {
                         console.error(`Failed to add media to mixlist ${mixlist.Name || mixlist.name}:`, mixlistError);
                     }
@@ -730,9 +667,7 @@ function AddMediaForm() {
                                     setSelectedPodcastSeries(newValue);
                                     setPodcastSeriesId(newValue?.id || newValue?.Id || '');
                                 }}
-                                onInputChange={(event, newInputValue) => {
-                                    handlePodcastSeriesSearch(newInputValue);
-                                }}
+                                onInputChange={(event, newInputValue) => setPodcastSeriesInput(newInputValue)}
                                 renderInput={(params) => (
                                     <TextField
                                         {...params}
@@ -1413,10 +1348,7 @@ function AddMediaForm() {
                             const normalizedGenres = newValue.map(genre => genre.toLowerCase());
                             setGenres(normalizedGenres);
                         }}
-                        onInputChange={(event, newInputValue) => {
-                            setGenreInput(newInputValue);
-                            handleGenreSearch(newInputValue);
-                        }}
+                        onInputChange={(event, newInputValue) => setGenreInput(newInputValue)}
                         renderTags={(value, getTagProps) =>
                             value.map((option, index) => (
                                 <Chip
@@ -1468,10 +1400,7 @@ function AddMediaForm() {
                             const normalizedTopics = newValue.map(topic => topic.toLowerCase());
                             setTopics(normalizedTopics);
                         }}
-                        onInputChange={(event, newInputValue) => {
-                            setTopicInput(newInputValue);
-                            handleTopicSearch(newInputValue);
-                        }}
+                        onInputChange={(event, newInputValue) => setTopicInput(newInputValue)}
                         renderTags={(value, getTagProps) =>
                             value.map((option, index) => (
                                 <Chip

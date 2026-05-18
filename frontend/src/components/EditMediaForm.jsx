@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import {
     Container, Typography, TextField, Button, Box, MenuItem,
@@ -7,42 +7,91 @@ import {
     List, ListItem, ListItemText, IconButton, Chip, InputAdornment, Tooltip, Checkbox
 } from '@mui/material';
 import { Save, Cancel, ArrowBack, Delete, Add as AddIcon, Search, Close, Delete as DeleteIcon, OpenInNew as OpenInNewIcon, Article as NoteIcon, PlaylistAdd } from '@mui/icons-material';
-import { getMediaById, updateMedia, deleteMedia } from '../api/mediaService';
-import { uploadThumbnail } from '../api/uploadService';
-import { getNotesForMedia, getAllNotes, searchNotes, linkNoteToMedia, unlinkNoteFromMedia } from '../api/noteService';
-import { getAllMixlists, addMediaToMixlist, removeMediaFromMixlist } from '../api/mixlistService';
+import { useMediaItem, useUpdateMedia, useDeleteMedia } from '../hooks/useMedia';
+import { useUploadThumbnail } from '../hooks/useUpload';
+import {
+    useNotesForMedia,
+    useAllNotes,
+    useNoteSearch,
+    useLinkNoteToMedia,
+    useUnlinkNoteFromMedia,
+} from '../hooks/useNote';
+import {
+    useAllMixlists,
+    useAddMediaToMixlist,
+    useRemoveMediaFromMixlist,
+} from '../hooks/useMixlist';
 import { formatStatus } from '../utils/formatters';
 import TopicsGenresSection from './TopicsGenresSection';
 
 function EditMediaForm() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
     const [thumbnailFile, setThumbnailFile] = useState(null);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-    const [mediaItem, setMediaItem] = useState(null);
     const [refreshKey, setRefreshKey] = useState(0);
 
     // Notes linking state
-    const [linkedNotes, setLinkedNotes] = useState([]);
-    const [loadingNotes, setLoadingNotes] = useState(false);
     const [linkNoteDialog, setLinkNoteDialog] = useState(false);
     const [noteSearchQuery, setNoteSearchQuery] = useState('');
-    const [availableNotes, setAvailableNotes] = useState([]);
-    const [loadingAvailableNotes, setLoadingAvailableNotes] = useState(false);
     const [selectedNoteIds, setSelectedNoteIds] = useState(new Set());
     const [linkDescription, setLinkDescription] = useState('');
-    const [savingNote, setSavingNote] = useState(false);
 
     // Mixlist management state
-    const [currentMixlists, setCurrentMixlists] = useState([]);
-    const [availableMixlists, setAvailableMixlists] = useState([]);
     const [addMixlistDialog, setAddMixlistDialog] = useState(false);
     const [mixlistSearchQuery, setMixlistSearchQuery] = useState('');
     const [selectedMixlistIds, setSelectedMixlistIds] = useState(new Set());
-    const [savingMixlist, setSavingMixlist] = useState(false);
+
+    // Queries
+    const mediaQuery = useMediaItem(id);
+    const mediaItem = mediaQuery.data ?? null;
+    const loading = mediaQuery.isLoading;
+
+    const linkedNotesQuery = useNotesForMedia(id);
+    const linkedNotes = linkedNotesQuery.data ?? [];
+    const loadingNotes = linkedNotesQuery.isLoading;
+
+    const allNotesQuery = useAllNotes(null, {
+        enabled: linkNoteDialog && noteSearchQuery.length < 2,
+    });
+    const noteSearchActive = linkNoteDialog && noteSearchQuery.length >= 2;
+    const notesSearchQuery = useNoteSearch(noteSearchActive ? noteSearchQuery : '');
+    const availableNotes = useMemo(() => {
+        if (noteSearchActive) {
+            if (notesSearchQuery.error) return allNotesQuery.data ?? [];
+            return notesSearchQuery.data?.hits?.map(hit => hit.document) ?? [];
+        }
+        return allNotesQuery.data ?? [];
+    }, [noteSearchActive, notesSearchQuery.data, notesSearchQuery.error, allNotesQuery.data]);
+    const loadingAvailableNotes = noteSearchActive ? notesSearchQuery.isLoading : allNotesQuery.isLoading;
+
+    const mixlistsQuery = useAllMixlists();
+    const { currentMixlists, availableMixlists } = useMemo(() => {
+        const all = mixlistsQuery.data ?? [];
+        const mixlistIds = mediaItem?.mixlistIds || [];
+        if (mixlistIds.length === 0) {
+            return { currentMixlists: [], availableMixlists: all };
+        }
+        const set = new Set(mixlistIds);
+        return {
+            currentMixlists: all.filter(m => set.has(m.id)),
+            availableMixlists: all.filter(m => !set.has(m.id)),
+        };
+    }, [mixlistsQuery.data, mediaItem]);
+
+    // Mutations
+    const updateMediaMutation = useUpdateMedia();
+    const deleteMediaMutation = useDeleteMedia();
+    const uploadThumbnailMutation = useUploadThumbnail();
+    const linkNoteMutation = useLinkNoteToMedia();
+    const unlinkNoteMutation = useUnlinkNoteFromMedia();
+    const addToMixlistMutation = useAddMediaToMixlist();
+    const removeFromMixlistMutation = useRemoveMediaFromMixlist();
+
+    const saving = updateMediaMutation.isPending;
+    const savingNote = linkNoteMutation.isPending || unlinkNoteMutation.isPending;
+    const savingMixlist = addToMixlistMutation.isPending || removeFromMixlistMutation.isPending;
 
     const [formData, setFormData] = useState({
         title: '',
@@ -73,86 +122,31 @@ function EditMediaForm() {
         'Own', 'Rented', 'Streamed'
     ];
 
+    // Sync form state when the media item loads (or refreshKey bumps).
     useEffect(() => {
-        const fetchMedia = async () => {
-            try {
-                const response = await getMediaById(id);
-                const media = response.data;
-
-                setMediaItem(media);
-                setFormData({
-                    title: media.title || media.Title || '',
-                    mediaType: media.mediaType || media.MediaType || 'Other',
-                    status: media.status || media.Status || 'Uncharted',
-                    rating: media.rating || media.Rating || '',
-                    ownershipStatus: media.ownershipStatus || media.OwnershipStatus || '',
-                    link: media.link || media.Link || '',
-                    description: media.description || media.Description || '',
-                    notes: media.notes || media.Notes || '',
-                    thumbnail: media.thumbnail || media.Thumbnail || '',
-                    genre: media.genre || media.Genre || '',
-                    dateCompleted: media.dateCompleted || media.DateCompleted ?
-                        new Date(media.dateCompleted || media.DateCompleted).toISOString().split('T')[0] : ''
-                });
-            } catch (error) {
-                console.error('Failed to fetch media:', error);
-                setSnackbar({ open: true, message: 'Failed to load media item', severity: 'error' });
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        if (id) {
-            fetchMedia();
-        }
-    }, [id, refreshKey]);
-
-    // Fetch linked notes
-    const fetchLinkedNotes = useCallback(async () => {
-        if (!id) return;
-        setLoadingNotes(true);
-        try {
-            const notes = await getNotesForMedia(id);
-            setLinkedNotes(notes || []);
-        } catch (error) {
-            console.error('Error fetching linked notes:', error);
-            setLinkedNotes([]);
-        } finally {
-            setLoadingNotes(false);
-        }
-    }, [id]);
-
-    useEffect(() => {
-        if (id) {
-            fetchLinkedNotes();
-        }
-    }, [id, fetchLinkedNotes]);
-
-    // Fetch mixlists for this media item
-    const fetchMixlists = useCallback(async () => {
         if (!mediaItem) return;
-        try {
-            const response = await getAllMixlists();
-            const allMixlists = response.data || [];
-            const mixlistIds = mediaItem.mixlistIds || [];
-            if (mixlistIds.length > 0) {
-                const mixlistIdSet = new Set(mixlistIds);
-                setCurrentMixlists(allMixlists.filter(m => mixlistIdSet.has(m.id)));
-                setAvailableMixlists(allMixlists.filter(m => !mixlistIdSet.has(m.id)));
-            } else {
-                setCurrentMixlists([]);
-                setAvailableMixlists(allMixlists);
-            }
-        } catch (error) {
-            console.error('Error fetching mixlists:', error);
-        }
-    }, [mediaItem]);
+        setFormData({
+            title: mediaItem.title || mediaItem.Title || '',
+            mediaType: mediaItem.mediaType || mediaItem.MediaType || 'Other',
+            status: mediaItem.status || mediaItem.Status || 'Uncharted',
+            rating: mediaItem.rating || mediaItem.Rating || '',
+            ownershipStatus: mediaItem.ownershipStatus || mediaItem.OwnershipStatus || '',
+            link: mediaItem.link || mediaItem.Link || '',
+            description: mediaItem.description || mediaItem.Description || '',
+            notes: mediaItem.notes || mediaItem.Notes || '',
+            thumbnail: mediaItem.thumbnail || mediaItem.Thumbnail || '',
+            genre: mediaItem.genre || mediaItem.Genre || '',
+            dateCompleted: mediaItem.dateCompleted || mediaItem.DateCompleted ?
+                new Date(mediaItem.dateCompleted || mediaItem.DateCompleted).toISOString().split('T')[0] : ''
+        });
+    }, [mediaItem, refreshKey]);
 
     useEffect(() => {
-        if (mediaItem) {
-            fetchMixlists();
+        if (mediaQuery.error) {
+            console.error('Failed to fetch media:', mediaQuery.error);
+            setSnackbar({ open: true, message: 'Failed to load media item', severity: 'error' });
         }
-    }, [mediaItem, fetchMixlists]);
+    }, [mediaQuery.error]);
 
     // Toggle mixlist selection
     const toggleMixlistSelection = (mixlistId) => {
@@ -185,97 +179,53 @@ function EditMediaForm() {
             setSnackbar({ open: true, message: 'Please select at least one mixlist', severity: 'warning' });
             return;
         }
-        setSavingMixlist(true);
-        try {
-            let successCount = 0;
-            let errorCount = 0;
-            const addedMixlists = [];
-            for (const mixlistId of selectedMixlistIds) {
-                try {
-                    await addMediaToMixlist(mixlistId, id);
-                    successCount++;
-                    const addedMixlist = availableMixlists.find(m => m.id === mixlistId);
-                    if (addedMixlist) addedMixlists.push(addedMixlist);
-                } catch (err) {
-                    console.error(`Failed to add to mixlist ${mixlistId}:`, err);
-                    errorCount++;
-                }
+        let successCount = 0;
+        let errorCount = 0;
+        for (const mixlistId of selectedMixlistIds) {
+            try {
+                await addToMixlistMutation.mutateAsync({ mixlistId, mediaItemId: id });
+                successCount++;
+            } catch (err) {
+                console.error(`Failed to add to mixlist ${mixlistId}:`, err);
+                errorCount++;
             }
-            if (successCount > 0) {
-                setCurrentMixlists(prev => [...prev, ...addedMixlists]);
-                setAvailableMixlists(prev => prev.filter(m => !selectedMixlistIds.has(m.id)));
-                setSnackbar({
-                    open: true,
-                    message: `Added to ${successCount} mixlist${successCount !== 1 ? 's' : ''}${errorCount > 0 ? ` (${errorCount} failed)` : ''}`,
-                    severity: errorCount > 0 ? 'warning' : 'success'
-                });
-            } else {
-                setSnackbar({ open: true, message: 'Failed to add to mixlists', severity: 'error' });
-            }
-            handleCloseMixlistDialog();
-        } catch (error) {
-            console.error('Failed to add media to mixlists:', error);
-            setSnackbar({ open: true, message: 'Failed to add to mixlists', severity: 'error' });
-        } finally {
-            setSavingMixlist(false);
         }
+        if (successCount > 0) {
+            // Bump refreshKey so mediaQuery refetches and currentMixlists/availableMixlists re-derive.
+            setRefreshKey(k => k + 1);
+            mediaQuery.refetch();
+            setSnackbar({
+                open: true,
+                message: `Added to ${successCount} mixlist${successCount !== 1 ? 's' : ''}${errorCount > 0 ? ` (${errorCount} failed)` : ''}`,
+                severity: errorCount > 0 ? 'warning' : 'success'
+            });
+        } else {
+            setSnackbar({ open: true, message: 'Failed to add to mixlists', severity: 'error' });
+        }
+        handleCloseMixlistDialog();
     };
 
-    const handleRemoveFromMixlist = async (mixlistId, mixlistName) => {
-        setSavingMixlist(true);
-        try {
-            await removeMediaFromMixlist(mixlistId, id);
-            const removedMixlist = currentMixlists.find(m => m.id === mixlistId);
-            if (removedMixlist) {
-                setAvailableMixlists(prev => [...prev, removedMixlist]);
-                setCurrentMixlists(prev => prev.filter(m => m.id !== mixlistId));
+    const handleRemoveFromMixlist = (mixlistId, mixlistName) => {
+        removeFromMixlistMutation.mutate(
+            { mixlistId, mediaItemId: id },
+            {
+                onSuccess: () => {
+                    setRefreshKey(k => k + 1);
+                    mediaQuery.refetch();
+                    setSnackbar({ open: true, message: `Removed from "${mixlistName}"`, severity: 'success' });
+                },
+                onError: (error) => {
+                    console.error('Error removing from mixlist:', error);
+                    setSnackbar({ open: true, message: 'Failed to remove from mixlist', severity: 'error' });
+                },
             }
-            setSnackbar({ open: true, message: `Removed from "${mixlistName}"`, severity: 'success' });
-        } catch (error) {
-            console.error('Error removing from mixlist:', error);
-            setSnackbar({ open: true, message: 'Failed to remove from mixlist', severity: 'error' });
-        } finally {
-            setSavingMixlist(false);
-        }
+        );
     };
 
     const filteredAvailableMixlistsForDialog = availableMixlists.filter(m =>
         (m.name || '').toLowerCase().includes(mixlistSearchQuery.toLowerCase()) ||
         (m.description || '').toLowerCase().includes(mixlistSearchQuery.toLowerCase())
     );
-
-    // Fetch available notes when dialog opens
-    const fetchAvailableNotes = useCallback(async () => {
-        setLoadingAvailableNotes(true);
-        try {
-            const notes = await getAllNotes();
-            setAvailableNotes(notes || []);
-        } catch (error) {
-            console.error('Error fetching available notes:', error);
-            setAvailableNotes([]);
-        } finally {
-            setLoadingAvailableNotes(false);
-        }
-    }, []);
-
-    // Search notes
-    const handleNoteSearch = useCallback(async (query) => {
-        if (!query || query.length < 2) {
-            fetchAvailableNotes();
-            return;
-        }
-        setLoadingAvailableNotes(true);
-        try {
-            const results = await searchNotes(query);
-            const hits = results?.hits?.map(hit => hit.document) || [];
-            setAvailableNotes(hits);
-        } catch (error) {
-            console.error('Error searching notes:', error);
-            fetchAvailableNotes();
-        } finally {
-            setLoadingAvailableNotes(false);
-        }
-    }, [fetchAvailableNotes]);
 
     // Toggle note selection
     const toggleNoteSelection = (noteId) => {
@@ -296,7 +246,6 @@ function EditMediaForm() {
         setNoteSearchQuery('');
         setSelectedNoteIds(new Set());
         setLinkDescription('');
-        fetchAvailableNotes();
     };
 
     // Close link note dialog
@@ -313,51 +262,47 @@ function EditMediaForm() {
             setSnackbar({ open: true, message: 'Please select at least one note', severity: 'warning' });
             return;
         }
-        setSavingNote(true);
-        try {
-            let successCount = 0;
-            let errorCount = 0;
-            for (const noteId of selectedNoteIds) {
-                try {
-                    await linkNoteToMedia(noteId, id, linkDescription || null);
-                    successCount++;
-                } catch (err) {
-                    console.error(`Error linking note ${noteId}:`, err);
-                    errorCount++;
-                }
-            }
-            if (successCount > 0) {
-                setSnackbar({
-                    open: true,
-                    message: `Linked ${successCount} note${successCount !== 1 ? 's' : ''}${errorCount > 0 ? ` (${errorCount} failed)` : ''}`,
-                    severity: errorCount > 0 ? 'warning' : 'success'
+        let successCount = 0;
+        let errorCount = 0;
+        for (const noteId of selectedNoteIds) {
+            try {
+                await linkNoteMutation.mutateAsync({
+                    noteId,
+                    mediaItemId: id,
+                    linkDescription: linkDescription || null,
                 });
-            } else {
-                setSnackbar({ open: true, message: 'Failed to link notes', severity: 'error' });
+                successCount++;
+            } catch (err) {
+                console.error(`Error linking note ${noteId}:`, err);
+                errorCount++;
             }
-            handleCloseLinkNoteDialog();
-            fetchLinkedNotes();
-        } catch (error) {
-            console.error('Error linking notes:', error);
-            setSnackbar({ open: true, message: 'Failed to link notes', severity: 'error' });
-        } finally {
-            setSavingNote(false);
         }
+        if (successCount > 0) {
+            setSnackbar({
+                open: true,
+                message: `Linked ${successCount} note${successCount !== 1 ? 's' : ''}${errorCount > 0 ? ` (${errorCount} failed)` : ''}`,
+                severity: errorCount > 0 ? 'warning' : 'success'
+            });
+        } else {
+            setSnackbar({ open: true, message: 'Failed to link notes', severity: 'error' });
+        }
+        handleCloseLinkNoteDialog();
     };
 
     // Unlink note from media
-    const handleUnlinkNote = async (noteId, noteTitle) => {
-        setSavingNote(true);
-        try {
-            await unlinkNoteFromMedia(noteId, id);
-            setSnackbar({ open: true, message: `Unlinked note "${noteTitle}"`, severity: 'success' });
-            fetchLinkedNotes();
-        } catch (error) {
-            console.error('Error unlinking note:', error);
-            setSnackbar({ open: true, message: 'Failed to unlink note', severity: 'error' });
-        } finally {
-            setSavingNote(false);
-        }
+    const handleUnlinkNote = (noteId, noteTitle) => {
+        unlinkNoteMutation.mutate(
+            { noteId, mediaItemId: id },
+            {
+                onSuccess: () => {
+                    setSnackbar({ open: true, message: `Unlinked note "${noteTitle}"`, severity: 'success' });
+                },
+                onError: (error) => {
+                    console.error('Error unlinking note:', error);
+                    setSnackbar({ open: true, message: 'Failed to unlink note', severity: 'error' });
+                },
+            }
+        );
     };
 
     // Get vault color
@@ -384,113 +329,97 @@ function EditMediaForm() {
     };
 
     // Handle thumbnail file upload
-    const handleThumbnailUpload = async (event) => {
+    const handleThumbnailUpload = (event) => {
         const file = event.target.files[0];
-        if (file) {
-            setThumbnailFile(file);
-            console.log('Thumbnail file selected:', file.name);
-            
-            try {
-                // Upload thumbnail to DigitalOcean Spaces
-                console.log('Uploading thumbnail to DigitalOcean Spaces...');
-                const response = await uploadThumbnail(file);
-                const thumbnailUrl = response.data.url;
-                
-                // Set the thumbnail URL from the upload response
-                handleInputChange('thumbnail', thumbnailUrl);
-                console.log('Thumbnail uploaded successfully:', thumbnailUrl);
-                
-                setSnackbar({ 
-                    open: true, 
-                    message: 'Thumbnail uploaded successfully!', 
-                    severity: 'success' 
+        if (!file) return;
+        setThumbnailFile(file);
+        uploadThumbnailMutation.mutate(file, {
+            onSuccess: (data) => {
+                handleInputChange('thumbnail', data.url);
+                setSnackbar({
+                    open: true,
+                    message: 'Thumbnail uploaded successfully!',
+                    severity: 'success'
                 });
-            } catch (error) {
+            },
+            onError: (error) => {
                 console.error('Error uploading thumbnail:', error);
-                setSnackbar({ 
-                    open: true, 
-                    message: 'Failed to upload thumbnail. Please try again.', 
-                    severity: 'error' 
+                setSnackbar({
+                    open: true,
+                    message: 'Failed to upload thumbnail. Please try again.',
+                    severity: 'error'
                 });
                 setThumbnailFile(null);
-            }
-        }
+            },
+        });
     };
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = (e) => {
         e.preventDefault();
-        setSaving(true);
 
-        try {
-            // Prepare update data according to CreateMediaItemDto
-            const updateData = {
-                title: formData.title,
-                mediaType: formData.mediaType,
-                status: formData.status,
-                rating: formData.rating || null, // Convert empty string to null for enum
-                ownershipStatus: formData.ownershipStatus || null, // Convert empty string to null for enum
-                link: formData.link || null,
-                description: formData.description || null,
-                notes: formData.notes || null,
-                thumbnail: formData.thumbnail || null,
-                genre: formData.genre || null,
-                dateCompleted: formData.dateCompleted ? new Date(formData.dateCompleted).toISOString() : null,
-                topics: mediaItem?.topics || mediaItem?.topicNames || [],
-                genres: mediaItem?.genres || mediaItem?.genreNames || []
-            };
+        const updateData = {
+            title: formData.title,
+            mediaType: formData.mediaType,
+            status: formData.status,
+            rating: formData.rating || null,
+            ownershipStatus: formData.ownershipStatus || null,
+            link: formData.link || null,
+            description: formData.description || null,
+            notes: formData.notes || null,
+            thumbnail: formData.thumbnail || null,
+            genre: formData.genre || null,
+            dateCompleted: formData.dateCompleted ? new Date(formData.dateCompleted).toISOString() : null,
+            topics: mediaItem?.topics || mediaItem?.topicNames || [],
+            genres: mediaItem?.genres || mediaItem?.genreNames || []
+        };
 
-            await updateMedia(id, updateData);
-            
-            setSnackbar({ 
-                open: true, 
-                message: 'Media item updated successfully!', 
-                severity: 'success' 
-            });
-
-            // Redirect back to media profile after a short delay
-            setTimeout(() => {
-                navigate(`/media/${id}`);
-            }, 1500);
-
-        } catch (error) {
-            console.error('Failed to update media:', error);
-            setSnackbar({ 
-                open: true, 
-                message: error.response?.data?.message || 'Failed to update media item', 
-                severity: 'error' 
-            });
-        } finally {
-            setSaving(false);
-        }
+        updateMediaMutation.mutate(
+            { id, mediaData: updateData },
+            {
+                onSuccess: () => {
+                    setSnackbar({
+                        open: true,
+                        message: 'Media item updated successfully!',
+                        severity: 'success'
+                    });
+                    setTimeout(() => navigate(`/media/${id}`), 1500);
+                },
+                onError: (error) => {
+                    console.error('Failed to update media:', error);
+                    setSnackbar({
+                        open: true,
+                        message: error.response?.data?.message || 'Failed to update media item',
+                        severity: 'error'
+                    });
+                },
+            }
+        );
     };
 
     const handleCancel = () => {
         navigate(`/media/${id}`);
     };
 
-    const handleDelete = async () => {
-        try {
-            await deleteMedia(id);
-            setSnackbar({ 
-                open: true, 
-                message: 'Media item deleted successfully!', 
-                severity: 'success' 
-            });
-            
-            // Navigate to homepage after a short delay
-            setTimeout(() => {
-                navigate('/');
-            }, 1500);
-        } catch (error) {
-            console.error('Failed to delete media:', error);
-            setSnackbar({ 
-                open: true, 
-                message: error.response?.data?.error || 'Failed to delete media item', 
-                severity: 'error' 
-            });
-        } finally {
-            setDeleteDialogOpen(false);
-        }
+    const handleDelete = () => {
+        deleteMediaMutation.mutate(id, {
+            onSuccess: () => {
+                setSnackbar({
+                    open: true,
+                    message: 'Media item deleted successfully!',
+                    severity: 'success'
+                });
+                setTimeout(() => navigate('/'), 1500);
+            },
+            onError: (error) => {
+                console.error('Failed to delete media:', error);
+                setSnackbar({
+                    open: true,
+                    message: error.response?.data?.error || 'Failed to delete media item',
+                    severity: 'error'
+                });
+            },
+            onSettled: () => setDeleteDialogOpen(false),
+        });
     };
 
     if (loading) {
@@ -1094,10 +1023,7 @@ function EditMediaForm() {
                             fullWidth
                             placeholder="Search notes..."
                             value={noteSearchQuery}
-                            onChange={(e) => {
-                                setNoteSearchQuery(e.target.value);
-                                handleNoteSearch(e.target.value);
-                            }}
+                            onChange={(e) => setNoteSearchQuery(e.target.value)}
                             variant="outlined"
                             size="small"
                             InputProps={{

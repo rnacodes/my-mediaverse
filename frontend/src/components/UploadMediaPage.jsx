@@ -6,15 +6,17 @@ import {
 } from '@mui/material';
 import { CloudUpload, FileUpload, CheckCircle, Error, ExpandMore, MenuBook } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { uploadCsv } from '../api/uploadService';
+import { useUploadCsv } from '../hooks/useUpload';
 
 function UploadMediaPage() {
     const navigate = useNavigate();
     const fileInputRef = useRef(null);
     const [file, setFile] = useState(null);
-    const [uploading, setUploading] = useState(false);
     const [uploadResult, setUploadResult] = useState(null);
     const [error, setError] = useState('');
+
+    const uploadCsvMutation = useUploadCsv();
+    const uploading = uploadCsvMutation.isPending;
 
     const handleFileSelect = (event) => {
         const selectedFile = event.target.files[0];
@@ -36,45 +38,46 @@ function UploadMediaPage() {
             return;
         }
 
-        setUploading(true);
         setError('');
         setUploadResult(null);
 
         try {
-            // Read the first line of the CSV to detect if MediaType column exists
+            // Read the first line of the CSV to detect if MediaType column exists.
             const text = await file.text();
             const lines = text.split('\n');
-            
+
             if (lines.length < 2) {
                 throw new Error('CSV file must have a header row and at least one data row');
             }
-            
+
             const headers = lines[0].toLowerCase().split(',');
-            
-            // Check if MediaType column exists
             const mediaTypeIndex = headers.findIndex(h => h.trim() === 'mediatype');
-            
+
             if (mediaTypeIndex === -1) {
                 throw new Error('CSV file must include a "MediaType" column');
             }
-
-            // Upload the CSV - backend will read MediaType from each row
-            // We pass null as mediaType to let the backend handle per-row media types
-            const response = await uploadCsv(file, null);
-            console.log('Upload response:', response.data);
-            setUploadResult(response.data);
         } catch (err) {
-            console.error('Upload error:', err);
-            if (err.response?.data?.error) {
-                setError(err.response.data.error + (err.response.data.details ? ': ' + err.response.data.details : ''));
-            } else if (err.message) {
-                setError(err.message);
-            } else {
-                setError('Failed to upload file. Please try again.');
-            }
-        } finally {
-            setUploading(false);
+            setError(err.message || 'Failed to validate CSV file');
+            return;
         }
+
+        // Upload the CSV — backend reads MediaType from each row, so pass null for the top-level type.
+        uploadCsvMutation.mutate(
+            { file, mediaType: null },
+            {
+                onSuccess: (data) => setUploadResult(data),
+                onError: (err) => {
+                    console.error('Upload error:', err);
+                    if (err.response?.data?.error) {
+                        setError(err.response.data.error + (err.response.data.details ? ': ' + err.response.data.details : ''));
+                    } else if (err.message) {
+                        setError(err.message);
+                    } else {
+                        setError('Failed to upload file. Please try again.');
+                    }
+                },
+            }
+        );
     };
 
     const resetUpload = () => {
@@ -362,18 +365,18 @@ function UploadMediaPage() {
                             </AccordionSummary>
                             <AccordionDetails>
                                 <List>
-                                    {uploadResult.Errors.map((error) => (
+                                    {uploadResult.Errors.map((error, errIndex) => (
                                         <React.Fragment key={`err-${error}`}>
                                             <ListItem>
                                                 <ListItemText
                                                     primary={error}
-                                                    primaryTypographyProps={{ 
+                                                    primaryTypographyProps={{
                                                         variant: 'body2',
                                                         color: 'error.main'
                                                     }}
                                                 />
                                             </ListItem>
-                                            {index < uploadResult.Errors.length - 1 && <Divider />}
+                                            {errIndex < uploadResult.Errors.length - 1 && <Divider />}
                                         </React.Fragment>
                                     ))}
                                 </List>

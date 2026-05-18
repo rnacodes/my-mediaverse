@@ -7,21 +7,19 @@ import {
     Chip, Autocomplete
 } from '@mui/material';
 import { Save, Cancel, ArrowBack, Delete } from '@mui/icons-material';
-import { getMixlistById, updateMixlist, deleteMixlist } from '../api/mixlistService';
-import { uploadThumbnail } from '../api/uploadService';
-import { searchTopics, searchGenres } from '../api/topicGenreService';
+import { useMixlist, useUpdateMixlist, useDeleteMixlist } from '../hooks/useMixlist';
+import { useUploadThumbnail } from '../hooks/useUpload';
+import { useTopicSearch, useGenreSearch } from '../hooks/useTopicGenre';
 
 function EditMixlistForm() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
     const [thumbnailFile, setThumbnailFile] = useState(null);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-    
-    const [topicSuggestions, setTopicSuggestions] = useState([]);
-    const [genreSuggestions, setGenreSuggestions] = useState([]);
+
+    const [topicInput, setTopicInput] = useState('');
+    const [genreInput, setGenreInput] = useState('');
 
     const [formData, setFormData] = useState({
         name: '',
@@ -31,31 +29,38 @@ function EditMixlistForm() {
         genres: []
     });
 
-    useEffect(() => {
-        const fetchMixlist = async () => {
-            try {
-                const response = await getMixlistById(id);
-                const mixlist = response.data;
-                
-                setFormData({
-                    name: mixlist.Name || mixlist.name || '',
-                    description: mixlist.Description || mixlist.description || '',
-                    thumbnail: mixlist.Thumbnail || mixlist.thumbnail || '',
-                    topics: mixlist.Topics || mixlist.topics || [],
-                    genres: mixlist.Genres || mixlist.genres || []
-                });
-            } catch (error) {
-                console.error('Failed to fetch mixlist:', error);
-                setSnackbar({ open: true, message: 'Failed to load mixlist', severity: 'error' });
-            } finally {
-                setLoading(false);
-            }
-        };
+    const mixlistQuery = useMixlist(id);
+    const loading = mixlistQuery.isLoading;
 
-        if (id) {
-            fetchMixlist();
+    // Seed form state once the mixlist loads.
+    useEffect(() => {
+        const mixlist = mixlistQuery.data;
+        if (!mixlist) return;
+        setFormData({
+            name: mixlist.Name || mixlist.name || '',
+            description: mixlist.Description || mixlist.description || '',
+            thumbnail: mixlist.Thumbnail || mixlist.thumbnail || '',
+            topics: mixlist.Topics || mixlist.topics || [],
+            genres: mixlist.Genres || mixlist.genres || []
+        });
+    }, [mixlistQuery.data]);
+
+    useEffect(() => {
+        if (mixlistQuery.error) {
+            console.error('Failed to fetch mixlist:', mixlistQuery.error);
+            setSnackbar({ open: true, message: 'Failed to load mixlist', severity: 'error' });
         }
-    }, [id]);
+    }, [mixlistQuery.error]);
+
+    const updateMutation = useUpdateMixlist();
+    const deleteMutation = useDeleteMixlist();
+    const uploadThumbnailMutation = useUploadThumbnail();
+    const saving = updateMutation.isPending;
+
+    const topicSearchQuery = useTopicSearch(topicInput);
+    const genreSearchQuery = useGenreSearch(genreInput);
+    const topicSuggestions = topicSearchQuery.data ?? [];
+    const genreSuggestions = genreSearchQuery.data ?? [];
 
     const handleInputChange = (field, value) => {
         setFormData(prev => ({
@@ -64,125 +69,82 @@ function EditMixlistForm() {
         }));
     };
 
-    const handleTopicSearch = async (inputValue) => {
-        if (inputValue.length > 0) {
-            try {
-                const response = await searchTopics(inputValue);
-                setTopicSuggestions(response.data);
-            } catch (error) {
-                console.error('Error searching topics:', error);
-                setTopicSuggestions([]);
-            }
-        } else {
-            setTopicSuggestions([]);
-        }
-    };
-
-    const handleGenreSearch = async (inputValue) => {
-        if (inputValue.length > 0) {
-            try {
-                const response = await searchGenres(inputValue);
-                setGenreSuggestions(response.data);
-            } catch (error) {
-                console.error('Error searching genres:', error);
-                setGenreSuggestions([]);
-            }
-        } else {
-            setGenreSuggestions([]);
-        }
-    };
-
-    // Handle thumbnail file upload
-    const handleThumbnailUpload = async (event) => {
+    const handleThumbnailUpload = (event) => {
         const file = event.target.files[0];
-        if (file) {
-            setThumbnailFile(file);
-            console.log('Thumbnail file selected:', file.name);
-            
-            try {
-                // Upload thumbnail to DigitalOcean Spaces
-                console.log('Uploading thumbnail to DigitalOcean Spaces...');
-                const response = await uploadThumbnail(file);
-                const thumbnailUrl = response.data.url;
-                
-                // Set the thumbnail URL from the upload response
-                handleInputChange('thumbnail', thumbnailUrl);
-                console.log('Thumbnail uploaded successfully:', thumbnailUrl);
-                
-                setSnackbar({ 
-                    open: true, 
-                    message: 'Thumbnail uploaded successfully!', 
-                    severity: 'success' 
+        if (!file) return;
+
+        setThumbnailFile(file);
+        uploadThumbnailMutation.mutate(file, {
+            onSuccess: (data) => {
+                handleInputChange('thumbnail', data.url);
+                setSnackbar({
+                    open: true,
+                    message: 'Thumbnail uploaded successfully!',
+                    severity: 'success'
                 });
-            } catch (error) {
+            },
+            onError: (error) => {
                 console.error('Error uploading thumbnail:', error);
-                setSnackbar({ 
-                    open: true, 
-                    message: 'Failed to upload thumbnail. Please try again.', 
-                    severity: 'error' 
+                setSnackbar({
+                    open: true,
+                    message: 'Failed to upload thumbnail. Please try again.',
+                    severity: 'error'
                 });
                 setThumbnailFile(null);
-            }
-        }
+            },
+        });
     };
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = (e) => {
         e.preventDefault();
-        setSaving(true);
 
-        try {
-            await updateMixlist(id, formData);
-            
-            setSnackbar({ 
-                open: true, 
-                message: 'Mixlist updated successfully!', 
-                severity: 'success' 
-            });
-
-            // Redirect back to mixlist profile after a short delay
-            setTimeout(() => {
-                navigate(`/mixlist/${id}`);
-            }, 1500);
-
-        } catch (error) {
-            console.error('Failed to update mixlist:', error);
-            setSnackbar({ 
-                open: true, 
-                message: error.response?.data?.message || 'Failed to update mixlist', 
-                severity: 'error' 
-            });
-        } finally {
-            setSaving(false);
-        }
+        updateMutation.mutate(
+            { id, mixlistData: formData },
+            {
+                onSuccess: () => {
+                    setSnackbar({
+                        open: true,
+                        message: 'Mixlist updated successfully!',
+                        severity: 'success'
+                    });
+                    setTimeout(() => navigate(`/mixlist/${id}`), 1500);
+                },
+                onError: (error) => {
+                    console.error('Failed to update mixlist:', error);
+                    setSnackbar({
+                        open: true,
+                        message: error.response?.data?.message || 'Failed to update mixlist',
+                        severity: 'error'
+                    });
+                },
+            }
+        );
     };
 
     const handleCancel = () => {
         navigate(`/mixlist/${id}`);
     };
 
-    const handleDelete = async () => {
-        try {
-            await deleteMixlist(id);
-            setSnackbar({ 
-                open: true, 
-                message: 'Mixlist deleted successfully!', 
-                severity: 'success' 
-            });
-            
-            // Navigate to mixlists page after a short delay
-            setTimeout(() => {
-                navigate('/mixlists');
-            }, 1500);
-        } catch (error) {
-            console.error('Failed to delete mixlist:', error);
-            setSnackbar({ 
-                open: true, 
-                message: error.response?.data?.error || 'Failed to delete mixlist', 
-                severity: 'error' 
-            });
-        } finally {
-            setDeleteDialogOpen(false);
-        }
+    const handleDelete = () => {
+        deleteMutation.mutate(id, {
+            onSuccess: () => {
+                setSnackbar({
+                    open: true,
+                    message: 'Mixlist deleted successfully!',
+                    severity: 'success'
+                });
+                setTimeout(() => navigate('/mixlists'), 1500);
+            },
+            onError: (error) => {
+                console.error('Failed to delete mixlist:', error);
+                setSnackbar({
+                    open: true,
+                    message: error.response?.data?.error || 'Failed to delete mixlist',
+                    severity: 'error'
+                });
+            },
+            onSettled: () => setDeleteDialogOpen(false),
+        });
     };
 
     if (loading) {
@@ -316,9 +278,7 @@ function EditMixlistForm() {
                                         onChange={(event, newValue) => {
                                             handleInputChange('topics', newValue.map(t => t.toLowerCase()));
                                         }}
-                                        onInputChange={(event, newInputValue) => {
-                                            handleTopicSearch(newInputValue);
-                                        }}
+                                        onInputChange={(event, newInputValue) => setTopicInput(newInputValue)}
                                         renderTags={(value, getTagProps) =>
                                             value.map((option, index) => (
                                                 <Chip
@@ -357,9 +317,7 @@ function EditMixlistForm() {
                                         onChange={(event, newValue) => {
                                             handleInputChange('genres', newValue.map(g => g.toLowerCase()));
                                         }}
-                                        onInputChange={(event, newInputValue) => {
-                                            handleGenreSearch(newInputValue);
-                                        }}
+                                        onInputChange={(event, newInputValue) => setGenreInput(newInputValue)}
                                         renderTags={(value, getTagProps) =>
                                             value.map((option, index) => (
                                                 <Chip

@@ -1,109 +1,75 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { TextField, Button, Box, Typography, Chip, Autocomplete } from '@mui/material';
-import { createMixlist } from '../api/mixlistService';
-import { uploadThumbnail } from '../api/uploadService';
-import { searchTopics, searchGenres } from '../api/topicGenreService';
+import { useCreateMixlist } from '../hooks/useMixlist';
+import { useUploadThumbnail } from '../hooks/useUpload';
+import { useTopicSearch, useGenreSearch } from '../hooks/useTopicGenre';
 
 function CreateMixlistForm() {
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [thumbnail, setThumbnail] = useState('');
     const [thumbnailFile, setThumbnailFile] = useState(null);
-    const [isSubmitting, setIsSubmitting] = useState(false);
     const [topics, setTopics] = useState([]);
     const [genres, setGenres] = useState([]);
-    const [topicSuggestions, setTopicSuggestions] = useState([]);
-    const [genreSuggestions, setGenreSuggestions] = useState([]);
+    const [topicInput, setTopicInput] = useState('');
+    const [genreInput, setGenreInput] = useState('');
     const navigate = useNavigate();
     const location = useLocation();
 
-    const handleTopicSearch = async (inputValue) => {
-        if (inputValue.length > 0) {
-            try {
-                const response = await searchTopics(inputValue);
-                setTopicSuggestions(response.data);
-            } catch (error) {
-                console.error('Error searching topics:', error);
-                setTopicSuggestions([]);
-            }
-        } else {
-            setTopicSuggestions([]);
-        }
-    };
+    const createMixlistMutation = useCreateMixlist();
+    const uploadThumbnailMutation = useUploadThumbnail();
+    const isSubmitting = createMixlistMutation.isPending;
 
-    const handleGenreSearch = async (inputValue) => {
-        if (inputValue.length > 0) {
-            try {
-                const response = await searchGenres(inputValue);
-                setGenreSuggestions(response.data);
-            } catch (error) {
-                console.error('Error searching genres:', error);
-                setGenreSuggestions([]);
-            }
-        } else {
-            setGenreSuggestions([]);
-        }
-    };
+    const topicSearchQuery = useTopicSearch(topicInput);
+    const genreSearchQuery = useGenreSearch(genreInput);
+    const topicSuggestions = topicSearchQuery.data ?? [];
+    const genreSuggestions = genreSearchQuery.data ?? [];
 
     // Handle thumbnail file upload
-    const handleThumbnailUpload = async (event) => {
+    const handleThumbnailUpload = (event) => {
         const file = event.target.files[0];
-        if (file) {
-            setThumbnailFile(file);
-            console.log('Thumbnail file selected:', file.name);
-            
-            try {
-                // Upload thumbnail to DigitalOcean Spaces
-                console.log('Uploading thumbnail to DigitalOcean Spaces...');
-                const response = await uploadThumbnail(file);
-                const thumbnailUrl = response.data.url;
-                
-                // Set the thumbnail URL from the upload response
-                setThumbnail(thumbnailUrl);
-                console.log('Thumbnail uploaded successfully:', thumbnailUrl);
-            } catch (error) {
+        if (!file) return;
+
+        setThumbnailFile(file);
+
+        uploadThumbnailMutation.mutate(file, {
+            onSuccess: (data) => {
+                setThumbnail(data.url);
+            },
+            onError: (error) => {
                 console.error('Error uploading thumbnail:', error);
                 alert('Failed to upload thumbnail. Please try again.');
                 setThumbnailFile(null);
-            }
-        }
+            },
+        });
     };
 
-    const handleSubmit = async (event) => {
+    const handleSubmit = (event) => {
         event.preventDefault();
-        setIsSubmitting(true);
-        
-        try {
-            // Create mixlist data
-            const mixlistData = {
-                name: name.trim(),
-                description: description.trim() || null,
-                thumbnail: thumbnail || 'https://project-loopbreaker.atl1.cdn.digitaloceanspaces.com/thumbnails/mixlist-placeholder.png',
-                topics: topics.length > 0 ? topics : [],
-                genres: genres.length > 0 ? genres : []
-            };
 
-            console.log('Attempting to create mixlist with data:', mixlistData);
-            const response = await createMixlist(mixlistData);
-            console.log('Mixlist created!', response);
-            console.log('Mixlist data:', response.data);
-            
-            // Navigate back to the originating page, or to the new mixlist profile
-            const returnTo = location.state?.returnTo;
-            if (returnTo) {
-                navigate(returnTo);
-            } else {
-                navigate(`/mixlist/${response.data.id}`);
-            }
-        } catch (error) {
-            console.error('Failed to create mixlist:', error);
-            console.error('Error details:', error.response?.data);
-            console.error('Error status:', error.response?.status);
-            alert(`Failed to create mixlist: ${error.response?.data?.error || error.message}`);
-        } finally {
-            setIsSubmitting(false);
-        }
+        const mixlistData = {
+            name: name.trim(),
+            description: description.trim() || null,
+            thumbnail: thumbnail || 'https://project-loopbreaker.atl1.cdn.digitaloceanspaces.com/thumbnails/mixlist-placeholder.png',
+            topics: topics.length > 0 ? topics : [],
+            genres: genres.length > 0 ? genres : []
+        };
+
+        createMixlistMutation.mutate(mixlistData, {
+            onSuccess: (data) => {
+                const returnTo = location.state?.returnTo;
+                if (returnTo) {
+                    navigate(returnTo);
+                } else {
+                    navigate(`/mixlist/${data.id}`);
+                }
+            },
+            onError: (error) => {
+                console.error('Failed to create mixlist:', error);
+                alert(`Failed to create mixlist: ${error.response?.data?.error || error.message}`);
+            },
+        });
     };
 
     return (
@@ -300,9 +266,7 @@ function CreateMixlistForm() {
                     onChange={(event, newValue) => {
                         setTopics(newValue.map(t => t.toLowerCase()));
                     }}
-                    onInputChange={(event, newInputValue) => {
-                        handleTopicSearch(newInputValue);
-                    }}
+                    onInputChange={(event, newInputValue) => setTopicInput(newInputValue)}
                     renderTags={(value, getTagProps) =>
                         value.map((option, index) => (
                             <Chip
@@ -345,9 +309,7 @@ function CreateMixlistForm() {
                     onChange={(event, newValue) => {
                         setGenres(newValue.map(g => g.toLowerCase()));
                     }}
-                    onInputChange={(event, newInputValue) => {
-                        handleGenreSearch(newInputValue);
-                    }}
+                    onInputChange={(event, newInputValue) => setGenreInput(newInputValue)}
                     renderTags={(value, getTagProps) =>
                         value.map((option, index) => (
                             <Chip
