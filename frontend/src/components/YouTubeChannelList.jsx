@@ -1,54 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Box, Typography, Button, Card, CardContent, CardMedia, CardActions,
     Grid, CircularProgress, Alert, TextField, InputAdornment
 } from '@mui/material';
 import { Add, Search, YouTube } from '@mui/icons-material';
-import { getAllYouTubeChannels } from '../api/youtubeService';
+import { useAllYouTubeChannels } from '../hooks/useYoutube';
 
 function YouTubeChannelList() {
-    const [channels, setChannels] = useState([]);
-    const [filteredChannels, setFilteredChannels] = useState([]);
-    const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const navigate = useNavigate();
 
-    useEffect(() => {
-        fetchChannels();
-    }, []);
+    const channelsQuery = useAllYouTubeChannels();
+    const channels = channelsQuery.data ?? [];
+    const loading = channelsQuery.isLoading;
 
-    useEffect(() => {
-        filterChannels();
-    }, [searchQuery, channels]);
-
-    const fetchChannels = async () => {
-        try {
-            setLoading(true);
-            const data = await getAllYouTubeChannels();
-            setChannels(data);
-            setFilteredChannels(data);
-        } catch (error) {
-            console.error('Error fetching channels:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const filterChannels = () => {
-        if (!searchQuery.trim()) {
-            setFilteredChannels(channels);
-            return;
-        }
-
+    const filteredChannels = useMemo(() => {
+        if (!searchQuery.trim()) return channels;
         const query = searchQuery.toLowerCase();
-        const filtered = channels.filter(channel =>
+        return channels.filter(channel =>
             channel.title.toLowerCase().includes(query) ||
             channel.description?.toLowerCase().includes(query) ||
             channel.customUrl?.toLowerCase().includes(query)
         );
-        setFilteredChannels(filtered);
-    };
+    }, [searchQuery, channels]);
 
     if (loading) {
         return (

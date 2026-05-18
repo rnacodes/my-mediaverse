@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Container, Box, Typography, Grid, Button, CircularProgress,
@@ -12,80 +12,62 @@ import {
     Search, FilterList, Archive, Sort, Refresh,
     Description, FolderOpen, Person, CalendarToday
 } from '@mui/icons-material';
-import { getAllDocuments, syncDocumentsFromPaperless, getPaperlessStatus } from '../api/documentService';
+import { useAllDocuments, usePaperlessStatus, useSyncDocumentsFromPaperless } from '../hooks/useDocument';
 import DocumentCard from './shared/DocumentCard';
 
 function DocumentsPage() {
     const navigate = useNavigate();
-    const [documents, setDocuments] = useState([]);
-    const [filteredDocuments, setFilteredDocuments] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [syncing, setSyncing] = useState(false);
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
     const [viewMode, setViewMode] = useState('grid');
     const [searchQuery, setSearchQuery] = useState('');
     const [filterDocumentType, setFilterDocumentType] = useState('all');
     const [filterArchived, setFilterArchived] = useState('all');
     const [sortBy, setSortBy] = useState('dateAdded');
-    const [paperlessStatus, setPaperlessStatus] = useState(null);
+    const [success, setSuccess] = useState('');
+    const [overrideError, setOverrideError] = useState('');
+    const [dismissedError, setDismissedError] = useState(false);
 
-    // Get unique document types from documents for filter dropdown
+    const documentsQuery = useAllDocuments();
+    const documents = documentsQuery.data ?? [];
+    const loading = documentsQuery.isLoading;
+
+    const paperlessStatusQuery = usePaperlessStatus();
+    const paperlessStatus = paperlessStatusQuery.data ?? null;
+
+    const syncMutation = useSyncDocumentsFromPaperless();
+    const syncing = syncMutation.isPending;
+
+    const queryError = !dismissedError && documentsQuery.error
+        ? (documentsQuery.error.message || 'Failed to load documents')
+        : '';
+    const error = overrideError || queryError;
+
+    const fetchDocuments = () => {
+        setDismissedError(false);
+        setOverrideError('');
+        documentsQuery.refetch();
+    };
+
     const documentTypes = [...new Set(documents.filter(d => d.documentType).map(d => d.documentType))].sort();
 
-    useEffect(() => {
-        fetchDocuments();
-        checkPaperlessStatus();
-    }, []);
-
-    useEffect(() => {
-        applyFiltersAndSort();
-    }, [documents, searchQuery, filterDocumentType, filterArchived, sortBy]);
-
-    const fetchDocuments = async () => {
-        setLoading(true);
-        setError('');
-        try {
-            const data = await getAllDocuments();
-            setDocuments(data);
-        } catch (err) {
-            setError(err.message || 'Failed to load documents');
-        } finally {
-            setLoading(false);
-        }
+    const handleSyncFromPaperless = () => {
+        setOverrideError('');
+        syncMutation.mutate(undefined, {
+            onSuccess: (result) => {
+                if (result?.success) {
+                    setSuccess(`Sync complete: ${result.documentsCreated} created, ${result.documentsUpdated} updated, ${result.documentsSkipped} skipped`);
+                } else {
+                    setOverrideError(result?.errorMessage || 'Sync failed');
+                }
+            },
+            onError: (err) => {
+                setOverrideError(err.response?.data?.error || err.message || 'Failed to sync from Paperless');
+            },
+        });
     };
 
-    const checkPaperlessStatus = async () => {
-        try {
-            const status = await getPaperlessStatus();
-            setPaperlessStatus(status);
-        } catch (err) {
-            console.error('Error checking Paperless status:', err);
-        }
-    };
-
-    const handleSyncFromPaperless = async () => {
-        setSyncing(true);
-        setError('');
-        try {
-            const result = await syncDocumentsFromPaperless();
-            if (result.success) {
-                setSuccess(`Sync complete: ${result.documentsCreated} created, ${result.documentsUpdated} updated, ${result.documentsSkipped} skipped`);
-                await fetchDocuments();
-            } else {
-                setError(result.errorMessage || 'Sync failed');
-            }
-        } catch (err) {
-            setError(err.response?.data?.error || err.message || 'Failed to sync from Paperless');
-        } finally {
-            setSyncing(false);
-        }
-    };
-
-    const applyFiltersAndSort = () => {
+    const filteredDocuments = useMemo(() => {
         let filtered = [...documents];
 
-        // Apply search filter
         if (searchQuery) {
             const query = searchQuery.toLowerCase();
             filtered = filtered.filter(doc =>
@@ -97,12 +79,10 @@ function DocumentsPage() {
             );
         }
 
-        // Apply document type filter
         if (filterDocumentType !== 'all') {
             filtered = filtered.filter(doc => doc.documentType === filterDocumentType);
         }
 
-        // Apply archived filter
         if (filterArchived !== 'all') {
             filtered = filtered.filter(doc => {
                 switch (filterArchived) {
@@ -116,7 +96,6 @@ function DocumentsPage() {
             });
         }
 
-        // Apply sorting
         filtered.sort((a, b) => {
             switch (sortBy) {
                 case 'dateAdded':
@@ -138,8 +117,8 @@ function DocumentsPage() {
             }
         });
 
-        setFilteredDocuments(filtered);
-    };
+        return filtered;
+    }, [documents, searchQuery, filterDocumentType, filterArchived, sortBy]);
 
     const getStatsChips = () => {
         const total = documents.length;
@@ -255,7 +234,7 @@ function DocumentsPage() {
                     <Divider sx={{ mb: 3 }} />
 
                     {error && (
-                        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
+                        <Alert severity="error" sx={{ mb: 3 }} onClose={() => { setOverrideError(''); setDismissedError(true); }}>
                             {error}
                         </Alert>
                     )}

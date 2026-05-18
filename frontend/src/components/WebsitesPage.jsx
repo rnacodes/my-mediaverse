@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Container, Box, Typography, Grid, Button, CircularProgress,
@@ -10,45 +10,38 @@ import {
     ArrowBack, Add, Search, OpenInNew, RssFeed,
     Language, Sort, Refresh, Delete
 } from '@mui/icons-material';
-import { getAllWebsites, getWebsitesWithRss, deleteWebsite } from '../api/websiteService';
+import { useAllWebsites, useWebsitesWithRss, useDeleteWebsite } from '../hooks/useWebsite';
 
 function WebsitesPage() {
     const navigate = useNavigate();
-    const [websites, setWebsites] = useState([]);
-    const [filteredWebsites, setFilteredWebsites] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [filterRss, setFilterRss] = useState('all');
     const [sortBy, setSortBy] = useState('dateAdded');
+    const [overrideError, setOverrideError] = useState('');
+    const [dismissedError, setDismissedError] = useState(false);
 
-    useEffect(() => {
-        fetchWebsites();
-    }, [filterRss]);
+    const showRssOnly = filterRss === 'rss-only';
+    const allQuery = useAllWebsites({ enabled: !showRssOnly });
+    const rssQuery = useWebsitesWithRss({ enabled: showRssOnly });
+    const activeQuery = showRssOnly ? rssQuery : allQuery;
+    const websites = activeQuery.data ?? [];
+    const loading = activeQuery.isLoading;
+    const queryError = !dismissedError && activeQuery.error
+        ? (activeQuery.error.message || 'Failed to load websites')
+        : '';
+    const error = overrideError || queryError;
 
-    useEffect(() => {
-        applyFiltersAndSort();
-    }, [websites, searchQuery, sortBy]);
+    const deleteMutation = useDeleteWebsite();
 
-    const fetchWebsites = async () => {
-        setLoading(true);
-        setError('');
-        try {
-            const data = filterRss === 'rss-only' 
-                ? await getWebsitesWithRss()
-                : await getAllWebsites();
-            setWebsites(data);
-        } catch (err) {
-            setError(err.message || 'Failed to load websites');
-        } finally {
-            setLoading(false);
-        }
+    const fetchWebsites = () => {
+        setDismissedError(false);
+        setOverrideError('');
+        activeQuery.refetch();
     };
 
-    const applyFiltersAndSort = () => {
+    const filteredWebsites = useMemo(() => {
         let filtered = [...websites];
 
-        // Apply search filter
         if (searchQuery) {
             const query = searchQuery.toLowerCase();
             filtered = filtered.filter(website =>
@@ -60,7 +53,6 @@ function WebsitesPage() {
             );
         }
 
-        // Apply sorting
         filtered.sort((a, b) => {
             switch (sortBy) {
                 case 'dateAdded':
@@ -76,17 +68,14 @@ function WebsitesPage() {
             }
         });
 
-        setFilteredWebsites(filtered);
-    };
+        return filtered;
+    }, [websites, searchQuery, sortBy]);
 
-    const handleDelete = async (id, title) => {
+    const handleDelete = (id, title) => {
         if (window.confirm(`Are you sure you want to delete "${title}"?`)) {
-            try {
-                await deleteWebsite(id);
-                setWebsites(websites.filter(w => w.id !== id));
-            } catch (err) {
-                setError(`Failed to delete website: ${err.message}`);
-            }
+            deleteMutation.mutate(id, {
+                onError: (err) => setOverrideError(`Failed to delete website: ${err.message}`),
+            });
         }
     };
 
@@ -203,7 +192,7 @@ function WebsitesPage() {
             </Box>
 
             {error && (
-                <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
+                <Alert severity="error" sx={{ mb: 3 }} onClose={() => { setOverrideError(''); setDismissedError(true); }}>
                     {error}
                 </Alert>
             )}

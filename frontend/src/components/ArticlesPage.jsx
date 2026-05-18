@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Container, Box, Typography, Grid, Button, CircularProgress,
@@ -8,47 +8,34 @@ import {
     List, ListItem, ListItemText
 } from '@mui/material';
 import { ArrowBack, CloudDownload, ViewModule, ViewList, Search, FilterList, Star, CheckCircle, Inbox, Sort, Refresh, OpenInNew } from '@mui/icons-material';
-import { getAllArticles } from '../api/articleService';
+import { useAllArticles } from '../hooks/useArticle';
 import ArticleCard from './shared/ArticleCard';
 import { formatStatus } from '../utils/formatters';
 
 function ArticlesPage() {
     const navigate = useNavigate();
-    const [articles, setArticles] = useState([]);
-    const [filteredArticles, setFilteredArticles] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
     const [viewMode, setViewMode] = useState('grid');
     const [searchQuery, setSearchQuery] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
     const [filterFolder, setFilterFolder] = useState('all');
     const [sortBy, setSortBy] = useState('dateAdded');
+    const [dismissedError, setDismissedError] = useState(false);
 
-    useEffect(() => {
-        fetchArticles();
-    }, []);
+    const articlesQuery = useAllArticles();
+    const articles = articlesQuery.data ?? [];
+    const loading = articlesQuery.isLoading;
+    const error = !dismissedError && articlesQuery.error
+        ? (articlesQuery.error.message || 'Failed to load articles')
+        : '';
 
-    useEffect(() => {
-        applyFiltersAndSort();
-    }, [articles, searchQuery, filterStatus, filterFolder, sortBy]);
-
-    const fetchArticles = async () => {
-        setLoading(true);
-        setError('');
-        try {
-            const data = await getAllArticles();
-            setArticles(data);
-        } catch (err) {
-            setError(err.message || 'Failed to load articles');
-        } finally {
-            setLoading(false);
-        }
+    const fetchArticles = () => {
+        setDismissedError(false);
+        articlesQuery.refetch();
     };
 
-    const applyFiltersAndSort = () => {
+    const filteredArticles = useMemo(() => {
         let filtered = [...articles];
 
-        // Apply search filter
         if (searchQuery) {
             const query = searchQuery.toLowerCase();
             filtered = filtered.filter(article =>
@@ -59,7 +46,6 @@ function ArticlesPage() {
             );
         }
 
-        // Apply status filter
         if (filterStatus !== 'all') {
             filtered = filtered.filter(article => {
                 switch (filterStatus) {
@@ -75,7 +61,6 @@ function ArticlesPage() {
             });
         }
 
-        // Apply folder filter (archived/starred)
         if (filterFolder !== 'all') {
             filtered = filtered.filter(article => {
                 switch (filterFolder) {
@@ -91,7 +76,6 @@ function ArticlesPage() {
             });
         }
 
-        // Apply sorting
         filtered.sort((a, b) => {
             switch (sortBy) {
                 case 'dateAdded':
@@ -111,8 +95,8 @@ function ArticlesPage() {
             }
         });
 
-        setFilteredArticles(filtered);
-    };
+        return filtered;
+    }, [articles, searchQuery, filterStatus, filterFolder, sortBy]);
 
     const getStatsChips = () => {
         const total = articles.length;
@@ -218,7 +202,7 @@ function ArticlesPage() {
                     <Divider sx={{ mb: 3 }} />
 
                     {error && (
-                        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
+                        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setDismissedError(true)}>
                             {error}
                         </Alert>
                     )}

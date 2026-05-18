@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Container,
@@ -30,7 +30,7 @@ import {
   Note as NoteIcon,
   Folder as FolderIcon,
 } from '@mui/icons-material';
-import { searchNotes } from '../api/noteService';
+import { useNoteSearch } from '../hooks/useNote';
 
 // Vault color mapping
 const vaultColors = {
@@ -39,90 +39,52 @@ const vaultColors = {
 };
 
 function NotesListingPage() {
-  const [notes, setNotes] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [viewMode, setViewMode] = useState('card');
   const [selectedVault, setSelectedVault] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [searching, setSearching] = useState(false);
+  const [activeSearch, setActiveSearch] = useState({ query: '*', perPage: 250 });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
+  const filter = selectedVault !== 'all' ? `vault_name:${selectedVault}` : null;
+  const searchQueryResult = useNoteSearch(activeSearch.query, filter, 1, activeSearch.perPage);
+  const loading = searchQueryResult.isLoading;
+  const searching = searchQueryResult.isFetching && !loading;
+  const error = searchQueryResult.error
+    ? `Failed to load notes: ${searchQueryResult.error.response?.data?.message || searchQueryResult.error.message}`
+    : null;
+
+  // Surface search failures via snackbar (preserves prior UX of error toasts on search).
   useEffect(() => {
-    fetchNotes();
-  }, [selectedVault]);
-
-  const fetchNotes = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Use Typesense search with wildcard query for faster initial load
-      const filter = selectedVault !== 'all' ? `vault_name:${selectedVault}` : null;
-      const response = await searchNotes('*', filter, 1, 250);
-
-      if (response && response.hits) {
-        // Transform Typesense results to note format
-        const fetchedNotes = response.hits.map(hit => ({
-          id: hit.document.id,
-          title: hit.document.title,
-          vaultName: hit.document.vault_name || hit.document.vaultName,
-          description: hit.document.description,
-          tags: hit.document.tags || [],
-          dateImported: hit.document.date_imported || hit.document.dateImported,
-        }));
-        setNotes(fetchedNotes);
-      } else if (response && Array.isArray(response)) {
-        setNotes(response);
-      } else {
-        setNotes([]);
-      }
-    } catch (error) {
-      console.error('Failed to fetch notes:', error);
-      setError(`Failed to load notes: ${error.response?.data?.message || error.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) {
-      fetchNotes();
-      return;
-    }
-
-    try {
-      setSearching(true);
-      setError(null);
-
-      const filter = selectedVault !== 'all' ? `vault_name:${selectedVault}` : null;
-      const response = await searchNotes(searchQuery, filter, 1, 100);
-
-      if (response && response.hits) {
-        // Transform Typesense results to note format
-        const searchedNotes = response.hits.map(hit => ({
-          id: hit.document.id,
-          title: hit.document.title,
-          vaultName: hit.document.vault_name || hit.document.vaultName,
-          description: hit.document.description,
-          tags: hit.document.tags || [],
-          dateImported: hit.document.date_imported || hit.document.dateImported,
-        }));
-        setNotes(searchedNotes);
-      } else if (response && Array.isArray(response)) {
-        setNotes(response);
-      } else {
-        setNotes([]);
-      }
-    } catch (error) {
-      console.error('Failed to search notes:', error);
+    if (activeSearch.query !== '*' && searchQueryResult.error) {
       setSnackbar({
         open: true,
-        message: `Search failed: ${error.response?.data?.message || error.message}`,
+        message: `Search failed: ${searchQueryResult.error.response?.data?.message || searchQueryResult.error.message}`,
         severity: 'error'
       });
-    } finally {
-      setSearching(false);
+    }
+  }, [searchQueryResult.error, activeSearch.query]);
+
+  const notes = useMemo(() => {
+    const response = searchQueryResult.data;
+    if (response && response.hits) {
+      return response.hits.map(hit => ({
+        id: hit.document.id,
+        title: hit.document.title,
+        vaultName: hit.document.vault_name || hit.document.vaultName,
+        description: hit.document.description,
+        tags: hit.document.tags || [],
+        dateImported: hit.document.date_imported || hit.document.dateImported,
+      }));
+    }
+    if (Array.isArray(response)) return response;
+    return [];
+  }, [searchQueryResult.data]);
+
+  const handleSearch = () => {
+    if (!searchQuery.trim()) {
+      setActiveSearch({ query: '*', perPage: 250 });
+    } else {
+      setActiveSearch({ query: searchQuery, perPage: 100 });
     }
   };
 
@@ -134,7 +96,7 @@ function NotesListingPage() {
 
   const handleClearSearch = () => {
     setSearchQuery('');
-    fetchNotes();
+    setActiveSearch({ query: '*', perPage: 250 });
   };
 
   const getVaultColor = (vaultName) => {

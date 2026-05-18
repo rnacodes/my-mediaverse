@@ -1,38 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Typography, Button, Grid, Card, CardContent, CardMedia, Box, CircularProgress, Chip, Fab, ButtonGroup, List, ListItem, ListItemText, ListItemSecondaryAction, IconButton, Divider, Checkbox, Toolbar, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Snackbar, Alert } from '@mui/material';
 import { Add, ViewModule, ViewList, OpenInNew, Delete, CheckBox, CheckBoxOutlineBlank } from '@mui/icons-material';
-import { getAllMixlists } from '../api/mixlistService';
+import { useAllMixlists } from '../hooks/useMixlist';
 
 function MixlistsPage() {
-    const [mixlists, setMixlists] = useState([]);
-    const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState('card'); // 'card' or 'list'
     const [selectedItems, setSelectedItems] = useState(new Set());
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-    const [deleting, _setDeleting] = useState(false);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
     const navigate = useNavigate();
 
-    useEffect(() => {
-        const loadMixlists = async () => {
-            try {
-                console.log('Attempting to load mixlists...');
-                const response = await getAllMixlists();
-                console.log('Mixlists response:', response);
-                console.log('Mixlists data:', response.data);
-                // Use the actual mixlists from the main endpoint
-                setMixlists(response.data);
-            } catch (error) {
-                console.error('Error loading mixlists:', error);
-                console.error('Error details:', error.response?.data);
-                console.error('Error status:', error.response?.status);
-            } finally {
-                setLoading(false);
-            }
-        };
-        loadMixlists();
-    }, []);
+    const mixlistsQuery = useAllMixlists();
+    const mixlists = mixlistsQuery.data ?? [];
+    const loading = mixlistsQuery.isLoading;
+    const deleting = false;
 
     const handleViewModeChange = (mode) => {
         setViewMode(mode);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import {
     Container, Typography, Box, Grid, Card, CardContent, CardMedia,
@@ -8,57 +8,29 @@ import {
     Snackbar, Alert
 } from '@mui/material';
 import { ViewModule, ViewList, OpenInNew, Delete, CheckBox, CheckBoxOutlineBlank } from '@mui/icons-material';
-import { getAllMedia, getMediaByType, bulkDeleteMedia } from '../api/mediaService';
+import { useAllMedia, useMediaByType, useBulkDeleteMedia } from '../hooks/useMedia';
 import { formatMediaType, formatStatus } from '../utils/formatters';
 import { getAspectRatioPadding } from '../utils/mediaImageUtils';
 
 function AllMedia() {
-  const [mediaItems, setMediaItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [viewMode, setViewMode] = useState('card'); // 'card' or 'list'
   const [searchParams] = useSearchParams();
   const [selectedItems, setSelectedItems] = useState(new Set());
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-  useEffect(() => {
-    const fetchMedia = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const mediaType = searchParams.get('mediaType');
-        
-        console.log('Fetching media with type:', mediaType);
-        
-        let response;
-        if (mediaType) {
-          response = await getMediaByType(mediaType);
-          console.log(`Media by type ${mediaType}:`, response);
-        } else {
-          response = await getAllMedia();
-          console.log('All media:', response);
-        }
-        
-        if (response && response.data) {
-          setMediaItems(response.data);
-          console.log(`Loaded ${response.data.length} media items`);
-        } else {
-          console.warn('No data in response:', response);
-          setMediaItems([]);
-        }
-      } catch (error) {
-        console.error('Failed to fetch media items:', error);
-        console.error('Error details:', error.response?.data || error.message);
-        setError(`Failed to load media items: ${error.response?.data?.error || error.message}`);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const mediaType = searchParams.get('mediaType');
+  const allQuery = useAllMedia({ enabled: !mediaType });
+  const byTypeQuery = useMediaByType(mediaType);
+  const activeQuery = mediaType ? byTypeQuery : allQuery;
+  const mediaItems = activeQuery.data ?? [];
+  const loading = activeQuery.isLoading;
+  const error = activeQuery.error
+    ? `Failed to load media items: ${activeQuery.error.response?.data?.error || activeQuery.error.message}`
+    : null;
 
-    fetchMedia();
-  }, [searchParams]);
+  const bulkDelete = useBulkDeleteMedia();
+  const deleting = bulkDelete.isPending;
 
   const handleViewModeChange = (mode) => {
     setViewMode(mode);
@@ -83,43 +55,27 @@ function AllMedia() {
     setSelectedItems(new Set());
   };
 
-  const handleBulkDelete = async () => {
-    try {
-      setDeleting(true);
-      const idsArray = Array.from(selectedItems);
-      await bulkDeleteMedia(idsArray);
-      
-      setSnackbar({ 
-        open: true, 
-        message: `Successfully deleted ${idsArray.length} media item${idsArray.length !== 1 ? 's' : ''}!`, 
-        severity: 'success' 
-      });
-      
-      // Refresh the media list
-      const mediaType = searchParams.get('mediaType');
-      let response;
-      if (mediaType) {
-        response = await getMediaByType(mediaType);
-      } else {
-        response = await getAllMedia();
-      }
-      
-      if (response && response.data) {
-        setMediaItems(response.data);
-      }
-      
-      setSelectedItems(new Set());
-    } catch (error) {
-      console.error('Failed to delete media items:', error);
-      setSnackbar({ 
-        open: true, 
-        message: error.response?.data?.error || 'Failed to delete media items', 
-        severity: 'error' 
-      });
-    } finally {
-      setDeleting(false);
-      setDeleteDialogOpen(false);
-    }
+  const handleBulkDelete = () => {
+    const idsArray = Array.from(selectedItems);
+    bulkDelete.mutate(idsArray, {
+      onSuccess: () => {
+        setSnackbar({
+          open: true,
+          message: `Successfully deleted ${idsArray.length} media item${idsArray.length !== 1 ? 's' : ''}!`,
+          severity: 'success'
+        });
+        setSelectedItems(new Set());
+        setDeleteDialogOpen(false);
+      },
+      onError: (err) => {
+        setSnackbar({
+          open: true,
+          message: err.response?.data?.error || 'Failed to delete media items',
+          severity: 'error'
+        });
+        setDeleteDialogOpen(false);
+      },
+    });
   };
 
   const renderCardView = () => (
@@ -486,9 +442,9 @@ function AllMedia() {
           >
             {error}
           </Typography>
-          <Button 
-            variant="contained" 
-            onClick={() => window.location.reload()}
+          <Button
+            variant="contained"
+            onClick={() => activeQuery.refetch()}
             sx={{ minHeight: '48px', px: 3 }}
           >
             Retry
@@ -498,7 +454,6 @@ function AllMedia() {
     );
   }
 
-  const mediaType = searchParams.get('mediaType');
   const pageTitle = mediaType ? `${mediaType} Media` : 'All Media';
 
   return (
