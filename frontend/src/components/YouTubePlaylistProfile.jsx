@@ -11,8 +11,14 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import MediaInfoCard from './MediaInfoCard';
 import MixlistCarousel from './MixlistCarousel';
 import TopicsGenresSection from './TopicsGenresSection';
-import { getYouTubePlaylistById, getYouTubePlaylistVideos, deleteYouTubePlaylist, syncYouTubePlaylist, addVideoToYouTubePlaylist } from '../api/youtubeService';
-import { getAllMixlists } from '../api/mixlistService';
+import {
+    useYouTubePlaylist,
+    useYouTubePlaylistVideos,
+    useDeleteYouTubePlaylist,
+    useSyncYouTubePlaylist,
+    useAddVideoToYouTubePlaylist,
+} from '../hooks/useYoutube';
+import { useAllMixlists } from '../hooks/useMixlist';
 import {
     formatMediaType,
     formatStatus,
@@ -23,18 +29,11 @@ import {
 } from '../utils/formatters';
 
 function YouTubePlaylistProfile() {
-    // --- State Management ---
-    const [playlist, setPlaylist] = useState(null);
-    const [videos, setVideos] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [syncing, setSyncing] = useState(false);
-    const [availableMixlists, setAvailableMixlists] = useState([]);
     const [currentMixlists, setCurrentMixlists] = useState([]);
     const [deleteConfirmDialog, setDeleteConfirmDialog] = useState(false);
     const [viewAllVideosDialog, setViewAllVideosDialog] = useState(false);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-    // Pagination State for Video Browser
     const [allVideosFromApi, setAllVideosFromApi] = useState([]);
     const [displayedVideos, setDisplayedVideos] = useState([]);
     const [loadingAllVideos, setLoadingAllVideos] = useState(false);
@@ -47,92 +46,75 @@ function YouTubePlaylistProfile() {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-    // --- Effects ---
+    const playlistQuery = useYouTubePlaylist(id, true);
+    const playlist = playlistQuery.data ?? null;
+    const playlistEmbeddedVideos = playlist?.videos ?? null;
+
+    // Only fetch separate videos endpoint if playlist response doesn't include them.
+    const fallbackVideosQuery = useYouTubePlaylistVideos(id, {
+        enabled: !!playlist && (!playlistEmbeddedVideos || playlistEmbeddedVideos.length === 0),
+    });
+    const videos = playlistEmbeddedVideos?.length
+        ? playlistEmbeddedVideos
+        : (fallbackVideosQuery.data ?? []);
+
+    const mixlistsQuery = useAllMixlists();
+    const availableMixlistsFromQuery = mixlistsQuery.data ?? [];
+    const [availableMixlists, setAvailableMixlists] = useState([]);
+    useEffect(() => { setAvailableMixlists(availableMixlistsFromQuery); }, [availableMixlistsFromQuery]);
+
+    const loading = playlistQuery.isLoading;
+
+    const syncMutation = useSyncYouTubePlaylist();
+    const syncing = syncMutation.isPending;
+    const deleteMutation = useDeleteYouTubePlaylist();
+    const addVideoMutation = useAddVideoToYouTubePlaylist();
+
+    // Force refetch when refreshKey changes (used by child sections).
     useEffect(() => {
-        console.log('YouTubePlaylistProfile: Loading playlist with ID:', id);
-        fetchPlaylistData();
-        fetchMixlists();
+        if (refreshKey > 0) {
+            playlistQuery.refetch();
+            fallbackVideosQuery.refetch();
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [id, refreshKey]);
+    }, [refreshKey]);
 
+    // Surface load errors.
     useEffect(() => {
-        const fetchCurrentMixlists = async () => {
-            if (!playlist) return;
-            const mixlistIds = playlist.mixlistIds || [];
-            if (mixlistIds.length > 0) {
-                const allMixlistsResponse = await getAllMixlists();
-                const allMixlists = allMixlistsResponse.data || [];
-                const playlistMixlists = mixlistIds.map(mixlistId =>
-                    allMixlists.find(m => m.id === mixlistId)
-                ).filter(m => m !== undefined);
-                setCurrentMixlists(playlistMixlists);
-            } else {
-                setCurrentMixlists([]);
-            }
-        };
-        fetchCurrentMixlists();
-    }, [playlist]);
-
-    // --- Data Fetching ---
-    const fetchPlaylistData = async () => {
-        try {
-            console.log('Fetching playlist data for ID:', id);
-            setLoading(true);
-            const playlistData = await getYouTubePlaylistById(id, true);
-            console.log('Playlist response:', playlistData);
-            setPlaylist(playlistData);
-
-            // Extract videos from the playlist response or fetch separately
-            if (playlistData.videos && playlistData.videos.length > 0) {
-                setVideos(playlistData.videos);
-            } else {
-                const playlistVideos = await getYouTubePlaylistVideos(id);
-                console.log('Videos response:', playlistVideos);
-                setVideos(playlistVideos);
-            }
-            console.log('Playlist data loaded successfully');
-        } catch (error) {
-            console.error('Error fetching playlist data:', error);
-            console.error('Error details:', error.response || error.message);
-            setSnackbar({ open: true, message: `Failed to load playlist: ${error.response?.data?.message || error.message}`, severity: 'error' });
-        } finally {
-            setLoading(false);
+        if (playlistQuery.error) {
+            setSnackbar({ open: true, message: `Failed to load playlist: ${playlistQuery.error.response?.data?.message || playlistQuery.error.message}`, severity: 'error' });
         }
+    }, [playlistQuery.error]);
+
+    // Derive currentMixlists.
+    useEffect(() => {
+        if (!playlist) return;
+        const mixlistIds = playlist.mixlistIds || [];
+        if (mixlistIds.length > 0 && availableMixlistsFromQuery.length > 0) {
+            const playlistMixlists = mixlistIds
+                .map(mixlistId => availableMixlistsFromQuery.find(m => m.id === mixlistId))
+                .filter(Boolean);
+            setCurrentMixlists(playlistMixlists);
+        } else {
+            setCurrentMixlists([]);
+        }
+    }, [playlist, availableMixlistsFromQuery]);
+
+    const handleSync = () => {
+        syncMutation.mutate(id, {
+            onSuccess: () => setSnackbar({ open: true, message: 'Playlist synced successfully', severity: 'success' }),
+            onError: () => setSnackbar({ open: true, message: 'Failed to sync playlist', severity: 'error' }),
+        });
     };
 
-    const fetchMixlists = async () => {
-        try {
-            const mixlists = await getAllMixlists();
-            setAvailableMixlists(mixlists.data || []);
-        } catch (error) {
-            console.error('Error fetching mixlists:', error);
-            setAvailableMixlists([]);
-        }
-    };
-
-    const handleSync = async () => {
-        try {
-            setSyncing(true);
-            await syncYouTubePlaylist(id);
-            await fetchPlaylistData();
-            setSnackbar({ open: true, message: 'Playlist synced successfully', severity: 'success' });
-        } catch (error) {
-            console.error('Error syncing playlist:', error);
-            setSnackbar({ open: true, message: 'Failed to sync playlist', severity: 'error' });
-        } finally {
-            setSyncing(false);
-        }
-    };
-
-    const handleDelete = async () => {
-        try {
-            await deleteYouTubePlaylist(id);
-            setSnackbar({ open: true, message: 'YouTube playlist deleted', severity: 'success' });
-            setTimeout(() => navigate('/'), 1500);
-        } catch (error) {
-            console.error('Error deleting playlist:', error);
-            setSnackbar({ open: true, message: 'Failed to delete playlist', severity: 'error' });
-        }
+    const handleDelete = () => {
+        deleteMutation.mutate(id, {
+            onSuccess: () => {
+                setSnackbar({ open: true, message: 'YouTube playlist deleted', severity: 'success' });
+                setTimeout(() => navigate('/'), 1500);
+            },
+            onError: () => setSnackbar({ open: true, message: 'Failed to delete playlist', severity: 'error' }),
+        });
         setDeleteConfirmDialog(false);
     };
 
@@ -199,7 +181,7 @@ function YouTubePlaylistProfile() {
 
             setAllVideosFromApi(availableVideos);
             setDisplayedVideos(availableVideos.slice(0, 10));
-            await checkImportedVideos();
+            checkImportedVideos();
         } catch (error) {
             console.error('Error fetching all videos:', error);
             setSnackbar({ open: true, message: 'Failed to fetch videos from YouTube API', severity: 'error' });
@@ -215,17 +197,12 @@ function YouTubePlaylistProfile() {
         setDisplayedVideos(nextBatch);
     };
 
-    const checkImportedVideos = async () => {
-        try {
-            const dbVideos = await getYouTubePlaylistVideos(id);
-            const importedMap = new Map();
-            (dbVideos || []).forEach(video => {
-                if (video.externalId) importedMap.set(video.externalId, video.id);
-            });
-            setImportedVideos(importedMap);
-        } catch (error) {
-            console.error('Error checking imported videos:', error);
-        }
+    const checkImportedVideos = () => {
+        const importedMap = new Map();
+        (videos || []).forEach(video => {
+            if (video.externalId) importedMap.set(video.externalId, video.id);
+        });
+        setImportedVideos(importedMap);
     };
 
     const handleImportVideo = async (video) => {
@@ -237,14 +214,14 @@ function YouTubePlaylistProfile() {
             const response = await axios.post(`${API_URL}/YouTube/import/video/${videoId}`);
             const importedVideoId = response.data.id;
 
-            // Add the imported video to this playlist
-            await addVideoToYouTubePlaylist(id, importedVideoId);
+            // Add the imported video to this playlist (await direct call — sequential with import).
+            await addVideoMutation.mutateAsync({ playlistId: id, videoId: importedVideoId });
 
             const newImportedMap = new Map(importedVideos);
             newImportedMap.set(videoId, importedVideoId);
             setImportedVideos(newImportedMap);
             setSnackbar({ open: true, message: `Successfully imported "${video.snippet?.title || video.title}"!`, severity: 'success' });
-            await fetchPlaylistData();
+            playlistQuery.refetch();
         } catch {
             setSnackbar({ open: true, message: 'Failed to import video', severity: 'error' });
         } finally {

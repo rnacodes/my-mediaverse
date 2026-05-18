@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -14,239 +14,155 @@ import RelatedNotesSection from './RelatedNotesSection';
 import SimilarItemsSection from './SimilarItemsSection';
 import SavedRelatedMediaSection from './SavedRelatedMediaSection';
 import { formatMediaType, formatStatus, getMediaTypeColor, getStatusColor, getRatingIcon, getRatingText } from '../utils/formatters';
-import { getMediaById } from '../api/mediaService';
-import { getAllMixlists } from '../api/mixlistService';
-import { getBookById } from '../api/bookService';
-import { getPodcastSeriesById, getPodcastEpisodeById } from '../api/podcastService';
-import { getMovieById } from '../api/movieService';
-import { getTvShowById } from '../api/tvShowService';
-import { getVideoById, getPlaylistsForVideo } from '../api/videoService';
-import { getArticleById, fetchArticleContent } from '../api/articleService';
-import { getHighlightsByArticle, getHighlightsByBook } from '../api/highlightService';
-import { reindexMediaItem } from '../api/typesenseService';
+import { useMediaItem } from '../hooks/useMedia';
+import { useAllMixlists } from '../hooks/useMixlist';
+import { useBook } from '../hooks/useBook';
+import { usePodcastSeries, usePodcastEpisode } from '../hooks/usePodcast';
+import { useMovie } from '../hooks/useMovie';
+import { useTvShow } from '../hooks/useTvShow';
+import { useVideo, usePlaylistsForVideo } from '../hooks/useVideo';
+import { useArticle, useFetchArticleContent } from '../hooks/useArticle';
+import { useHighlightsByArticle, useHighlightsByBook } from '../hooks/useHighlight';
+import { useReindexMediaItem } from '../hooks/useTypesense';
 
 function MediaProfilePage() {
-  const [mediaItem, setMediaItem] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [availableMixlists, setAvailableMixlists] = useState([]);
   const [currentMixlists, setCurrentMixlists] = useState([]);
+  const [availableMixlists, setAvailableMixlists] = useState([]);
   const [_snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  const [highlights, setHighlights] = useState([]);
-  const [highlightsLoading, setHighlightsLoading] = useState(false);
-  const [videoPlaylists, setVideoPlaylists] = useState([]);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [fetchingContent, setFetchingContent] = useState(false);
   const [relatedMediaRefreshTrigger, setRelatedMediaRefreshTrigger] = useState(0);
-  const [reindexing, setReindexing] = useState(false);
 
   const { id } = useParams();
   const navigate = useNavigate();
   const theme = useTheme();
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
 
-  const handleReindex = async () => {
-    setReindexing(true);
-    try {
-      await reindexMediaItem(id);
-      setSnackbar({ open: true, message: 'Media item re-indexed in search.', severity: 'success' });
-    } catch (error) {
-      if (error.response?.status !== 403) {
-        console.error('Error re-indexing media item:', error);
-        setSnackbar({ open: true, message: 'Failed to re-index media item.', severity: 'error' });
-      }
-    } finally {
-      setReindexing(false);
+  const basicQuery = useMediaItem(id);
+  const basicMedia = basicQuery.data ?? null;
+  const basicType = basicMedia?.mediaType;
+
+  // Redirect side-effect for media types that have their own profile page.
+  useEffect(() => {
+    if (!basicMedia) return;
+    if (basicType === 'Playlist' || basicType === 7) {
+      navigate(`/youtube-playlist/${id}`, { replace: true });
+    } else if (basicType === 'Channel' || basicType === 2) {
+      navigate(`/youtube-channel/${id}`, { replace: true });
     }
+  }, [basicType, basicMedia, id, navigate]);
+
+  // Conditional secondary fetches, each gated by the basic mediaType.
+  const bookQuery = useBook(id, { enabled: basicType === 'Book' });
+  const movieQuery = useMovie(id, { enabled: basicType === 'Movie' });
+  const videoQuery = useVideo(id, { enabled: basicType === 'Video' });
+  const articleQuery = useArticle(id, { enabled: basicType === 'Article' });
+
+  // Podcast: try series first; if it returns data, redirect. Otherwise try episode.
+  const podcastSeriesProbe = usePodcastSeries(id, { enabled: basicType === 'Podcast', retry: false });
+  const isSeries = basicType === 'Podcast' && !!podcastSeriesProbe.data;
+  useEffect(() => {
+    if (isSeries) {
+      navigate(`/podcast-series/${id}`, { replace: true });
+    }
+  }, [isSeries, id, navigate]);
+  const podcastEpisodeQuery = usePodcastEpisode(id, {
+    enabled: basicType === 'Podcast' && podcastSeriesProbe.isError,
+  });
+  const parentSeriesId = podcastEpisodeQuery.data?.seriesId;
+  const parentSeriesQuery = usePodcastSeries(parentSeriesId, { enabled: !!parentSeriesId });
+
+  // TVShow: probe; if a row exists, redirect to dedicated profile. Otherwise treat as episode.
+  const tvShowProbe = useTvShow(id, { enabled: basicType === 'TVShow', retry: false });
+  useEffect(() => {
+    if (basicType === 'TVShow' && tvShowProbe.data) {
+      navigate(`/tv-show/${id}`, { replace: true });
+    }
+  }, [basicType, tvShowProbe.data, id, navigate]);
+
+  // Derive the merged mediaItem from basic + the active secondary query.
+  const mediaItem = useMemo(() => {
+    if (!basicMedia) return null;
+    if (basicType === 'Book' && bookQuery.data) return { ...basicMedia, ...bookQuery.data };
+    if (basicType === 'Movie' && movieQuery.data) return { ...basicMedia, ...movieQuery.data };
+    if (basicType === 'Video' && videoQuery.data) return { ...basicMedia, ...videoQuery.data };
+    if (basicType === 'Article' && articleQuery.data) return { ...basicMedia, ...articleQuery.data };
+    if (basicType === 'Podcast' && podcastEpisodeQuery.data) {
+      const merged = { ...basicMedia, ...podcastEpisodeQuery.data };
+      if (parentSeriesQuery.data) merged.series = parentSeriesQuery.data;
+      return merged;
+    }
+    return basicMedia;
+  }, [basicMedia, basicType, bookQuery.data, movieQuery.data, videoQuery.data, articleQuery.data, podcastEpisodeQuery.data, parentSeriesQuery.data]);
+
+  // Highlights (for Article / Book only).
+  const articleHighlightsQuery = useHighlightsByArticle(mediaItem?.id, { enabled: mediaItem?.mediaType === 'Article' });
+  const bookHighlightsQuery = useHighlightsByBook(mediaItem?.id, { enabled: mediaItem?.mediaType === 'Book' });
+  const highlights = mediaItem?.mediaType === 'Article'
+    ? (articleHighlightsQuery.data ?? [])
+    : mediaItem?.mediaType === 'Book'
+      ? (bookHighlightsQuery.data ?? [])
+      : [];
+  const highlightsLoading = articleHighlightsQuery.isLoading || bookHighlightsQuery.isLoading;
+
+  // Playlists for videos.
+  const videoPlaylistsQuery = usePlaylistsForVideo(mediaItem?.id, { enabled: mediaItem?.mediaType === 'Video' });
+  const videoPlaylists = videoPlaylistsQuery.data ?? [];
+
+  // Mixlists.
+  const mixlistsQuery = useAllMixlists();
+  const allMixlistsFromQuery = mixlistsQuery.data ?? [];
+  useEffect(() => { setAvailableMixlists(allMixlistsFromQuery); }, [allMixlistsFromQuery]);
+  useEffect(() => {
+    if (!mediaItem) return;
+    const mixlistIds = mediaItem.mixlistIds || [];
+    if (mixlistIds.length > 0 && allMixlistsFromQuery.length > 0) {
+      const mixlistIdSet = new Set(mixlistIds);
+      setCurrentMixlists(allMixlistsFromQuery.filter(m => mixlistIdSet.has(m.id)));
+    } else {
+      setCurrentMixlists([]);
+    }
+  }, [mediaItem, allMixlistsFromQuery]);
+
+  // Force refetch of the basic media on refreshKey bump (used by child sections after mutations).
+  useEffect(() => {
+    if (refreshKey > 0) basicQuery.refetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
+
+  // Surface basic-load failures.
+  useEffect(() => {
+    if (basicQuery.error) {
+      setSnackbar({ open: true, message: 'Failed to load media item', severity: 'error' });
+    }
+  }, [basicQuery.error]);
+
+  const loading = basicQuery.isLoading;
+
+  const reindexMutation = useReindexMediaItem();
+  const reindexing = reindexMutation.isPending;
+  const fetchContentMutation = useFetchArticleContent();
+  const fetchingContent = fetchContentMutation.isPending;
+
+  const handleReindex = () => {
+    reindexMutation.mutate(id, {
+      onSuccess: () => setSnackbar({ open: true, message: 'Media item re-indexed in search.', severity: 'success' }),
+      onError: (error) => {
+        if (error.response?.status !== 403) {
+          setSnackbar({ open: true, message: 'Failed to re-index media item.', severity: 'error' });
+        }
+      },
+    });
   };
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // First get the basic media info to determine the type
-        const mediaResponse = await getMediaById(id);
-        const basicMedia = mediaResponse.data;
-
-        // Redirect to specialized profile pages for certain media types
-        const mediaType = basicMedia.mediaType;
-
-        if (mediaType === 'Playlist' || mediaType === 7) {
-          navigate(`/youtube-playlist/${id}`, { replace: true });
-          return;
-        }
-        if (mediaType === 'Channel' || mediaType === 2) {
-          navigate(`/youtube-channel/${id}`, { replace: true });
-          return;
-        }
-
-        let detailedMedia = basicMedia;
-        
-        // If it's a book, podcast, movie, TV show, or video, fetch the detailed information
-        if (basicMedia.mediaType === 'Book') {
-          try {
-            const bookResponse = await getBookById(id);
-            detailedMedia = { ...basicMedia, ...bookResponse.data };
-          } catch (bookError) {
-            console.warn('Could not fetch detailed book data, using basic data:', bookError);
-          }
-        } else if (basicMedia.mediaType === 'Podcast') {
-          try {
-            // Try to fetch as podcast series first
-            try {
-              await getPodcastSeriesById(id);
-              // Redirect to dedicated podcast series profile page
-              navigate(`/podcast-series/${id}`, { replace: true });
-              return;
-            } catch {
-              // If series fetch fails, try as episode
-              try {
-                const episodeResponse = await getPodcastEpisodeById(id);
-                detailedMedia = { ...basicMedia, ...episodeResponse.data };
-                
-                // If it's an episode, try to fetch the parent series info
-                if (detailedMedia.seriesId) {
-                  try {
-                    const parentSeriesResponse = await getPodcastSeriesById(detailedMedia.seriesId);
-                    detailedMedia.series = parentSeriesResponse.data;
-                  } catch (parentSeriesError) {
-                    console.warn('Could not fetch parent series data:', parentSeriesError);
-                  }
-                }
-              } catch (episodeError) {
-                console.warn('Could not fetch detailed podcast data, using basic data:', episodeError);
-              }
-            }
-          } catch (podcastError) {
-            console.warn('Could not fetch detailed podcast data, using basic data:', podcastError);
-          }
-        } else if (basicMedia.mediaType === 'Movie') {
-          try {
-            const movieResponse = await getMovieById(id);
-            detailedMedia = { ...basicMedia, ...movieResponse.data };
-          } catch (movieError) {
-            console.warn('Could not fetch detailed movie data, using basic data:', movieError);
-          }
-        } else if (basicMedia.mediaType === 'TVShow') {
-          // Check if this is a TV show (not an episode) and redirect to dedicated profile
-          try {
-            const tvShowResponse = await getTvShowById(id);
-            if (tvShowResponse.data) {
-              navigate(`/tv-show/${id}`, { replace: true });
-              return;
-            }
-          } catch (tvShowError) {
-            // Not a TV show parent, might be an episode - continue with generic profile
-            console.warn('Could not fetch as TV show, using generic profile:', tvShowError);
-          }
-        } else if (basicMedia.mediaType === 'Video') {
-          try {
-            const videoResponse = await getVideoById(id);
-            detailedMedia = { ...basicMedia, ...videoResponse.data };
-          } catch (videoError) {
-            console.warn('Could not fetch detailed video data, using basic data:', videoError);
-          }
-        } else if (basicMedia.mediaType === 'Article') {
-          try {
-            const articleResponse = await getArticleById(id);
-            // Check if response has .data property or if it's the data itself
-            const articleData = articleResponse.data || articleResponse;
-            detailedMedia = { ...basicMedia, ...articleData };
-          } catch (articleError) {
-            console.warn('Could not fetch detailed article data, using basic data:', articleError);
-          }
-        }
-        
-        setMediaItem(detailedMedia);
-
-        // Fetch all mixlists once and derive both current and available lists
-        const mixlistsResponse = await getAllMixlists();
-        const allMixlists = mixlistsResponse.data || [];
-        setAvailableMixlists(allMixlists);
-
-        const mixlistIds = detailedMedia.mixlistIds || [];
-        if (mixlistIds.length > 0) {
-          const mixlistIdSet = new Set(mixlistIds);
-          setCurrentMixlists(allMixlists.filter(m => mixlistIdSet.has(m.id)));
-        } else {
-          setCurrentMixlists([]);
-        }
-
-      } catch (error) {
-        console.error('Failed to fetch data:', error);
-        setSnackbar({ open: true, message: 'Failed to load media item', severity: 'error' });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (id) {
-      fetchData();
-    } else {
-      setLoading(false);
-    }
-  }, [id, refreshKey]);
-
-  // Fetch highlights when media item is loaded
-  useEffect(() => {
-    const fetchHighlights = async () => {
-      if (!mediaItem) return;
-
-      if (mediaItem.mediaType === 'Article' || mediaItem.mediaType === 'Book') {
-        setHighlightsLoading(true);
-        try {
-          let highlightsData = [];
-          if (mediaItem.mediaType === 'Article') {
-            highlightsData = await getHighlightsByArticle(mediaItem.id);
-          } else if (mediaItem.mediaType === 'Book') {
-            highlightsData = await getHighlightsByBook(mediaItem.id);
-          }
-          setHighlights(highlightsData || []);
-        } catch (error) {
-          console.error('Failed to fetch highlights:', error);
-          // Don't show error snackbar for highlights, just log it
-          setHighlights([]);
-        } finally {
-          setHighlightsLoading(false);
-        }
-      }
-    };
-
-    fetchHighlights();
-  }, [mediaItem]);
-
-  // Fetch playlists for videos
-  useEffect(() => {
-    const fetchVideoPlaylists = async () => {
-      if (!mediaItem) return;
-
-      if (mediaItem.mediaType === 'Video') {
-        try {
-          const playlists = await getPlaylistsForVideo(mediaItem.id);
-          setVideoPlaylists(playlists || []);
-        } catch (error) {
-          console.error('Failed to fetch playlists for video:', error);
-          setVideoPlaylists([]);
-        }
-      }
-    };
-
-    fetchVideoPlaylists();
-  }, [mediaItem]);
-
-  // Handle fetching content for articles from Readwise Reader
-  const handleFetchContent = async () => {
+  const handleFetchContent = () => {
     if (!mediaItem?.id) return;
-
-    setFetchingContent(true);
-    try {
-      await fetchArticleContent(mediaItem.id);
-      setSnackbar({ open: true, message: 'Content fetched successfully!', severity: 'success' });
-      setRefreshKey(prev => prev + 1); // Refresh to show updated content
-    } catch (error) {
-      console.error('Failed to fetch article content:', error);
-      setSnackbar({ open: true, message: 'Failed to fetch content', severity: 'error' });
-    } finally {
-      setFetchingContent(false);
-    }
+    fetchContentMutation.mutate(mediaItem.id, {
+      onSuccess: () => {
+        setSnackbar({ open: true, message: 'Content fetched successfully!', severity: 'success' });
+        setRefreshKey(prev => prev + 1);
+      },
+      onError: () => setSnackbar({ open: true, message: 'Failed to fetch content', severity: 'error' }),
+    });
   };
 
   if (loading) {

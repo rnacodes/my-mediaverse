@@ -6,9 +6,9 @@ import {
     Search, Upload, FileDownload, AddCircle, Add, Delete, Sync
 } from '@mui/icons-material';
 import CircularProgress from '@mui/material/CircularProgress';
-import { getMixlistById, removeMediaFromMixlist, addMediaToMixlist } from '../api/mixlistService';
-import { searchMedia } from '../api/mediaService';
-import { reindexMixlist } from '../api/typesenseService';
+import { useMixlist, useAddMediaToMixlist, useRemoveMediaFromMixlist } from '../hooks/useMixlist';
+import { useMediaSearch } from '../hooks/useMedia';
+import { useReindexMixlist } from '../hooks/useTypesense';
 import SimpleMediaCarousel from './shared/SimpleMediaCarousel';
 import MixlistRelatedNotesSection from './MixlistRelatedNotesSection';
 import { formatMediaType, formatStatus } from '../utils/formatters';
@@ -16,81 +16,64 @@ import { formatMediaType, formatStatus } from '../utils/formatters';
 function MixlistProfilePage() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const [mixlist, setMixlist] = useState(null);
-    const [loading, setLoading] = useState(true);
     const [mediaListExpanded, setMediaListExpanded] = useState(false);
     const [selectedMedia, setSelectedMedia] = useState(null);
     const [addMediaDialogOpen, setAddMediaDialogOpen] = useState(false);
-    const [searchResults, setSearchResults] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
-    const [searching, setSearching] = useState(false);
     const [selectedMediaIds, setSelectedMediaIds] = useState([]);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
     const [filterQuery, setFilterQuery] = useState('');
-    const [reindexing, setReindexing] = useState(false);
 
-    const handleReindex = async () => {
-        setReindexing(true);
-        try {
-            await reindexMixlist(id);
-            setSnackbar({ open: true, message: 'Mixlist re-indexed in search.', severity: 'success' });
-        } catch (error) {
-            if (error.response?.status !== 403) {
-                console.error('Error re-indexing mixlist:', error);
-                setSnackbar({ open: true, message: 'Failed to re-index mixlist.', severity: 'error' });
-            }
-        } finally {
-            setReindexing(false);
-        }
-    };
+    const mixlistQuery = useMixlist(id);
+    const mixlist = mixlistQuery.data ?? null;
+    const loading = mixlistQuery.isLoading;
+
+    const reindexMutation = useReindexMixlist();
+    const reindexing = reindexMutation.isPending;
+
+    const addMediaMutation = useAddMediaToMixlist();
+    const removeMediaMutation = useRemoveMediaFromMixlist();
+
+    // Drive search via debounced query state; useMediaSearch handles `enabled`.
+    const searchResultsQuery = useMediaSearch(searchQuery);
+    const searchResults = (() => {
+        const data = searchResultsQuery.data;
+        if (Array.isArray(data)) return data;
+        if (Array.isArray(data?.data)) return data.data;
+        return [];
+    })();
+    const searching = searchResultsQuery.isFetching;
 
     useEffect(() => {
-        const loadMixlist = async () => {
-            try {
-                const mixlistResponse = await getMixlistById(id);
-                setMixlist(mixlistResponse.data);
-            } catch (error) {
-                console.error('Error loading mixlist:', error);
-                setSnackbar({ open: true, message: 'Failed to load mixlist', severity: 'error' });
-            } finally {
-                setLoading(false);
-            }
-        };
-        
-        if (id) {
-            loadMixlist();
-        } else {
-            setLoading(false);
+        if (mixlistQuery.error) {
+            setSnackbar({ open: true, message: 'Failed to load mixlist', severity: 'error' });
         }
-    }, [id]);
+    }, [mixlistQuery.error]);
 
-    // Media search functionality
-    const handleSearchMedia = async (query) => {
-        if (!query.trim()) {
-            setSearchResults([]);
-            return;
-        }
-
-        setSearching(true);
-        try {
-            const response = await searchMedia(query);
-            console.log('Search response:', response);
-            // Handle both response.data and direct response array
-            const results = Array.isArray(response.data) ? response.data : 
-                           Array.isArray(response) ? response : [];
-            console.log('Processed results:', results);
-            setSearchResults(results);
-        } catch (error) {
-            console.error('Error searching media:', error);
-            console.error('Error details:', error.response?.data);
-            setSnackbar({ 
-                open: true, 
-                message: `Failed to search media: ${error.response?.data?.error || error.message}`, 
-                severity: 'error' 
+    useEffect(() => {
+        if (searchResultsQuery.error) {
+            setSnackbar({
+                open: true,
+                message: `Failed to search media: ${searchResultsQuery.error.response?.data?.error || searchResultsQuery.error.message}`,
+                severity: 'error'
             });
-        } finally {
-            setSearching(false);
         }
+    }, [searchResultsQuery.error]);
+
+    const handleReindex = () => {
+        reindexMutation.mutate(id, {
+            onSuccess: () => setSnackbar({ open: true, message: 'Mixlist re-indexed in search.', severity: 'success' }),
+            onError: (error) => {
+                if (error.response?.status !== 403) {
+                    setSnackbar({ open: true, message: 'Failed to re-index mixlist.', severity: 'error' });
+                }
+            },
+        });
+    };
+
+    const handleSearchMedia = (query) => {
+        // Now driven by `searchQuery` state change; this is invoked from the TextField onChange.
+        setSearchQuery(query);
     };
 
     const handleToggleMediaSelection = (mediaItemId) => {
@@ -109,88 +92,43 @@ function MixlistProfilePage() {
             return;
         }
 
-        try {
-            console.log('=== Starting bulk add media ===');
-            console.log('Mixlist ID:', id);
-            console.log('Selected media IDs:', selectedMediaIds);
-            console.log('Number of items to add:', selectedMediaIds.length);
-            
-            // Add each selected media item sequentially to better track errors
-            let successCount = 0;
-            let failedItems = [];
-            
-            for (const mediaItemId of selectedMediaIds) {
-                try {
-                    console.log(`Adding media item ${mediaItemId} to mixlist ${id}...`);
-                    const result = await addMediaToMixlist(id, mediaItemId);
-                    console.log(`Successfully added media item ${mediaItemId}:`, result);
-                    successCount++;
-                } catch (itemError) {
-                    console.error(`Failed to add media item ${mediaItemId}:`, itemError);
-                    console.error('Error response:', itemError.response?.data);
-                    console.error('Error status:', itemError.response?.status);
-                    failedItems.push({ id: mediaItemId, error: itemError.response?.data?.error || itemError.message });
-                }
+        // Add each selected media item sequentially; mutation's onSuccess will invalidate
+        // the mixlist detail query, which refetches automatically.
+        let successCount = 0;
+        let failedCount = 0;
+        for (const mediaItemId of selectedMediaIds) {
+            try {
+                await addMediaMutation.mutateAsync({ mixlistId: id, mediaItemId });
+                successCount++;
+            } catch {
+                failedCount++;
             }
-            
-            console.log(`=== Bulk add complete: ${successCount} succeeded, ${failedItems.length} failed ===`);
-            
-            // Reload the mixlist to update the display
-            console.log('Reloading mixlist...');
-            const response = await getMixlistById(id);
-            console.log('Reloaded mixlist:', response);
-            setMixlist(response.data);
-            
-            // Close dialog and clear search/selection
-            setAddMediaDialogOpen(false);
-            setSearchQuery('');
-            setSearchResults([]);
-            setSelectedMediaIds([]);
-            
-            if (failedItems.length === 0) {
-                const itemText = successCount === 1 ? 'item' : 'items';
-                setSnackbar({ 
-                    open: true, 
-                    message: `Successfully added ${successCount} media ${itemText}!`, 
-                    severity: 'success' 
-                });
-            } else {
-                setSnackbar({ 
-                    open: true, 
-                    message: `Added ${successCount} items, but ${failedItems.length} failed. Check console for details.`, 
-                    severity: 'warning' 
-                });
-            }
-        } catch (error) {
-            console.error('=== Unexpected error in bulk add ===');
-            console.error('Error:', error);
-            console.error('Error details:', error.response?.data);
-            setSnackbar({ 
-                open: true, 
-                message: `Failed to add media items: ${error.response?.data?.error || error.message}`, 
-                severity: 'error' 
+        }
+
+        setAddMediaDialogOpen(false);
+        setSearchQuery('');
+        setSelectedMediaIds([]);
+
+        if (failedCount === 0) {
+            const itemText = successCount === 1 ? 'item' : 'items';
+            setSnackbar({ open: true, message: `Successfully added ${successCount} media ${itemText}!`, severity: 'success' });
+        } else {
+            setSnackbar({
+                open: true,
+                message: `Added ${successCount} items, but ${failedCount} failed. Check console for details.`,
+                severity: 'warning'
             });
         }
     };
 
-    const handleRemoveMedia = async (mediaItemId) => {
-        try {
-            await removeMediaFromMixlist(id, mediaItemId);
-            
-            // Reload the mixlist to update the display
-            const response = await getMixlistById(id);
-            setMixlist(response.data);
-            
-            // Clear selected media if it was removed
-            if (selectedMedia && selectedMedia.id === mediaItemId) {
-                setSelectedMedia(null);
-            }
-            
-            setSnackbar({ open: true, message: 'Media removed successfully!', severity: 'success' });
-        } catch (error) {
-            console.error('Error removing media from mixlist:', error);
-            setSnackbar({ open: true, message: 'Failed to remove media', severity: 'error' });
-        }
+    const handleRemoveMedia = (mediaItemId) => {
+        removeMediaMutation.mutate({ mixlistId: id, mediaItemId }, {
+            onSuccess: () => {
+                if (selectedMedia && selectedMedia.id === mediaItemId) setSelectedMedia(null);
+                setSnackbar({ open: true, message: 'Media removed successfully!', severity: 'success' });
+            },
+            onError: () => setSnackbar({ open: true, message: 'Failed to remove media', severity: 'error' }),
+        });
     };
 
     const handleMediaCarouselClick = (media) => {

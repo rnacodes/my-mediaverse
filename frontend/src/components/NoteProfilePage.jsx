@@ -14,70 +14,59 @@ import {
     AutoAwesome as AutoAwesomeIcon,
     Sync as SyncIcon
 } from '@mui/icons-material';
-import { getNoteById, getMediaForNote, updateNote } from '../api/noteService';
-import { generateNoteDescription } from '../api/aiService';
-import { reindexNote } from '../api/typesenseService';
+import { useNote, useMediaForNote, useUpdateNote } from '../hooks/useNote';
+import { useGenerateNoteDescription } from '../hooks/useAi';
+import { useReindexNote } from '../hooks/useTypesense';
 import { formatMediaType, getMediaTypeColor } from '../utils/formatters';
 import SimilarNotesSection from './SimilarNotesSection';
 import RelatedMediaByEmbeddingSection from './RelatedMediaByEmbeddingSection';
 
 function NoteProfilePage() {
-    const [note, setNote] = useState(null);
-    const [linkedMedia, setLinkedMedia] = useState([]);
-    const [loading, setLoading] = useState(true);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-
-    // Description editing state
     const [editingDescription, setEditingDescription] = useState(false);
     const [editedDescription, setEditedDescription] = useState('');
-    const [saving, setSaving] = useState(false);
-    const [generatingDescription, setGeneratingDescription] = useState(false);
-    const [reindexing, setReindexing] = useState(false);
 
     const { id } = useParams();
     const navigate = useNavigate();
 
-    const handleReindex = async () => {
-        setReindexing(true);
-        try {
-            await reindexNote(id);
-            setSnackbar({ open: true, message: 'Note re-indexed in search.', severity: 'success' });
-        } catch (error) {
-            if (error.response?.status !== 403) {
-                console.error('Error re-indexing note:', error);
-                setSnackbar({ open: true, message: 'Failed to re-index note.', severity: 'error' });
-            }
-        } finally {
-            setReindexing(false);
-        }
-    };
+    const noteQuery = useNote(id);
+    const note = noteQuery.data ?? null;
+    const loading = noteQuery.isLoading;
 
+    const linkedMediaQuery = useMediaForNote(id);
+    const linkedMedia = linkedMediaQuery.data ?? [];
+
+    const updateMutation = useUpdateNote();
+    const saving = updateMutation.isPending;
+
+    const generateMutation = useGenerateNoteDescription();
+    const generatingDescription = generateMutation.isPending;
+
+    const reindexMutation = useReindexNote();
+    const reindexing = reindexMutation.isPending;
+
+    // Seed the edit field once the note has loaded.
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                setLoading(true);
+        if (note) setEditedDescription(note.description ?? '');
+    }, [note]);
 
-                // Fetch note details
-                const noteData = await getNoteById(id);
-                setNote(noteData);
-                setEditedDescription(noteData.description || '');
-
-                // Fetch linked media items
-                const mediaData = await getMediaForNote(id);
-                setLinkedMedia(mediaData || []);
-
-            } catch (error) {
-                console.error('Error fetching note:', error);
-                setSnackbar({ open: true, message: 'Failed to load note', severity: 'error' });
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        if (id) {
-            fetchData();
+    // Surface fetch failures via snackbar.
+    useEffect(() => {
+        if (noteQuery.error) {
+            setSnackbar({ open: true, message: 'Failed to load note', severity: 'error' });
         }
-    }, [id]);
+    }, [noteQuery.error]);
+
+    const handleReindex = () => {
+        reindexMutation.mutate(id, {
+            onSuccess: () => setSnackbar({ open: true, message: 'Note re-indexed in search.', severity: 'success' }),
+            onError: (error) => {
+                if (error.response?.status !== 403) {
+                    setSnackbar({ open: true, message: 'Failed to re-index note.', severity: 'error' });
+                }
+            },
+        });
+    };
 
     // Get vault color
     const getVaultColor = (vaultName) => {
@@ -105,56 +94,45 @@ function NoteProfilePage() {
         }
     };
 
-    // Handle description save
-    const handleSaveDescription = async () => {
-        setSaving(true);
-        try {
-            await updateNote(id, { description: editedDescription });
-            setNote(prev => ({ ...prev, description: editedDescription }));
-            setEditingDescription(false);
-            setSnackbar({ open: true, message: 'Description updated', severity: 'success' });
-        } catch (error) {
-            console.error('Error updating description:', error);
-            setSnackbar({ open: true, message: 'Failed to update description', severity: 'error' });
-        } finally {
-            setSaving(false);
-        }
+    const handleSaveDescription = () => {
+        updateMutation.mutate({ id, noteData: { description: editedDescription } }, {
+            onSuccess: () => {
+                setEditingDescription(false);
+                setSnackbar({ open: true, message: 'Description updated', severity: 'success' });
+            },
+            onError: () => setSnackbar({ open: true, message: 'Failed to update description', severity: 'error' }),
+        });
     };
 
-    // Cancel description edit
     const handleCancelEdit = () => {
-        setEditedDescription(note.description || '');
+        setEditedDescription(note?.description ?? '');
         setEditingDescription(false);
     };
 
-    // Generate AI description
-    const handleGenerateDescription = async () => {
-        setGeneratingDescription(true);
-        try {
-            const result = await generateNoteDescription(id);
-            if (result.generatedDescription) {
-                setNote(prev => ({ ...prev, description: result.generatedDescription }));
-                setEditedDescription(result.generatedDescription);
-                setSnackbar({ open: true, message: 'Description generated successfully', severity: 'success' });
-            } else if (result.success === false) {
-                setSnackbar({ open: true, message: result.errorMessage || 'Failed to generate description', severity: 'error' });
-            } else {
-                setSnackbar({ open: true, message: 'No description was generated', severity: 'warning' });
-            }
-        } catch (error) {
-            console.error('Error generating description:', error);
-            let errorMessage = 'Failed to generate description';
-            if (error.response?.status === 503) {
-                errorMessage = 'AI service is not configured or unavailable';
-            } else if (error.response?.status === 404) {
-                errorMessage = error.response?.data?.message || 'Note not found or has no content';
-            } else if (error.response?.data?.message) {
-                errorMessage = error.response.data.message;
-            }
-            setSnackbar({ open: true, message: errorMessage, severity: 'error' });
-        } finally {
-            setGeneratingDescription(false);
-        }
+    const handleGenerateDescription = () => {
+        generateMutation.mutate(id, {
+            onSuccess: (result) => {
+                if (result?.generatedDescription) {
+                    setEditedDescription(result.generatedDescription);
+                    setSnackbar({ open: true, message: 'Description generated successfully', severity: 'success' });
+                } else if (result?.success === false) {
+                    setSnackbar({ open: true, message: result.errorMessage || 'Failed to generate description', severity: 'error' });
+                } else {
+                    setSnackbar({ open: true, message: 'No description was generated', severity: 'warning' });
+                }
+            },
+            onError: (error) => {
+                let errorMessage = 'Failed to generate description';
+                if (error.response?.status === 503) {
+                    errorMessage = 'AI service is not configured or unavailable';
+                } else if (error.response?.status === 404) {
+                    errorMessage = error.response?.data?.message || 'Note not found or has no content';
+                } else if (error.response?.data?.message) {
+                    errorMessage = error.response.data.message;
+                }
+                setSnackbar({ open: true, message: errorMessage, severity: 'error' });
+            },
+        });
     };
 
     if (loading) {

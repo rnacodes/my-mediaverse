@@ -15,69 +15,57 @@ import {
     Delete as DeleteIcon,
     Sync as SyncIcon
 } from '@mui/icons-material';
-import { getHighlightById, deleteHighlight } from '../api/highlightService';
-import { reindexHighlight } from '../api/typesenseService';
+import { useHighlight, useDeleteHighlight } from '../hooks/useHighlight';
+import { useReindexHighlight } from '../hooks/useTypesense';
 
 function HighlightProfilePage() {
-    const [highlight, setHighlight] = useState(null);
-    const [loading, setLoading] = useState(true);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-    const [deleting, setDeleting] = useState(false);
-    const [reindexing, setReindexing] = useState(false);
 
     const { id } = useParams();
     const navigate = useNavigate();
 
-    const handleReindex = async () => {
-        setReindexing(true);
-        try {
-            await reindexHighlight(id);
-            setSnackbar({ open: true, message: 'Highlight re-indexed in search.', severity: 'success' });
-        } catch (error) {
-            // 403 demo-mode rejections surface via the global DemoReadOnly dialog.
-            if (error.response?.status !== 403) {
-                console.error('Error re-indexing highlight:', error);
-                setSnackbar({ open: true, message: 'Failed to re-index highlight.', severity: 'error' });
-            }
-        } finally {
-            setReindexing(false);
-        }
-    };
+    const highlightQuery = useHighlight(id);
+    const highlight = highlightQuery.data ?? null;
+    const loading = highlightQuery.isLoading;
 
-    const handleDelete = async () => {
-        try {
-            setDeleting(true);
-            await deleteHighlight(id);
-            setSnackbar({ open: true, message: 'Highlight deleted successfully', severity: 'success' });
-            setTimeout(() => navigate(-1), 1000);
-        } catch (error) {
-            console.error('Error deleting highlight:', error);
-            setSnackbar({ open: true, message: 'Failed to delete highlight', severity: 'error' });
-        } finally {
-            setDeleting(false);
-            setDeleteDialogOpen(false);
-        }
-    };
+    const reindexMutation = useReindexHighlight();
+    const reindexing = reindexMutation.isPending;
 
+    const deleteMutation = useDeleteHighlight();
+    const deleting = deleteMutation.isPending;
+
+    // Surface fetch failures via snackbar (preserves prior UX).
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                setLoading(true);
-                const highlightData = await getHighlightById(id);
-                setHighlight(highlightData);
-            } catch (error) {
-                console.error('Error fetching highlight:', error);
-                setSnackbar({ open: true, message: 'Failed to load highlight', severity: 'error' });
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        if (id) {
-            fetchData();
+        if (highlightQuery.error) {
+            setSnackbar({ open: true, message: 'Failed to load highlight', severity: 'error' });
         }
-    }, [id]);
+    }, [highlightQuery.error]);
+
+    const handleReindex = () => {
+        reindexMutation.mutate(id, {
+            onSuccess: () => setSnackbar({ open: true, message: 'Highlight re-indexed in search.', severity: 'success' }),
+            onError: (error) => {
+                if (error.response?.status !== 403) {
+                    setSnackbar({ open: true, message: 'Failed to re-index highlight.', severity: 'error' });
+                }
+            },
+        });
+    };
+
+    const handleDelete = () => {
+        deleteMutation.mutate(id, {
+            onSuccess: () => {
+                setSnackbar({ open: true, message: 'Highlight deleted successfully', severity: 'success' });
+                setDeleteDialogOpen(false);
+                setTimeout(() => navigate(-1), 1000);
+            },
+            onError: () => {
+                setSnackbar({ open: true, message: 'Failed to delete highlight', severity: 'error' });
+                setDeleteDialogOpen(false);
+            },
+        });
+    };
 
     const formatDate = (dateString) => {
         if (!dateString) return 'N/A';

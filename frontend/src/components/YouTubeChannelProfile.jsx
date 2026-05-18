@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Box, Typography, Button, Card, CardContent, Chip, Divider, IconButton, CircularProgress, Alert, Accordion, AccordionSummary, AccordionDetails, List, Dialog, DialogTitle, DialogContent, DialogActions, Snackbar, ListItemButton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper } from '@mui/material';
 import {
@@ -12,8 +12,8 @@ import MixlistCarousel from './MixlistCarousel';
 import TopicsGenresSection from './TopicsGenresSection';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
-import { getYouTubeChannelById, getYouTubeChannelVideos, deleteYouTubeChannel, syncYouTubeChannelMetadata } from '../api/youtubeService';
-import { getAllMixlists } from '../api/mixlistService';
+import { useYouTubeChannel, useYouTubeChannelVideos, useDeleteYouTubeChannel, useSyncYouTubeChannelMetadata } from '../hooks/useYoutube';
+import { useAllMixlists } from '../hooks/useMixlist';
 import {
     formatMediaType,
     formatStatus,
@@ -24,18 +24,12 @@ import {
 } from '../utils/formatters';
 
 function YouTubeChannelProfile() {
-    // --- State Management ---
-    const [channel, setChannel] = useState(null);
-    const [videos, setVideos] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [syncing, setSyncing] = useState(false);
-    const [availableMixlists, setAvailableMixlists] = useState([]);
     const [currentMixlists, setCurrentMixlists] = useState([]);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
     const [deleteConfirmDialog, setDeleteConfirmDialog] = useState(false);
     const [viewAllVideosDialog, setViewAllVideosDialog] = useState(false);
 
-    // Pagination State
+    // Pagination State (browser dialog)
     const [allVideosFromApi, setAllVideosFromApi] = useState([]);
     const [displayedVideos, setDisplayedVideos] = useState([]);
     const [loadingAllVideos, setLoadingAllVideos] = useState(false);
@@ -49,67 +43,58 @@ function YouTubeChannelProfile() {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-    // --- Effects ---
+    const channelQuery = useYouTubeChannel(id);
+    const channel = channelQuery.data ?? null;
+
+    const videosQuery = useYouTubeChannelVideos(id);
+    const videos = useMemo(() => {
+        const list = videosQuery.data ?? [];
+        return [...list].sort((a, b) => {
+            if (a.releaseDate && b.releaseDate) return new Date(b.releaseDate) - new Date(a.releaseDate);
+            return new Date(b.dateAdded) - new Date(a.dateAdded);
+        });
+    }, [videosQuery.data]);
+
+    const mixlistsQuery = useAllMixlists();
+    const availableMixlistsFromQuery = mixlistsQuery.data ?? [];
+    const [availableMixlists, setAvailableMixlists] = useState([]);
+    useEffect(() => { setAvailableMixlists(availableMixlistsFromQuery); }, [availableMixlistsFromQuery]);
+
+    const loading = channelQuery.isLoading || videosQuery.isLoading;
+
+    const syncMutation = useSyncYouTubeChannelMetadata();
+    const syncing = syncMutation.isPending;
+    const deleteMutation = useDeleteYouTubeChannel();
+
+    // Force refetch when refreshKey changes (used by child sections).
     useEffect(() => {
-        console.log('YouTubeChannelProfile: Loading channel with ID:', id);
-        fetchChannelData();
-        fetchMixlists();
+        if (refreshKey > 0) {
+            channelQuery.refetch();
+            videosQuery.refetch();
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [id, refreshKey]);
+    }, [refreshKey]);
 
+    // Surface channel-load errors.
     useEffect(() => {
-        const fetchCurrentMixlists = async () => {
-            if (!channel) return;
-            const mixlistIds = channel.mixlistIds || [];
-            if (mixlistIds.length > 0) {
-                const allMixlistsResponse = await getAllMixlists();
-                const allMixlists = allMixlistsResponse.data || [];
-                const channelMixlists = mixlistIds.map(mixlistId =>
-                    allMixlists.find(m => m.id === mixlistId)
-                ).filter(m => m !== undefined);
-                setCurrentMixlists(channelMixlists);
-            } else {
-                setCurrentMixlists([]);
-            }
-        };
-        fetchCurrentMixlists();
-    }, [channel]);
-
-    // --- Data Fetching ---
-    const fetchChannelData = async () => {
-        try {
-            console.log('Fetching channel data for ID:', id);
-            setLoading(true);
-
-            const channelData = await getYouTubeChannelById(id);
-            console.log('Channel response:', channelData);
-            setChannel(channelData);
-
-            const channelVideos = await getYouTubeChannelVideos(id);
-            console.log('Videos response:', channelVideos);
-            const sortedVideos = (channelVideos || []).sort((a, b) => {
-                if (a.releaseDate && b.releaseDate) return new Date(b.releaseDate) - new Date(a.releaseDate);
-                return new Date(b.dateAdded) - new Date(a.dateAdded);
-            });
-            setVideos(sortedVideos);
-            console.log('Channel data loaded successfully');
-            setLoading(false);
-        } catch (error) {
-            console.error('Error fetching YouTube channel:', error);
-            console.error('Error details:', error.response || error.message);
-            setSnackbar({ open: true, message: `Failed to load YouTube channel: ${error.response?.data?.message || error.message}`, severity: 'error' });
-            setLoading(false);
+        if (channelQuery.error) {
+            setSnackbar({ open: true, message: `Failed to load YouTube channel: ${channelQuery.error.response?.data?.message || channelQuery.error.message}`, severity: 'error' });
         }
-    };
+    }, [channelQuery.error]);
 
-    const fetchMixlists = async () => {
-        try {
-            const response = await getAllMixlists();
-            setAvailableMixlists(response.data || []);
-        } catch (error) {
-            console.error('Error fetching mixlists:', error);
+    // Derive currentMixlists from channel's mixlistIds + the available list.
+    useEffect(() => {
+        if (!channel) return;
+        const mixlistIds = channel.mixlistIds || [];
+        if (mixlistIds.length > 0 && availableMixlistsFromQuery.length > 0) {
+            const channelMixlists = mixlistIds
+                .map(mixlistId => availableMixlistsFromQuery.find(m => m.id === mixlistId))
+                .filter(Boolean);
+            setCurrentMixlists(channelMixlists);
+        } else {
+            setCurrentMixlists([]);
         }
-    };
+    }, [channel, availableMixlistsFromQuery]);
 
     // --- Pagination & API Logic ---
     const handleViewAllVideos = async () => {
@@ -143,7 +128,7 @@ function YouTubeChannelProfile() {
 
             setAllVideosFromApi(allVideos);
             setDisplayedVideos(allVideos.slice(0, 10)); // Start by showing first 10
-            await checkImportedVideos();
+            checkImportedVideos();
         } catch (error) {
             console.error('Error fetching all videos:', error);
             setSnackbar({ open: true, message: 'Failed to fetch videos from YouTube API', severity: 'error' });
@@ -159,17 +144,12 @@ function YouTubeChannelProfile() {
         setDisplayedVideos(nextBatch);
     };
 
-    const checkImportedVideos = async () => {
-        try {
-            const dbVideos = await getYouTubeChannelVideos(id);
-            const importedMap = new Map();
-            (dbVideos || []).forEach(video => {
-                if (video.externalId) importedMap.set(video.externalId, video.id);
-            });
-            setImportedVideos(importedMap);
-        } catch (error) {
-            console.error('Error checking imported videos:', error);
-        }
+    const checkImportedVideos = () => {
+        const importedMap = new Map();
+        (videos || []).forEach(video => {
+            if (video.externalId) importedMap.set(video.externalId, video.id);
+        });
+        setImportedVideos(importedMap);
     };
 
     const handleImportVideo = async (video) => {
@@ -184,7 +164,7 @@ function YouTubeChannelProfile() {
             newImportedMap.set(videoId, response.data.id);
             setImportedVideos(newImportedMap);
             setSnackbar({ open: true, message: `Successfully imported "${video.snippet?.title || video.title}"!`, severity: 'success' });
-            await fetchChannelData();
+            videosQuery.refetch();
         } catch {
             setSnackbar({ open: true, message: 'Failed to import video', severity: 'error' });
         } finally {
@@ -192,31 +172,21 @@ function YouTubeChannelProfile() {
         }
     };
 
-    const handleSync = async () => {
-        try {
-            setSyncing(true);
-            await syncYouTubeChannelMetadata(id);
-            setSnackbar({
-                open: true,
-                message: 'Channel metadata synced successfully!',
-                severity: 'success'
-            });
-            await fetchChannelData();
-        } catch {
-            setSnackbar({ open: true, message: 'Failed to sync channel', severity: 'error' });
-        } finally {
-            setSyncing(false);
-        }
+    const handleSync = () => {
+        syncMutation.mutate(id, {
+            onSuccess: () => setSnackbar({ open: true, message: 'Channel metadata synced successfully!', severity: 'success' }),
+            onError: () => setSnackbar({ open: true, message: 'Failed to sync channel', severity: 'error' }),
+        });
     };
 
-    const handleDelete = async () => {
-        try {
-            await deleteYouTubeChannel(id);
-            setSnackbar({ open: true, message: 'YouTube channel deleted', severity: 'success' });
-            setTimeout(() => navigate('/youtube-channels'), 1500);
-        } catch {
-            setSnackbar({ open: true, message: 'Failed to delete channel', severity: 'error' });
-        }
+    const handleDelete = () => {
+        deleteMutation.mutate(id, {
+            onSuccess: () => {
+                setSnackbar({ open: true, message: 'YouTube channel deleted', severity: 'success' });
+                setTimeout(() => navigate('/youtube-channels'), 1500);
+            },
+            onError: () => setSnackbar({ open: true, message: 'Failed to delete channel', severity: 'error' }),
+        });
         setDeleteConfirmDialog(false);
     };
 

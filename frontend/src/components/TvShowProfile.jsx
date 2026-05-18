@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     Box, Typography, Button, Card, CardContent,
@@ -19,8 +19,8 @@ import SavedRelatedMediaSection from './SavedRelatedMediaSection';
 import SimilarItemsSection from './SimilarItemsSection';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
-import { getTvShowById, getEpisodesByShowId, deleteTvShow } from '../api/tvShowService';
-import { getAllMixlists } from '../api/mixlistService';
+import { useTvShow, useTvShowEpisodes, useDeleteTvShow } from '../hooks/useTvShow';
+import { useAllMixlists } from '../hooks/useMixlist';
 import {
     formatMediaType,
     formatStatus,
@@ -31,10 +31,6 @@ import {
 } from '../utils/formatters';
 
 function TvShowProfile() {
-    const [show, setShow] = useState(null);
-    const [episodes, setEpisodes] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [availableMixlists, setAvailableMixlists] = useState([]);
     const [currentMixlists, setCurrentMixlists] = useState([]);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
     const [deleteConfirmDialog, setDeleteConfirmDialog] = useState(false);
@@ -46,65 +42,59 @@ function TvShowProfile() {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
+    const showQuery = useTvShow(id);
+    const show = showQuery.data ?? null;
+
+    const episodesQuery = useTvShowEpisodes(id);
+    const episodes = episodesQuery.data ?? [];
+
+    const mixlistsQuery = useAllMixlists();
+    const availableMixlistsFromQuery = mixlistsQuery.data ?? [];
+    const [availableMixlists, setAvailableMixlists] = useState([]);
+    useEffect(() => { setAvailableMixlists(availableMixlistsFromQuery); }, [availableMixlistsFromQuery]);
+
+    const loading = showQuery.isLoading || episodesQuery.isLoading;
+
+    const deleteMutation = useDeleteTvShow();
+
+    // Force refetch when refreshKey changes (used by child sections after mutations).
     useEffect(() => {
-        fetchShowData();
-        fetchMixlists();
+        if (refreshKey > 0) {
+            showQuery.refetch();
+            episodesQuery.refetch();
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [id, refreshKey]);
+    }, [refreshKey]);
 
+    // Surface show-load errors.
     useEffect(() => {
-        const fetchCurrentMixlists = async () => {
-            if (!show) return;
-            const mixlistIds = show.mixlistIds || [];
-            if (mixlistIds.length > 0) {
-                const allMixlistsResponse = await getAllMixlists();
-                const allMixlists = allMixlistsResponse.data || [];
-                const showMixlists = mixlistIds.map(mixlistId =>
-                    allMixlists.find(m => m.id === mixlistId)
-                ).filter(m => m !== undefined);
-                setCurrentMixlists(showMixlists);
-            } else {
-                setCurrentMixlists([]);
-            }
-        };
-        fetchCurrentMixlists();
-    }, [show]);
-
-    const fetchShowData = async () => {
-        try {
-            setLoading(true);
-            const [showResponse, episodesResponse] = await Promise.all([
-                getTvShowById(id),
-                getEpisodesByShowId(id)
-            ]);
-
-            setShow(showResponse.data);
-            setEpisodes(episodesResponse.data || []);
-            setLoading(false);
-        } catch (error) {
-            console.error('Error fetching TV show:', error);
-            setSnackbar({ open: true, message: `Failed to load TV show: ${error.response?.data?.message || error.message}`, severity: 'error' });
-            setLoading(false);
+        if (showQuery.error) {
+            setSnackbar({ open: true, message: `Failed to load TV show: ${showQuery.error.response?.data?.message || showQuery.error.message}`, severity: 'error' });
         }
-    };
+    }, [showQuery.error]);
 
-    const fetchMixlists = async () => {
-        try {
-            const response = await getAllMixlists();
-            setAvailableMixlists(response.data || []);
-        } catch (error) {
-            console.error('Error fetching mixlists:', error);
+    // Derive currentMixlists from the show's mixlistIds + the available list.
+    useEffect(() => {
+        if (!show) return;
+        const mixlistIds = show.mixlistIds || [];
+        if (mixlistIds.length > 0 && availableMixlistsFromQuery.length > 0) {
+            const showMixlists = mixlistIds
+                .map(mixlistId => availableMixlistsFromQuery.find(m => m.id === mixlistId))
+                .filter(Boolean);
+            setCurrentMixlists(showMixlists);
+        } else {
+            setCurrentMixlists([]);
         }
-    };
+    }, [show, availableMixlistsFromQuery]);
 
-    const handleDelete = async () => {
-        try {
-            await deleteTvShow(id);
-            setSnackbar({ open: true, message: 'TV show deleted', severity: 'success' });
-            setTimeout(() => navigate('/all-media?mediaType=TVShow'), 1500);
-        } catch {
-            setSnackbar({ open: true, message: 'Failed to delete TV show', severity: 'error' });
-        }
+    const handleDelete = () => {
+        deleteMutation.mutate(id, {
+            onSuccess: () => {
+                setSnackbar({ open: true, message: 'TV show deleted', severity: 'success' });
+                setTimeout(() => navigate('/all-media?mediaType=TVShow'), 1500);
+            },
+            onError: () => setSnackbar({ open: true, message: 'Failed to delete TV show', severity: 'error' }),
+        });
         setDeleteConfirmDialog(false);
     };
 
