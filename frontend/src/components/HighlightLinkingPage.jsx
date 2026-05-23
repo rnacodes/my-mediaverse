@@ -1,19 +1,29 @@
 //Update purple outline buttons to white
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Box, Container, Typography, Paper, TextField, Button, Checkbox, Chip, CircularProgress, Alert, Snackbar, Dialog, DialogTitle, DialogContent, DialogActions, InputAdornment, Accordion, AccordionSummary, AccordionDetails, Divider } from '@mui/material';
 import { Search as SearchIcon, ExpandMore as ExpandMoreIcon, Link as LinkIcon, MenuBook as BookIcon, Article as ArticleIcon } from '@mui/icons-material';
-import { getUnlinkedHighlights, updateHighlight } from '../api/highlightService';
-import { getAllBooks } from '../api/bookService';
-import { getAllArticles } from '../api/articleService';
+import { useUnlinkedHighlights, useUpdateHighlight } from '../hooks/useHighlight';
+import { useAllBooks } from '../hooks/useBook';
+import { useAllArticles } from '../hooks/useArticle';
 
 export default function HighlightLinkingPage() {
-    // Data state
-    const [highlights, setHighlights] = useState([]);
-    const [books, setBooks] = useState([]);
-    const [articles, setArticles] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const unlinkedHighlightsQuery = useUnlinkedHighlights();
+    const booksQuery = useAllBooks();
+    const articlesQuery = useAllArticles();
+    const updateHighlightMutation = useUpdateHighlight();
+
+    const highlights = useMemo(() => unlinkedHighlightsQuery.data || [], [unlinkedHighlightsQuery.data]);
+    const books = useMemo(() => booksQuery.data || [], [booksQuery.data]);
+    const articles = useMemo(() => {
+        const data = articlesQuery.data;
+        return Array.isArray(data) ? data : (data || []);
+    }, [articlesQuery.data]);
+
+    const loading = unlinkedHighlightsQuery.isLoading || booksQuery.isLoading || articlesQuery.isLoading;
+    const loadError = unlinkedHighlightsQuery.error || booksQuery.error || articlesQuery.error;
+    const [dismissedError, setDismissedError] = useState(false);
+    const error = loadError && !dismissedError ? 'Failed to load data. Please try again.' : null;
 
     // UI state
     const [sourceSearchQuery, setSourceSearchQuery] = useState('');
@@ -24,29 +34,11 @@ export default function HighlightLinkingPage() {
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
     const [expandedSources, setExpandedSources] = useState(new Set());
 
-    // Load data on mount
-    useEffect(() => {
-        loadData();
-    }, []);
-
-    const loadData = async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const [highlightsData, booksRes, articlesRes] = await Promise.all([
-                getUnlinkedHighlights(),
-                getAllBooks(),
-                getAllArticles()
-            ]);
-            setHighlights(highlightsData || []);
-            setBooks(booksRes.data || []);
-            setArticles(Array.isArray(articlesRes) ? articlesRes : (articlesRes.data || []));
-        } catch (err) {
-            console.error('Error loading data:', err);
-            setError('Failed to load data. Please try again.');
-        } finally {
-            setLoading(false);
-        }
+    const refreshData = () => {
+        setDismissedError(false);
+        unlinkedHighlightsQuery.refetch();
+        booksQuery.refetch();
+        articlesQuery.refetch();
     };
 
     // Group highlights by source (title + author)
@@ -154,14 +146,14 @@ export default function HighlightLinkingPage() {
 
             for (const highlight of highlightsToLink) {
                 try {
-                    const updateData = {
+                    const highlightData = {
                         text: highlight.text,
                         note: highlight.note,
                         tags: highlight.tags || [],
                         articleId: mediaType === 'article' ? mediaId : null,
                         bookId: mediaType === 'book' ? mediaId : null
                     };
-                    await updateHighlight(highlight.id, updateData);
+                    await updateHighlightMutation.mutateAsync({ id: highlight.id, highlightData });
                     successCount++;
                 } catch (err) {
                     console.error(`Failed to link highlight ${highlight.id}:`, err);
@@ -178,7 +170,8 @@ export default function HighlightLinkingPage() {
                 setSelectedHighlights(new Set());
                 setLinkDialogOpen(false);
                 setMediaSearchQuery('');
-                await loadData(); // Refresh the list
+                // useUpdateHighlight's onSuccess already invalidates the highlight lists,
+                // which refetches useUnlinkedHighlights automatically.
             } else {
                 setSnackbar({
                     open: true,
@@ -238,7 +231,7 @@ export default function HighlightLinkingPage() {
             </Box>
 
             {error && (
-                <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>
+                <Alert severity="error" sx={{ mb: 3 }} onClose={() => setDismissedError(true)}>{error}</Alert>
             )}
 
             {/* Stats & Actions Bar */}
@@ -273,7 +266,7 @@ export default function HighlightLinkingPage() {
                     </Button>
                     <Button
                         variant="outlined"
-                        onClick={loadData}
+                        onClick={refreshData}
                         sx={{ borderColor: '#fcfafa', color: '#fcfafa' }}
                     >
                         Refresh

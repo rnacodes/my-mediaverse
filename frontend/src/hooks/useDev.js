@@ -20,6 +20,7 @@ import {
   cleanupVideos,
   cleanupAllMedia,
 } from '../api/devService';
+import { cleanupRefreshTokens } from '../api/authService';
 import {
   mediaKeys,
   mixlistKeys,
@@ -75,3 +76,4 @@ export const useCleanupNotes = makeCleanupMutation(cleanupNotes, [noteKeys.all])
 export const useCleanupDocuments = makeCleanupMutation(cleanupDocuments, [documentKeys.all, mediaKeys.lists()]);
 export const useCleanupVideos = makeCleanupMutation(cleanupVideos, [videoKeys.all, mediaKeys.lists()]);
 export const useCleanupAllMedia = makeCleanupMutation(cleanupAllMedia, [mediaKeys.all]);
+export const useCleanupRefreshTokens = makeCleanupMutation(cleanupRefreshTokens, []);

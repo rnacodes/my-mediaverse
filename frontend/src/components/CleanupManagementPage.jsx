@@ -19,18 +19,46 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete';
 import WarningIcon from '@mui/icons-material/Warning';
 import {
-    cleanupYouTubeData, cleanupPodcasts, cleanupBooks, cleanupMovies,
-    cleanupTvShows, cleanupArticles, cleanupHighlights, cleanupMixlists,
-    cleanupAllTopics, cleanupAllGenres, cleanupOrphanedTopics, cleanupOrphanedGenres,
-    cleanupAllMedia, cleanupWebsites, cleanupChannels, cleanupPlaylists,
-    cleanupNotes, cleanupDocuments, cleanupVideos
-} from '../api/devService';
-import { cleanupRefreshTokens } from '../api/authService';
+    useCleanupYouTubeData, useCleanupPodcasts, useCleanupBooks, useCleanupMovies,
+    useCleanupTvShows, useCleanupArticles, useCleanupHighlights, useCleanupMixlists,
+    useCleanupAllTopics, useCleanupAllGenres, useCleanupOrphanedTopics, useCleanupOrphanedGenres,
+    useCleanupAllMedia, useCleanupWebsites, useCleanupChannels, useCleanupPlaylists,
+    useCleanupNotes, useCleanupDocuments, useCleanupVideos, useCleanupRefreshTokens
+} from '../hooks/useDev';
 
 const CleanupManagementPage = () => {
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
     const [confirmDialog, setConfirmDialog] = useState({ open: false, action: null, title: '', description: '' });
-    const [loading, setLoading] = useState(false);
+
+    const cleanupYouTubeData = useCleanupYouTubeData();
+    const cleanupPodcasts = useCleanupPodcasts();
+    const cleanupBooks = useCleanupBooks();
+    const cleanupMovies = useCleanupMovies();
+    const cleanupTvShows = useCleanupTvShows();
+    const cleanupArticles = useCleanupArticles();
+    const cleanupHighlights = useCleanupHighlights();
+    const cleanupMixlists = useCleanupMixlists();
+    const cleanupAllTopics = useCleanupAllTopics();
+    const cleanupAllGenres = useCleanupAllGenres();
+    const cleanupOrphanedTopics = useCleanupOrphanedTopics();
+    const cleanupOrphanedGenres = useCleanupOrphanedGenres();
+    const cleanupAllMedia = useCleanupAllMedia();
+    const cleanupWebsites = useCleanupWebsites();
+    const cleanupChannels = useCleanupChannels();
+    const cleanupPlaylists = useCleanupPlaylists();
+    const cleanupNotes = useCleanupNotes();
+    const cleanupDocuments = useCleanupDocuments();
+    const cleanupVideos = useCleanupVideos();
+    const cleanupRefreshTokens = useCleanupRefreshTokens();
+
+    const allMutations = [
+        cleanupYouTubeData, cleanupPodcasts, cleanupBooks, cleanupMovies,
+        cleanupTvShows, cleanupArticles, cleanupHighlights, cleanupMixlists,
+        cleanupAllTopics, cleanupAllGenres, cleanupOrphanedTopics, cleanupOrphanedGenres,
+        cleanupAllMedia, cleanupWebsites, cleanupChannels, cleanupPlaylists,
+        cleanupNotes, cleanupDocuments, cleanupVideos, cleanupRefreshTokens,
+    ];
+    const loading = allMutations.some(m => m.isPending);
 
     const handleCloseSnackbar = () => {
         setSnackbar({ ...snackbar, open: false });
@@ -40,11 +68,10 @@ const CleanupManagementPage = () => {
         setConfirmDialog({ open: false, action: null, title: '', description: '' });
     };
 
-    const executeCleanup = async (cleanupFunction, successMessage) => {
-        setLoading(true);
+    const executeCleanup = async (mutation, successMessage) => {
         try {
-            const result = await cleanupFunction();
-            const deletedInfo = result.deleted 
+            const result = await mutation.mutateAsync();
+            const deletedInfo = result?.deleted
                 ? `\n${Object.entries(result.deleted).map(([key, value]) => `${key}: ${value}`).join(', ')}`
                 : '';
             setSnackbar({
@@ -60,7 +87,6 @@ const CleanupManagementPage = () => {
                 severity: 'error'
             });
         } finally {
-            setLoading(false);
             handleCloseDialog();
         }
     };

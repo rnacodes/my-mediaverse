@@ -5,14 +5,17 @@ import {
     ArrowBack, CloudUpload, FileDownload, CheckCircle,
     Error, Info
 } from '@mui/icons-material';
-import { importGenresFromCsv, importTopicsFromCsv } from '../api/topicGenreService';
+import { useImportGenresFromCsv, useImportTopicsFromCsv } from '../hooks/useTopicGenre';
 
 function ImportGenresTopicsPage() {
     const [activeTab, setActiveTab] = useState(0); // 0 for Genres, 1 for Topics
     const [file, setFile] = useState(null);
-    const [importing, setImporting] = useState(false);
     const [importResults, setImportResults] = useState(null);
     const navigate = useNavigate();
+
+    const importGenresMutation = useImportGenresFromCsv();
+    const importTopicsMutation = useImportTopicsFromCsv();
+    const importing = importGenresMutation.isPending || importTopicsMutation.isPending;
 
     const handleTabChange = (event, newValue) => {
         setActiveTab(newValue);
@@ -36,25 +39,14 @@ function ImportGenresTopicsPage() {
             return;
         }
 
-        setImporting(true);
         try {
-            let result;
-            if (activeTab === 0) {
-                // Import Genres
-                const response = await importGenresFromCsv(file);
-                result = response.data;
-            } else {
-                // Import Topics
-                const response = await importTopicsFromCsv(file);
-                result = response.data;
-            }
+            const mutation = activeTab === 0 ? importGenresMutation : importTopicsMutation;
+            const result = await mutation.mutateAsync(file);
             setImportResults(result);
         } catch (error) {
             console.error('Import error:', error);
             const errorMessage = error.response?.data?.message || error.message || 'Import failed';
             alert(`Import failed: ${errorMessage}`);
-        } finally {
-            setImporting(false);
         }
     };
 
