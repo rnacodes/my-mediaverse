@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using FluentAssertions;
+using AwesomeAssertions;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using MyMediaVerse.Application.Interfaces;
@@ -217,7 +217,7 @@ namespace MyMediaVerse.IntegrationTests.Api
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             var results = await response.Content.ReadFromJsonAsync<BookSearchResultDto[]>(_jsonOptions);
             results.Should().NotBeNull();
-            results!.Length.Should().BeLessOrEqualTo(5);
+            results!.Length.Should().BeLessThanOrEqualTo(5);
         }
 
         [Theory]

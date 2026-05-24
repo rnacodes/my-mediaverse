@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using FluentAssertions;
+using AwesomeAssertions;
 using MyMediaVerse.IntegrationTests.Fixtures;
 using MyMediaVerse.IntegrationTests.Helpers;
 

@@ -1,6 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
-using FluentAssertions;
+using AwesomeAssertions;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.IntegrationTests.Fixtures;
 using MyMediaVerse.UnitTests.TestData;
