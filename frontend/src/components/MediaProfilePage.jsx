@@ -110,7 +110,7 @@ function MediaProfilePage() {
 
   // Mixlists.
   const mixlistsQuery = useAllMixlists();
-  const allMixlistsFromQuery = mixlistsQuery.data ?? [];
+  const allMixlistsFromQuery = useMemo(() => mixlistsQuery.data ?? [], [mixlistsQuery.data]);
   useEffect(() => { setAvailableMixlists(allMixlistsFromQuery); }, [allMixlistsFromQuery]);
   useEffect(() => {
     if (!mediaItem) return;

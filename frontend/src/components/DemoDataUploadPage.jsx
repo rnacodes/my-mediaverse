@@ -377,7 +377,7 @@ function ArticleUploadTab() {
                                 setTopics(newValue.map(t => t.toLowerCase()));
                             }}
                             onInputChange={(event, newInputValue) => {
-                                handleTopicSearch(newInputValue);
+                                setTopicInput(newInputValue);
                             }}
                             renderTags={(value, getTagProps) =>
                                 value.map((option, index) => (
@@ -417,7 +417,7 @@ function ArticleUploadTab() {
                                 setGenres(newValue.map(g => g.toLowerCase()));
                             }}
                             onInputChange={(event, newInputValue) => {
-                                handleGenreSearch(newInputValue);
+                                setGenreInput(newInputValue);
                             }}
                             renderTags={(value, getTagProps) =>
                                 value.map((option, index) => (
@@ -488,10 +488,12 @@ function ArticleUploadTab() {
 function HighlightUploadTab() {
     const [file, setFile] = useState(null);
     const [parsed, setParsed] = useState(null);
-    const [uploading, setUploading] = useState(false);
-    const [uploadResult, setUploadResult] = useState(null);
     const [error, setError] = useState('');
     const [expandedHighlights, setExpandedHighlights] = useState(true);
+
+    const bulkMutation = useBulkCreateHighlights();
+    const uploading = bulkMutation.isPending;
+    const uploadResult = bulkMutation.data ?? null;
 
     // Shared metadata (editable)
     const [title, setTitle] = useState('');
@@ -553,37 +555,33 @@ function HighlightUploadTab() {
         setParsed(updated);
     };
 
-    const handleUpload = async () => {
+    const handleUpload = () => {
         if (!parsed || parsed.highlights.length === 0) return;
-        setUploading(true);
         setError('');
 
-        try {
-            const highlightDtos = parsed.highlights.map(h => ({
-                text: h.text,
-                note: h.note || undefined,
-                title: title.trim() || undefined,
-                author: author.trim() || undefined,
-                category: category || undefined,
-                sourceUrl: sourceUrl.trim() || undefined,
-                tags: h.tags.length > 0 ? h.tags : undefined,
-                highlightedAt: highlightedAt || undefined
-            }));
+        const highlightDtos = parsed.highlights.map(h => ({
+            text: h.text,
+            note: h.note || undefined,
+            title: title.trim() || undefined,
+            author: author.trim() || undefined,
+            category: category || undefined,
+            sourceUrl: sourceUrl.trim() || undefined,
+            tags: h.tags.length > 0 ? h.tags : undefined,
+            highlightedAt: highlightedAt || undefined
+        }));
 
-            const result = await bulkCreateHighlights(highlightDtos);
-            setUploadResult(result);
-        } catch (err) {
-            const msg = err.response?.data?.error || err.response?.data?.details || err.message;
-            setError(`Failed to upload highlights: ${msg}`);
-        } finally {
-            setUploading(false);
-        }
+        bulkMutation.mutate(highlightDtos, {
+            onError: (err) => {
+                const msg = err.response?.data?.error || err.response?.data?.details || err.message;
+                setError(`Failed to upload highlights: ${msg}`);
+            },
+        });
     };
 
     const handleReset = () => {
         setFile(null);
         setParsed(null);
-        setUploadResult(null);
+        bulkMutation.reset();
         setError('');
         setTitle('');
         setAuthor('');

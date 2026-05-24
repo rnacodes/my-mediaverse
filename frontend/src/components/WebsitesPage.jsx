@@ -24,7 +24,7 @@ function WebsitesPage() {
     const allQuery = useAllWebsites({ enabled: !showRssOnly });
     const rssQuery = useWebsitesWithRss({ enabled: showRssOnly });
     const activeQuery = showRssOnly ? rssQuery : allQuery;
-    const websites = activeQuery.data ?? [];
+    const websites = useMemo(() => activeQuery.data ?? [], [activeQuery.data]);
     const loading = activeQuery.isLoading;
     const queryError = !dismissedError && activeQuery.error
         ? (activeQuery.error.message || 'Failed to load websites')

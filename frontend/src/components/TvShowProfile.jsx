@@ -46,10 +46,10 @@ function TvShowProfile() {
     const show = showQuery.data ?? null;
 
     const episodesQuery = useTvShowEpisodes(id);
-    const episodes = episodesQuery.data ?? [];
+    const episodes = useMemo(() => episodesQuery.data ?? [], [episodesQuery.data]);
 
     const mixlistsQuery = useAllMixlists();
-    const availableMixlistsFromQuery = mixlistsQuery.data ?? [];
+    const availableMixlistsFromQuery = useMemo(() => mixlistsQuery.data ?? [], [mixlistsQuery.data]);
     const [availableMixlists, setAvailableMixlists] = useState([]);
     useEffect(() => { setAvailableMixlists(availableMixlistsFromQuery); }, [availableMixlistsFromQuery]);
 

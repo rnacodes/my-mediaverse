@@ -12,7 +12,7 @@ function YouTubeChannelList() {
     const navigate = useNavigate();
 
     const channelsQuery = useAllYouTubeChannels();
-    const channels = channelsQuery.data ?? [];
+    const channels = useMemo(() => channelsQuery.data ?? [], [channelsQuery.data]);
     const loading = channelsQuery.isLoading;
 
     const filteredChannels = useMemo(() => {

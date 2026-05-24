@@ -22,7 +22,7 @@ function ArticlesPage() {
     const [dismissedError, setDismissedError] = useState(false);
 
     const articlesQuery = useAllArticles();
-    const articles = articlesQuery.data ?? [];
+    const articles = useMemo(() => articlesQuery.data ?? [], [articlesQuery.data]);
     const loading = articlesQuery.isLoading;
     const error = !dismissedError && articlesQuery.error
         ? (articlesQuery.error.message || 'Failed to load articles')

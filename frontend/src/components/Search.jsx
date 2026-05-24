@@ -199,11 +199,14 @@ export default function Search() {
         loadUrlParams();
     }, [searchParams]);
 
-    // Perform search when filters change (but wait for URL params to load first)
+    // Perform search when filters change (but wait for URL params to load first).
+    // performSearch is intentionally omitted from deps: it's recreated every render and
+    // including it would loop. The imperative search orchestration is deferred to T-21.
     useEffect(() => {
         if (urlParamsLoaded) {
             performSearch();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchQuery, searchMode, selectedMediaTypes, selectedTopics, selectedGenres, selectedStatus, selectedRatings, sortBy, currentPage, urlParamsLoaded]);
 
     // Check if we have any selection criteria for media search

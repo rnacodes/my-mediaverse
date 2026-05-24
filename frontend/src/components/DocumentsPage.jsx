@@ -27,7 +27,7 @@ function DocumentsPage() {
     const [dismissedError, setDismissedError] = useState(false);
 
     const documentsQuery = useAllDocuments();
-    const documents = documentsQuery.data ?? [];
+    const documents = useMemo(() => documentsQuery.data ?? [], [documentsQuery.data]);
     const loading = documentsQuery.isLoading;
 
     const paperlessStatusQuery = usePaperlessStatus();

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Box, Typography, Button, Card, CardContent, Chip, Divider, IconButton, CircularProgress, Alert, Accordion, AccordionSummary, AccordionDetails, List, Dialog, DialogTitle, DialogContent, DialogActions, Snackbar, ListItemButton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper } from '@mui/material';
 import {
@@ -59,7 +59,7 @@ function YouTubePlaylistProfile() {
         : (fallbackVideosQuery.data ?? []);
 
     const mixlistsQuery = useAllMixlists();
-    const availableMixlistsFromQuery = mixlistsQuery.data ?? [];
+    const availableMixlistsFromQuery = useMemo(() => mixlistsQuery.data ?? [], [mixlistsQuery.data]);
     const [availableMixlists, setAvailableMixlists] = useState([]);
     useEffect(() => { setAvailableMixlists(availableMixlistsFromQuery); }, [availableMixlistsFromQuery]);
 

@@ -35,6 +35,7 @@ export default defineConfig([
       'react/react-in-jsx-scope': 'off',
       'react/jsx-key': 'error',
       'react/no-array-index-key': 'error',
+      'react-hooks/exhaustive-deps': 'error',
     },
   },
   {

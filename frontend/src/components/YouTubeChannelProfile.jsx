@@ -56,7 +56,7 @@ function YouTubeChannelProfile() {
     }, [videosQuery.data]);
 
     const mixlistsQuery = useAllMixlists();
-    const availableMixlistsFromQuery = mixlistsQuery.data ?? [];
+    const availableMixlistsFromQuery = useMemo(() => mixlistsQuery.data ?? [], [mixlistsQuery.data]);
     const [availableMixlists, setAvailableMixlists] = useState([]);
     useEffect(() => { setAvailableMixlists(availableMixlistsFromQuery); }, [availableMixlistsFromQuery]);
 
