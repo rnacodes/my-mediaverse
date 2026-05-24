@@ -14,50 +14,53 @@ import ResponsiveNavigation from './components/shared/ResponsiveNavigation';
 import Footer from './components/shared/Footer';
 import LoadingSpinner from './components/shared/LoadingSpinner';
 
-// --- Lazy-loaded route components: each becomes its own chunk ---
-const HomePage = lazy(() => import('./components/HomePage'));
-const LoginPage = lazy(() => import('./components/LoginPage'));
-const AddMediaForm = lazy(() => import('./components/AddMediaForm'));
-const AllMedia = lazy(() => import('./components/AllMedia'));
-const MixlistsPage = lazy(() => import('./components/MixlistsPage'));
-const CreateMixlistForm = lazy(() => import('./components/CreateMixlistForm'));
-const MixlistProfilePage = lazy(() => import('./components/MixlistProfilePage'));
-const MediaProfilePage = lazy(() => import('./components/MediaProfilePage'));
-const EditMediaForm = lazy(() => import('./components/EditMediaForm'));
-const EditMixlistForm = lazy(() => import('./components/EditMixlistForm'));
-const ImportMediaPage = lazy(() => import('./components/ImportMedia'));
-const ImportMixlistPage = lazy(() => import('./components/ImportMixlistPage'));
-const ImportGenresTopicsPage = lazy(() => import('./components/ImportGenresTopicsPage'));
-const SearchByTopicOrGenre = lazy(() => import('./components/SearchByTopicOrGenre'));
-const Search = lazy(() => import('./components/Search'));
+// --- Eager route components: bundled into the main chunk for instant nav ---
+import HomePage from './components/HomePage';
+import LoginPage from './components/LoginPage';
+import AddMediaForm from './components/AddMediaForm';
+import AllMedia from './components/AllMedia';
+import MixlistsPage from './components/MixlistsPage';
+import CreateMixlistForm from './components/CreateMixlistForm';
+import MixlistProfilePage from './components/MixlistProfilePage';
+import MediaProfilePage from './components/MediaProfilePage';
+import EditMediaForm from './components/EditMediaForm';
+import EditMixlistForm from './components/EditMixlistForm';
+import ImportMediaPage from './components/ImportMedia';
+import ImportGenresTopicsPage from './components/ImportGenresTopicsPage';
+import SearchByTopicOrGenre from './components/SearchByTopicOrGenre';
+import Search from './components/Search';
+import UploadMediaPage from './components/UploadMediaPage';
+import YouTubeCallback from './pages/YouTubeCallback';
+import ReadwiseSyncPage from './components/ReadwiseSyncPage';
+import TraktSyncPage from './components/TraktSyncPage';
+import HighlightLinkingPage from './components/HighlightLinkingPage';
+import ArticlesPage from './components/ArticlesPage';
+import DocumentsPage from './components/DocumentsPage';
+import SourceDirectoryPage from './components/SourceDirectoryPage';
+import YouTubeChannelList from './components/YouTubeChannelList';
+import YouTubeChannelProfile from './components/YouTubeChannelProfile';
+import YouTubePlaylistProfile from './components/YouTubePlaylistProfile';
+import PodcastSeriesProfile from './components/PodcastSeriesProfile';
+import TvShowProfile from './components/TvShowProfile';
+import CleanupManagementPage from './components/CleanupManagementPage';
+import WebsiteImportPage from './components/WebsiteImportPage';
+import WebsitesPage from './components/WebsitesPage';
+import GoodreadsUploadPage from './components/GoodreadsUploadPage';
+import NoteProfilePage from './components/NoteProfilePage';
+import HighlightProfilePage from './components/HighlightProfilePage';
+import ScriptExecutionPage from './components/ScriptExecutionPage';
+import NotesListingPage from './components/NotesListingPage';
+import AiAdminPage from './components/AiAdminPage';
+import SearchByVibePage from './components/SearchByVibePage';
+import DemoUnlockPage from './components/DemoUnlockPage';
+import DemoDataUploadPage from './components/DemoDataUploadPage';
+
+// --- Lazy: heavy + infrequently-visited routes. Kept out of the main chunk.
+// DemoPage (113 kB, separate user path) + admin/import maintenance pages. ---
 const DemoPage = lazy(() => import('./components/DemoPage'));
-const UploadMediaPage = lazy(() => import('./components/UploadMediaPage'));
-const YouTubeCallback = lazy(() => import('./pages/YouTubeCallback'));
-const ReadwiseSyncPage = lazy(() => import('./components/ReadwiseSyncPage'));
-const TraktSyncPage = lazy(() => import('./components/TraktSyncPage'));
-const HighlightLinkingPage = lazy(() => import('./components/HighlightLinkingPage'));
-const ArticlesPage = lazy(() => import('./components/ArticlesPage'));
-const DocumentsPage = lazy(() => import('./components/DocumentsPage'));
-const SourceDirectoryPage = lazy(() => import('./components/SourceDirectoryPage'));
-const YouTubeChannelList = lazy(() => import('./components/YouTubeChannelList'));
-const YouTubeChannelProfile = lazy(() => import('./components/YouTubeChannelProfile'));
-const YouTubePlaylistProfile = lazy(() => import('./components/YouTubePlaylistProfile'));
-const PodcastSeriesProfile = lazy(() => import('./components/PodcastSeriesProfile'));
-const TvShowProfile = lazy(() => import('./components/TvShowProfile'));
-const CleanupManagementPage = lazy(() => import('./components/CleanupManagementPage'));
-const WebsiteImportPage = lazy(() => import('./components/WebsiteImportPage'));
-const WebsitesPage = lazy(() => import('./components/WebsitesPage'));
+const ImportMixlistPage = lazy(() => import('./components/ImportMixlistPage'));
 const TypesenseAdminPage = lazy(() => import('./components/TypesenseAdminPage'));
-const GoodreadsUploadPage = lazy(() => import('./components/GoodreadsUploadPage'));
 const BackgroundJobsPage = lazy(() => import('./components/BackgroundJobsPage'));
-const NoteProfilePage = lazy(() => import('./components/NoteProfilePage'));
-const HighlightProfilePage = lazy(() => import('./components/HighlightProfilePage'));
-const ScriptExecutionPage = lazy(() => import('./components/ScriptExecutionPage'));
-const NotesListingPage = lazy(() => import('./components/NotesListingPage'));
-const AiAdminPage = lazy(() => import('./components/AiAdminPage'));
-const SearchByVibePage = lazy(() => import('./components/SearchByVibePage'));
-const DemoUnlockPage = lazy(() => import('./components/DemoUnlockPage'));
-const DemoDataUploadPage = lazy(() => import('./components/DemoDataUploadPage'));
 
 function RouteErrorFallback({ error, resetErrorBoundary }) {
   return (
