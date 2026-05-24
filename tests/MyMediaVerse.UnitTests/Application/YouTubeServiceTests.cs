@@ -1,7 +1,7 @@
 using Xunit;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
-using FluentAssertions;
+using AwesomeAssertions;
 using Microsoft.Extensions.Logging;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Application.Interfaces;
