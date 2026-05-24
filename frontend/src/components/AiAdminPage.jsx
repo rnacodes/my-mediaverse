@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Container,
   Paper,
@@ -25,40 +25,65 @@ import {
   Tune as TuneIcon,
 } from '@mui/icons-material';
 import {
-  getAiStatus, generateNoteDescriptionsBatch, getPendingNoteDescriptions,
-  generateMediaEmbeddingsBatch, generateNoteEmbeddingsBatch,
-  getPendingMediaEmbeddings, getPendingNoteEmbeddings,
-} from '../api/aiService';
-import { getRecommendationStatus } from '../api/recommendationService';
+  useAiStatus, usePendingNoteDescriptions, usePendingMediaEmbeddings, usePendingNoteEmbeddings,
+  useGenerateNoteDescriptionsBatch, useGenerateMediaEmbeddingsBatch, useGenerateNoteEmbeddingsBatch,
+} from '../hooks/useAi';
+import { useRecommendationStatus } from '../hooks/useRecommendation';
+
+// AI/recommendation errors use `data.message`; pending counts may be a number or { count }.
+const apiMsg = (error, fallback) =>
+  error ? (error.response?.data?.message || error.message || fallback) : null;
+const toCount = (v) => (v == null ? null : (v?.count ?? v));
 
 const AiAdminPage = () => {
-  // State for AI service status
-  const [aiStatus, setAiStatus] = useState(null);
-  const [statusLoading, setStatusLoading] = useState(false);
-  const [statusError, setStatusError] = useState(null);
+  // ----- Status queries (retry:false: recommendation/pending sub-fetches are non-fatal) -----
+  const aiStatusQuery = useAiStatus({ retry: false });
+  const recommendationStatusQuery = useRecommendationStatus({ retry: false });
+  const pendingDescQuery = usePendingNoteDescriptions({ retry: false });
+  const pendingMediaQuery = usePendingMediaEmbeddings({ retry: false });
+  const pendingNoteQuery = usePendingNoteEmbeddings({ retry: false });
 
-  // State for recommendation service status
-  const [recommendationStatus, setRecommendationStatus] = useState(null);
+  const aiStatus = aiStatusQuery.data ?? null;
+  const statusLoading = aiStatusQuery.isFetching || recommendationStatusQuery.isFetching
+    || pendingDescQuery.isFetching || pendingMediaQuery.isFetching || pendingNoteQuery.isFetching;
+  const statusError = apiMsg(aiStatusQuery.error, 'Failed to fetch AI status');
+  const fetchAllStatus = () => {
+    aiStatusQuery.refetch();
+    recommendationStatusQuery.refetch();
+    pendingDescQuery.refetch();
+    pendingMediaQuery.refetch();
+    pendingNoteQuery.refetch();
+  };
 
-  // State for pending counts
-  const [pendingDescriptions, setPendingDescriptions] = useState(null);
-  const [pendingMediaEmbeddings, setPendingMediaEmbeddings] = useState(null);
-  const [pendingNoteEmbeddings, setPendingNoteEmbeddings] = useState(null);
+  // Map recommendation status into the { isAvailable, message } shape the JSX expects.
+  const recommendationStatus = recommendationStatusQuery.data
+    ? {
+        isAvailable: recommendationStatusQuery.data.available ?? recommendationStatusQuery.data.isAvailable ?? false,
+        message: recommendationStatusQuery.data.message,
+      }
+    : (recommendationStatusQuery.error ? { isAvailable: false } : null);
 
-  // State for note description generation
-  const [generatingDescriptions, setGeneratingDescriptions] = useState(false);
-  const [descriptionsResult, setDescriptionsResult] = useState(null);
-  const [descriptionsError, setDescriptionsError] = useState(null);
+  // Pending counts (null while loading / on error, as before)
+  const pendingDescriptions = toCount(pendingDescQuery.data);
+  const pendingMediaEmbeddings = toCount(pendingMediaQuery.data);
+  const pendingNoteEmbeddings = toCount(pendingNoteQuery.data);
 
-  // State for media embeddings generation
-  const [generatingMediaEmbeddings, setGeneratingMediaEmbeddings] = useState(false);
-  const [mediaEmbeddingsResult, setMediaEmbeddingsResult] = useState(null);
-  const [mediaEmbeddingsError, setMediaEmbeddingsError] = useState(null);
+  // ----- Generation mutations (each invalidates its pending query on success) -----
+  const descMutation = useGenerateNoteDescriptionsBatch();
+  const mediaEmbMutation = useGenerateMediaEmbeddingsBatch();
+  const noteEmbMutation = useGenerateNoteEmbeddingsBatch();
 
-  // State for note embeddings generation
-  const [generatingNoteEmbeddings, setGeneratingNoteEmbeddings] = useState(false);
-  const [noteEmbeddingsResult, setNoteEmbeddingsResult] = useState(null);
-  const [noteEmbeddingsError, setNoteEmbeddingsError] = useState(null);
+  const generatingDescriptions = descMutation.isPending;
+  const descriptionsResult = descMutation.data ?? null;
+  const descriptionsError = apiMsg(descMutation.error, 'Failed to generate descriptions');
+
+  const generatingMediaEmbeddings = mediaEmbMutation.isPending;
+  const mediaEmbeddingsResult = mediaEmbMutation.data ?? null;
+  const mediaEmbeddingsError = apiMsg(mediaEmbMutation.error, 'Failed to generate media embeddings');
+
+  const generatingNoteEmbeddings = noteEmbMutation.isPending;
+  const noteEmbeddingsResult = noteEmbMutation.data ?? null;
+  const noteEmbeddingsError = apiMsg(noteEmbMutation.error, 'Failed to generate note embeddings');
 
   // State for similarity threshold
   const [similarityThreshold, setSimilarityThreshold] = useState(() => {
@@ -70,128 +95,16 @@ const AiAdminPage = () => {
     return stored !== null ? String(Math.round(parseFloat(stored) * 100)) : '40';
   });
 
-  // Fetch status on mount
-  useEffect(() => {
-    fetchAllStatus();
-  }, []);
-
-  const fetchAllStatus = async () => {
-    setStatusLoading(true);
-    setStatusError(null);
-
-    try {
-      // Fetch AI status
-      const aiResult = await getAiStatus();
-      setAiStatus(aiResult);
-
-      // Fetch recommendation status
-      try {
-        const recResult = await getRecommendationStatus();
-        setRecommendationStatus({
-          isAvailable: recResult?.available ?? recResult?.isAvailable ?? false,
-          message: recResult?.message,
-        });
-      } catch {
-        // Recommendation might not be available
-        setRecommendationStatus({ isAvailable: false });
-      }
-
-      // Fetch pending counts
-      try {
-        const descResult = await getPendingNoteDescriptions();
-        setPendingDescriptions(descResult?.count ?? descResult);
-      } catch {
-        setPendingDescriptions(null);
-      }
-
-      try {
-        const mediaResult = await getPendingMediaEmbeddings();
-        setPendingMediaEmbeddings(mediaResult?.count ?? mediaResult);
-      } catch {
-        setPendingMediaEmbeddings(null);
-      }
-
-      try {
-        const noteResult = await getPendingNoteEmbeddings();
-        setPendingNoteEmbeddings(noteResult?.count ?? noteResult);
-      } catch {
-        setPendingNoteEmbeddings(null);
-      }
-    } catch (error) {
-      setStatusError(error.response?.data?.message || error.message || 'Failed to fetch AI status');
-      setAiStatus(null);
-    } finally {
-      setStatusLoading(false);
-    }
+  const handleGenerateDescriptions = () => {
+    descMutation.mutate(undefined);
   };
 
-  // Handler for generating note descriptions
-  const handleGenerateDescriptions = async () => {
-    setGeneratingDescriptions(true);
-    setDescriptionsResult(null);
-    setDescriptionsError(null);
-
-    try {
-      const result = await generateNoteDescriptionsBatch();
-      setDescriptionsResult(result);
-      // Refresh pending count
-      try {
-        const descResult = await getPendingNoteDescriptions();
-        setPendingDescriptions(descResult?.count ?? descResult);
-      } catch {
-        // Ignore
-      }
-    } catch (error) {
-      setDescriptionsError(error.response?.data?.message || error.message || 'Failed to generate descriptions');
-    } finally {
-      setGeneratingDescriptions(false);
-    }
+  const handleGenerateMediaEmbeddings = () => {
+    mediaEmbMutation.mutate(undefined);
   };
 
-  // Handler for generating media embeddings
-  const handleGenerateMediaEmbeddings = async () => {
-    setGeneratingMediaEmbeddings(true);
-    setMediaEmbeddingsResult(null);
-    setMediaEmbeddingsError(null);
-
-    try {
-      const result = await generateMediaEmbeddingsBatch();
-      setMediaEmbeddingsResult(result);
-      // Refresh pending count
-      try {
-        const mediaResult = await getPendingMediaEmbeddings();
-        setPendingMediaEmbeddings(mediaResult?.count ?? mediaResult);
-      } catch {
-        // Ignore
-      }
-    } catch (error) {
-      setMediaEmbeddingsError(error.response?.data?.message || error.message || 'Failed to generate media embeddings');
-    } finally {
-      setGeneratingMediaEmbeddings(false);
-    }
-  };
-
-  // Handler for generating note embeddings
-  const handleGenerateNoteEmbeddings = async () => {
-    setGeneratingNoteEmbeddings(true);
-    setNoteEmbeddingsResult(null);
-    setNoteEmbeddingsError(null);
-
-    try {
-      const result = await generateNoteEmbeddingsBatch();
-      setNoteEmbeddingsResult(result);
-      // Refresh pending count
-      try {
-        const noteResult = await getPendingNoteEmbeddings();
-        setPendingNoteEmbeddings(noteResult?.count ?? noteResult);
-      } catch {
-        // Ignore
-      }
-    } catch (error) {
-      setNoteEmbeddingsError(error.response?.data?.message || error.message || 'Failed to generate note embeddings');
-    } finally {
-      setGeneratingNoteEmbeddings(false);
-    }
+  const handleGenerateNoteEmbeddings = () => {
+    noteEmbMutation.mutate(undefined);
   };
 
   const handleThresholdSliderChange = (_, newValue) => {

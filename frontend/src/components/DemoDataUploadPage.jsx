@@ -7,9 +7,9 @@ import {
     FormControlLabel, Slider, IconButton, Paper, Collapse, Autocomplete
 } from '@mui/material';
 import { ArrowBack, CloudUpload, Search as SearchIcon, CheckCircle, Delete, ExpandMore, ExpandLess, Link as LinkIcon } from '@mui/icons-material';
-import { scrapeArticlePreview, createArticle } from '../api/articleService';
-import { bulkCreateHighlights } from '../api/highlightService';
-import { searchTopics, searchGenres } from '../api/topicGenreService';
+import { useScrapeArticlePreview, useCreateArticle } from '../hooks/useArticle';
+import { useBulkCreateHighlights } from '../hooks/useHighlight';
+import { useTopicSearch, useGenreSearch } from '../hooks/useTopicGenre';
 
 const whiteButtonSx = {
     backgroundColor: 'white',
@@ -118,10 +118,7 @@ function parseHighlightMarkdown(text) {
 function ArticleUploadTab() {
     const navigate = useNavigate();
     const [url, setUrl] = useState('');
-    const [scraping, setScraping] = useState(false);
     const [scraped, setScraped] = useState(false);
-    const [saving, setSaving] = useState(false);
-    const [savedArticle, setSavedArticle] = useState(null);
     const [error, setError] = useState('');
 
     // Form fields
@@ -136,101 +133,78 @@ function ArticleUploadTab() {
     const [publicationDate, setPublicationDate] = useState('');
     const [topics, setTopics] = useState([]);
     const [genres, setGenres] = useState([]);
-    const [topicSuggestions, setTopicSuggestions] = useState([]);
-    const [genreSuggestions, setGenreSuggestions] = useState([]);
     const [isArchived, setIsArchived] = useState(false);
     const [isStarred, setIsStarred] = useState(false);
     const [notes, setNotes] = useState('');
 
-    const handleScrape = async () => {
+    // Topic/genre autocomplete: input state drives the search queries.
+    const [topicInput, setTopicInput] = useState('');
+    const [genreInput, setGenreInput] = useState('');
+    const topicSuggestions = useTopicSearch(topicInput).data ?? [];
+    const genreSuggestions = useGenreSearch(genreInput).data ?? [];
+
+    const scrapeMutation = useScrapeArticlePreview();
+    const createMutation = useCreateArticle();
+    const scraping = scrapeMutation.isPending;
+    const saving = createMutation.isPending;
+    const savedArticle = createMutation.data ?? null;
+
+    const handleScrape = () => {
         if (!url.trim()) return;
-        setScraping(true);
         setError('');
-        try {
-            const data = await scrapeArticlePreview(url.trim());
-            setTitle(data.title || '');
-            setArticleAuthor(data.author || '');
-            setDescription(data.description || '');
-            setPublication(data.publication || '');
-            setThumbnail(data.imageUrl || '');
-            setScraped(true);
-        } catch (err) {
-            const msg = err.response?.data?.error || err.response?.data?.details || err.message;
-            setError(`Failed to scrape URL: ${msg}`);
-        } finally {
-            setScraping(false);
-        }
+        scrapeMutation.mutate(url.trim(), {
+            onSuccess: (data) => {
+                setTitle(data.title || '');
+                setArticleAuthor(data.author || '');
+                setDescription(data.description || '');
+                setPublication(data.publication || '');
+                setThumbnail(data.imageUrl || '');
+                setScraped(true);
+            },
+            onError: (err) => {
+                const msg = err.response?.data?.error || err.response?.data?.details || err.message;
+                setError(`Failed to scrape URL: ${msg}`);
+            },
+        });
     };
 
-    const handleTopicSearch = async (inputValue) => {
-        if (inputValue.length > 0) {
-            try {
-                const response = await searchTopics(inputValue);
-                setTopicSuggestions(response.data);
-            } catch (err) {
-                console.error('Error searching topics:', err);
-                setTopicSuggestions([]);
-            }
-        } else {
-            setTopicSuggestions([]);
-        }
-    };
-
-    const handleGenreSearch = async (inputValue) => {
-        if (inputValue.length > 0) {
-            try {
-                const response = await searchGenres(inputValue);
-                setGenreSuggestions(response.data);
-            } catch (err) {
-                console.error('Error searching genres:', err);
-                setGenreSuggestions([]);
-            }
-        } else {
-            setGenreSuggestions([]);
-        }
-    };
-
-    const handleSave = async () => {
+    const handleSave = () => {
         if (!title.trim()) {
             setError('Title is required');
             return;
         }
-        setSaving(true);
         setError('');
-        try {
-            const articleData = {
-                title: title.trim(),
-                link: url.trim() || undefined,
-                author: articleAuthor.trim() || undefined,
-                description: description.trim() || undefined,
-                publication: publication.trim() || undefined,
-                thumbnail: thumbnail.trim() || undefined,
-                status,
-                readingProgress: readingProgress || undefined,
-                wordCount: wordCount ? parseInt(wordCount, 10) : undefined,
-                publicationDate: publicationDate || undefined,
-                isArchived,
-                isStarred,
-                notes: notes.trim() || undefined,
-                topics,
-                genres,
-                mediaType: 'Article'
-            };
+        const articleData = {
+            title: title.trim(),
+            link: url.trim() || undefined,
+            author: articleAuthor.trim() || undefined,
+            description: description.trim() || undefined,
+            publication: publication.trim() || undefined,
+            thumbnail: thumbnail.trim() || undefined,
+            status,
+            readingProgress: readingProgress || undefined,
+            wordCount: wordCount ? parseInt(wordCount, 10) : undefined,
+            publicationDate: publicationDate || undefined,
+            isArchived,
+            isStarred,
+            notes: notes.trim() || undefined,
+            topics,
+            genres,
+            mediaType: 'Article'
+        };
 
-            const result = await createArticle(articleData);
-            setSavedArticle(result);
-        } catch (err) {
-            const msg = err.response?.data?.error || err.response?.data?.details || err.message;
-            setError(`Failed to save article: ${msg}`);
-        } finally {
-            setSaving(false);
-        }
+        createMutation.mutate(articleData, {
+            onError: (err) => {
+                const msg = err.response?.data?.error || err.response?.data?.details || err.message;
+                setError(`Failed to save article: ${msg}`);
+            },
+        });
     };
 
     const handleReset = () => {
         setUrl('');
         setScraped(false);
-        setSavedArticle(null);
+        createMutation.reset();
         setError('');
         setTitle('');
         setArticleAuthor('');

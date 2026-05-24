@@ -1,95 +1,92 @@
-import React, { useState, useEffect } from 'react';
-import { validateReadwiseConnection, syncAll as syncReadwiseAll, fetchArticleContent as fetchReadwiseContent } from '../api/readwiseService';
-import { getUnlinkedHighlights, updateHighlight, cleanHighlightText } from '../api/highlightService';
-import { getAllBooks } from '../api/bookService';
-import { getAllArticles } from '../api/articleService';
+import React, { useState } from 'react';
+import {
+  useValidateReadwiseConnection,
+  useReadwiseSyncAll,
+  useReadwiseFetchArticleContent,
+} from '../hooks/useReadwise';
+import { useUnlinkedHighlights, useUpdateHighlight, useCleanHighlightText } from '../hooks/useHighlight';
+import { useAllBooks } from '../hooks/useBook';
+import { useAllArticles } from '../hooks/useArticle';
 import './ReadwiseSyncPage.css';
+
+const TEXT_CUTOFF = 200;
 
 const ReadwiseSyncPage = () => {
   const [syncResult, setSyncResult] = useState(null);
   const [fetchResult, setFetchResult] = useState(null);
-  const [connectionStatus, setConnectionStatus] = useState(null);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Unlinked highlights state
-  const [unlinkedHighlights, setUnlinkedHighlights] = useState([]);
-  const [unlinkedLoading, setUnlinkedLoading] = useState(false);
-  const [books, setBooks] = useState([]);
-  const [articles, setArticles] = useState([]);
+  // Unlinked-highlight linking UI state
   const [expandedHighlight, setExpandedHighlight] = useState(null);
-  const [expandedText, setExpandedText] = useState(new Set()); // Track which highlights have expanded text
+  const [expandedText, setExpandedText] = useState(new Set()); // which highlights have expanded text
   const [searchQuery, setSearchQuery] = useState('');
-  const [linkingId, setLinkingId] = useState(null);
   const [linkSuccess, setLinkSuccess] = useState(null);
-  const [cleaningHighlights, setCleaningHighlights] = useState(false);
-  const [cleanResult, setCleanResult] = useState(null);
 
-  const handleCleanHighlightText = async () => {
-    setCleaningHighlights(true);
-    setCleanResult(null);
+  // Connection validation: query gated to button click (enabled:false + refetch()).
+  const validateQuery = useValidateReadwiseConnection({ enabled: false, retry: false });
+  const connectionStatus = validateQuery.data
+    ?? (validateQuery.error
+        ? { connected: false, message: validateQuery.error.response?.data?.message || 'Connection failed' }
+        : null);
+
+  // Sync / fetch mutations (single shared busy flag, as before)
+  const syncMutation = useReadwiseSyncAll();
+  const fetchMutation = useReadwiseFetchArticleContent();
+  const loading = validateQuery.isFetching || syncMutation.isPending || fetchMutation.isPending;
+
+  // Highlight cleanup mutation — its result/pending drive the UI directly
+  const cleanMutation = useCleanHighlightText();
+  const cleaningHighlights = cleanMutation.isPending;
+  const cleanResult = cleanMutation.data;
+
+  // Unlinked highlights + media options (auto-fetch on mount)
+  const unlinkedQuery = useUnlinkedHighlights();
+  const unlinkedHighlights = unlinkedQuery.data ?? [];
+  const unlinkedLoading = unlinkedQuery.isFetching;
+  const refetchUnlinked = () => unlinkedQuery.refetch();
+
+  const books = useAllBooks().data ?? [];
+  const articles = useAllArticles().data ?? [];
+
+  // Linking mutation; derive the in-flight highlight id from its variables.
+  const updateMutation = useUpdateHighlight();
+  const linkingId = updateMutation.isPending ? updateMutation.variables?.id : null;
+
+  const handleCleanHighlightText = () => {
     setError(null);
-    try {
-      const result = await cleanHighlightText();
-      setCleanResult(result);
-      // Reload highlights to show cleaned text
-      await loadUnlinkedHighlights();
-    } catch (err) {
-      setError(`Cleanup failed: ${err.response?.data?.details || err.message}`);
-    } finally {
-      setCleaningHighlights(false);
-    }
+    cleanMutation.mutate(undefined, {
+      onError: (err) => setError(`Cleanup failed: ${err.response?.data?.details || err.message}`),
+    });
+    // unlinked list auto-refreshes via the hook's highlightKeys.all invalidation
   };
 
   const handleValidateConnection = async () => {
-    setLoading(true);
     setError(null);
-    try {
-      const response = await validateReadwiseConnection();
-      setConnectionStatus(response.data);
-
-      if (!response.data.connected && response.data.details) {
-        setError(response.data.details);
-      }
-    } catch (err) {
-      const errorDetails = err.response?.data?.details || err.response?.data?.message || err.message;
+    const result = await validateQuery.refetch();
+    if (result.error) {
+      const errorDetails = result.error.response?.data?.details || result.error.response?.data?.message || result.error.message;
       setError(`Connection validation failed: ${errorDetails}`);
-      setConnectionStatus({
-        connected: false,
-        message: err.response?.data?.message || 'Connection failed',
-        details: errorDetails
-      });
-    } finally {
-      setLoading(false);
+    } else if (result.data && !result.data.connected && result.data.details) {
+      setError(result.data.details);
     }
   };
 
-  const handleSync = async (incremental = true) => {
-    setLoading(true);
+  const handleSync = (incremental = true) => {
     setError(null);
     setSyncResult(null);
-    try {
-      const response = await syncReadwiseAll(incremental);
-      setSyncResult(response.data);
-    } catch (err) {
-      setError(`Sync failed: ${err.response?.data?.details || err.message}`);
-    } finally {
-      setLoading(false);
-    }
+    syncMutation.mutate(incremental, {
+      onSuccess: (response) => setSyncResult(response.data),
+      onError: (err) => setError(`Sync failed: ${err.response?.data?.details || err.message}`),
+    });
   };
 
-  const handleFetchContent = async (batchSize, recentOnly = false) => {
-    setLoading(true);
+  const handleFetchContent = (batchSize, recentOnly = false) => {
     setError(null);
     setFetchResult(null);
-    try {
-      const response = await fetchReadwiseContent(batchSize, recentOnly);
-      setFetchResult(response.data);
-    } catch (err) {
-      setError(`Content fetch failed: ${err.response?.data?.details || err.message}`);
-    } finally {
-      setLoading(false);
-    }
+    fetchMutation.mutate({ batchSize, recentOnly }, {
+      onSuccess: (response) => setFetchResult(response.data),
+      onError: (err) => setError(`Content fetch failed: ${err.response?.data?.details || err.message}`),
+    });
   };
 
   const formatDuration = (duration) => {
@@ -102,65 +99,28 @@ const ReadwiseSyncPage = () => {
     return `${seconds}s`;
   };
 
-  // Load unlinked highlights and media on mount
-  useEffect(() => {
-    loadUnlinkedHighlights();
-    loadMediaOptions();
-  }, []);
-
-  const loadUnlinkedHighlights = async () => {
-    setUnlinkedLoading(true);
-    try {
-      const highlights = await getUnlinkedHighlights();
-      setUnlinkedHighlights(highlights);
-    } catch (err) {
-      console.error('Error loading unlinked highlights:', err);
-    } finally {
-      setUnlinkedLoading(false);
-    }
-  };
-
-  const loadMediaOptions = async () => {
-    try {
-      const [booksRes, articlesRes] = await Promise.all([
-        getAllBooks(),
-        getAllArticles()
-      ]);
-      // getAllBooks returns axios response, getAllArticles returns data directly
-      setBooks(booksRes.data || []);
-      setArticles(Array.isArray(articlesRes) ? articlesRes : (articlesRes.data || []));
-    } catch (err) {
-      console.error('Error loading media options:', err);
-    }
-  };
-
-  const handleLinkHighlight = async (highlightId, mediaType, mediaId) => {
-    setLinkingId(highlightId);
+  const handleLinkHighlight = (highlightId, mediaType, mediaId) => {
     setLinkSuccess(null);
-    try {
-      const highlight = unlinkedHighlights.find(h => h.id === highlightId);
-      if (!highlight) return;
+    const highlight = unlinkedHighlights.find(h => h.id === highlightId);
+    if (!highlight) return;
 
-      const updateData = {
-        text: highlight.text,
-        note: highlight.note,
-        tags: highlight.tags || [],
-        articleId: mediaType === 'article' ? mediaId : null,
-        bookId: mediaType === 'book' ? mediaId : null
-      };
+    const updateData = {
+      text: highlight.text,
+      note: highlight.note,
+      tags: highlight.tags || [],
+      articleId: mediaType === 'article' ? mediaId : null,
+      bookId: mediaType === 'book' ? mediaId : null
+    };
 
-      await updateHighlight(highlightId, updateData);
-      setLinkSuccess(`Highlight linked to ${mediaType} successfully!`);
-      setExpandedHighlight(null);
-      setSearchQuery('');
-
-      // Refresh unlinked highlights
-      await loadUnlinkedHighlights();
-    } catch (err) {
-      setError(`Failed to link highlight: ${err.message}`);
-    } finally {
-      setLinkingId(null);
-    }
+    updateMutation.mutate({ id: highlightId, highlightData: updateData }, {
+      onSuccess: () => {
+        setLinkSuccess(`Highlight linked to ${mediaType} successfully!`);
+        setExpandedHighlight(null);
+        setSearchQuery('');
+        // unlinked list auto-refreshes via the hook's invalidation
+      },
+      onError: (err) => setError(`Failed to link highlight: ${err.message}`),
+    });
   };
 
   const filteredBooks = books.filter(book =>
@@ -176,8 +136,6 @@ const ReadwiseSyncPage = () => {
       article.author?.toLowerCase().includes(searchQuery.toLowerCase())
     )
   ).slice(0, 10);
-
-  const TEXT_CUTOFF = 200;
 
   const truncateText = (text, maxLength = TEXT_CUTOFF) => {
     if (!text || text.length <= maxLength) return text;
@@ -429,7 +387,7 @@ const ReadwiseSyncPage = () => {
         )}
 
         <button
-          onClick={loadUnlinkedHighlights}
+          onClick={refetchUnlinked}
           disabled={unlinkedLoading}
           className="btn btn-secondary"
           style={{ marginBottom: '1rem' }}

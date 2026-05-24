@@ -1,77 +1,87 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  getTraktStatus,
-  startDeviceAuth,
-  pollDeviceToken,
-  disconnectTrakt,
-  syncWatched,
-  syncWatchlist,
-  syncRatings,
-  syncAll
-} from '../api/traktService';
+  useTraktStatus,
+  useStartTraktDeviceAuth,
+  usePollTraktDeviceToken,
+  useDisconnectTrakt,
+  useTraktSyncWatched,
+  useTraktSyncWatchlist,
+  useTraktSyncRatings,
+  useTraktSyncAll,
+} from '../hooks/useTrakt';
 import './TraktSyncPage.css';
 
 const TraktSyncPage = () => {
-  const [connectionStatus, setConnectionStatus] = useState(null);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [syncResult, setSyncResult] = useState(null);
 
-  // Device auth state
+  // Device auth state (the OAuth device-code flow stays imperative: the poll
+  // interval + absolute expiry are server-driven timing, not declarative cache).
   const [deviceAuth, setDeviceAuth] = useState(null);
   const [polling, setPolling] = useState(false);
   const pollTimerRef = useRef(null);
   const pollExpiryRef = useRef(null);
 
-  // Check connection status on mount
+  // Connection status (auto-fetches on mount; {connected:false} on error, as before).
+  const statusQuery = useTraktStatus({ retry: false });
+  const connectionStatus = statusQuery.data ?? (statusQuery.error ? { connected: false } : null);
+  const refetchStatus = () => statusQuery.refetch();
+
+  // Mutations
+  const startAuthMutation = useStartTraktDeviceAuth();
+  const pollMutation = usePollTraktDeviceToken();
+  const disconnectMutation = useDisconnectTrakt();
+  const watchedMutation = useTraktSyncWatched();
+  const watchlistMutation = useTraktSyncWatchlist();
+  const ratingsMutation = useTraktSyncRatings();
+  const syncAllMutation = useTraktSyncAll();
+
+  // Single shared busy flag across the mutually-exclusive actions, as before.
+  const loading =
+    startAuthMutation.isPending ||
+    disconnectMutation.isPending ||
+    watchedMutation.isPending ||
+    watchlistMutation.isPending ||
+    ratingsMutation.isPending ||
+    syncAllMutation.isPending;
+
+  // Clear any in-flight poll timers on unmount.
   useEffect(() => {
-    checkStatus();
     return () => {
       if (pollTimerRef.current) clearInterval(pollTimerRef.current);
       if (pollExpiryRef.current) clearTimeout(pollExpiryRef.current);
     };
   }, []);
 
-  const checkStatus = async () => {
-    try {
-      const response = await getTraktStatus();
-      setConnectionStatus(response.data);
-    } catch (err) {
-      console.error('Error checking Trakt status:', err);
-      setConnectionStatus({ connected: false });
-    }
-  };
-
-  const handleStartAuth = async () => {
-    setLoading(true);
+  const handleStartAuth = () => {
     setError(null);
     setDeviceAuth(null);
-    try {
-      const response = await startDeviceAuth();
-      const data = response.data;
-      setDeviceAuth(data);
-      startPolling(data.deviceCode, data.interval || 5, data.expiresIn || 600);
-    } catch (err) {
-      setError(`Failed to start authentication: ${err.response?.data?.details || err.message}`);
-    } finally {
-      setLoading(false);
-    }
+    startAuthMutation.mutate(undefined, {
+      onSuccess: (response) => {
+        const data = response.data;
+        setDeviceAuth(data);
+        startPolling(data.deviceCode, data.interval || 5, data.expiresIn || 600);
+      },
+      onError: (err) => {
+        setError(`Failed to start authentication: ${err.response?.data?.details || err.message}`);
+      },
+    });
   };
 
   const startPolling = (deviceCode, interval, expiresIn) => {
     setPolling(true);
 
-    // Poll at the specified interval
+    // Poll at the specified interval (network call routed through the hook).
     pollTimerRef.current = setInterval(async () => {
       try {
-        const response = await pollDeviceToken(deviceCode);
+        const response = await pollMutation.mutateAsync(deviceCode);
         const data = response.data;
 
         if (data.status === 'authorized') {
           // Success - stop polling and refresh status
           stopPolling();
           setDeviceAuth(null);
-          await checkStatus();
+          refetchStatus();
         } else if (data.status === 'failed') {
           stopPolling();
           setError(data.message || 'Authorization failed');
@@ -105,32 +115,28 @@ const TraktSyncPage = () => {
     }
   };
 
-  const handleDisconnect = async () => {
-    setLoading(true);
+  const handleDisconnect = () => {
     setError(null);
-    try {
-      await disconnectTrakt();
-      setConnectionStatus({ connected: false });
-      setSyncResult(null);
-    } catch (err) {
-      setError(`Failed to disconnect: ${err.response?.data?.details || err.message}`);
-    } finally {
-      setLoading(false);
-    }
+    disconnectMutation.mutate(undefined, {
+      onSuccess: () => {
+        setSyncResult(null);
+        // status query is invalidated by the hook's onSuccess -> refetches to disconnected
+      },
+      onError: (err) => {
+        setError(`Failed to disconnect: ${err.response?.data?.details || err.message}`);
+      },
+    });
   };
 
-  const handleSync = async (syncFn, label) => {
-    setLoading(true);
+  const handleSync = (mutation, label) => {
     setError(null);
     setSyncResult(null);
-    try {
-      const response = await syncFn();
-      setSyncResult(response.data);
-    } catch (err) {
-      setError(`${label} failed: ${err.response?.data?.errors?.[0] || err.response?.data?.details || err.message}`);
-    } finally {
-      setLoading(false);
-    }
+    mutation.mutate(undefined, {
+      onSuccess: (response) => setSyncResult(response.data),
+      onError: (err) => {
+        setError(`${label} failed: ${err.response?.data?.errors?.[0] || err.response?.data?.details || err.message}`);
+      },
+    });
   };
 
   const isConnected = connectionStatus?.connected;
@@ -251,7 +257,7 @@ const TraktSyncPage = () => {
             </div>
 
             <button
-              onClick={() => handleSync(syncWatched, 'Watch history sync')}
+              onClick={() => handleSync(watchedMutation, 'Watch history sync')}
               disabled={loading}
               className="btn btn-primary"
             >
@@ -267,7 +273,7 @@ const TraktSyncPage = () => {
             </p>
 
             <button
-              onClick={() => handleSync(syncWatchlist, 'Watchlist sync')}
+              onClick={() => handleSync(watchlistMutation, 'Watchlist sync')}
               disabled={loading}
               className="btn btn-primary"
             >
@@ -293,7 +299,7 @@ const TraktSyncPage = () => {
             </div>
 
             <button
-              onClick={() => handleSync(syncRatings, 'Ratings sync')}
+              onClick={() => handleSync(ratingsMutation, 'Ratings sync')}
               disabled={loading}
               className="btn btn-primary"
             >
@@ -308,7 +314,7 @@ const TraktSyncPage = () => {
             </p>
 
             <button
-              onClick={() => handleSync(syncAll, 'Full sync')}
+              onClick={() => handleSync(syncAllMutation, 'Full sync')}
               disabled={loading}
               className="btn btn-primary"
             >

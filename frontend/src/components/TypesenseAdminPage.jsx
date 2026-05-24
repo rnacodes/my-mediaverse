@@ -1,359 +1,153 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Container, Paper, Typography, Button, Box, Alert, CircularProgress, Card, CardContent, Grid, Chip, TextField, Select, MenuItem, FormControl, InputLabel, Divider, List, ListItem, ListItemText, Switch, FormControlLabel } from '@mui/material';
 import { Refresh as RefreshIcon, Search as SearchIcon, CheckCircle as CheckCircleIcon, Error as ErrorIcon, Info as InfoIcon } from '@mui/icons-material';
-import { typesenseReindex, reindexMixlists, typesenseHealth, typesenseSearch, typesenseResetMediaItems, typesenseResetMixlists, reindexNotes, resetNotesCollection, reindexHighlights, resetHighlightsCollection, getRealTimeIndexingStatus, setRealTimeIndexingStatus } from '../api/typesenseService';
-import { findDuplicateArticles, deduplicateArticles } from '../api/articleService';
-import { syncAllVaults, getSyncStatus } from '../api/noteService';
+import {
+  useRealTimeIndexingStatus, useSetRealTimeIndexingStatus,
+  useTypesenseHealth, useTypesenseSearch,
+  useTypesenseReindex, useTypesenseReindexMixlists, useReindexHighlights,
+  useTypesenseResetMediaItems, useTypesenseResetMixlists, useResetHighlightsCollection,
+  useTypesenseReindexNotes, useTypesenseResetNotesCollection,
+} from '../hooks/useTypesense';
+import { useDuplicateArticles, useDeduplicateArticles } from '../hooks/useArticle';
+import { useSyncAllVaults, useNoteSyncStatus } from '../hooks/useNote';
 import { formatStatus } from '../utils/formatters';
 
+// Typesense/admin errors surface via data.message.
+const errMsg = (error, fallback) =>
+  error ? (error.response?.data?.message || error.message || fallback) : null;
+
 const TypesenseAdminPage = () => {
-  // State for reindexing media items
-  const [reindexing, setReindexing] = useState(false);
-  const [reindexResult, setReindexResult] = useState(null);
-  const [reindexError, setReindexError] = useState(null);
+  // ----- Real-time indexing toggle (status query + toggle mutation) -----
+  // 401s while unauthenticated just leave the toggle at its default (enabled).
+  const realTimeIndexingQuery = useRealTimeIndexingStatus({ retry: false });
+  const realTimeIndexing = realTimeIndexingQuery.data?.enabled ?? true;
+  const toggleIndexingMutation = useSetRealTimeIndexingStatus();
+  const realTimeIndexingLoading = toggleIndexingMutation.isPending;
+  const realTimeIndexingError = errMsg(toggleIndexingMutation.error, 'Failed to toggle real-time indexing');
+  const handleToggleRealTimeIndexing = (event) => {
+    toggleIndexingMutation.mutate(event.target.checked);
+  };
 
-  // State for reindexing mixlists
-  const [reindexingMixlists, setReindexingMixlists] = useState(false);
-  const [reindexMixlistsResult, setReindexMixlistsResult] = useState(null);
-  const [reindexMixlistsError, setReindexMixlistsError] = useState(null);
+  // ----- Health -----
+  const healthQuery = useTypesenseHealth({ retry: false });
+  const healthStatus = healthQuery.data ?? null;
+  const healthLoading = healthQuery.isFetching;
+  const healthError = errMsg(healthQuery.error, 'Failed to check health');
+  const checkHealth = () => healthQuery.refetch();
 
-  // State for health check
-  const [healthStatus, setHealthStatus] = useState(null);
-  const [healthLoading, setHealthLoading] = useState(false);
-  const [healthError, setHealthError] = useState(null);
+  // ----- Bulk reindex mutations -----
+  const reindexMutation = useTypesenseReindex();
+  const reindexing = reindexMutation.isPending;
+  const reindexResult = reindexMutation.data ?? null;
+  const reindexError = errMsg(reindexMutation.error, 'Failed to reindex media items');
+  const handleReindex = () => reindexMutation.mutate();
 
-  // State for search testing
+  const reindexMixlistsMutation = useTypesenseReindexMixlists();
+  const reindexingMixlists = reindexMixlistsMutation.isPending;
+  const reindexMixlistsResult = reindexMixlistsMutation.data ?? null;
+  const reindexMixlistsError = errMsg(reindexMixlistsMutation.error, 'Failed to reindex mixlists');
+  const handleReindexMixlists = () => reindexMixlistsMutation.mutate();
+
+  const reindexHighlightsMutation = useReindexHighlights();
+  const reindexingHighlights = reindexHighlightsMutation.isPending;
+  const reindexHighlightsResult = reindexHighlightsMutation.data ?? null;
+  const reindexHighlightsError = errMsg(reindexHighlightsMutation.error, 'Failed to reindex highlights');
+  const handleReindexHighlights = () => reindexHighlightsMutation.mutate();
+
+  // ----- Reset collections (media + mixlists share one result/error panel) -----
+  // Reset the sibling mutation before firing so only the latest result shows.
+  const resetMediaMutation = useTypesenseResetMediaItems();
+  const resetMixlistsMutation = useTypesenseResetMixlists();
+  const resetting = resetMediaMutation.isPending || resetMixlistsMutation.isPending;
+  const resetResult = resetMediaMutation.data ?? resetMixlistsMutation.data ?? null;
+  const resetError = resetMediaMutation.error
+    ? errMsg(resetMediaMutation.error, 'Failed to reset media items collection')
+    : errMsg(resetMixlistsMutation.error, 'Failed to reset mixlists collection');
+  const handleResetMediaItems = () => {
+    if (!window.confirm('⚠️ WARNING: This will delete ALL media items from the search index! This action cannot be undone. Continue?')) return;
+    resetMixlistsMutation.reset();
+    resetMediaMutation.mutate();
+  };
+  const handleResetMixlists = () => {
+    if (!window.confirm('⚠️ WARNING: This will delete ALL mixlists from the search index! This action cannot be undone. Continue?')) return;
+    resetMediaMutation.reset();
+    resetMixlistsMutation.mutate();
+  };
+
+  const resetHighlightsMutation = useResetHighlightsCollection();
+  const resettingHighlights = resetHighlightsMutation.isPending;
+  const resetHighlightsResult = resetHighlightsMutation.data ?? null;
+  const resetHighlightsError = errMsg(resetHighlightsMutation.error, 'Failed to reset highlights collection');
+  const handleResetHighlights = () => {
+    if (!window.confirm('WARNING: This will delete ALL highlights from the search index! This action cannot be undone. Continue?')) return;
+    resetHighlightsMutation.mutate();
+  };
+
+  // ----- Article deduplication (find = on-demand query, merge = mutation) -----
+  const dupQuery = useDuplicateArticles({ enabled: false, retry: false });
+  const duplicates = dupQuery.data ?? null;
+  const findingDuplicates = dupQuery.isFetching;
+  const dedupMutation = useDeduplicateArticles();
+  const deduplicating = dedupMutation.isPending;
+  const deduplicationResult = dedupMutation.data?.data ?? null;
+  const deduplicationError = errMsg(dupQuery.error, 'Failed to find duplicate articles')
+    || errMsg(dedupMutation.error, 'Failed to deduplicate articles');
+  const handleFindDuplicates = () => {
+    dedupMutation.reset();
+    dupQuery.refetch();
+  };
+  const handleDeduplicate = () => {
+    if (!window.confirm('⚠️ This will merge duplicate articles based on normalized URLs. Articles with the same URL will be combined into a single entry. Continue?')) return;
+    dedupMutation.mutate(undefined, {
+      onSuccess: (response) => {
+        if (response?.data?.success) dupQuery.refetch();
+      },
+    });
+  };
+
+  // ----- Obsidian notes (sync-status query + sync/reindex/reset mutations) -----
+  // Sync mutation invalidates noteKeys.all, so the status card refreshes itself.
+  const noteSyncStatusQuery = useNoteSyncStatus({ retry: false });
+  const noteSyncStatus = noteSyncStatusQuery.data ?? null;
+
+  const syncNotesMutation = useSyncAllVaults();
+  const syncingNotes = syncNotesMutation.isPending;
+  const syncNotesResult = syncNotesMutation.data ?? null;
+  const syncNotesError = errMsg(syncNotesMutation.error, 'Failed to sync notes from vaults');
+  const handleSyncNotes = () => syncNotesMutation.mutate();
+
+  const reindexNotesMutation = useTypesenseReindexNotes();
+  const reindexingNotes = reindexNotesMutation.isPending;
+  const reindexNotesResult = reindexNotesMutation.data ?? null;
+  const reindexNotesError = errMsg(reindexNotesMutation.error, 'Failed to reindex notes');
+  const handleReindexNotes = () => reindexNotesMutation.mutate();
+
+  const resetNotesMutation = useTypesenseResetNotesCollection();
+  const resettingNotes = resetNotesMutation.isPending;
+  const resetNotesResult = resetNotesMutation.data ?? null;
+  const resetNotesError = errMsg(resetNotesMutation.error, 'Failed to reset notes collection');
+  const handleResetNotes = () => {
+    if (!window.confirm('WARNING: This will delete ALL notes from the search index! This action cannot be undone. Continue?')) return;
+    resetNotesMutation.mutate();
+  };
+
+  // ----- Search testing (button-triggered query via a submitted mirror state) -----
   const [searchQuery, setSearchQuery] = useState('');
   const [searchType, setSearchType] = useState('all');
-  const [searchResults, setSearchResults] = useState(null);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchError, setSearchError] = useState(null);
-
-  // State for reset operations
-  const [resetting, setResetting] = useState(false);
-  const [resetResult, setResetResult] = useState(null);
-  const [resetError, setResetError] = useState(null);
-
-  // State for deduplication
-  const [deduplicating, setDeduplicating] = useState(false);
-  const [deduplicationResult, setDeduplicationResult] = useState(null);
-  const [deduplicationError, setDeduplicationError] = useState(null);
-  const [duplicates, setDuplicates] = useState(null);
-  const [findingDuplicates, setFindingDuplicates] = useState(false);
-
-  // State for real-time indexing toggle
-  const [realTimeIndexing, setRealTimeIndexing] = useState(true);
-  const [realTimeIndexingLoading, setRealTimeIndexingLoading] = useState(false);
-  const [realTimeIndexingError, setRealTimeIndexingError] = useState(null);
-
-  // State for notes sync/reindex
-  const [syncingNotes, setSyncingNotes] = useState(false);
-  const [syncNotesResult, setSyncNotesResult] = useState(null);
-  const [syncNotesError, setSyncNotesError] = useState(null);
-  const [reindexingNotes, setReindexingNotes] = useState(false);
-  const [reindexNotesResult, setReindexNotesResult] = useState(null);
-  const [reindexNotesError, setReindexNotesError] = useState(null);
-  const [resettingNotes, setResettingNotes] = useState(false);
-  const [resetNotesResult, setResetNotesResult] = useState(null);
-  const [resetNotesError, setResetNotesError] = useState(null);
-  const [noteSyncStatus, setNoteSyncStatus] = useState(null);
-
-  // State for highlights reindex/reset
-  const [reindexingHighlights, setReindexingHighlights] = useState(false);
-  const [reindexHighlightsResult, setReindexHighlightsResult] = useState(null);
-  const [reindexHighlightsError, setReindexHighlightsError] = useState(null);
-  const [resettingHighlights, setResettingHighlights] = useState(false);
-  const [resetHighlightsResult, setResetHighlightsResult] = useState(null);
-  const [resetHighlightsError, setResetHighlightsError] = useState(null);
-
-  // Check health and indexing status on component mount
-  useEffect(() => {
-    checkHealth();
-    fetchRealTimeIndexingStatus();
-  }, []);
-
-  // Fetch real-time indexing status
-  const fetchRealTimeIndexingStatus = async () => {
-    try {
-      const result = await getRealTimeIndexingStatus();
-      setRealTimeIndexing(result.enabled);
-    } catch (error) {
-      if (error.response?.status !== 401) {
-        console.error('Failed to get real-time indexing status:', error);
-      }
-    }
-  };
-
-  // Handler to toggle real-time indexing
-  const handleToggleRealTimeIndexing = async (event) => {
-    const newState = event.target.checked;
-    setRealTimeIndexingLoading(true);
-    setRealTimeIndexingError(null);
-
-    try {
-      await setRealTimeIndexingStatus(newState);
-      setRealTimeIndexing(newState);
-    } catch (error) {
-      setRealTimeIndexingError(error.response?.data?.message || error.message || 'Failed to toggle real-time indexing');
-    } finally {
-      setRealTimeIndexingLoading(false);
-    }
-  };
-
-  // Handler for bulk reindex media items
-  const handleReindex = async () => {
-    setReindexing(true);
-    setReindexResult(null);
-    setReindexError(null);
-
-    try {
-      const result = await typesenseReindex();
-      setReindexResult(result);
-    } catch (error) {
-      setReindexError(error.response?.data?.message || error.message || 'Failed to reindex media items');
-    } finally {
-      setReindexing(false);
-    }
-  };
-
-  // Handler for bulk reindex mixlists
-  const handleReindexMixlists = async () => {
-    setReindexingMixlists(true);
-    setReindexMixlistsResult(null);
-    setReindexMixlistsError(null);
-
-    try {
-      const result = await reindexMixlists();
-      setReindexMixlistsResult(result);
-    } catch (error) {
-      setReindexMixlistsError(error.response?.data?.message || error.message || 'Failed to reindex mixlists');
-    } finally {
-      setReindexingMixlists(false);
-    }
-  };
-
-  // Handler for health check
-  const checkHealth = async () => {
-    setHealthLoading(true);
-    setHealthError(null);
-
-    try {
-      const result = await typesenseHealth();
-      setHealthStatus(result);
-    } catch (error) {
-      setHealthError(error.response?.data?.message || error.message || 'Failed to check health');
-      setHealthStatus(null);
-    } finally {
-      setHealthLoading(false);
-    }
-  };
-
-  // Handler for search test
-  const handleSearchTest = async () => {
+  const [submittedSearch, setSubmittedSearch] = useState(null);
+  const [searchValidationError, setSearchValidationError] = useState(null);
+  const searchTestQuery = useTypesenseSearch(submittedSearch?.query, submittedSearch?.type ?? 'all', 1, 20);
+  const searchResults = submittedSearch ? (searchTestQuery.data ?? null) : null;
+  const searchLoading = searchTestQuery.isFetching;
+  const searchError = searchValidationError || errMsg(searchTestQuery.error, 'Search failed');
+  const handleSearchTest = () => {
     if (!searchQuery.trim()) {
-      setSearchError('Please enter a search query');
+      setSearchValidationError('Please enter a search query');
       return;
     }
-
-    setSearchLoading(true);
-    setSearchError(null);
-    setSearchResults(null);
-
-    try {
-      const result = await typesenseSearch(searchQuery, searchType);
-      setSearchResults(result);
-    } catch (error) {
-      setSearchError(error.response?.data?.message || error.message || 'Search failed');
-    } finally {
-      setSearchLoading(false);
-    }
+    setSearchValidationError(null);
+    setSubmittedSearch({ query: searchQuery, type: searchType });
   };
-
-  // Handler for resetting media items collection
-  const handleResetMediaItems = async () => {
-    if (!window.confirm('⚠️ WARNING: This will delete ALL media items from the search index! This action cannot be undone. Continue?')) {
-      return;
-    }
-
-    setResetting(true);
-    setResetResult(null);
-    setResetError(null);
-
-    try {
-      const result = await typesenseResetMediaItems();
-      setResetResult(result);
-    } catch (error) {
-      setResetError(error.response?.data?.message || error.message || 'Failed to reset media items collection');
-    } finally {
-      setResetting(false);
-    }
-  };
-
-  // Handler for resetting mixlists collection
-  const handleResetMixlists = async () => {
-    if (!window.confirm('⚠️ WARNING: This will delete ALL mixlists from the search index! This action cannot be undone. Continue?')) {
-      return;
-    }
-
-    setResetting(true);
-    setResetResult(null);
-    setResetError(null);
-
-    try {
-      const result = await typesenseResetMixlists();
-      setResetResult(result);
-    } catch (error) {
-      setResetError(error.response?.data?.message || error.message || 'Failed to reset mixlists collection');
-    } finally {
-      setResetting(false);
-    }
-  };
-
-  const handleFindDuplicates = async () => {
-    setFindingDuplicates(true);
-    setDuplicates(null);
-    setDeduplicationError(null);
-
-    try {
-      const response = await findDuplicateArticles();
-      setDuplicates(response.data);
-    } catch (error) {
-      setDeduplicationError(error.response?.data?.message || error.message || 'Failed to find duplicate articles');
-    } finally {
-      setFindingDuplicates(false);
-    }
-  };
-
-  const handleDeduplicate = async () => {
-    if (!window.confirm('⚠️ This will merge duplicate articles based on normalized URLs. Articles with the same URL will be combined into a single entry. Continue?')) {
-      return;
-    }
-
-    setDeduplicating(true);
-    setDeduplicationResult(null);
-    setDeduplicationError(null);
-
-    try {
-      const response = await deduplicateArticles();
-      setDeduplicationResult(response.data);
-      // Refresh duplicates list after deduplication
-      if (response.data.success) {
-        setDuplicates(null);
-      }
-    } catch (error) {
-      setDeduplicationError(error.response?.data?.message || error.message || 'Failed to deduplicate articles');
-    } finally {
-      setDeduplicating(false);
-    }
-  };
-
-  // Handler for syncing notes from vaults
-  const handleSyncNotes = async () => {
-    setSyncingNotes(true);
-    setSyncNotesResult(null);
-    setSyncNotesError(null);
-
-    try {
-      const result = await syncAllVaults();
-      setSyncNotesResult(result);
-      // Also refresh sync status
-      await fetchNoteSyncStatus();
-    } catch (error) {
-      setSyncNotesError(error.response?.data?.message || error.message || 'Failed to sync notes from vaults');
-    } finally {
-      setSyncingNotes(false);
-    }
-  };
-
-  // Handler for reindexing notes
-  const handleReindexNotes = async () => {
-    setReindexingNotes(true);
-    setReindexNotesResult(null);
-    setReindexNotesError(null);
-
-    try {
-      const result = await reindexNotes();
-      setReindexNotesResult(result);
-    } catch (error) {
-      setReindexNotesError(error.response?.data?.message || error.message || 'Failed to reindex notes');
-    } finally {
-      setReindexingNotes(false);
-    }
-  };
-
-  // Handler for resetting notes collection
-  const handleResetNotes = async () => {
-    if (!window.confirm('WARNING: This will delete ALL notes from the search index! This action cannot be undone. Continue?')) {
-      return;
-    }
-
-    setResettingNotes(true);
-    setResetNotesResult(null);
-    setResetNotesError(null);
-
-    try {
-      const result = await resetNotesCollection();
-      setResetNotesResult(result);
-    } catch (error) {
-      setResetNotesError(error.response?.data?.message || error.message || 'Failed to reset notes collection');
-    } finally {
-      setResettingNotes(false);
-    }
-  };
-
-  // Handler for reindexing highlights
-  const handleReindexHighlights = async () => {
-    setReindexingHighlights(true);
-    setReindexHighlightsResult(null);
-    setReindexHighlightsError(null);
-
-    try {
-      const result = await reindexHighlights();
-      setReindexHighlightsResult(result);
-    } catch (error) {
-      setReindexHighlightsError(error.response?.data?.message || error.message || 'Failed to reindex highlights');
-    } finally {
-      setReindexingHighlights(false);
-    }
-  };
-
-  // Handler for resetting highlights collection
-  const handleResetHighlights = async () => {
-    if (!window.confirm('WARNING: This will delete ALL highlights from the search index! This action cannot be undone. Continue?')) {
-      return;
-    }
-
-    setResettingHighlights(true);
-    setResetHighlightsResult(null);
-    setResetHighlightsError(null);
-
-    try {
-      const result = await resetHighlightsCollection();
-      setResetHighlightsResult(result);
-    } catch (error) {
-      setResetHighlightsError(error.response?.data?.message || error.message || 'Failed to reset highlights collection');
-    } finally {
-      setResettingHighlights(false);
-    }
-  };
-
-  // Fetch note sync status
-  const fetchNoteSyncStatus = async () => {
-    try {
-      const result = await getSyncStatus();
-      setNoteSyncStatus(result);
-    } catch (error) {
-      // Silently ignore 401 errors (user not authenticated yet)
-      if (error.response?.status !== 401) {
-        console.error('Failed to get sync status:', error);
-      }
-    }
-  };
-
-  // Fetch sync status on mount
-  useEffect(() => {
-    fetchNoteSyncStatus();
-  }, []);
 
   const mediaTypes = [
     { value: 'all', label: 'All Types' },

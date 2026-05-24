@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Container, Paper, Typography, Button, Box, Alert, CircularProgress, Grid, Chip, Switch, FormControlLabel, TextField, LinearProgress, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Collapse, IconButton } from '@mui/material';
 import {
     Refresh as RefreshIcon,
@@ -15,25 +15,37 @@ import {
     ExpandLess as ExpandLessIcon,
 } from '@mui/icons-material';
 import {
-    checkScriptRunnerHealth, getScriptJobs, getScriptJob,
-    runNormalizeNotes, runNormalizeVault, cancelScriptJob
-} from '../api/scriptExecutionService';
+    useScriptRunnerHealth,
+    useScriptJobs,
+    useScriptJob,
+    useRunNormalizeNotes,
+    useRunNormalizeVault,
+    useCancelScriptJob,
+} from '../hooks/useScriptExecution';
+
+const TERMINAL_STATUSES = ['completed', 'failed', 'cancelled'];
 
 const ScriptExecutionPage = () => {
-    // Health state
-    const [healthStatus, setHealthStatus] = useState(null);
-    const [healthLoading, setHealthLoading] = useState(false);
+    // Health (query-driven; preserve the original {status:'unavailable'} shape on error).
+    // retry: false — the Python service is often simply not running; don't delay the error.
+    const healthQuery = useScriptRunnerHealth({ retry: false });
+    const healthStatus = healthQuery.data
+        ?? (healthQuery.error ? { status: 'unavailable', error: healthQuery.error.message } : null);
+    const healthLoading = healthQuery.isFetching;
+    const refetchHealth = () => healthQuery.refetch();
 
-    // Jobs state
-    const [jobs, setJobs] = useState([]);
-    const [jobsLoading, setJobsLoading] = useState(false);
+    // Jobs list
+    const jobsQuery = useScriptJobs(20);
+    const jobs = jobsQuery.data?.jobs ?? [];
+    const jobsLoading = jobsQuery.isFetching;
+    const refetchJobs = () => jobsQuery.refetch();
 
-    // Normalize Notes state
+    // Normalize Notes options
     const [notesRunning, setNotesRunning] = useState(false);
     const [notesDryRun, setNotesDryRun] = useState(true);
     const [notesVerbose, setNotesVerbose] = useState(false);
 
-    // Normalize Vault state
+    // Normalize Vault options
     const [vaultRunning, setVaultRunning] = useState(false);
     const [vaultDryRun, setVaultDryRun] = useState(true);
     const [vaultVerbose, setVaultVerbose] = useState(false);
@@ -41,132 +53,96 @@ const ScriptExecutionPage = () => {
     const [vaultUseAI, setVaultUseAI] = useState(false);
     const [vaultBackup, setVaultBackup] = useState(true);
 
-    // Active job polling
-    const [activeJobId, setActiveJobId] = useState(null);
-    const [activeJobProgress, setActiveJobProgress] = useState(null);
-    const pollIntervalRef = useRef(null);
-
     // Expanded logs state
     const [expandedLogs, setExpandedLogs] = useState({});
 
-    // Check health and load jobs on mount
+    // Active job: poll via refetchInterval until a terminal status, then stop.
+    const [activeJobId, setActiveJobId] = useState(null);
+    const [activeJobProgress, setActiveJobProgress] = useState(null);
+    const activeJobQuery = useScriptJob(activeJobId, {
+        enabled: !!activeJobId,
+        refetchInterval: (query) =>
+            TERMINAL_STATUSES.includes(query.state.data?.status) ? false : 2000,
+    });
+
+    // Mutations
+    const runNotesMutation = useRunNormalizeNotes();
+    const runVaultMutation = useRunNormalizeVault();
+    const cancelMutation = useCancelScriptJob();
+
+    // Mirror polled job data into local progress + handle the terminal transition.
+    // Keeping the side-effect in an effect (rather than the queryFn) is intentional
+    // per the Phase 4 plan: setActiveJobId(null) leaves activeJobProgress showing the
+    // final state, exactly as the old setInterval poller did.
     useEffect(() => {
-        checkHealth();
-        loadJobs();
-    }, []);
-
-    // Poll for active job progress
-    useEffect(() => {
-        if (!activeJobId) {
-            if (pollIntervalRef.current) {
-                clearInterval(pollIntervalRef.current);
-                pollIntervalRef.current = null;
-            }
-            return;
-        }
-
-        const pollJob = async () => {
-            try {
-                const job = await getScriptJob(activeJobId);
-                setActiveJobProgress(job);
-
-                if (job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled') {
-                    setActiveJobId(null);
-                    setNotesRunning(false);
-                    setVaultRunning(false);
-                    loadJobs(); // Refresh jobs list
-                }
-            } catch (error) {
-                console.error('Failed to poll job status:', error);
-            }
-        };
-
-        // Initial poll
-        pollJob();
-
-        // Set up interval
-        pollIntervalRef.current = setInterval(pollJob, 2000);
-
-        return () => {
-            if (pollIntervalRef.current) {
-                clearInterval(pollIntervalRef.current);
-            }
-        };
-    }, [activeJobId]);
-
-    const checkHealth = async () => {
-        setHealthLoading(true);
-        try {
-            const status = await checkScriptRunnerHealth();
-            setHealthStatus(status);
-        } catch (error) {
-            setHealthStatus({ status: 'unavailable', error: error.message });
-        } finally {
-            setHealthLoading(false);
-        }
-    };
-
-    const loadJobs = async () => {
-        setJobsLoading(true);
-        try {
-            const response = await getScriptJobs(20);
-            setJobs(response.jobs || []);
-        } catch (error) {
-            console.error('Failed to load jobs:', error);
-            setJobs([]);
-        } finally {
-            setJobsLoading(false);
-        }
-    };
-
-    const handleRunNormalizeNotes = async () => {
-        setNotesRunning(true);
-        try {
-            const job = await runNormalizeNotes({
-                dryRun: notesDryRun,
-                verbose: notesVerbose
-            });
-            setActiveJobId(job.job_id);
-            setActiveJobProgress(job);
-        } catch (error) {
-            alert('Failed to start job: ' + (error.response?.data?.error || error.message));
+        const job = activeJobQuery.data;
+        if (!job) return;
+        setActiveJobProgress(job);
+        if (TERMINAL_STATUSES.includes(job.status)) {
+            setActiveJobId(null);
             setNotesRunning(false);
+            setVaultRunning(false);
+            refetchJobs();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeJobQuery.data]);
+
+    const handleRunNormalizeNotes = () => {
+        setNotesRunning(true);
+        runNotesMutation.mutate(
+            { dryRun: notesDryRun, verbose: notesVerbose },
+            {
+                onSuccess: (job) => {
+                    setActiveJobId(job.job_id);
+                    setActiveJobProgress(job);
+                },
+                onError: (error) => {
+                    alert('Failed to start job: ' + (error.response?.data?.error || error.message));
+                    setNotesRunning(false);
+                },
+            }
+        );
     };
 
-    const handleRunNormalizeVault = async () => {
+    const handleRunNormalizeVault = () => {
         if (!vaultPath.trim()) {
             alert('Please enter a vault path');
             return;
         }
-
         setVaultRunning(true);
-        try {
-            const job = await runNormalizeVault({
+        runVaultMutation.mutate(
+            {
                 dryRun: vaultDryRun,
                 verbose: vaultVerbose,
                 vaultPath: vaultPath,
                 useAI: vaultUseAI,
-                backup: vaultBackup
-            });
-            setActiveJobId(job.job_id);
-            setActiveJobProgress(job);
-        } catch (error) {
-            alert('Failed to start job: ' + (error.response?.data?.error || error.message));
-            setVaultRunning(false);
-        }
+                backup: vaultBackup,
+            },
+            {
+                onSuccess: (job) => {
+                    setActiveJobId(job.job_id);
+                    setActiveJobProgress(job);
+                },
+                onError: (error) => {
+                    alert('Failed to start job: ' + (error.response?.data?.error || error.message));
+                    setVaultRunning(false);
+                },
+            }
+        );
     };
 
-    const handleCancelJob = async (jobId) => {
-        try {
-            await cancelScriptJob(jobId);
-            setActiveJobId(null);
-            setNotesRunning(false);
-            setVaultRunning(false);
-            loadJobs();
-        } catch (error) {
-            alert('Failed to cancel job: ' + error.message);
-        }
+    const handleCancelJob = (jobId) => {
+        cancelMutation.mutate(jobId, {
+            onSuccess: () => {
+                setActiveJobId(null);
+                setNotesRunning(false);
+                setVaultRunning(false);
+                refetchJobs();
+            },
+            onError: (error) => {
+                alert('Failed to cancel job: ' + error.message);
+            },
+        });
     };
 
     const toggleLogs = (jobId) => {
@@ -215,7 +191,7 @@ const ScriptExecutionPage = () => {
                         variant="contained"
                         color="primary"
                         startIcon={healthLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
-                        onClick={checkHealth}
+                        onClick={refetchHealth}
                         disabled={healthLoading}
                         sx={{ color: '#fcfafa' }}
                     >
@@ -430,7 +406,7 @@ const ScriptExecutionPage = () => {
                         variant="contained"
                         color="primary"
                         startIcon={jobsLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
-                        onClick={loadJobs}
+                        onClick={refetchJobs}
                         disabled={jobsLoading}
                         sx={{ color: '#fcfafa' }}
                     >

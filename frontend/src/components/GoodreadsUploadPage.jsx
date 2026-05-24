@@ -1,15 +1,16 @@
 import React, { useState, useRef } from 'react';
-import { uploadGoodreadsCsv } from '../api/uploadService';
+import { useUploadGoodreadsCsv } from '../hooks/useUpload';
 import './GoodreadsUploadPage.css';
 
 const GoodreadsUploadPage = () => {
   const [file, setFile] = useState(null);
   const [updateExisting, setUpdateExisting] = useState(true);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [result, setResult] = useState(null);
-  const [progress, setProgress] = useState(null);
   const fileInputRef = useRef(null);
+
+  const uploadMutation = useUploadGoodreadsCsv();
+  const loading = uploadMutation.isPending;
+  const result = uploadMutation.data;
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -21,39 +22,31 @@ const GoodreadsUploadPage = () => {
       }
       setFile(selectedFile);
       setError(null);
-      setResult(null);
+      uploadMutation.reset();
     }
   };
 
-  const handleUpload = async () => {
+  const handleUpload = () => {
     if (!file) {
       setError('Please select a file first');
       return;
     }
-
-    setLoading(true);
     setError(null);
-    setResult(null);
-    setProgress({ current: 0, total: 1, status: 'Uploading...' });
-
-    try {
-      const response = await uploadGoodreadsCsv(file, updateExisting);
-      setResult(response.data);
-      setProgress(null);
-    } catch (err) {
-      const errorMsg = err.response?.data?.error || err.response?.data?.details || err.message;
-      setError(`Upload failed: ${errorMsg}`);
-      setProgress(null);
-    } finally {
-      setLoading(false);
-    }
+    uploadMutation.mutate(
+      { file, updateExisting },
+      {
+        onError: (err) => {
+          const errorMsg = err.response?.data?.error || err.response?.data?.details || err.message;
+          setError(`Upload failed: ${errorMsg}`);
+        },
+      }
+    );
   };
 
   const handleClear = () => {
     setFile(null);
     setError(null);
-    setResult(null);
-    setProgress(null);
+    uploadMutation.reset();
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -135,15 +128,12 @@ const GoodreadsUploadPage = () => {
           </button>
         </div>
 
-        {progress && (
+        {loading && (
           <div className="progress-container">
             <div className="progress-bar">
-              <div
-                className="progress-fill"
-                style={{ width: `${(progress.current / progress.total) * 100}%` }}
-              />
+              <div className="progress-fill" style={{ width: '0%' }} />
             </div>
-            <p className="progress-text">{progress.status}</p>
+            <p className="progress-text">Uploading...</p>
           </div>
         )}
       </section>

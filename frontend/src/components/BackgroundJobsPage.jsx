@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Container, Paper, Typography, Button, Box, Alert, CircularProgress, Card, CardContent, Grid, Chip, Slider, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
 import {
     Refresh as RefreshIcon,
@@ -13,310 +13,170 @@ import {
     Psychology as PsychologyIcon,
 } from '@mui/icons-material';
 import {
-    getBookEnrichmentStatus, runBookEnrichment, runBookEnrichmentAll,
-    getMovieTvEnrichmentStatus, runMovieEnrichment, runTvShowEnrichment, runMovieTvEnrichmentAll,
-    getPodcastEnrichmentStatus, runPodcastEnrichment, runPodcastEnrichmentAll,
-} from '../api/backgroundJobsService';
-import { getPendingMediaEmbeddings, getPendingNoteEmbeddings, generateMediaEmbeddingsBatch, generateNoteEmbeddingsBatch } from '../api/aiService';
+    useBookEnrichmentStatus, useRunBookEnrichment, useRunBookEnrichmentAll,
+    useMovieTvEnrichmentStatus, useRunMovieEnrichment, useRunTvShowEnrichment, useRunMovieTvEnrichmentAll,
+    usePodcastEnrichmentStatus, useRunPodcastEnrichment, useRunPodcastEnrichmentAll,
+} from '../hooks/useBackgroundJobs';
+import {
+    usePendingMediaEmbeddings, usePendingNoteEmbeddings,
+    useGenerateMediaEmbeddingsBatch, useGenerateNoteEmbeddingsBatch,
+} from '../hooks/useAi';
+
+// Pull the API error message out of an axios error the same way across sections.
+const errMsg = (error, fallback) =>
+    error ? (error.response?.data?.error || error.message || fallback) : null;
 
 const BackgroundJobsPage = () => {
     // ==========================================
-    // Book Enrichment State
+    // Book Enrichment — status query + run mutations.
+    // Each mutation's onSuccess invalidates the status query, so the "Refresh"
+    // round-trip after a run happens automatically via the cache.
     // ==========================================
-    const [enrichmentStatus, setEnrichmentStatus] = useState(null);
-    const [statusLoading, setStatusLoading] = useState(false);
-    const [statusError, setStatusError] = useState(null);
-    const [runningBatch, setRunningBatch] = useState(false);
-    const [batchResult, setBatchResult] = useState(null);
-    const [batchError, setBatchError] = useState(null);
-    const [runningAll, setRunningAll] = useState(false);
-    const [runAllResult, setRunAllResult] = useState(null);
-    const [runAllError, setRunAllError] = useState(null);
+    const bookStatusQuery = useBookEnrichmentStatus();
+    const enrichmentStatus = bookStatusQuery.data ?? null;
+    const statusLoading = bookStatusQuery.isFetching;
+    const statusError = errMsg(bookStatusQuery.error, 'Failed to fetch enrichment status');
+    const fetchBookStatus = () => bookStatusQuery.refetch();
+
+    const bookBatchMutation = useRunBookEnrichment();
+    const bookAllMutation = useRunBookEnrichmentAll();
+    const runningBatch = bookBatchMutation.isPending;
+    const batchResult = bookBatchMutation.data ?? null;
+    const batchError = errMsg(bookBatchMutation.error, 'Failed to run enrichment batch');
+    const runningAll = bookAllMutation.isPending;
+    const runAllResult = bookAllMutation.data ?? null;
+    const runAllError = errMsg(bookAllMutation.error, 'Failed to run full enrichment');
+
     const [batchSize, setBatchSize] = useState(50);
     const [delayMs, setDelayMs] = useState(1000);
     const [maxBooks, setMaxBooks] = useState(500);
     const [pauseBetweenBatches, setPauseBetweenBatches] = useState(30);
 
+    const handleRunBookBatch = () => {
+        bookBatchMutation.mutate({ batchSize, delayBetweenCallsMs: delayMs });
+    };
+
+    const handleRunBookAll = () => {
+        if (!window.confirm(`This will process up to ${maxBooks} books. This may take a while. Continue?`)) return;
+        bookAllMutation.mutate({ batchSize, delayBetweenCallsMs: delayMs, maxBooks, pauseBetweenBatchesSeconds: pauseBetweenBatches });
+    };
+
+    const isBookRunning = runningBatch || runningAll;
+
     // ==========================================
-    // Movie/TV Enrichment State
+    // Movie/TV Enrichment
     // ==========================================
-    const [movieTvStatus, setMovieTvStatus] = useState(null);
-    const [movieTvStatusLoading, setMovieTvStatusLoading] = useState(false);
-    const [movieTvStatusError, setMovieTvStatusError] = useState(null);
-    const [runningMovies, setRunningMovies] = useState(false);
-    const [movieResult, setMovieResult] = useState(null);
-    const [movieError, setMovieError] = useState(null);
-    const [runningTvShows, setRunningTvShows] = useState(false);
-    const [tvShowResult, setTvShowResult] = useState(null);
-    const [tvShowError, setTvShowError] = useState(null);
-    const [runningMovieTvAll, setRunningMovieTvAll] = useState(false);
-    const [movieTvAllResult, setMovieTvAllResult] = useState(null);
-    const [movieTvAllError, setMovieTvAllError] = useState(null);
+    const movieTvStatusQuery = useMovieTvEnrichmentStatus();
+    const movieTvStatus = movieTvStatusQuery.data ?? null;
+    const movieTvStatusLoading = movieTvStatusQuery.isFetching;
+    const movieTvStatusError = errMsg(movieTvStatusQuery.error, 'Failed to fetch Movie/TV status');
+    const fetchMovieTvStatus = () => movieTvStatusQuery.refetch();
+
+    const movieMutation = useRunMovieEnrichment();
+    const tvShowMutation = useRunTvShowEnrichment();
+    const movieTvAllMutation = useRunMovieTvEnrichmentAll();
+    const runningMovies = movieMutation.isPending;
+    const movieResult = movieMutation.data ?? null;
+    const movieError = errMsg(movieMutation.error, 'Failed to run movie enrichment');
+    const runningTvShows = tvShowMutation.isPending;
+    const tvShowResult = tvShowMutation.data ?? null;
+    const tvShowError = errMsg(tvShowMutation.error, 'Failed to run TV show enrichment');
+    const runningMovieTvAll = movieTvAllMutation.isPending;
+    const movieTvAllResult = movieTvAllMutation.data ?? null;
+    const movieTvAllError = errMsg(movieTvAllMutation.error, 'Failed to run full Movie/TV enrichment');
+
     const [movieTvBatchSize, setMovieTvBatchSize] = useState(50);
     const [movieTvDelayMs, setMovieTvDelayMs] = useState(500);
     const [maxMovies, setMaxMovies] = useState(500);
     const [maxTvShows, setMaxTvShows] = useState(500);
     const [movieTvPause, setMovieTvPause] = useState(30);
 
-    // ==========================================
-    // Podcast Enrichment State
-    // ==========================================
-    const [podcastStatus, setPodcastStatus] = useState(null);
-    const [podcastStatusLoading, setPodcastStatusLoading] = useState(false);
-    const [podcastStatusError, setPodcastStatusError] = useState(null);
-    const [runningPodcastBatch, setRunningPodcastBatch] = useState(false);
-    const [podcastBatchResult, setPodcastBatchResult] = useState(null);
-    const [podcastBatchError, setPodcastBatchError] = useState(null);
-    const [runningPodcastAll, setRunningPodcastAll] = useState(false);
-    const [podcastAllResult, setPodcastAllResult] = useState(null);
-    const [podcastAllError, setPodcastAllError] = useState(null);
-    const [podcastBatchSize, setPodcastBatchSize] = useState(25);
-    const [podcastDelayMs, setPodcastDelayMs] = useState(1500);
-    const [maxPodcasts, setMaxPodcasts] = useState(100);
-    const [podcastPause, setPodcastPause] = useState(60);
-
-    // ==========================================
-    // Embedding Generation State
-    // ==========================================
-    const [pendingMediaEmbeddings, setPendingMediaEmbeddings] = useState(null);
-    const [pendingNoteEmbeddings, setPendingNoteEmbeddings] = useState(null);
-    const [embeddingStatusLoading, setEmbeddingStatusLoading] = useState(false);
-    const [embeddingStatusError, setEmbeddingStatusError] = useState(null);
-    const [runningMediaEmbeddings, setRunningMediaEmbeddings] = useState(false);
-    const [mediaEmbeddingResult, setMediaEmbeddingResult] = useState(null);
-    const [mediaEmbeddingError, setMediaEmbeddingError] = useState(null);
-    const [runningNoteEmbeddings, setRunningNoteEmbeddings] = useState(false);
-    const [noteEmbeddingResult, setNoteEmbeddingResult] = useState(null);
-    const [noteEmbeddingError, setNoteEmbeddingError] = useState(null);
-    const [embeddingBatchSize, setEmbeddingBatchSize] = useState(50);
-
-    // Fetch all statuses on mount
-    useEffect(() => {
-        fetchBookStatus();
-        fetchMovieTvStatus();
-        fetchPodcastStatus();
-        fetchEmbeddingStatus();
-    }, []);
-
-    // ==========================================
-    // Book Enrichment Handlers
-    // ==========================================
-    const fetchBookStatus = async () => {
-        setStatusLoading(true);
-        setStatusError(null);
-        try {
-            const status = await getBookEnrichmentStatus();
-            setEnrichmentStatus(status);
-        } catch (error) {
-            setStatusError(error.response?.data?.error || error.message || 'Failed to fetch enrichment status');
-            setEnrichmentStatus(null);
-        } finally {
-            setStatusLoading(false);
-        }
+    const handleRunMovies = () => {
+        movieMutation.mutate({ batchSize: movieTvBatchSize, delayBetweenCallsMs: movieTvDelayMs });
     };
 
-    const handleRunBookBatch = async () => {
-        setRunningBatch(true);
-        setBatchResult(null);
-        setBatchError(null);
-        try {
-            const result = await runBookEnrichment({ batchSize, delayBetweenCallsMs: delayMs });
-            setBatchResult(result);
-            await fetchBookStatus();
-        } catch (error) {
-            setBatchError(error.response?.data?.error || error.message || 'Failed to run enrichment batch');
-        } finally {
-            setRunningBatch(false);
-        }
+    const handleRunTvShows = () => {
+        tvShowMutation.mutate({ batchSize: movieTvBatchSize, delayBetweenCallsMs: movieTvDelayMs });
     };
 
-    const handleRunBookAll = async () => {
-        if (!window.confirm(`This will process up to ${maxBooks} books. This may take a while. Continue?`)) return;
-        setRunningAll(true);
-        setRunAllResult(null);
-        setRunAllError(null);
-        try {
-            const result = await runBookEnrichmentAll({ batchSize, delayBetweenCallsMs: delayMs, maxBooks, pauseBetweenBatchesSeconds: pauseBetweenBatches });
-            setRunAllResult(result);
-            await fetchBookStatus();
-        } catch (error) {
-            setRunAllError(error.response?.data?.error || error.message || 'Failed to run full enrichment');
-        } finally {
-            setRunningAll(false);
-        }
-    };
-
-    const isBookRunning = runningBatch || runningAll;
-
-    // ==========================================
-    // Movie/TV Enrichment Handlers
-    // ==========================================
-    const fetchMovieTvStatus = async () => {
-        setMovieTvStatusLoading(true);
-        setMovieTvStatusError(null);
-        try {
-            const status = await getMovieTvEnrichmentStatus();
-            setMovieTvStatus(status);
-        } catch (error) {
-            setMovieTvStatusError(error.response?.data?.error || error.message || 'Failed to fetch Movie/TV status');
-            setMovieTvStatus(null);
-        } finally {
-            setMovieTvStatusLoading(false);
-        }
-    };
-
-    const handleRunMovies = async () => {
-        setRunningMovies(true);
-        setMovieResult(null);
-        setMovieError(null);
-        try {
-            const result = await runMovieEnrichment({ batchSize: movieTvBatchSize, delayBetweenCallsMs: movieTvDelayMs });
-            setMovieResult(result);
-            await fetchMovieTvStatus();
-        } catch (error) {
-            setMovieError(error.response?.data?.error || error.message || 'Failed to run movie enrichment');
-        } finally {
-            setRunningMovies(false);
-        }
-    };
-
-    const handleRunTvShows = async () => {
-        setRunningTvShows(true);
-        setTvShowResult(null);
-        setTvShowError(null);
-        try {
-            const result = await runTvShowEnrichment({ batchSize: movieTvBatchSize, delayBetweenCallsMs: movieTvDelayMs });
-            setTvShowResult(result);
-            await fetchMovieTvStatus();
-        } catch (error) {
-            setTvShowError(error.response?.data?.error || error.message || 'Failed to run TV show enrichment');
-        } finally {
-            setRunningTvShows(false);
-        }
-    };
-
-    const handleRunMovieTvAll = async () => {
+    const handleRunMovieTvAll = () => {
         if (!window.confirm(`This will process up to ${maxMovies} movies and ${maxTvShows} TV shows. Continue?`)) return;
-        setRunningMovieTvAll(true);
-        setMovieTvAllResult(null);
-        setMovieTvAllError(null);
-        try {
-            const result = await runMovieTvEnrichmentAll({
-                batchSize: movieTvBatchSize, delayBetweenCallsMs: movieTvDelayMs,
-                maxMovies, maxTvShows, pauseBetweenBatchesSeconds: movieTvPause
-            });
-            setMovieTvAllResult(result);
-            await fetchMovieTvStatus();
-        } catch (error) {
-            setMovieTvAllError(error.response?.data?.error || error.message || 'Failed to run full Movie/TV enrichment');
-        } finally {
-            setRunningMovieTvAll(false);
-        }
+        movieTvAllMutation.mutate({
+            batchSize: movieTvBatchSize, delayBetweenCallsMs: movieTvDelayMs,
+            maxMovies, maxTvShows, pauseBetweenBatchesSeconds: movieTvPause,
+        });
     };
 
     const isMovieTvRunning = runningMovies || runningTvShows || runningMovieTvAll;
 
     // ==========================================
-    // Podcast Enrichment Handlers
+    // Podcast Enrichment
     // ==========================================
-    const fetchPodcastStatus = async () => {
-        setPodcastStatusLoading(true);
-        setPodcastStatusError(null);
-        try {
-            const status = await getPodcastEnrichmentStatus();
-            setPodcastStatus(status);
-        } catch (error) {
-            setPodcastStatusError(error.response?.data?.error || error.message || 'Failed to fetch podcast status');
-            setPodcastStatus(null);
-        } finally {
-            setPodcastStatusLoading(false);
-        }
+    const podcastStatusQuery = usePodcastEnrichmentStatus();
+    const podcastStatus = podcastStatusQuery.data ?? null;
+    const podcastStatusLoading = podcastStatusQuery.isFetching;
+    const podcastStatusError = errMsg(podcastStatusQuery.error, 'Failed to fetch podcast status');
+    const fetchPodcastStatus = () => podcastStatusQuery.refetch();
+
+    const podcastBatchMutation = useRunPodcastEnrichment();
+    const podcastAllMutation = useRunPodcastEnrichmentAll();
+    const runningPodcastBatch = podcastBatchMutation.isPending;
+    const podcastBatchResult = podcastBatchMutation.data ?? null;
+    const podcastBatchError = errMsg(podcastBatchMutation.error, 'Failed to run podcast batch');
+    const runningPodcastAll = podcastAllMutation.isPending;
+    const podcastAllResult = podcastAllMutation.data ?? null;
+    const podcastAllError = errMsg(podcastAllMutation.error, 'Failed to run full podcast enrichment');
+
+    const [podcastBatchSize, setPodcastBatchSize] = useState(25);
+    const [podcastDelayMs, setPodcastDelayMs] = useState(1500);
+    const [maxPodcasts, setMaxPodcasts] = useState(100);
+    const [podcastPause, setPodcastPause] = useState(60);
+
+    const handleRunPodcastBatch = () => {
+        podcastBatchMutation.mutate({ batchSize: podcastBatchSize, delayBetweenCallsMs: podcastDelayMs });
     };
 
-    const handleRunPodcastBatch = async () => {
-        setRunningPodcastBatch(true);
-        setPodcastBatchResult(null);
-        setPodcastBatchError(null);
-        try {
-            const result = await runPodcastEnrichment({ batchSize: podcastBatchSize, delayBetweenCallsMs: podcastDelayMs });
-            setPodcastBatchResult(result);
-            await fetchPodcastStatus();
-        } catch (error) {
-            setPodcastBatchError(error.response?.data?.error || error.message || 'Failed to run podcast batch');
-        } finally {
-            setRunningPodcastBatch(false);
-        }
-    };
-
-    const handleRunPodcastAll = async () => {
+    const handleRunPodcastAll = () => {
         if (!window.confirm(`This will process up to ${maxPodcasts} podcasts. ListenNotes has strict rate limits. Continue?`)) return;
-        setRunningPodcastAll(true);
-        setPodcastAllResult(null);
-        setPodcastAllError(null);
-        try {
-            const result = await runPodcastEnrichmentAll({
-                batchSize: podcastBatchSize, delayBetweenCallsMs: podcastDelayMs,
-                maxPodcasts, pauseBetweenBatchesSeconds: podcastPause
-            });
-            setPodcastAllResult(result);
-            await fetchPodcastStatus();
-        } catch (error) {
-            setPodcastAllError(error.response?.data?.error || error.message || 'Failed to run full podcast enrichment');
-        } finally {
-            setRunningPodcastAll(false);
-        }
+        podcastAllMutation.mutate({
+            batchSize: podcastBatchSize, delayBetweenCallsMs: podcastDelayMs,
+            maxPodcasts, pauseBetweenBatchesSeconds: podcastPause,
+        });
     };
 
     const isPodcastRunning = runningPodcastBatch || runningPodcastAll;
 
     // ==========================================
-    // Embedding Generation Handlers
+    // Embedding Generation
     // ==========================================
-    const fetchEmbeddingStatus = async () => {
-        setEmbeddingStatusLoading(true);
-        setEmbeddingStatusError(null);
-        try {
-            const [mediaCount, noteCount] = await Promise.all([
-                getPendingMediaEmbeddings(),
-                getPendingNoteEmbeddings()
-            ]);
-            setPendingMediaEmbeddings(mediaCount);
-            setPendingNoteEmbeddings(noteCount);
-        } catch (error) {
-            setEmbeddingStatusError(error.response?.data?.error || error.message || 'Failed to fetch embedding status');
-        } finally {
-            setEmbeddingStatusLoading(false);
-        }
+    const mediaEmbQuery = usePendingMediaEmbeddings();
+    const noteEmbQuery = usePendingNoteEmbeddings();
+    const pendingMediaEmbeddings = mediaEmbQuery.data ?? null;
+    const pendingNoteEmbeddings = noteEmbQuery.data ?? null;
+    const embeddingStatusLoading = mediaEmbQuery.isFetching || noteEmbQuery.isFetching;
+    const embeddingStatusError = errMsg(mediaEmbQuery.error || noteEmbQuery.error, 'Failed to fetch embedding status');
+    const fetchEmbeddingStatus = () => {
+        mediaEmbQuery.refetch();
+        noteEmbQuery.refetch();
     };
 
-    const handleRunMediaEmbeddings = async () => {
-        setRunningMediaEmbeddings(true);
-        setMediaEmbeddingResult(null);
-        setMediaEmbeddingError(null);
-        try {
-            const result = await generateMediaEmbeddingsBatch(embeddingBatchSize);
-            setMediaEmbeddingResult(result);
-            await fetchEmbeddingStatus();
-        } catch (error) {
-            setMediaEmbeddingError(error.response?.data?.error || error.message || 'Failed to generate media embeddings');
-        } finally {
-            setRunningMediaEmbeddings(false);
-        }
+    const mediaEmbeddingMutation = useGenerateMediaEmbeddingsBatch();
+    const noteEmbeddingMutation = useGenerateNoteEmbeddingsBatch();
+    const runningMediaEmbeddings = mediaEmbeddingMutation.isPending;
+    const mediaEmbeddingResult = mediaEmbeddingMutation.data ?? null;
+    const mediaEmbeddingError = errMsg(mediaEmbeddingMutation.error, 'Failed to generate media embeddings');
+    const runningNoteEmbeddings = noteEmbeddingMutation.isPending;
+    const noteEmbeddingResult = noteEmbeddingMutation.data ?? null;
+    const noteEmbeddingError = errMsg(noteEmbeddingMutation.error, 'Failed to generate note embeddings');
+
+    const [embeddingBatchSize, setEmbeddingBatchSize] = useState(50);
+
+    const handleRunMediaEmbeddings = () => {
+        mediaEmbeddingMutation.mutate(embeddingBatchSize);
     };
 
-    const handleRunNoteEmbeddings = async () => {
-        setRunningNoteEmbeddings(true);
-        setNoteEmbeddingResult(null);
-        setNoteEmbeddingError(null);
-        try {
-            const result = await generateNoteEmbeddingsBatch(embeddingBatchSize);
-            setNoteEmbeddingResult(result);
-            await fetchEmbeddingStatus();
-        } catch (error) {
-            setNoteEmbeddingError(error.response?.data?.error || error.message || 'Failed to generate note embeddings');
-        } finally {
-            setRunningNoteEmbeddings(false);
-        }
+    const handleRunNoteEmbeddings = () => {
+        noteEmbeddingMutation.mutate(embeddingBatchSize);
     };
 
     const isEmbeddingRunning = runningMediaEmbeddings || runningNoteEmbeddings;
