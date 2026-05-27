@@ -1,6 +1,6 @@
 import { Box, Typography } from '@mui/material';
-import { ControlledTextField } from './controls';
-import { sectionHeadingSx } from './styles';
+import { ControlledTextField } from '../shared/form/controls';
+import { sectionHeadingSx } from '../shared/form/styles';
 
 // Parity with the legacy form: only Director is surfaced. The other Movie
 // columns the backend accepts (cast, releaseYear, etc.) had no inputs and were

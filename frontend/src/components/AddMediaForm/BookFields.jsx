@@ -1,7 +1,7 @@
 import { Controller, useFormContext } from 'react-hook-form';
 import { Box, Typography, MenuItem, FormControlLabel, Checkbox } from '@mui/material';
-import { ControlledTextField, ControlledSelect } from './controls';
-import { sectionHeadingSx, choiceLabelSx } from './styles';
+import { ControlledTextField, ControlledSelect } from '../shared/form/controls';
+import { sectionHeadingSx, choiceLabelSx } from '../shared/form/styles';
 
 function BookFields() {
   const { control } = useFormContext();

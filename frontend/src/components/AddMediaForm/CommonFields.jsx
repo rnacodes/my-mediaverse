@@ -6,8 +6,8 @@ import {
 } from '@mui/material';
 import { useTopicSearch, useGenreSearch } from '../../hooks/useTopicGenre';
 import { useUploadThumbnail } from '../../hooks/useUpload';
-import { ControlledTextField } from './controls';
-import { fieldSx, selectFormSx } from './styles';
+import { ControlledTextField } from '../shared/form/controls';
+import { fieldSx, selectFormSx } from '../shared/form/styles';
 
 function CommonFields() {
   const { control, watch, setValue, formState: { errors } } = useFormContext();
