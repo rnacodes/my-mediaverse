@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Container, Box, Typography, Button, useTheme, CircularProgress } from '@mui/material';
-import Section from '../shared/Section';
+import Section from '@/shared/Section';
 import useHomepageData from './useHomepageData';
 import HomePageHeader from './HomePageHeader';
 import MediaTypeNav from './MediaTypeNav';

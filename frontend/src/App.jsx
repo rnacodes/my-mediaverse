@@ -8,11 +8,11 @@ import { AuthProvider } from './contexts/AuthProvider';
 import { DemoAdminProvider } from './contexts/DemoAdminProvider';
 import { DemoReadOnlyProvider } from './contexts/DemoReadOnlyProvider';
 import ConditionalProtectedRoute from './features/auth/ConditionalProtectedRoute';
-import DemoReadOnlyDialog from './components/shared/DemoReadOnlyDialog';
-import { theme } from './components/shared/DesignSystem';
-import ResponsiveNavigation from './components/shared/ResponsiveNavigation';
-import Footer from './components/shared/Footer';
-import LoadingSpinner from './components/shared/LoadingSpinner';
+import DemoReadOnlyDialog from '@/shared/DemoReadOnlyDialog';
+import { theme } from '@/shared/DesignSystem';
+import ResponsiveNavigation from '@/shared/ResponsiveNavigation';
+import Footer from '@/shared/Footer';
+import LoadingSpinner from '@/shared/LoadingSpinner';
 
 // --- Eager route components: bundled into the main chunk for instant nav ---
 import HomePage from './components/HomePage';

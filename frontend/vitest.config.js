@@ -10,21 +10,16 @@ export default defineConfig({
   resolve: {
     alias: [
       { find: /^@\/(.*)$/, replacement: path.resolve(__dirname, 'src') + '/$1' },
-      { find: /^@mui\/material(\/.*)?$/, replacement: path.resolve(__dirname, 'src/test-mocks/mui-material.jsx') },
-      { find: /^@mui\/icons-material(\/.*)?$/, replacement: path.resolve(__dirname, 'src/test-mocks/mui-icons.jsx') },
-      { find: /^@emotion\/react(\/.*)?$/, replacement: path.resolve(__dirname, 'src/test-mocks/emotion-react.jsx') },
-      { find: /^@emotion\/styled(\/.*)?$/, replacement: path.resolve(__dirname, 'src/test-mocks/emotion-styled.jsx') },
     ]
   },
   test: {
-    environment: 'happy-dom',
-    setupFiles: ['./src/test-setup.js'],
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.js'],
     globals: true,
     css: false,
     pool: 'forks',
     testTimeout: 10000,
     hookTimeout: 10000,
-    reporters: ['verbose'],
     env: {
       VITE_API_URL: 'http://localhost:5033/api'
     },

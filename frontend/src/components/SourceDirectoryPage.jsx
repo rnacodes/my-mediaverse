@@ -8,7 +8,7 @@ import {
     Podcasts, MenuBook, MovieFilter, VideoLibrary, Article, Language,
     ArrowForward, CheckCircle, OpenInNew, AutoStories
 } from '@mui/icons-material';
-import WhiteOutlineButton from './shared/WhiteOutlineButton';
+import WhiteOutlineButton from '@/shared/WhiteOutlineButton';
 
 function SourceDirectoryPage() {
     const navigate = useNavigate();

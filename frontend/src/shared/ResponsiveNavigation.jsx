@@ -20,7 +20,7 @@ import {
   Collapse
 } from '@mui/material';
 import { Menu as MenuIcon, Close as CloseIcon, Home, Movie, QueueMusic, Add, Upload, Download, Search, Apps, CleaningServices, Login as LoginIcon, Logout as LogoutIcon, Person as PersonIcon, Storage as StorageIcon, Article, Language, Category, AdminPanelSettings, Sync, ExpandMore, Work, ExpandLess, Book, Tv, Podcasts, VideoLibrary, YouTube, Note as NoteIcon, Psychology, Terminal, FormatQuote, AddLink, LockOpen, PlaylistAdd, Phonelink } from '@mui/icons-material';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 const ResponsiveNavigation = () => {
   const [mobileOpen, setMobileOpen] = useState(false);

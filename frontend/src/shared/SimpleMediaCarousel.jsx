@@ -3,7 +3,7 @@ import {
   Box, Typography, Card, CardContent, CardMedia, IconButton, Chip
 } from '@mui/material';
 import { ChevronLeft, ChevronRight } from '@mui/icons-material';
-import { formatMediaType } from '../../utils/formatters';
+import { formatMediaType } from '@/utils/formatters';
 
 const VISIBLE_ITEMS = 5;
 const MAX_DOTS = 6;

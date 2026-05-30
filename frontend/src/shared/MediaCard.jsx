@@ -23,7 +23,7 @@ import {
   AutoAwesome
 } from '@mui/icons-material';
 import { getMediaTypeColor, getStatusColor, commonStyles } from './DesignSystem';
-import { formatMediaType, formatStatus } from '../../utils/formatters';
+import { formatMediaType, formatStatus } from '@/utils/formatters';
 
 // Media type icons mapping
 const mediaTypeIcons = {

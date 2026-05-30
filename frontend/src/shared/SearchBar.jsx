@@ -17,7 +17,7 @@ import {
   PlaylistPlay
 } from '@mui/icons-material';
 import { commonStyles, COLORS } from './DesignSystem';
-import { searchAll } from '../../services/searchService';
+import { searchAll } from '@/services/searchService';
 
 const SearchBar = ({
   onSearch,

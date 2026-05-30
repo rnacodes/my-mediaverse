@@ -9,7 +9,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { useMixlist, useAddMediaToMixlist, useRemoveMediaFromMixlist } from '../hooks/useMixlist';
 import { useMediaSearch } from '../hooks/useMedia';
 import { useReindexMixlist } from '../hooks/useTypesense';
-import SimpleMediaCarousel from './shared/SimpleMediaCarousel';
+import SimpleMediaCarousel from '@/shared/SimpleMediaCarousel';
 import MixlistRelatedNotesSection from './MixlistRelatedNotesSection';
 import { formatMediaType, formatStatus } from '../utils/formatters';
 

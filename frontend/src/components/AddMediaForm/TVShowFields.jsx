@@ -1,6 +1,6 @@
 import { Box, Typography } from '@mui/material';
-import { ControlledTextField } from '../shared/form/controls';
-import { sectionHeadingSx } from '../shared/form/styles';
+import { ControlledTextField } from '@/shared/form/controls';
+import { sectionHeadingSx } from '@/shared/form/styles';
 
 // Parity with the legacy form: only Creator is surfaced. The remaining TV Show
 // columns (cast, seasons, air years, etc.) had no inputs and were always posted

@@ -8,7 +8,7 @@ import {
 } from '@mui/material';
 import { Search, Download, MenuBook, ExpandMore, OpenInNew } from '@mui/icons-material';
 import { searchBooksFromGoogleBooks, importBookFromGoogleBooks } from '../../api/bookService';
-import WhiteOutlineButton from '../shared/WhiteOutlineButton';
+import WhiteOutlineButton from '@/shared/WhiteOutlineButton';
 
 function BookImportSection({ expanded, onAccordionChange }) {
     const navigate = useNavigate();

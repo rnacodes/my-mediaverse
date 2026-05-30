@@ -13,7 +13,7 @@ import {
     Description, FolderOpen, Person, CalendarToday
 } from '@mui/icons-material';
 import { useAllDocuments, usePaperlessStatus, useSyncDocumentsFromPaperless } from '../hooks/useDocument';
-import DocumentCard from './shared/DocumentCard';
+import DocumentCard from '@/shared/DocumentCard';
 
 function DocumentsPage() {
     const navigate = useNavigate();

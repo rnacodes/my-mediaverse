@@ -1,5 +1,5 @@
 import { Box, Typography } from '@mui/material';
-import SearchBar from '../shared/SearchBar';
+import SearchBar from '@/shared/SearchBar';
 
 // Page title plus the primary search bar. Calls onSearch with the submitted query.
 const HomePageHeader = ({ onSearch }) => (

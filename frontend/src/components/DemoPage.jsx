@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { Container, Box, Typography, Grid, Button, Chip, Paper, TextField, CircularProgress, Skeleton, FormControl, InputLabel, Select, MenuItem, ButtonGroup, List, ListItem, ListItemIcon, ListItemText } from '@mui/material';
-import WhiteOutlineButton from './shared/WhiteOutlineButton';
-import MediaCard from './shared/MediaCard';
+import WhiteOutlineButton from '@/shared/WhiteOutlineButton';
+import MediaCard from '@/shared/MediaCard';
 import { formatMediaType, formatStatus, getRatingIcon, getRatingText } from '../utils/formatters';
 import { Book, Movie, Tv, Article, LibraryMusic, Podcasts, SportsEsports, YouTube, Language, MenuBook, AutoAwesome, ViewModule, ViewList } from '@mui/icons-material';
-import { COLORS, BORDER_RADIUS, SHADOWS } from './shared';
-import SearchBar from './shared/SearchBar';
-import SimpleMediaCarousel from './shared/SimpleMediaCarousel';
+import { COLORS, BORDER_RADIUS, SHADOWS } from '@/shared';
+import SearchBar from '@/shared/SearchBar';
+import SimpleMediaCarousel from '@/shared/SimpleMediaCarousel';
 
 // Mock data for demonstration
 const mockMediaItems = [

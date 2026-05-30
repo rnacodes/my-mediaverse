@@ -1,6 +1,6 @@
 import { Box, Typography, Button, CircularProgress } from '@mui/material';
-import Section from '../shared/Section';
-import SimpleMediaCarousel from '../shared/SimpleMediaCarousel';
+import Section from '@/shared/Section';
+import SimpleMediaCarousel from '@/shared/SimpleMediaCarousel';
 
 // "Jump back in" — a carousel of media marked as actively exploring, with loading,
 // error, and empty states. Clicking an item routes to the appropriate profile.

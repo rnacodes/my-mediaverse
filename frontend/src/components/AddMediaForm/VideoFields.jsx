@@ -1,7 +1,7 @@
 import { Controller, useFormContext } from 'react-hook-form';
 import { Box, Typography, FormControl, FormLabel, RadioGroup, FormControlLabel, Radio, MenuItem } from '@mui/material';
-import { ControlledTextField, ControlledSelect } from '../shared/form/controls';
-import { sectionHeadingSx, choiceLabelSx } from '../shared/form/styles';
+import { ControlledTextField, ControlledSelect } from '@/shared/form/controls';
+import { sectionHeadingSx, choiceLabelSx } from '@/shared/form/styles';
 
 function VideoFields() {
   const { control } = useFormContext();

@@ -8,7 +8,7 @@ import {
     Star, Archive, CheckCircle, Article as ArticleIcon,
     OpenInNew, AccessTime, MenuBook
 } from '@mui/icons-material';
-import { formatStatus } from '../../utils/formatters';
+import { formatStatus } from '@/utils/formatters';
 
 function ArticleCard({ article }) {
     const navigate = useNavigate();

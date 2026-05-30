@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
     Box, Typography, Container, Divider, Snackbar, Alert
 } from '@mui/material';
-import WhiteOutlineButton from '../shared/WhiteOutlineButton';
+import WhiteOutlineButton from '@/shared/WhiteOutlineButton';
 
 // Import section components
 import BookImportSection from './BookImportSection';

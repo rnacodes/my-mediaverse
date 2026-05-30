@@ -12,7 +12,7 @@ import {
     importYouTubeVideo, importYouTubePlaylistEntity, importYouTubeChannelEntity,
     importFromYouTubeUrl, checkYouTubeChannelExists
 } from '../../api/youtubeService';
-import WhiteOutlineButton from '../shared/WhiteOutlineButton';
+import WhiteOutlineButton from '@/shared/WhiteOutlineButton';
 import SafeImage from './SafeImage';
 
 function YouTubeImportSection({ expanded, onAccordionChange, onSnackbar }) {

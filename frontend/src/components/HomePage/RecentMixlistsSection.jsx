@@ -1,7 +1,7 @@
 import { Box, Grid, Typography, Button, useTheme } from '@mui/material';
 import { ArrowForwardIos } from '@mui/icons-material';
-import Section from '../shared/Section';
-import MixlistCard from '../shared/MixlistCard';
+import Section from '@/shared/Section';
+import MixlistCard from '@/shared/MixlistCard';
 
 // "Recent Mixlists" — shows up to 6 mixlists, an empty state with create/seed actions,
 // and a "View More Mixlists" button that routes to the full listing.

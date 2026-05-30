@@ -10,7 +10,7 @@ import {
     Typography,
 } from '@mui/material';
 import { Block as BlockIcon } from '@mui/icons-material';
-import { useDemoReadOnly } from '../../contexts/DemoReadOnlyContext';
+import { useDemoReadOnly } from '@/contexts/DemoReadOnlyContext';
 
 const DemoReadOnlyDialog = () => {
     const { isDialogOpen, hideReadOnlyDialog } = useDemoReadOnly();
