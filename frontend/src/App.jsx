@@ -7,7 +7,7 @@ import { ThemeProvider, CssBaseline, Typography, Button, Box } from '@mui/materi
 import { AuthProvider } from './contexts/AuthProvider';
 import { DemoAdminProvider } from './contexts/DemoAdminProvider';
 import { DemoReadOnlyProvider } from './contexts/DemoReadOnlyProvider';
-import ConditionalProtectedRoute from './components/ConditionalProtectedRoute';
+import ConditionalProtectedRoute from './features/auth/ConditionalProtectedRoute';
 import DemoReadOnlyDialog from './components/shared/DemoReadOnlyDialog';
 import { theme } from './components/shared/DesignSystem';
 import ResponsiveNavigation from './components/shared/ResponsiveNavigation';
@@ -16,7 +16,7 @@ import LoadingSpinner from './components/shared/LoadingSpinner';
 
 // --- Eager route components: bundled into the main chunk for instant nav ---
 import HomePage from './components/HomePage';
-import LoginPage from './components/LoginPage';
+import LoginPage from './features/auth/pages/LoginPage';
 import AddMediaForm from './components/AddMediaForm';
 import AllMedia from './components/AllMedia';
 import MixlistsPage from './components/MixlistsPage';
