@@ -15,7 +15,7 @@ import Footer from '@/shared/Footer';
 import LoadingSpinner from '@/shared/LoadingSpinner';
 
 // --- Eager route components: bundled into the main chunk for instant nav ---
-import HomePage from './components/HomePage';
+import HomePage from './features/homepage';
 import LoginPage from './features/auth/pages/LoginPage';
 import AddMediaForm from './components/AddMediaForm';
 import AllMedia from './components/AllMedia';

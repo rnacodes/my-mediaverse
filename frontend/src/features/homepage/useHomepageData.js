@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
-import { useAllMixlists, useSeedMixlists } from '../../hooks/useMixlist';
-import { useAllMedia } from '../../hooks/useMedia';
-import { getAllMixlists } from '../../api/mixlistService';
-import { getAllMedia } from '../../api/mediaService';
+import { useAllMixlists, useSeedMixlists } from '@/hooks/useMixlist';
+import { useAllMedia } from '@/hooks/useMedia';
+import { getAllMixlists } from '@/api/mixlistService';
+import { getAllMedia } from '@/api/mediaService';
 
 const REQUEST_TIMEOUT_MS = 30000;
 const MAX_RETRIES = 2;
