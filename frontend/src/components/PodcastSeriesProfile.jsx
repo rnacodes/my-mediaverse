@@ -6,10 +6,10 @@ import {
     ExpandMore, Visibility, Add, CheckCircle, Close as CloseIcon
 } from '@mui/icons-material';
 import axios from 'axios';
-import MediaInfoCard from './MediaInfoCard';
-import MediaDetailAccordion from './MediaDetailAccordion';
+import MediaInfoCard from '@/features/media/MediaInfoCard';
+import MediaDetailAccordion from '@/features/media/MediaDetailAccordion';
 import MixlistCarousel from '@/features/mixlists/MixlistCarousel';
-import TopicsGenresSection from './TopicsGenresSection';
+import TopicsGenresSection from '@/features/media/TopicsGenresSection';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import {

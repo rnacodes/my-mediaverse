@@ -8,9 +8,9 @@ import {
     Snackbar, Alert
 } from '@mui/material';
 import { ViewModule, ViewList, OpenInNew, Delete, CheckBox, CheckBoxOutlineBlank } from '@mui/icons-material';
-import { useAllMedia, useMediaByType, useBulkDeleteMedia } from '../hooks/useMedia';
-import { formatMediaType, formatStatus } from '../utils/formatters';
-import { getAspectRatioPadding } from '../utils/mediaImageUtils';
+import { useAllMedia, useMediaByType, useBulkDeleteMedia } from '@/hooks/useMedia';
+import { formatMediaType, formatStatus } from '@/utils/formatters';
+import { getAspectRatioPadding } from '@/utils/mediaImageUtils';
 
 function AllMedia() {
   const [viewMode, setViewMode] = useState('card'); // 'card' or 'list'

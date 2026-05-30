@@ -9,10 +9,10 @@ import {
   AddCircle as AddCircleIcon,
   CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material';
-import { useSimilarMedia } from '../hooks/useRecommendation';
-import { useRelatedMedia, useSaveRelatedMedia } from '../hooks/useRelatedMedia';
-import { formatMediaType } from '../utils/formatters';
-import { getAspectRatio } from '../utils/mediaImageUtils';
+import { useSimilarMedia } from '@/hooks/useRecommendation';
+import { useRelatedMedia, useSaveRelatedMedia } from '@/hooks/useRelatedMedia';
+import { formatMediaType } from '@/utils/formatters';
+import { getAspectRatio } from '@/utils/mediaImageUtils';
 
 const DEFAULT_SIMILARITY_THRESHOLD = 0.40;
 

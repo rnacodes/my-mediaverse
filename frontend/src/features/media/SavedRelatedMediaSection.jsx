@@ -38,10 +38,10 @@ import {
   useRelatedMedia,
   useSaveRelatedMedia,
   useRemoveRelatedMedia,
-} from '../hooks/useRelatedMedia';
-import { useMediaSearch } from '../hooks/useMedia';
-import { formatMediaType } from '../utils/formatters';
-import { getAspectRatio } from '../utils/mediaImageUtils';
+} from '@/hooks/useRelatedMedia';
+import { useMediaSearch } from '@/hooks/useMedia';
+import { formatMediaType } from '@/utils/formatters';
+import { getAspectRatio } from '@/utils/mediaImageUtils';
 
 // eslint-disable-next-line no-unused-vars -- refreshTrigger kept for API compatibility; mutation hooks now invalidate the related-media query automatically.
 function SavedRelatedMediaSection({ mediaItem, setSnackbar, refreshTrigger }) {

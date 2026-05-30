@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { Box, Typography, Button, TextField, Chip } from '@mui/material';
-import { useAllMixlists } from '../../hooks/useMixlist';
+import { useAllMixlists } from '@/hooks/useMixlist';
 
 // Normalize a mixlist to consistent PascalCase Id/Name (the API returns mixed casing).
 const normalize = (m) => ({

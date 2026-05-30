@@ -4,8 +4,8 @@ import {
   TextField, Typography, Box, Button, Chip, Autocomplete,
   FormControl, InputLabel, Select, MenuItem, RadioGroup, FormControlLabel, Radio,
 } from '@mui/material';
-import { useTopicSearch, useGenreSearch } from '../../hooks/useTopicGenre';
-import { useUploadThumbnail } from '../../hooks/useUpload';
+import { useTopicSearch, useGenreSearch } from '@/hooks/useTopicGenre';
+import { useUploadThumbnail } from '@/hooks/useUpload';
 import { ControlledTextField } from '@/shared/form/controls';
 import { fieldSx, selectFormSx } from '@/shared/form/styles';
 

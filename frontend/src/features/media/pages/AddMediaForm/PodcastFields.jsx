@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { Box, Typography, FormControl, FormLabel, RadioGroup, FormControlLabel, Radio, Autocomplete, TextField } from '@mui/material';
-import { usePodcastSeriesSearch } from '../../hooks/usePodcast';
+import { usePodcastSeriesSearch } from '@/hooks/usePodcast';
 import { fieldSx, choiceLabelSx } from '@/shared/form/styles';
 
 function PodcastFields() {

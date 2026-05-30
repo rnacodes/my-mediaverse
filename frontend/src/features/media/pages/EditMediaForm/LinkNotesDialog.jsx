@@ -5,7 +5,7 @@ import {
   CircularProgress, Button,
 } from '@mui/material';
 import { Search, Close } from '@mui/icons-material';
-import { useAllNotes, useNoteSearch, useLinkNoteToMedia } from '../../hooks/useNote';
+import { useAllNotes, useNoteSearch, useLinkNoteToMedia } from '@/hooks/useNote';
 import { getVaultColor } from './schema';
 
 // Dialog for searching Obsidian notes and linking one or more to a media item.

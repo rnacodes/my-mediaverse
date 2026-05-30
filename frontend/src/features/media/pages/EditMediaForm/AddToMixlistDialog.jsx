@@ -4,7 +4,7 @@ import {
   TextField, InputAdornment, List, ListItem, ListItemText, Checkbox, IconButton, Button,
 } from '@mui/material';
 import { Search, Close } from '@mui/icons-material';
-import { useAddMediaToMixlist } from '../../hooks/useMixlist';
+import { useAddMediaToMixlist } from '@/hooks/useMixlist';
 
 // Dialog for adding a media item to one or more mixlists. Owns its own
 // search/selection state; reports outcomes via onResult and asks the parent to

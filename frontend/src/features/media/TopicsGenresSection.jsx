@@ -7,8 +7,8 @@ import {
 } from '@mui/material';
 import { useMediaQuery, useTheme } from '@mui/material';
 import { Topic as TopicIcon, Category as GenreIcon, Search, Close } from '@mui/icons-material';
-import { useAllTopics, useAllGenres, useCreateTopic, useCreateGenre } from '../hooks/useTopicGenre';
-import { useUpdateMediaTopicsGenres } from '../hooks/useMedia';
+import { useAllTopics, useAllGenres, useCreateTopic, useCreateGenre } from '@/hooks/useTopicGenre';
+import { useUpdateMediaTopicsGenres } from '@/hooks/useMedia';
 
 function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
     const navigate = useNavigate();

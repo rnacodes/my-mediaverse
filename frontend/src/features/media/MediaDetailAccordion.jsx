@@ -4,10 +4,10 @@ import {
     CircularProgress, Divider, Dialog, DialogTitle, DialogContent, List, ListItem, ListItemButton, ListItemText
 } from '@mui/material';
 import { ExpandMore, OpenInNew, Star, RssFeed, ContentCopy, Language, Schedule, Article, AutoFixHigh, Download } from '@mui/icons-material';
-import { useWebsiteRssFeedItems } from '../hooks/useWebsite';
-import { useEnrichBookById } from '../hooks/useBackgroundJobs';
-import { useAllYouTubeChannels } from '../hooks/useYoutube';
-import { useUpdateVideo } from '../hooks/useVideo';
+import { useWebsiteRssFeedItems } from '@/hooks/useWebsite';
+import { useEnrichBookById } from '@/hooks/useBackgroundJobs';
+import { useAllYouTubeChannels } from '@/hooks/useYoutube';
+import { useUpdateVideo } from '@/hooks/useVideo';
 
 function getJustWatchUrl(title) {
   // Simple heuristic for generating a JustWatch search URL.

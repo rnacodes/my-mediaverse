@@ -8,9 +8,9 @@ import {
 import axios from 'axios';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
-import MediaInfoCard from './MediaInfoCard';
+import MediaInfoCard from '@/features/media/MediaInfoCard';
 import MixlistCarousel from '@/features/mixlists/MixlistCarousel';
-import TopicsGenresSection from './TopicsGenresSection';
+import TopicsGenresSection from '@/features/media/TopicsGenresSection';
 import {
     useYouTubePlaylist,
     useYouTubePlaylistVideos,

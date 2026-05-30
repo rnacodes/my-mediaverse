@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Box, CardMedia, Chip, Typography, Button } from '@mui/material';
-import { getAspectRatio, getObjectFit } from '../utils/mediaImageUtils';
+import { getAspectRatio, getObjectFit } from '@/utils/mediaImageUtils';
 
 function MediaInfoCard({
   mediaItem,

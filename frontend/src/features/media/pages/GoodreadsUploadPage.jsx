@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { useUploadGoodreadsCsv } from '../hooks/useUpload';
+import { useUploadGoodreadsCsv } from '@/hooks/useUpload';
 import './GoodreadsUploadPage.css';
 
 const GoodreadsUploadPage = () => {

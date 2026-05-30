@@ -6,7 +6,7 @@ import {
 } from '@mui/material';
 import { CloudUpload, FileUpload, CheckCircle, Error, ExpandMore, MenuBook } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useUploadCsv } from '../hooks/useUpload';
+import { useUploadCsv } from '@/hooks/useUpload';
 
 function UploadMediaPage() {
     const navigate = useNavigate();

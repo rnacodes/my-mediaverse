@@ -10,13 +10,13 @@ import {
 import {
     ArrowBack, Edit, Delete, ExpandMore, Visibility
 } from '@mui/icons-material';
-import MediaInfoCard from './MediaInfoCard';
-import MediaDetailAccordion from './MediaDetailAccordion';
+import MediaInfoCard from '@/features/media/MediaInfoCard';
+import MediaDetailAccordion from '@/features/media/MediaDetailAccordion';
 import MixlistCarousel from '@/features/mixlists/MixlistCarousel';
-import TopicsGenresSection from './TopicsGenresSection';
+import TopicsGenresSection from '@/features/media/TopicsGenresSection';
 import RelatedNotesSection from '@/features/notes/RelatedNotesSection';
-import SavedRelatedMediaSection from './SavedRelatedMediaSection';
-import SimilarItemsSection from './SimilarItemsSection';
+import SavedRelatedMediaSection from '@/features/media/SavedRelatedMediaSection';
+import SimilarItemsSection from '@/features/media/SimilarItemsSection';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTvShow, useTvShowEpisodes, useDeleteTvShow } from '../hooks/useTvShow';

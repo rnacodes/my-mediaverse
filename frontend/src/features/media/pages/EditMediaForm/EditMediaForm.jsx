@@ -11,12 +11,12 @@ import {
   Save, Cancel, ArrowBack, Delete, Add as AddIcon, Close,
   Delete as DeleteIcon, OpenInNew as OpenInNewIcon, Article as NoteIcon, PlaylistAdd,
 } from '@mui/icons-material';
-import { useMediaItem, useUpdateMedia, useDeleteMedia } from '../../hooks/useMedia';
-import { useUploadThumbnail } from '../../hooks/useUpload';
-import { useNotesForMedia, useUnlinkNoteFromMedia } from '../../hooks/useNote';
-import { useAllMixlists, useRemoveMediaFromMixlist } from '../../hooks/useMixlist';
-import { formatStatus } from '../../utils/formatters';
-import TopicsGenresSection from '../TopicsGenresSection';
+import { useMediaItem, useUpdateMedia, useDeleteMedia } from '@/hooks/useMedia';
+import { useUploadThumbnail } from '@/hooks/useUpload';
+import { useNotesForMedia, useUnlinkNoteFromMedia } from '@/hooks/useNote';
+import { useAllMixlists, useRemoveMediaFromMixlist } from '@/hooks/useMixlist';
+import { formatStatus } from '@/utils/formatters';
+import TopicsGenresSection from '@/features/media/TopicsGenresSection';
 import LinkNotesDialog from './LinkNotesDialog';
 import AddToMixlistDialog from './AddToMixlistDialog';
 import { editMediaSchema, defaultValues, mapMediaItemToForm, buildUpdatePayload, getVaultColor } from './schema';

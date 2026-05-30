@@ -2,13 +2,13 @@ import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
 import { Box, Typography, Button } from '@mui/material';
-import { useAddMedia } from '../../hooks/useMedia';
-import { useAddMediaToMixlist } from '../../hooks/useMixlist';
-import { useCreatePodcastEpisode } from '../../hooks/usePodcast';
-import { useCreateBook } from '../../hooks/useBook';
-import { useCreateMovie } from '../../hooks/useMovie';
-import { useCreateTvShow } from '../../hooks/useTvShow';
-import { useCreateVideo } from '../../hooks/useVideo';
+import { useAddMedia } from '@/hooks/useMedia';
+import { useAddMediaToMixlist } from '@/hooks/useMixlist';
+import { useCreatePodcastEpisode } from '@/hooks/usePodcast';
+import { useCreateBook } from '@/hooks/useBook';
+import { useCreateMovie } from '@/hooks/useMovie';
+import { useCreateTvShow } from '@/hooks/useTvShow';
+import { useCreateVideo } from '@/hooks/useVideo';
 import {
   mediaSchema, defaultValues, SUPPORTED_TYPES,
   buildMediaPayload, buildBookPayload, buildEpisodePayload,
