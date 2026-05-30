@@ -3,9 +3,9 @@
 import React, { useState, useMemo } from 'react';
 import { Box, Container, Typography, Paper, TextField, Button, Checkbox, Chip, CircularProgress, Alert, Snackbar, Dialog, DialogTitle, DialogContent, DialogActions, InputAdornment, Accordion, AccordionSummary, AccordionDetails, Divider } from '@mui/material';
 import { Search as SearchIcon, ExpandMore as ExpandMoreIcon, Link as LinkIcon, MenuBook as BookIcon, Article as ArticleIcon } from '@mui/icons-material';
-import { useUnlinkedHighlights, useUpdateHighlight } from '../hooks/useHighlight';
-import { useAllBooks } from '../hooks/useBook';
-import { useAllArticles } from '../hooks/useArticle';
+import { useUnlinkedHighlights, useUpdateHighlight } from '@/hooks/useHighlight';
+import { useAllBooks } from '@/hooks/useBook';
+import { useAllArticles } from '@/hooks/useArticle';
 
 export default function HighlightLinkingPage() {
     const unlinkedHighlightsQuery = useUnlinkedHighlights();

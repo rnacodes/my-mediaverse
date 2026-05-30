@@ -14,7 +14,7 @@ import MediaInfoCard from './MediaInfoCard';
 import MediaDetailAccordion from './MediaDetailAccordion';
 import MixlistCarousel from '@/features/mixlists/MixlistCarousel';
 import TopicsGenresSection from './TopicsGenresSection';
-import RelatedNotesSection from './RelatedNotesSection';
+import RelatedNotesSection from '@/features/notes/RelatedNotesSection';
 import SavedRelatedMediaSection from './SavedRelatedMediaSection';
 import SimilarItemsSection from './SimilarItemsSection';
 import { useTheme } from '@mui/material/styles';

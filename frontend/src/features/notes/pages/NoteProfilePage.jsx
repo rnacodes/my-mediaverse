@@ -14,12 +14,12 @@ import {
     AutoAwesome as AutoAwesomeIcon,
     Sync as SyncIcon
 } from '@mui/icons-material';
-import { useNote, useMediaForNote, useUpdateNote } from '../hooks/useNote';
-import { useGenerateNoteDescription } from '../hooks/useAi';
-import { useReindexNote } from '../hooks/useTypesense';
-import { formatMediaType, getMediaTypeColor } from '../utils/formatters';
-import SimilarNotesSection from './SimilarNotesSection';
-import RelatedMediaByEmbeddingSection from './RelatedMediaByEmbeddingSection';
+import { useNote, useMediaForNote, useUpdateNote } from '@/hooks/useNote';
+import { useGenerateNoteDescription } from '@/hooks/useAi';
+import { useReindexNote } from '@/hooks/useTypesense';
+import { formatMediaType, getMediaTypeColor } from '@/utils/formatters';
+import SimilarNotesSection from '../SimilarNotesSection';
+import RelatedMediaByEmbeddingSection from '../RelatedMediaByEmbeddingSection';
 
 function NoteProfilePage() {
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });

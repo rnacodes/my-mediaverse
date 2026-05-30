@@ -15,8 +15,8 @@ import {
     Delete as DeleteIcon,
     Sync as SyncIcon
 } from '@mui/icons-material';
-import { useHighlight, useDeleteHighlight } from '../hooks/useHighlight';
-import { useReindexHighlight } from '../hooks/useTypesense';
+import { useHighlight, useDeleteHighlight } from '@/hooks/useHighlight';
+import { useReindexHighlight } from '@/hooks/useTypesense';
 
 function HighlightProfilePage() {
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });

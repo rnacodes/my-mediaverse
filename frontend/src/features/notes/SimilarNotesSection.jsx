@@ -5,38 +5,51 @@ import {
   Typography,
   Card,
   CardContent,
-  CardMedia,
   CircularProgress,
   Chip,
   Alert,
   IconButton,
   Tooltip,
-  Grid,
+  List,
+  ListItem,
+  ListItemText,
   Collapse,
 } from '@mui/material';
 import {
   AutoAwesome as AutoAwesomeIcon,
   Refresh as RefreshIcon,
+  Note as NoteIcon,
+  Folder as FolderIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
 } from '@mui/icons-material';
-import { useMediaForNoteByEmbedding } from '../hooks/useRecommendation';
-import { formatMediaType } from '../utils/formatters';
+import { useSimilarNotes } from '@/hooks/useRecommendation';
 
-function RelatedMediaByEmbeddingSection({ note }) {
+// Vault color mapping
+const vaultColors = {
+  general: '#4caf50',
+  programming: '#2196f3',
+};
+
+function SimilarNotesSection({ note }) {
   const [expanded, setExpanded] = useState(false);
 
-  const query = useMediaForNoteByEmbedding(note?.id, 8, null, { enabled: !!note?.id && expanded });
-  const relatedMedia = query.data ?? [];
+  const getVaultColor = (vaultName) => {
+    return vaultColors[vaultName?.toLowerCase()] || '#9e9e9e';
+  };
+
+  const query = useSimilarNotes(note?.id, 6, null, {
+    enabled: !!note?.id && expanded,
+  });
+  const similarNotes = query.data ?? [];
   const loading = query.isFetching;
   const hasFetched = query.isFetched;
 
   const fetchError = query.error;
-  // Treat 400 / embedding-related errors as "no embedding yet" rather than a real failure.
   const hasEmbedding = !fetchError
     || !(fetchError.response?.status === 400 || fetchError.response?.data?.message?.includes('embedding'));
   const error = fetchError && hasEmbedding
-    ? (fetchError.response?.data?.message || fetchError.message || 'Failed to load related media')
+    ? (fetchError.response?.data?.message || fetchError.message || 'Failed to load similar notes')
     : null;
 
   const handleExpandClick = () => {
@@ -51,11 +64,11 @@ function RelatedMediaByEmbeddingSection({ note }) {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
             <AutoAwesomeIcon color="action" />
             <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-              Related Media
+              Similar Notes
             </Typography>
           </Box>
           <Alert severity="info">
-            Generate embeddings in the AI Admin page to enable related media recommendations.
+            Generate embeddings in the AI Admin page to enable similar note recommendations.
           </Alert>
         </CardContent>
       </Card>
@@ -79,7 +92,7 @@ function RelatedMediaByEmbeddingSection({ note }) {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <AutoAwesomeIcon color={expanded ? 'primary' : 'action'} />
             <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-              Related Media
+              Similar Notes
             </Typography>
             <Chip label="AI" size="small" color="secondary" sx={{ ml: 1 }} />
           </Box>
@@ -119,69 +132,71 @@ function RelatedMediaByEmbeddingSection({ note }) {
               </Alert>
             )}
 
-            {!loading && !error && hasFetched && relatedMedia.length === 0 && (
+            {!loading && !error && hasFetched && similarNotes.length === 0 && (
               <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-                No related media found
+                No similar notes found
               </Typography>
             )}
 
-            {!loading && !error && relatedMedia.length > 0 && (
-              <Grid container spacing={2}>
-                {relatedMedia.map((item) => (
-                  <Grid item xs={6} sm={4} md={3} key={item.id}>
-                    <Card
-                      component={RouterLink}
-                      to={`/media/${item.id}`}
-                      sx={{
-                        height: '100%',
-                        textDecoration: 'none',
-                        '&:hover': {
-                          transform: 'translateY(-2px)',
-                          boxShadow: 3,
-                        },
-                        transition: 'all 0.2s ease-in-out',
-                      }}
-                    >
-                      {item.thumbnail && (
-                        <CardMedia
-                          component="img"
-                          height="100"
-                          image={item.thumbnail}
-                          alt={item.title}
-                          sx={{ objectFit: 'cover' }}
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                          }}
-                        />
-                      )}
-                      <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            fontWeight: 'bold',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
-                            lineHeight: 1.3,
-                            mb: 0.5,
-                          }}
-                        >
-                          {item.title}
-                        </Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+            {!loading && !error && similarNotes.length > 0 && (
+              <List disablePadding>
+                {similarNotes.map((similarNote) => (
+                  <ListItem
+                    key={similarNote.id}
+                    component={RouterLink}
+                    to={`/note/${similarNote.id}`}
+                    sx={{
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      borderRadius: 1,
+                      mb: 1,
+                      textDecoration: 'none',
+                      '&:hover': {
+                        bgcolor: 'action.hover',
+                      },
+                    }}
+                  >
+                    <NoteIcon sx={{ mr: 2, color: 'text.secondary' }} />
+                    <ListItemText
+                      primary={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                            {similarNote.title}
+                          </Typography>
                           <Chip
-                            label={formatMediaType(item.mediaType)}
+                            icon={<FolderIcon sx={{ fontSize: '0.8rem !important' }} />}
+                            label={similarNote.vaultName}
                             size="small"
-                            sx={{ fontSize: '0.65rem', height: 20 }}
+                            sx={{
+                              bgcolor: getVaultColor(similarNote.vaultName),
+                              color: 'white',
+                              fontSize: '0.7rem',
+                              height: 22,
+                            }}
                           />
                         </Box>
-                      </CardContent>
-                    </Card>
-                  </Grid>
+                      }
+                      secondary={
+                        similarNote.description || similarNote.aiDescription ? (
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                            }}
+                          >
+                            {similarNote.description || similarNote.aiDescription}
+                          </Typography>
+                        ) : null
+                      }
+                    />
+                  </ListItem>
                 ))}
-              </Grid>
+              </List>
             )}
           </Box>
         </Collapse>
@@ -190,4 +205,4 @@ function RelatedMediaByEmbeddingSection({ note }) {
   );
 }
 
-export default React.memo(RelatedMediaByEmbeddingSection);
+export default React.memo(SimilarNotesSection);

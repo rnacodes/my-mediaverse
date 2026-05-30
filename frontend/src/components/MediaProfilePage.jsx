@@ -10,7 +10,7 @@ import MediaInfoCard from './MediaInfoCard';
 import MediaDetailAccordion from './MediaDetailAccordion';
 import HighlightsSection from './HighlightsSection';
 import TopicsGenresSection from './TopicsGenresSection';
-import RelatedNotesSection from './RelatedNotesSection';
+import RelatedNotesSection from '@/features/notes/RelatedNotesSection';
 import SimilarItemsSection from './SimilarItemsSection';
 import SavedRelatedMediaSection from './SavedRelatedMediaSection';
 import { formatMediaType, formatStatus, getMediaTypeColor, getStatusColor, getRatingIcon, getRatingText } from '../utils/formatters';

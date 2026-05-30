@@ -11,7 +11,7 @@ import {
     useNoteSearch,
     useLinkNoteToMedia,
     useUnlinkNoteFromMedia,
-} from '../hooks/useNote';
+} from '@/hooks/useNote';
 
 function RelatedNotesSection({ mediaItem, setSnackbar, onUpdate }) {
     // State for dialog
