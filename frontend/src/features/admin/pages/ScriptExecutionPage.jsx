@@ -21,7 +21,7 @@ import {
     useRunNormalizeNotes,
     useRunNormalizeVault,
     useCancelScriptJob,
-} from '../hooks/useScriptExecution';
+} from '@/hooks/useScriptExecution';
 
 const TERMINAL_STATUSES = ['completed', 'failed', 'cancelled'];
 

@@ -24,7 +24,7 @@ import {
     useCleanupAllTopics, useCleanupAllGenres, useCleanupOrphanedTopics, useCleanupOrphanedGenres,
     useCleanupAllMedia, useCleanupWebsites, useCleanupChannels, useCleanupPlaylists,
     useCleanupNotes, useCleanupDocuments, useCleanupVideos, useCleanupRefreshTokens
-} from '../hooks/useDev';
+} from '@/hooks/useDev';
 
 const CleanupManagementPage = () => {
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });

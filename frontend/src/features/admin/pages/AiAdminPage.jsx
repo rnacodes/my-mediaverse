@@ -27,8 +27,8 @@ import {
 import {
   useAiStatus, usePendingNoteDescriptions, usePendingMediaEmbeddings, usePendingNoteEmbeddings,
   useGenerateNoteDescriptionsBatch, useGenerateMediaEmbeddingsBatch, useGenerateNoteEmbeddingsBatch,
-} from '../hooks/useAi';
-import { useRecommendationStatus } from '../hooks/useRecommendation';
+} from '@/hooks/useAi';
+import { useRecommendationStatus } from '@/hooks/useRecommendation';
 
 // AI/recommendation errors use `data.message`; pending counts may be a number or { count }.
 const apiMsg = (error, fallback) =>

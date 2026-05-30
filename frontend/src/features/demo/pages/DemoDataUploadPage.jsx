@@ -7,9 +7,9 @@ import {
     FormControlLabel, Slider, IconButton, Paper, Collapse, Autocomplete
 } from '@mui/material';
 import { ArrowBack, CloudUpload, Search as SearchIcon, CheckCircle, Delete, ExpandMore, ExpandLess, Link as LinkIcon } from '@mui/icons-material';
-import { useScrapeArticlePreview, useCreateArticle } from '../hooks/useArticle';
-import { useBulkCreateHighlights } from '../hooks/useHighlight';
-import { useTopicSearch, useGenreSearch } from '../hooks/useTopicGenre';
+import { useScrapeArticlePreview, useCreateArticle } from '@/hooks/useArticle';
+import { useBulkCreateHighlights } from '@/hooks/useHighlight';
+import { useTopicSearch, useGenreSearch } from '@/hooks/useTopicGenre';
 
 const whiteButtonSx = {
     backgroundColor: 'white',

@@ -42,25 +42,25 @@ import YouTubeChannelProfile from './features/videos/pages/YouTubeChannelProfile
 import YouTubePlaylistProfile from './features/videos/pages/YouTubePlaylistProfile';
 import PodcastSeriesProfile from './features/podcasts/pages/PodcastSeriesProfile';
 import TvShowProfile from './features/videos/pages/TvShowProfile';
-import CleanupManagementPage from './components/CleanupManagementPage';
+import CleanupManagementPage from './features/admin/pages/CleanupManagementPage';
 import WebsiteImportPage from './features/imports/pages/WebsiteImportPage';
 import WebsitesPage from './features/imports/pages/WebsitesPage';
 import GoodreadsUploadPage from './features/media/pages/GoodreadsUploadPage';
 import NoteProfilePage from './features/notes/pages/NoteProfilePage';
 import HighlightProfilePage from './features/notes/pages/HighlightProfilePage';
-import ScriptExecutionPage from './components/ScriptExecutionPage';
+import ScriptExecutionPage from './features/admin/pages/ScriptExecutionPage';
 import NotesListingPage from './features/notes/pages/NotesListingPage';
-import AiAdminPage from './components/AiAdminPage';
+import AiAdminPage from './features/admin/pages/AiAdminPage';
 import SearchByVibePage from './features/search/pages/SearchByVibePage';
-import DemoUnlockPage from './components/DemoUnlockPage';
-import DemoDataUploadPage from './components/DemoDataUploadPage';
+import DemoUnlockPage from './features/demo/pages/DemoUnlockPage';
+import DemoDataUploadPage from './features/demo/pages/DemoDataUploadPage';
 
 // --- Lazy: heavy + infrequently-visited routes. Kept out of the main chunk.
 // DemoPage (113 kB, separate user path) + admin/import maintenance pages. ---
-const DemoPage = lazy(() => import('./components/DemoPage'));
+const DemoPage = lazy(() => import('./features/demo/pages/DemoPage'));
 const ImportMixlistPage = lazy(() => import('./features/imports/pages/ImportMixlistPage'));
-const TypesenseAdminPage = lazy(() => import('./components/TypesenseAdminPage'));
-const BackgroundJobsPage = lazy(() => import('./components/BackgroundJobsPage'));
+const TypesenseAdminPage = lazy(() => import('./features/admin/pages/TypesenseAdminPage'));
+const BackgroundJobsPage = lazy(() => import('./features/admin/pages/BackgroundJobsPage'));
 
 function RouteErrorFallback({ error, resetErrorBoundary }) {
   return (

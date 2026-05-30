@@ -7,10 +7,10 @@ import {
   useTypesenseReindex, useTypesenseReindexMixlists, useReindexHighlights,
   useTypesenseResetMediaItems, useTypesenseResetMixlists, useResetHighlightsCollection,
   useTypesenseReindexNotes, useTypesenseResetNotesCollection,
-} from '../hooks/useTypesense';
-import { useDuplicateArticles, useDeduplicateArticles } from '../hooks/useArticle';
-import { useSyncAllVaults, useNoteSyncStatus } from '../hooks/useNote';
-import { formatStatus } from '../utils/formatters';
+} from '@/hooks/useTypesense';
+import { useDuplicateArticles, useDeduplicateArticles } from '@/hooks/useArticle';
+import { useSyncAllVaults, useNoteSyncStatus } from '@/hooks/useNote';
+import { formatStatus } from '@/utils/formatters';
 
 // Typesense/admin errors surface via data.message.
 const errMsg = (error, fallback) =>

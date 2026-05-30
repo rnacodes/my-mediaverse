@@ -16,11 +16,11 @@ import {
     useBookEnrichmentStatus, useRunBookEnrichment, useRunBookEnrichmentAll,
     useMovieTvEnrichmentStatus, useRunMovieEnrichment, useRunTvShowEnrichment, useRunMovieTvEnrichmentAll,
     usePodcastEnrichmentStatus, useRunPodcastEnrichment, useRunPodcastEnrichmentAll,
-} from '../hooks/useBackgroundJobs';
+} from '@/hooks/useBackgroundJobs';
 import {
     usePendingMediaEmbeddings, usePendingNoteEmbeddings,
     useGenerateMediaEmbeddingsBatch, useGenerateNoteEmbeddingsBatch,
-} from '../hooks/useAi';
+} from '@/hooks/useAi';
 
 // Pull the API error message out of an axios error the same way across sections.
 const errMsg = (error, fallback) =>
