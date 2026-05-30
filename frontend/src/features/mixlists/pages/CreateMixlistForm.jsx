@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { TextField, Button, Box, Typography, Chip, Autocomplete } from '@mui/material';
-import { useCreateMixlist } from '../hooks/useMixlist';
-import { useUploadThumbnail } from '../hooks/useUpload';
-import { useTopicSearch, useGenreSearch } from '../hooks/useTopicGenre';
+import { useCreateMixlist } from '@/hooks/useMixlist';
+import { useUploadThumbnail } from '@/hooks/useUpload';
+import { useTopicSearch, useGenreSearch } from '@/hooks/useTopicGenre';
 
 function CreateMixlistForm() {
     const [name, setName] = useState('');

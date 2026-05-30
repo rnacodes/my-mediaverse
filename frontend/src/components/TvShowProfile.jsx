@@ -12,7 +12,7 @@ import {
 } from '@mui/icons-material';
 import MediaInfoCard from './MediaInfoCard';
 import MediaDetailAccordion from './MediaDetailAccordion';
-import MixlistCarousel from './MixlistCarousel';
+import MixlistCarousel from '@/features/mixlists/MixlistCarousel';
 import TopicsGenresSection from './TopicsGenresSection';
 import RelatedNotesSection from './RelatedNotesSection';
 import SavedRelatedMediaSection from './SavedRelatedMediaSection';

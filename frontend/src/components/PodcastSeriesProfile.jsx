@@ -8,7 +8,7 @@ import {
 import axios from 'axios';
 import MediaInfoCard from './MediaInfoCard';
 import MediaDetailAccordion from './MediaDetailAccordion';
-import MixlistCarousel from './MixlistCarousel';
+import MixlistCarousel from '@/features/mixlists/MixlistCarousel';
 import TopicsGenresSection from './TopicsGenresSection';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';

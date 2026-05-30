@@ -7,9 +7,9 @@ import {
     Chip, Autocomplete
 } from '@mui/material';
 import { Save, Cancel, ArrowBack, Delete } from '@mui/icons-material';
-import { useMixlist, useUpdateMixlist, useDeleteMixlist } from '../hooks/useMixlist';
-import { useUploadThumbnail } from '../hooks/useUpload';
-import { useTopicSearch, useGenreSearch } from '../hooks/useTopicGenre';
+import { useMixlist, useUpdateMixlist, useDeleteMixlist } from '@/hooks/useMixlist';
+import { useUploadThumbnail } from '@/hooks/useUpload';
+import { useTopicSearch, useGenreSearch } from '@/hooks/useTopicGenre';
 
 function EditMixlistForm() {
     const { id } = useParams();

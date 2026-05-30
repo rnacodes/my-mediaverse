@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Typography, Button, Grid, Card, CardContent, CardMedia, Box, CircularProgress, Chip, Fab, ButtonGroup, List, ListItem, ListItemText, ListItemSecondaryAction, IconButton, Divider, Checkbox, Toolbar, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Snackbar, Alert } from '@mui/material';
 import { Add, ViewModule, ViewList, OpenInNew, Delete, CheckBox, CheckBoxOutlineBlank } from '@mui/icons-material';
-import { useAllMixlists } from '../hooks/useMixlist';
+import { useAllMixlists } from '@/hooks/useMixlist';
 
 function MixlistsPage() {
     const [viewMode, setViewMode] = useState('card'); // 'card' or 'list'

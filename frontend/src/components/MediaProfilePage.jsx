@@ -5,7 +5,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { Box, Card, CardContent, CircularProgress, Typography, Button } from '@mui/material';
 
 import MediaHeader from './MediaHeader';
-import MixlistCarousel from './MixlistCarousel';
+import MixlistCarousel from '@/features/mixlists/MixlistCarousel';
 import MediaInfoCard from './MediaInfoCard';
 import MediaDetailAccordion from './MediaDetailAccordion';
 import HighlightsSection from './HighlightsSection';

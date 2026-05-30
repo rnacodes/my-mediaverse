@@ -6,12 +6,12 @@ import {
     Search, Upload, FileDownload, AddCircle, Add, Delete, Sync
 } from '@mui/icons-material';
 import CircularProgress from '@mui/material/CircularProgress';
-import { useMixlist, useAddMediaToMixlist, useRemoveMediaFromMixlist } from '../hooks/useMixlist';
-import { useMediaSearch } from '../hooks/useMedia';
-import { useReindexMixlist } from '../hooks/useTypesense';
+import { useMixlist, useAddMediaToMixlist, useRemoveMediaFromMixlist } from '@/hooks/useMixlist';
+import { useMediaSearch } from '@/hooks/useMedia';
+import { useReindexMixlist } from '@/hooks/useTypesense';
 import SimpleMediaCarousel from '@/shared/SimpleMediaCarousel';
-import MixlistRelatedNotesSection from './MixlistRelatedNotesSection';
-import { formatMediaType, formatStatus } from '../utils/formatters';
+import MixlistRelatedNotesSection from '../MixlistRelatedNotesSection';
+import { formatMediaType, formatStatus } from '@/utils/formatters';
 
 function MixlistProfilePage() {
     const { id } = useParams();

@@ -14,8 +14,8 @@ import {
     useNotesForMixlist,
     useLinkNoteToMixlist,
     useUnlinkNoteFromMixlist,
-} from '../hooks/useMixlist';
-import { useAllNotes, useNoteSearch } from '../hooks/useNote';
+} from '@/hooks/useMixlist';
+import { useAllNotes, useNoteSearch } from '@/hooks/useNote';
 
 function MixlistRelatedNotesSection({ mixlistId, mixlistName, setSnackbar }) {
     // State for dialog
