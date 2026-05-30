@@ -8,7 +8,7 @@ import {
   useTraktSyncWatchlist,
   useTraktSyncRatings,
   useTraktSyncAll,
-} from '../hooks/useTrakt';
+} from '@/hooks/useTrakt';
 import './TraktSyncPage.css';
 
 const TraktSyncPage = () => {

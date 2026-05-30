@@ -12,8 +12,8 @@ import MixlistCarousel from '@/features/mixlists/MixlistCarousel';
 import TopicsGenresSection from '@/features/media/TopicsGenresSection';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
-import { useYouTubeChannel, useYouTubeChannelVideos, useDeleteYouTubeChannel, useSyncYouTubeChannelMetadata } from '../hooks/useYoutube';
-import { useAllMixlists } from '../hooks/useMixlist';
+import { useYouTubeChannel, useYouTubeChannelVideos, useDeleteYouTubeChannel, useSyncYouTubeChannelMetadata } from '@/hooks/useYoutube';
+import { useAllMixlists } from '@/hooks/useMixlist';
 import {
     formatMediaType,
     formatStatus,
@@ -21,7 +21,7 @@ import {
     getStatusColor,
     getRatingIcon,
     getRatingText
-} from '../utils/formatters';
+} from '@/utils/formatters';
 
 function YouTubeChannelProfile() {
     const [currentMixlists, setCurrentMixlists] = useState([]);

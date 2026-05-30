@@ -10,7 +10,7 @@ import {
     ArrowBack, Add, Search, OpenInNew, RssFeed,
     Language, Sort, Refresh, Delete
 } from '@mui/icons-material';
-import { useAllWebsites, useWebsitesWithRss, useDeleteWebsite } from '../hooks/useWebsite';
+import { useAllWebsites, useWebsitesWithRss, useDeleteWebsite } from '@/hooks/useWebsite';
 
 function WebsitesPage() {
     const navigate = useNavigate();

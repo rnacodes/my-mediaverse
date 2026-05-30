@@ -7,9 +7,9 @@ import {
     Accordion, AccordionSummary, AccordionDetails
 } from '@mui/material';
 import { Search, Download, MovieFilter, ExpandMore, OpenInNew } from '@mui/icons-material';
-import { searchMovies, searchTvShows, searchMulti, getMovieDetails, getTvShowDetails } from '../../api/tmdbService';
-import { importMovieFromTmdb } from '../../api/movieService';
-import { importTvShowFromTmdb } from '../../api/tvShowService';
+import { searchMovies, searchTvShows, searchMulti, getMovieDetails, getTvShowDetails } from '@/api/tmdbService';
+import { importMovieFromTmdb } from '@/api/movieService';
+import { importTvShowFromTmdb } from '@/api/tvShowService';
 import WhiteOutlineButton from '@/shared/WhiteOutlineButton';
 
 function TmdbImportSection({ expanded, onAccordionChange }) {

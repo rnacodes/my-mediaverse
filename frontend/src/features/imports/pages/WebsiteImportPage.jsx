@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TextField, Button, Box, Typography, Container, CircularProgress, Alert, Chip, Grid, Paper, Autocomplete } from '@mui/material';
 import { Language, Download, Visibility, OpenInNew, RssFeed, ArrowBack } from '@mui/icons-material';
-import { useScrapeWebsitePreview, useImportWebsite } from '../hooks/useWebsite';
-import { useTopicSearch, useGenreSearch } from '../hooks/useTopicGenre';
+import { useScrapeWebsitePreview, useImportWebsite } from '@/hooks/useWebsite';
+import { useTopicSearch, useGenreSearch } from '@/hooks/useTopicGenre';
 
 function WebsiteImportPage() {
     const [url, setUrl] = useState('');

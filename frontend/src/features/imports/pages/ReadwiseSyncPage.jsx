@@ -3,10 +3,10 @@ import {
   useValidateReadwiseConnection,
   useReadwiseSyncAll,
   useReadwiseFetchArticleContent,
-} from '../hooks/useReadwise';
-import { useUnlinkedHighlights, useUpdateHighlight, useCleanHighlightText } from '../hooks/useHighlight';
-import { useAllBooks } from '../hooks/useBook';
-import { useAllArticles } from '../hooks/useArticle';
+} from '@/hooks/useReadwise';
+import { useUnlinkedHighlights, useUpdateHighlight, useCleanHighlightText } from '@/hooks/useHighlight';
+import { useAllBooks } from '@/hooks/useBook';
+import { useAllArticles } from '@/hooks/useArticle';
 import './ReadwiseSyncPage.css';
 
 const TEXT_CUTOFF = 200;

@@ -17,8 +17,8 @@ import {
     useDeleteYouTubePlaylist,
     useSyncYouTubePlaylist,
     useAddVideoToYouTubePlaylist,
-} from '../hooks/useYoutube';
-import { useAllMixlists } from '../hooks/useMixlist';
+} from '@/hooks/useYoutube';
+import { useAllMixlists } from '@/hooks/useMixlist';
 import {
     formatMediaType,
     formatStatus,
@@ -26,7 +26,7 @@ import {
     getStatusColor,
     getRatingIcon,
     getRatingText
-} from '../utils/formatters';
+} from '@/utils/formatters';
 
 function YouTubePlaylistProfile() {
     const [currentMixlists, setCurrentMixlists] = useState([]);

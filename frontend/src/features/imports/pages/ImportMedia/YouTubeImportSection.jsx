@@ -11,7 +11,7 @@ import {
     searchYouTube, getYouTubePlaylistDetails,
     importYouTubeVideo, importYouTubePlaylistEntity, importYouTubeChannelEntity,
     importFromYouTubeUrl, checkYouTubeChannelExists
-} from '../../api/youtubeService';
+} from '@/api/youtubeService';
 import WhiteOutlineButton from '@/shared/WhiteOutlineButton';
 import SafeImage from './SafeImage';
 

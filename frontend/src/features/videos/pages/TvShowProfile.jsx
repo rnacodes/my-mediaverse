@@ -19,8 +19,8 @@ import SavedRelatedMediaSection from '@/features/media/SavedRelatedMediaSection'
 import SimilarItemsSection from '@/features/media/SimilarItemsSection';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
-import { useTvShow, useTvShowEpisodes, useDeleteTvShow } from '../hooks/useTvShow';
-import { useAllMixlists } from '../hooks/useMixlist';
+import { useTvShow, useTvShowEpisodes, useDeleteTvShow } from '@/hooks/useTvShow';
+import { useAllMixlists } from '@/hooks/useMixlist';
 import {
     formatMediaType,
     formatStatus,
@@ -28,7 +28,7 @@ import {
     getStatusColor,
     getRatingIcon,
     getRatingText
-} from '../utils/formatters';
+} from '@/utils/formatters';
 
 function TvShowProfile() {
     const [currentMixlists, setCurrentMixlists] = useState([]);

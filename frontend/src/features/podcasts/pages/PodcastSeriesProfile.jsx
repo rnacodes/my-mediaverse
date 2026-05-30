@@ -18,8 +18,8 @@ import {
     useSyncPodcastSeriesEpisodes,
     useDeletePodcastSeries,
     useImportPodcastEpisodeFromApi,
-} from '../hooks/usePodcast';
-import { useAllMixlists } from '../hooks/useMixlist';
+} from '@/hooks/usePodcast';
+import { useAllMixlists } from '@/hooks/useMixlist';
 import {
     formatMediaType,
     formatStatus,
@@ -27,7 +27,7 @@ import {
     getStatusColor,
     getRatingIcon,
     getRatingText
-} from '../utils/formatters';
+} from '@/utils/formatters';
 
 function PodcastSeriesProfile() {
     const [currentMixlists, setCurrentMixlists] = useState([]);

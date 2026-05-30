@@ -5,7 +5,7 @@ import {
     ArrowBack, CloudUpload, FileDownload, CheckCircle,
     Error, Info
 } from '@mui/icons-material';
-import { useImportGenresFromCsv, useImportTopicsFromCsv } from '../hooks/useTopicGenre';
+import { useImportGenresFromCsv, useImportTopicsFromCsv } from '@/hooks/useTopicGenre';
 
 function ImportGenresTopicsPage() {
     const [activeTab, setActiveTab] = useState(0); // 0 for Genres, 1 for Topics

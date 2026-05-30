@@ -8,9 +8,9 @@ import {
     List, ListItem, ListItemText
 } from '@mui/material';
 import { ArrowBack, CloudDownload, ViewModule, ViewList, Search, FilterList, Star, CheckCircle, Inbox, Sort, Refresh, OpenInNew } from '@mui/icons-material';
-import { useAllArticles } from '../hooks/useArticle';
+import { useAllArticles } from '@/hooks/useArticle';
 import ArticleCard from '@/shared/ArticleCard';
-import { formatStatus } from '../utils/formatters';
+import { formatStatus } from '@/utils/formatters';
 
 function ArticlesPage() {
     const navigate = useNavigate();
