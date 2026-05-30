@@ -30,7 +30,7 @@ import ImportGenresTopicsPage from './components/ImportGenresTopicsPage';
 import SearchByTopicOrGenre from './components/SearchByTopicOrGenre';
 import Search from './components/Search';
 import UploadMediaPage from './components/UploadMediaPage';
-import YouTubeCallback from './pages/YouTubeCallback';
+import YouTubeCallback from './features/videos/pages/YouTubeCallback';
 import ReadwiseSyncPage from './components/ReadwiseSyncPage';
 import TraktSyncPage from './components/TraktSyncPage';
 import HighlightLinkingPage from './components/HighlightLinkingPage';

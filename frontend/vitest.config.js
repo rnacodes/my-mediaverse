@@ -9,6 +9,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: [
+      { find: /^@\/(.*)$/, replacement: path.resolve(__dirname, 'src') + '/$1' },
       { find: /^@mui\/material(\/.*)?$/, replacement: path.resolve(__dirname, 'src/test-mocks/mui-material.jsx') },
       { find: /^@mui\/icons-material(\/.*)?$/, replacement: path.resolve(__dirname, 'src/test-mocks/mui-icons.jsx') },
       { find: /^@emotion\/react(\/.*)?$/, replacement: path.resolve(__dirname, 'src/test-mocks/emotion-react.jsx') },
