@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Paper, Typography, Grid, Checkbox, Chip } from '@mui/material';
 import { Star } from '@mui/icons-material';
-import { formatMediaType, formatStatus, getRatingIcon } from '../../utils/formatters';
+import { formatMediaType, formatStatus, getRatingIcon } from '@/utils/formatters';
 
 export const MediaListItem = React.memo(({ item, isSelected = false, onToggleSelect, showCheckbox = false }) => {
     const navigate = useNavigate();

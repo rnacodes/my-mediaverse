@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Box, Card, CardContent, Chip, Typography, Checkbox } from '@mui/material';
 import { Star, AccessTime } from '@mui/icons-material';
-import { formatMediaType, formatStatus, getRatingIcon } from '../../utils/formatters';
+import { formatMediaType, formatStatus, getRatingIcon } from '@/utils/formatters';
 
 // Determine navigation path based on item type
 const getItemPath = (item) => {
@@ -14,7 +14,7 @@ const getItemPath = (item) => {
     return `/media/${item.id}`;
 };
 
-export const MediaCard = React.memo(({ item, isSelected = false, onToggleSelect, showCheckbox = false }) => {
+export const SearchResultCard = React.memo(({ item, isSelected = false, onToggleSelect, showCheckbox = false }) => {
     // Handle checkbox click
     const handleCheckboxChange = (event) => {
         event.stopPropagation();
@@ -260,5 +260,5 @@ export const MediaCard = React.memo(({ item, isSelected = false, onToggleSelect,
     );
 });
 
-MediaCard.displayName = 'MediaCard';
+SearchResultCard.displayName = 'SearchResultCard';
 

@@ -11,7 +11,7 @@ import {
     useDeleteGenre,
     useUpdateTopic,
     useUpdateGenre,
-} from '../hooks/useTopicGenre';
+} from '@/hooks/useTopicGenre';
 
 const sortByName = (items) =>
     [...items].sort((a, b) => (a.name || a.Name).localeCompare(b.name || b.Name));

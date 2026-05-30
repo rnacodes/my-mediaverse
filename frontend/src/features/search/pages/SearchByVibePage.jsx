@@ -30,8 +30,8 @@ import {
   Search as SearchIcon,
   AutoAwesome as AutoAwesomeIcon,
 } from '@mui/icons-material';
-import { useVibeSearch } from '../hooks/useRecommendation';
-import { formatMediaType } from '../utils/formatters';
+import { useVibeSearch } from '@/hooks/useRecommendation';
+import { formatMediaType } from '@/utils/formatters';
 
 function SearchByVibePage() {
   const [query, setQuery] = useState('');

@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Typography, TextField, InputAdornment, Grid, Button, Divider, Accordion, AccordionSummary, AccordionDetails, FormGroup, FormControlLabel, Checkbox, Select, MenuItem, FormControl, Paper } from '@mui/material';
 import { Search as SearchIcon, Clear, TuneRounded, ExpandMore } from '@mui/icons-material';
-import { getRatingIcon } from '../../utils/formatters';
+import { getRatingIcon } from '@/utils/formatters';
 
 
 const statusOptions = [

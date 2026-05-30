@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Container, Box, Typography, Grid, Button, ButtonGroup, Collapse, CircularProgress, Paper, Alert, Toolbar, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Snackbar, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
-import { SearchBarSection } from './search/SearchBarSection';
-import { SearchFilterSidebar } from './search/SearchFilterSidebar';
+import { SearchBarSection } from '../SearchBarSection';
+import { SearchFilterSidebar } from '../SearchFilterSidebar';
 import { Search as SearchIcon, Delete, CheckBox, CheckBoxOutlineBlank, PlaylistAdd } from '@mui/icons-material';
-import { ResultHeader } from './search/ResultHeader';
-import { MediaCard } from './search/MediaCard';
-import { MediaListItem } from './search/MediaListItem';
-import { typesenseAdvancedSearch, typesenseAdvancedSearchMixlists, searchHighlights } from '../api/typesenseService';
-import { searchNotes } from '../api/noteService';
-import { useAllTopics, useAllGenres } from '../hooks/useTopicGenre';
-import { useAllMixlists, useAddMediaToMixlist } from '../hooks/useMixlist';
-import { useBulkDeleteMedia } from '../hooks/useMedia';
+import { ResultHeader } from '../ResultHeader';
+import { SearchResultCard } from '../SearchResultCard';
+import { MediaListItem } from '../MediaListItem';
+import { typesenseAdvancedSearch, typesenseAdvancedSearchMixlists, searchHighlights } from '@/api/typesenseService';
+import { searchNotes } from '@/api/noteService';
+import { useAllTopics, useAllGenres } from '@/hooks/useTopicGenre';
+import { useAllMixlists, useAddMediaToMixlist } from '@/hooks/useMixlist';
+import { useBulkDeleteMedia } from '@/hooks/useMedia';
 
 
 
@@ -762,7 +762,7 @@ export default function Search() {
                             <Grid container spacing={3}>
                                 {searchResults.map((item) => (
                                     <Grid item xs={12} sm={6} lg={4} key={item.id}>
-                                        <MediaCard
+                                        <SearchResultCard
                                             item={item}
                                             isSelected={selectedItems.has(item.id)}
                                             onToggleSelect={handleToggleSelect}
