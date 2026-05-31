@@ -708,6 +708,7 @@ official-documentation/
 .todo2/
 .mcp.json
 outdated-TESTING.md
+.playwright-mcp/
 .playwright-mcp/page-2026-05-16T00-40-37-878Z.yml
 .playwright-mcp/page-2026-05-16T00-46-02-680Z.yml
 .playwright-mcp/page-2026-05-16T00-46-30-214Z.yml
