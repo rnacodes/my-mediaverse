@@ -1,3 +1,6 @@
+// QUARANTINED (RAS-17): excluded from the run via vitest.config.js.
+// TODO(RAS-6): rewrite when HomePage is split into 5 components + useHomepageData hook.
+// Component moved to src/features/homepage/ in the feature-folder reorg.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
