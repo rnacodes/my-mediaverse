@@ -1,5 +1,5 @@
 using Xunit;
-using FluentAssertions;
+using AwesomeAssertions;
 using MyMediaVerse.Domain.Entities;
 using System;
 using System.Collections.Generic;
@@ -492,7 +492,7 @@ namespace MyMediaVerse.UnitTests.Domain
 
             // Assert
             video.LengthInSeconds.Should().Be(lengthInSeconds);
-            video.LengthInSeconds.Should().BeGreaterOrEqualTo(0);
+            video.LengthInSeconds.Should().BeGreaterThanOrEqualTo(0);
         }
 
         #endregion

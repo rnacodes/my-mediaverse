@@ -5,9 +5,8 @@ using System.Text.Json;
 namespace MyMediaVerse.IntegrationTests.Helpers
 {
     /// <summary>
-    /// JWT helpers lifted out of the legacy <c>WebApplicationFactory</c>. Resolves credentials
-    /// the same way <c>AuthController</c> does (env vars first, then defaults), POSTs to
-    /// <c>/api/auth/login</c>, and returns a bearer token.
+    /// JWT helpers for integration tests. Resolves credentials the same way <c>AuthController</c>
+    /// does (env vars first, then defaults), POSTs to <c>/api/auth/login</c>, and returns a bearer token.
     /// </summary>
     public static class AuthTestExtensions
     {

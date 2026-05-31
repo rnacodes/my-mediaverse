@@ -1,92 +1,92 @@
-import React from 'react';
-import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
+import { BrowserRouter as Router, Route, Routes, Link, useLocation } from 'react-router-dom';
+import { ErrorBoundary } from 'react-error-boundary';
 import { ThemeProvider, CssBaseline, Typography, Button, Box } from '@mui/material';
 
-// --- Import Auth Context ---
-import { AuthProvider } from './contexts/AuthContext';
-import { DemoAdminProvider } from './contexts/DemoAdminContext';
-import { DemoReadOnlyProvider } from './contexts/DemoReadOnlyContext';
+// --- Eager imports: providers, route guards, chrome (always rendered) ---
+import { AuthProvider } from './contexts/AuthProvider';
+import { DemoAdminProvider } from './contexts/DemoAdminProvider';
+import { DemoReadOnlyProvider } from './contexts/DemoReadOnlyProvider';
+import ConditionalProtectedRoute from './features/auth/ConditionalProtectedRoute';
+import DemoReadOnlyDialog from '@/shared/DemoReadOnlyDialog';
+import { theme } from '@/shared/DesignSystem';
+import ResponsiveNavigation from '@/shared/ResponsiveNavigation';
+import Footer from '@/shared/Footer';
+import LoadingSpinner from '@/shared/LoadingSpinner';
 
-// --- Import Route Protection ---
-import ConditionalProtectedRoute from './components/ConditionalProtectedRoute';
+// --- Eager route components: bundled into the main chunk for instant nav ---
+import HomePage from './features/homepage';
+import LoginPage from './features/auth/pages/LoginPage';
+import AddMediaForm from './features/media/pages/AddMediaForm';
+import AllMedia from './features/media/pages/AllMedia';
+import MixlistsPage from './features/mixlists/pages/MixlistsPage';
+import CreateMixlistForm from './features/mixlists/pages/CreateMixlistForm';
+import MixlistProfilePage from './features/mixlists/pages/MixlistProfilePage';
+import MediaProfilePage from './features/media/pages/MediaProfilePage';
+import EditMediaForm from './features/media/pages/EditMediaForm';
+import EditMixlistForm from './features/mixlists/pages/EditMixlistForm';
+import ImportMediaPage from './features/imports/pages/ImportMedia';
+import ImportGenresTopicsPage from './features/imports/pages/ImportGenresTopicsPage';
+import SearchByTopicOrGenre from './features/search/pages/SearchByTopicOrGenre';
+import Search from './features/search/pages/Search';
+import UploadMediaPage from './features/media/pages/UploadMediaPage';
+import YouTubeCallback from './features/videos/pages/YouTubeCallback';
+import ReadwiseSyncPage from './features/imports/pages/ReadwiseSyncPage';
+import TraktSyncPage from './features/imports/pages/TraktSyncPage';
+import HighlightLinkingPage from './features/notes/pages/HighlightLinkingPage';
+import ArticlesPage from './features/imports/pages/ArticlesPage';
+import DocumentsPage from './features/imports/pages/DocumentsPage';
+import SourceDirectoryPage from './features/imports/pages/SourceDirectoryPage';
+import YouTubeChannelList from './features/videos/pages/YouTubeChannelList';
+import YouTubeChannelProfile from './features/videos/pages/YouTubeChannelProfile';
+import YouTubePlaylistProfile from './features/videos/pages/YouTubePlaylistProfile';
+import PodcastSeriesProfile from './features/podcasts/pages/PodcastSeriesProfile';
+import TvShowProfile from './features/videos/pages/TvShowProfile';
+import CleanupManagementPage from './features/admin/pages/CleanupManagementPage';
+import WebsiteImportPage from './features/imports/pages/WebsiteImportPage';
+import WebsitesPage from './features/imports/pages/WebsitesPage';
+import GoodreadsUploadPage from './features/media/pages/GoodreadsUploadPage';
+import NoteProfilePage from './features/notes/pages/NoteProfilePage';
+import HighlightProfilePage from './features/notes/pages/HighlightProfilePage';
+import ScriptExecutionPage from './features/admin/pages/ScriptExecutionPage';
+import NotesListingPage from './features/notes/pages/NotesListingPage';
+import AiAdminPage from './features/admin/pages/AiAdminPage';
+import SearchByVibePage from './features/search/pages/SearchByVibePage';
+import DemoUnlockPage from './features/demo/pages/DemoUnlockPage';
+import DemoDataUploadPage from './features/demo/pages/DemoDataUploadPage';
 
-// --- Import your page components ---
-import HomePage from './components/HomePage';
-import LoginPage from './components/LoginPage';
-import AddMediaForm from './components/AddMediaForm';
+// --- Lazy: heavy + infrequently-visited routes. Kept out of the main chunk.
+// DemoPage (113 kB, separate user path) + admin/import maintenance pages. ---
+const DemoPage = lazy(() => import('./features/demo/pages/DemoPage'));
+const ImportMixlistPage = lazy(() => import('./features/imports/pages/ImportMixlistPage'));
+const TypesenseAdminPage = lazy(() => import('./features/admin/pages/TypesenseAdminPage'));
+const BackgroundJobsPage = lazy(() => import('./features/admin/pages/BackgroundJobsPage'));
 
-import AllMedia from './components/AllMedia';
-import MixlistsPage from './components/MixlistsPage';
-import CreateMixlistForm from './components/CreateMixlistForm';
-import MixlistProfilePage from './components/MixlistProfilePage';
-import MediaProfilePage from './components/MediaProfilePage';
-import EditMediaForm from './components/EditMediaForm';
-import EditMixlistForm from './components/EditMixlistForm';
-import ImportMediaPage from './components/ImportMedia';
-import ImportMixlistPage from './components/ImportMixlistPage';
-import ImportGenresTopicsPage from './components/ImportGenresTopicsPage';
-import SearchByTopicOrGenre from './components/SearchByTopicOrGenre';
-import Search from './components/Search';
-import DemoPage from './components/DemoPage';
-import UploadMediaPage from './components/UploadMediaPage';
-import YouTubeCallback from './pages/YouTubeCallback';
-import ReadwiseSyncPage from './components/ReadwiseSyncPage';
-import TraktSyncPage from './components/TraktSyncPage';
-import HighlightLinkingPage from './components/HighlightLinkingPage';
-import ArticlesPage from './components/ArticlesPage';
-import DocumentsPage from './components/DocumentsPage';
-import SourceDirectoryPage from './components/SourceDirectoryPage';
-import YouTubeChannelList from './components/YouTubeChannelList';
-import YouTubeChannelProfile from './components/YouTubeChannelProfile';
-import YouTubePlaylistProfile from './components/YouTubePlaylistProfile';
-import PodcastSeriesProfile from './components/PodcastSeriesProfile';
-import TvShowProfile from './components/TvShowProfile';
-import CleanupManagementPage from './components/CleanupManagementPage';
-import WebsiteImportPage from './components/WebsiteImportPage';
-import WebsitesPage from './components/WebsitesPage';
-import TypesenseAdminPage from './components/TypesenseAdminPage';
-import GoodreadsUploadPage from './components/GoodreadsUploadPage';
-import BackgroundJobsPage from './components/BackgroundJobsPage';
-import NoteProfilePage from './components/NoteProfilePage';
-import HighlightProfilePage from './components/HighlightProfilePage';
-import ScriptExecutionPage from './components/ScriptExecutionPage';
-import NotesListingPage from './components/NotesListingPage';
-import AiAdminPage from './components/AiAdminPage';
-import SearchByVibePage from './components/SearchByVibePage';
-import DemoUnlockPage from './components/DemoUnlockPage';
-import DemoDataUploadPage from './components/DemoDataUploadPage';
-
-// --- Import Demo Read-Only Dialog ---
-import DemoReadOnlyDialog from './components/shared/DemoReadOnlyDialog';
-
-// --- Import Design System ---
-import { theme } from './components/shared/DesignSystem';
-import ResponsiveNavigation from './components/shared/ResponsiveNavigation';
-import Footer from './components/shared/Footer';
-
-function App() {
+function RouteErrorFallback({ error, resetErrorBoundary }) {
   return (
-    // The ThemeProvider wraps the entire application
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <Router>
-        <AuthProvider>
-          <DemoAdminProvider>
-          <DemoReadOnlyProvider>
-          <DemoReadOnlyDialog />
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              minHeight: '100vh'
-            }}
-          >
-            {/* Responsive Navigation Component */}
-            <ResponsiveNavigation />
+    <Box role="alert" sx={{ p: 4, maxWidth: 600, mx: 'auto', textAlign: 'center' }}>
+      <Typography variant="h5" gutterBottom>This page hit an error</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        You can try this page again, or navigate elsewhere using the menu above.
+      </Typography>
+      <Box component="pre" sx={{ textAlign: 'left', bgcolor: 'rgba(255,255,255,0.05)', p: 2, borderRadius: 1, overflow: 'auto', fontSize: '0.85rem', mb: 2 }}>
+        {error?.message || 'Unknown error'}
+      </Box>
+      <Button variant="contained" onClick={resetErrorBoundary}>Try again</Button>
+    </Box>
+  );
+}
 
-            {/* Routes without outer container - each component handles its own layout */}
-            <Box component="main" sx={{ flexGrow: 1 }}>
-              <Routes>
+function RoutedContent() {
+  const location = useLocation();
+  return (
+    <ErrorBoundary
+      FallbackComponent={RouteErrorFallback}
+      resetKeys={[location.pathname]}
+      onError={(error) => console.error('Route error:', error)}
+    >
+      <Suspense fallback={<LoadingSpinner fullScreen message="Loading page..." />}>
+        <Routes>
             {/* Public routes - always accessible */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/demo" element={<DemoPage />} />
@@ -222,13 +222,41 @@ function App() {
           <Route path="*" element={
             <div style={{ padding: '2rem', textAlign: 'center' }}>
               <Typography variant="h4">Page Not Found</Typography>
-              <Typography variant="body1">The page you're looking for doesn't exist.</Typography>
+              <Typography variant="body1">The page you&apos;re looking for doesn&apos;t exist.</Typography>
               <Button component={Link} to="/" variant="contained" sx={{ mt: 2 }}>
                 Go Home
               </Button>
             </div>
           } />
-              </Routes>
+        </Routes>
+      </Suspense>
+    </ErrorBoundary>
+  );
+}
+
+function App() {
+  return (
+    // The ThemeProvider wraps the entire application
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Router>
+        <AuthProvider>
+          <DemoAdminProvider>
+          <DemoReadOnlyProvider>
+          <DemoReadOnlyDialog />
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: '100vh'
+            }}
+          >
+            {/* Responsive Navigation Component */}
+            <ResponsiveNavigation />
+
+            {/* Routes without outer container - each component handles its own layout */}
+            <Box component="main" sx={{ flexGrow: 1 }}>
+              <RoutedContent />
             </Box>
 
             {/* Footer Component */}

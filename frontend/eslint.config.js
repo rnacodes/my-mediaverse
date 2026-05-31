@@ -1,7 +1,9 @@
 import js from '@eslint/js'
 import globals from 'globals'
+import react from 'eslint-plugin-react'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
+import jsxA11y from 'eslint-plugin-jsx-a11y'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
@@ -10,6 +12,8 @@ export default defineConfig([
     files: ['**/*.{js,jsx}'],
     extends: [
       js.configs.recommended,
+      react.configs.flat.recommended,
+      jsxA11y.flatConfigs.recommended,
       reactHooks.configs['recommended-latest'],
       reactRefresh.configs.vite,
     ],
@@ -22,8 +26,16 @@ export default defineConfig([
         sourceType: 'module',
       },
     },
+    settings: {
+      react: { version: 'detect' },
+    },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      'no-unused-vars': ['error', { varsIgnorePattern: '^_', argsIgnorePattern: '^_' }],
+      'react/prop-types': 'off',
+      'react/react-in-jsx-scope': 'off',
+      'react/jsx-key': 'error',
+      'react/no-array-index-key': 'error',
+      'react-hooks/exhaustive-deps': 'error',
     },
   },
   {
@@ -46,6 +58,18 @@ export default defineConfig([
     files: ['vite.config.js', 'vitest.config.js', 'src/test-setup.js'],
     languageOptions: {
       globals: globals.node,
+    },
+  },
+  {
+    files: ['src/test-mocks/**/*.{js,jsx}'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+      'no-unused-vars': 'off',
+      'jsx-a11y/no-autofocus': 'off',
+      'jsx-a11y/click-events-have-key-events': 'off',
+      'jsx-a11y/no-static-element-interactions': 'off',
+      'jsx-a11y/interactive-supports-focus': 'off',
+      'jsx-a11y/no-noninteractive-element-to-interactive-role': 'off',
     },
   },
 ])

@@ -1,0 +1,579 @@
+
+> frontend@0.0.0 lint
+> eslint .
+
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\api\__tests__\apiClient.test.js
+  33:10  error  'apiClient' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\api\typesenseService.js
+  212:13  error  'sortBy' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  312:13  error  'sortBy' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\AddMediaForm.jsx
+   30:26  error  'setRelatedNotes' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u      no-unused-vars
+   41:23  error  'setAudioLink' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u         no-unused-vars
+   42:25  error  'setReleaseDate' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u       no-unused-vars
+   55:18  error  'setCast' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u              no-unused-vars
+   56:25  error  'setReleaseYear' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u       no-unused-vars
+   57:28  error  'setRuntimeMinutes' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u    no-unused-vars
+   58:24  error  'setMpaaRating' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u        no-unused-vars
+   59:20  error  'setImdbId' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u            no-unused-vars
+   60:20  error  'setTmdbId' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u            no-unused-vars
+   61:24  error  'setTmdbRating' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u        no-unused-vars
+   62:21  error  'setTagline' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u           no-unused-vars
+   63:22  error  'setHomepage' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u          no-unused-vars
+   64:30  error  'setOriginalLanguage' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+   65:27  error  'setOriginalTitle' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u     no-unused-vars
+   69:26  error  'setFirstAirYear' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u      no-unused-vars
+   70:25  error  'setLastAirYear' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u       no-unused-vars
+   71:29  error  'setNumberOfSeasons' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u   no-unused-vars
+   72:30  error  'setNumberOfEpisodes' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+   73:27  error  'setContentRating' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u     no-unused-vars
+   74:26  error  'setOriginalName' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u      no-unused-vars
+   78:27  error  'setParentVideoId' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u     no-unused-vars
+  144:11  error  'handleGenreKeyPress' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  155:11  error  'removeGenre' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u          no-unused-vars
+  160:11  error  'handleTopicKeyPress' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  171:11  error  'removeTopic' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u          no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\ArticlesPage.jsx
+  37:8  warning  React Hook useEffect has a missing dependency: 'applyFiltersAndSort'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\DemoPage.jsx
+  134:9  error  'handleSearch' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\DemoUnlockPage.jsx
+  70:18  error  'error' is defined but never used  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\DocumentsPage.jsx
+  43:8  warning  React Hook useEffect has a missing dependency: 'applyFiltersAndSort'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\EditMediaForm.jsx
+  14:24  error  'formatMediaType' is defined but never used. Allowed unused vars must match /^[A-Z_]/u      no-unused-vars
+  62:11  error  'mediaTypes' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\HomePage.jsx
+  330:31  error  'results' is defined but never used  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\ImportMedia\YouTubeImportSection.jsx
+  129:72  error  Unnecessary escape character: \/  no-useless-escape
+  133:65  error  Unnecessary escape character: \/  no-useless-escape
+  134:67  error  Unnecessary escape character: \/  no-useless-escape
+  135:68  error  Unnecessary escape character: \/  no-useless-escape
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\ImportMixlistPage.jsx
+  18:12  error  'headers' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u     no-unused-vars
+  19:12  error  'loading' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u     no-unused-vars
+  19:21  error  'setLoading' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\MediaInfoCard.jsx
+  69:9  error  'formatDuration' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  76:9  error  'formatDate' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u      no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\MediaProfilePage.jsx
+   31:55  error    'getEpisodesBySeriesId' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                 no-unused-vars
+   44:10  error    'snackbar' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                     no-unused-vars
+   45:10  error    'addToMixlistDialog' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u           no-unused-vars
+  109:21  error    'seriesResponse' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u               no-unused-vars
+  113:22  error    'seriesError' is defined but never used                                                                      no-unused-vars
+  200:6   warning  React Hook useEffect has a missing dependency: 'navigate'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  266:9   error    'handleAddToMixlist' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u           no-unused-vars
+  305:9   error    'handleCloseMixlistDialog' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u     no-unused-vars
+  311:9   error    'filteredAvailableMixlists' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u    no-unused-vars
+  318:9   error    'handleCreateNewMixlist' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u       no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\MixlistCarousel.jsx
+  189:46  error  'index' is defined but never used  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\MixlistProfilePage.jsx
+  102:11  error  'handleAddMedia' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\MixlistsPage.jsx
+  19:22  error  'setDeleting' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\NotesListingPage.jsx
+  53:6  warning  React Hook useEffect has a missing dependency: 'fetchNotes'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\PodcastSeriesProfile.jsx
+  198:18  error  'error' is defined but never used  no-unused-vars
+  215:18  error  'error' is defined but never used  no-unused-vars
+  227:18  error  'error' is defined but never used  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\RelatedMediaByEmbeddingSection.jsx
+  26:49  error  'setSnackbar' is defined but never used  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\ScriptExecutionPage.jsx
+  2:38  error  'useCallback' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\Search.jsx
+   26:7   error    'sortOptions' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                       no-unused-vars
+   57:11  error    'navigate' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                          no-unused-vars
+  243:8   warning  React Hook useEffect has a missing dependency: 'performSearch'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  553:11  error    'handleRatingToggle' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\SearchByTopicOrGenre.jsx
+   87:19  error  'response' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  114:19  error  'response' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\SearchByVibePage.jsx
+  33:24  error  'getRecommendationStatus' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\SimilarNotesSection.jsx
+  34:38  error  'setSnackbar' is defined but never used  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\TopicsGenresSection.jsx
+  1:27  error  'useEffect' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\TvShowProfile.jsx
+  105:18  error  'error' is defined but never used  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\WebsiteImportPage.jsx
+  66:18  error  'e' is defined but never used  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\WebsitesPage.jsx
+  27:8  warning  React Hook useEffect has a missing dependency: 'fetchWebsites'. Either include it or remove the dependency array        react-hooks/exhaustive-deps
+  31:8  warning  React Hook useEffect has a missing dependency: 'applyFiltersAndSort'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\YouTubeChannelList.jsx
+  23:8  warning  React Hook useEffect has a missing dependency: 'filterChannels'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\YouTubeChannelProfile.jsx
+  194:18  error  'error' is defined but never used                                                               no-unused-vars
+  211:18  error  'error' is defined but never used                                                               no-unused-vars
+  223:18  error  'error' is defined but never used                                                               no-unused-vars
+  229:11  error  'formatDuration' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\YouTubePlaylistProfile.jsx
+  254:18  error  'error' is defined but never used  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\__tests__\AddMediaForm.test.jsx
+   6:13  error  'mediaService' is defined but never used. Allowed unused vars must match /^[A-Z_]/u   no-unused-vars
+  10:13  error  'bookService' is defined but never used. Allowed unused vars must match /^[A-Z_]/u    no-unused-vars
+  11:13  error  'movieService' is defined but never used. Allowed unused vars must match /^[A-Z_]/u   no-unused-vars
+  12:13  error  'tvShowService' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  13:13  error  'videoService' is defined but never used. Allowed unused vars must match /^[A-Z_]/u   no-unused-vars
+  14:13  error  'uploadService' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\__tests__\HomePage.test.jsx
+  331:15  error  'container' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\__tests__\MediaCard.test.jsx
+  193:15  error  'container' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\__tests__\MediaProfilePage.test.jsx
+    3:35  error  'fireEvent' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                          no-unused-vars
+    8:24  error  'mediaId' is defined but never used                                                                       no-unused-vars
+   17:17  error  'mediaItem' is defined but never used                                                                     no-unused-vars
+   67:10  error  'getPodcastSeriesById' is defined but never used. Allowed unused vars must match /^[A-Z_]/u               no-unused-vars
+   67:32  error  'getPodcastEpisodeById' is defined but never used. Allowed unused vars must match /^[A-Z_]/u              no-unused-vars
+   67:55  error  'getEpisodesBySeriesId' is defined but never used. Allowed unused vars must match /^[A-Z_]/u              no-unused-vars
+   69:10  error  'getTvShowById' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                      no-unused-vars
+   70:10  error  'getVideoById' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                       no-unused-vars
+   70:24  error  'getPlaylistsForVideo' is defined but never used. Allowed unused vars must match /^[A-Z_]/u               no-unused-vars
+   71:10  error  'getArticleById' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                     no-unused-vars
+   71:26  error  'fetchArticleContent' is defined but never used. Allowed unused vars must match /^[A-Z_]/u                no-unused-vars
+   72:10  error  'getHighlightsByArticle' is defined but never used. Allowed unused vars must match /^[A-Z_]/u             no-unused-vars
+  122:7   error  'mockPodcastSeriesMedia' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u    no-unused-vars
+  130:7   error  'mockPodcastSeriesDetails' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\__tests__\PodcastSeriesProfile.test.jsx
+  6:55   error  'syncPodcastSeriesEpisodes' is defined but never used. Allowed unused vars must match /^[A-Z_]/u    no-unused-vars
+  6:82   error  'deletePodcastSeries' is defined but never used. Allowed unused vars must match /^[A-Z_]/u          no-unused-vars
+  6:103  error  'importPodcastEpisodeFromApi' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\__tests__\WebsiteImportPage.test.jsx
+  8:13  error  'topicGenreService' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\__tests__\YouTubePlaylistProfile.test.jsx
+  6:60   error  'deleteYouTubePlaylist' is defined but never used. Allowed unused vars must match /^[A-Z_]/u      no-unused-vars
+  6:83   error  'syncYouTubePlaylist' is defined but never used. Allowed unused vars must match /^[A-Z_]/u        no-unused-vars
+  6:104  error  'addVideoToYouTubePlaylist' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\search\SearchFilterSidebar.jsx
+  14:10  error  'formatMediaType' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  14:27  error  'formatStatus' is defined but never used. Allowed unused vars must match /^[A-Z_]/u     no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\shared\ArticleCard.jsx
+  41:11  error  'getStatusLabel' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\shared\LoadingSpinner.jsx
+  9:10  error  'commonStyles' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\shared\MediaCarousel.jsx
+   4:10  error  'motion' is defined but never used. Allowed unused vars must match /^[A-Z_]/u        no-unused-vars
+  27:18  error  'commonStyles' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  38:3   error  'slidesPerView' is assigned a value but never used                                   no-unused-vars
+  40:3   error  'centeredSlides' is assigned a value but never used                                  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\shared\ResponsiveNavigation.jsx
+  79:9  error  'location' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\components\shared\SearchBar.jsx
+  265:63  error  'index' is defined but never used  no-unused-vars
+  312:69  error  'index' is defined but never used  no-unused-vars
+  433:18  error  'process' is not defined           no-undef
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\contexts\AuthContext.jsx
+   7:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  35:22  error  'error' is defined but never used                                                                                               no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\contexts\DemoAdminContext.jsx
+  7:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\contexts\DemoReadOnlyContext.jsx
+  5:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\contexts\__tests__\DemoReadOnlyContext.test.jsx
+  2:31  error  'waitFor' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\pages\YouTubeCallback.jsx
+  248:10  error  'process' is not defined  no-undef
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\test-mocks\emotion-react.jsx
+   4:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+   5:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+   8:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+   9:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  11:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\test-mocks\emotion-styled.jsx
+  4:23  error  '_args' is defined but never used  no-unused-vars
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\test-mocks\mui-icons.jsx
+  145:16  error  Fast refresh can't handle anonymous components. Add a name to your export  react-refresh/only-export-components
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\test-mocks\mui-material.jsx
+   10:24   error  'Tag' is assigned a value but never used                                                                                        no-unused-vars
+   10:48   error  'sx' is defined but never used                                                                                                  no-unused-vars
+   11:3    error  'display' is defined but never used                                                                                             no-unused-vars
+   11:12   error  'flexDirection' is defined but never used                                                                                       no-unused-vars
+   11:27   error  'flexGrow' is defined but never used                                                                                            no-unused-vars
+   11:37   error  'flexShrink' is defined but never used                                                                                          no-unused-vars
+   11:49   error  'flex' is defined but never used                                                                                                no-unused-vars
+   11:55   error  'alignItems' is defined but never used                                                                                          no-unused-vars
+   11:67   error  'justifyContent' is defined but never used                                                                                      no-unused-vars
+   12:3    error  'gap' is defined but never used                                                                                                 no-unused-vars
+   12:8    error  'p' is defined but never used                                                                                                   no-unused-vars
+   12:11   error  'px' is defined but never used                                                                                                  no-unused-vars
+   12:15   error  'py' is defined but never used                                                                                                  no-unused-vars
+   12:19   error  'm' is defined but never used                                                                                                   no-unused-vars
+   12:22   error  'mx' is defined but never used                                                                                                  no-unused-vars
+   12:26   error  'my' is defined but never used                                                                                                  no-unused-vars
+   12:30   error  'mt' is defined but never used                                                                                                  no-unused-vars
+   12:34   error  'mb' is defined but never used                                                                                                  no-unused-vars
+   12:38   error  'ml' is defined but never used                                                                                                  no-unused-vars
+   12:42   error  'mr' is defined but never used                                                                                                  no-unused-vars
+   12:46   error  'pt' is defined but never used                                                                                                  no-unused-vars
+   12:50   error  'pb' is defined but never used                                                                                                  no-unused-vars
+   12:54   error  'pl' is defined but never used                                                                                                  no-unused-vars
+   12:58   error  'pr' is defined but never used                                                                                                  no-unused-vars
+   12:62   error  'width' is defined but never used                                                                                               no-unused-vars
+   12:69   error  'height' is defined but never used                                                                                              no-unused-vars
+   13:3    error  'minWidth' is defined but never used                                                                                            no-unused-vars
+   13:13   error  'maxWidth' is defined but never used                                                                                            no-unused-vars
+   13:23   error  'minHeight' is defined but never used                                                                                           no-unused-vars
+   13:34   error  'maxHeight' is defined but never used                                                                                           no-unused-vars
+   13:45   error  'overflow' is defined but never used                                                                                            no-unused-vars
+   13:55   error  'position' is defined but never used                                                                                            no-unused-vars
+   13:65   error  'top' is defined but never used                                                                                                 no-unused-vars
+   13:70   error  'left' is defined but never used                                                                                                no-unused-vars
+   13:76   error  'right' is defined but never used                                                                                               no-unused-vars
+   13:83   error  'bottom' is defined but never used                                                                                              no-unused-vars
+   14:3    error  'textAlign' is defined but never used                                                                                           no-unused-vars
+   14:14   error  'bgcolor' is defined but never used                                                                                             no-unused-vars
+   14:23   error  'border' is defined but never used                                                                                              no-unused-vars
+   14:31   error  'borderRadius' is defined but never used                                                                                        no-unused-vars
+   14:45   error  'borderColor' is defined but never used                                                                                         no-unused-vars
+   14:58   error  'boxShadow' is defined but never used                                                                                           no-unused-vars
+   14:69   error  'zIndex' is defined but never used                                                                                              no-unused-vars
+   21:67   error  'maxWidth' is defined but never used                                                                                            no-unused-vars
+   21:77   error  'fixed' is defined but never used                                                                                               no-unused-vars
+   21:84   error  'disableGutters' is defined but never used                                                                                      no-unused-vars
+   21:100  error  'sx' is defined but never used                                                                                                  no-unused-vars
+   26:63   error  'elevation' is defined but never used                                                                                           no-unused-vars
+   26:74   error  'square' is defined but never used                                                                                              no-unused-vars
+   26:82   error  'variant' is defined but never used                                                                                             no-unused-vars
+   26:91   error  'sx' is defined but never used                                                                                                  no-unused-vars
+   31:63   error  'direction' is defined but never used                                                                                           no-unused-vars
+   31:74   error  'spacing' is defined but never used                                                                                             no-unused-vars
+   31:83   error  'alignItems' is defined but never used                                                                                          no-unused-vars
+   31:95   error  'justifyContent' is defined but never used                                                                                      no-unused-vars
+   31:111  error  'divider' is defined but never used                                                                                             no-unused-vars
+   31:120  error  'sx' is defined but never used                                                                                                  no-unused-vars
+   37:41   error  'xs' is defined but never used                                                                                                  no-unused-vars
+   37:45   error  'sm' is defined but never used                                                                                                  no-unused-vars
+   37:49   error  'md' is defined but never used                                                                                                  no-unused-vars
+   37:53   error  'lg' is defined but never used                                                                                                  no-unused-vars
+   37:57   error  'xl' is defined but never used                                                                                                  no-unused-vars
+   38:3    error  'spacing' is defined but never used                                                                                             no-unused-vars
+   38:12   error  'direction' is defined but never used                                                                                           no-unused-vars
+   38:23   error  'alignItems' is defined but never used                                                                                          no-unused-vars
+   38:35   error  'justifyContent' is defined but never used                                                                                      no-unused-vars
+   38:51   error  'wrap' is defined but never used                                                                                                no-unused-vars
+   38:57   error  'sx' is defined but never used                                                                                                  no-unused-vars
+   49:64   error  'position' is defined but never used                                                                                            no-unused-vars
+   49:74   error  'color' is defined but never used                                                                                               no-unused-vars
+   49:81   error  'elevation' is defined but never used                                                                                           no-unused-vars
+   49:92   error  'sx' is defined but never used                                                                                                  no-unused-vars
+   54:65   error  'variant' is defined but never used                                                                                             no-unused-vars
+   54:74   error  'disableGutters' is defined but never used                                                                                      no-unused-vars
+   54:90   error  'sx' is defined but never used                                                                                                  no-unused-vars
+   59:59   error  'onClose' is defined but never used                                                                                             no-unused-vars
+   59:68   error  'anchor' is defined but never used                                                                                              no-unused-vars
+   59:96   error  'sx' is defined but never used                                                                                                  no-unused-vars
+   67:55   error  'sx' is defined but never used                                                                                                  no-unused-vars
+   67:59   error  'orientation' is defined but never used                                                                                         no-unused-vars
+   67:72   error  'flexItem' is defined but never used                                                                                            no-unused-vars
+   72:65   error  'timeout' is defined but never used                                                                                             no-unused-vars
+   72:74   error  'sx' is defined but never used                                                                                                  no-unused-vars
+   87:44   error  'sx' is defined but never used                                                                                                  no-unused-vars
+   87:48   error  'color' is defined but never used                                                                                               no-unused-vars
+   87:55   error  'align' is defined but never used                                                                                               no-unused-vars
+   87:62   error  'gutterBottom' is defined but never used                                                                                        no-unused-vars
+   87:76   error  'noWrap' is defined but never used                                                                                              no-unused-vars
+   87:84   error  'paragraph' is defined but never used                                                                                           no-unused-vars
+   98:22   error  'color' is defined but never used                                                                                               no-unused-vars
+   98:29   error  'size' is defined but never used                                                                                                no-unused-vars
+   99:3    error  'fullWidth' is defined but never used                                                                                           no-unused-vars
+   99:14   error  'disableElevation' is defined but never used                                                                                    no-unused-vars
+   99:32   error  'disableRipple' is defined but never used                                                                                       no-unused-vars
+   99:47   error  'href' is defined but never used                                                                                                no-unused-vars
+   99:75   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  119:32   error  'size' is defined but never used                                                                                                no-unused-vars
+  119:38   error  'color' is defined but never used                                                                                               no-unused-vars
+  119:45   error  'edge' is defined but never used                                                                                                no-unused-vars
+  119:51   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  119:66   error  'component' is defined but never used                                                                                           no-unused-vars
+  127:69   error  'variant' is defined but never used                                                                                             no-unused-vars
+  127:78   error  'color' is defined but never used                                                                                               no-unused-vars
+  127:85   error  'size' is defined but never used                                                                                                no-unused-vars
+  127:91   error  'orientation' is defined but never used                                                                                         no-unused-vars
+  127:104  error  'sx' is defined but never used                                                                                                  no-unused-vars
+  133:50   error  'size' is defined but never used                                                                                                no-unused-vars
+  133:56   error  'color' is defined but never used                                                                                               no-unused-vars
+  133:74   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  142:13   error  'value' is defined but never used                                                                                               no-unused-vars
+  142:20   error  'onChange' is defined but never used                                                                                            no-unused-vars
+  142:30   error  'exclusive' is defined but never used                                                                                           no-unused-vars
+  142:41   error  'orientation' is defined but never used                                                                                         no-unused-vars
+  142:54   error  'size' is defined but never used                                                                                                no-unused-vars
+  142:71   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  148:59   error  'color' is defined but never used                                                                                               no-unused-vars
+  148:66   error  'size' is defined but never used                                                                                                no-unused-vars
+  148:72   error  'variant' is defined but never used                                                                                             no-unused-vars
+  148:102  error  'sx' is defined but never used                                                                                                  no-unused-vars
+  157:41   error  'InputProps' is defined but never used                                                                                          no-unused-vars
+  157:65   error  'InputLabelProps' is defined but never used                                                                                     no-unused-vars
+  158:3    error  'error' is defined but never used                                                                                               no-unused-vars
+  158:22   error  'fullWidth' is defined but never used                                                                                           no-unused-vars
+  158:33   error  'variant' is defined but never used                                                                                             no-unused-vars
+  158:42   error  'size' is defined but never used                                                                                                no-unused-vars
+  158:48   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  159:38   error  'margin' is defined but never used                                                                                              no-unused-vars
+  159:46   error  'minRows' is defined but never used                                                                                             no-unused-vars
+  159:55   error  'maxRows' is defined but never used                                                                                             no-unused-vars
+  159:67   error  'rest' is defined but never used                                                                                                no-unused-vars
+  212:69   error  'fullWidth' is defined but never used                                                                                           no-unused-vars
+  212:80   error  'error' is defined but never used                                                                                               no-unused-vars
+  212:87   error  'required' is defined but never used                                                                                            no-unused-vars
+  212:97   error  'variant' is defined but never used                                                                                             no-unused-vars
+  212:106  error  'size' is defined but never used                                                                                                no-unused-vars
+  212:112  error  'margin' is defined but never used                                                                                              no-unused-vars
+  212:120  error  'sx' is defined but never used                                                                                                  no-unused-vars
+  217:67   error  'error' is defined but never used                                                                                               no-unused-vars
+  217:74   error  'required' is defined but never used                                                                                            no-unused-vars
+  217:84   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  222:67   error  'row' is defined but never used                                                                                                 no-unused-vars
+  222:72   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  227:97   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  235:80   error  'row' is defined but never used                                                                                                 no-unused-vars
+  235:96   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  242:99   error  'className' is defined but never used                                                                                           no-unused-vars
+  242:110  error  'sx' is defined but never used                                                                                                  no-unused-vars
+  242:114  error  'size' is defined but never used                                                                                                no-unused-vars
+  242:120  error  'color' is defined but never used                                                                                               no-unused-vars
+  260:90   error  'indeterminate' is defined but never used                                                                                       no-unused-vars
+  260:105  error  'color' is defined but never used                                                                                               no-unused-vars
+  260:112  error  'size' is defined but never used                                                                                                no-unused-vars
+  260:118  error  'sx' is defined but never used                                                                                                  no-unused-vars
+  260:122  error  'className' is defined but never used                                                                                           no-unused-vars
+  260:133  error  'icon' is defined but never used                                                                                                no-unused-vars
+  260:139  error  'checkedIcon' is defined but never used                                                                                         no-unused-vars
+  273:88   error  'color' is defined but never used                                                                                               no-unused-vars
+  273:95   error  'size' is defined but never used                                                                                                no-unused-vars
+  273:101  error  'sx' is defined but never used                                                                                                  no-unused-vars
+  278:70   error  'label' is defined but never used                                                                                               no-unused-vars
+  278:77   error  'labelId' is defined but never used                                                                                             no-unused-vars
+  278:86   error  'displayEmpty' is defined but never used                                                                                        no-unused-vars
+  278:100  error  'variant' is defined but never used                                                                                             no-unused-vars
+  278:109  error  'fullWidth' is defined but never used                                                                                           no-unused-vars
+  278:131  error  'sx' is defined but never used                                                                                                  no-unused-vars
+  278:145  error  'renderValue' is defined but never used                                                                                         no-unused-vars
+  278:158  error  'input' is defined but never used                                                                                               no-unused-vars
+  278:165  error  'MenuProps' is defined but never used                                                                                           no-unused-vars
+  287:71   error  'selected' is defined but never used                                                                                            no-unused-vars
+  287:81   error  'disabled' is defined but never used                                                                                            no-unused-vars
+  287:102  error  'sx' is defined but never used                                                                                                  no-unused-vars
+  292:77   error  'shrink' is defined but never used                                                                                              no-unused-vars
+  292:85   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  297:61   error  'position' is defined but never used                                                                                            no-unused-vars
+  297:82   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  302:61   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  302:65   error  'label' is defined but never used                                                                                               no-unused-vars
+  308:28   error  'options' is defined but never used                                                                                             no-unused-vars
+  308:74   error  'filterSelectedOptions' is defined but never used                                                                               no-unused-vars
+  309:3    error  'getOptionLabel' is defined but never used                                                                                      no-unused-vars
+  309:19   error  'isOptionEqualToValue' is defined but never used                                                                                no-unused-vars
+  309:41   error  'loading' is defined but never used                                                                                             no-unused-vars
+  309:50   error  'loadingText' is defined but never used                                                                                         no-unused-vars
+  309:63   error  'noOptionsText' is defined but never used                                                                                       no-unused-vars
+  310:3    error  'onInputChange' is defined but never used                                                                                       no-unused-vars
+  310:18   error  'inputValue' is defined but never used                                                                                          no-unused-vars
+  310:41   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  310:45   error  'disablePortal' is defined but never used                                                                                       no-unused-vars
+  310:60   error  'ListboxProps' is defined but never used                                                                                        no-unused-vars
+  310:74   error  'disabled' is defined but never used                                                                                            no-unused-vars
+  311:6    error  'rest' is defined but never used                                                                                                no-unused-vars
+  353:76   error  'marks' is defined but never used                                                                                               no-unused-vars
+  353:83   error  'valueLabelDisplay' is defined but never used                                                                                   no-unused-vars
+  353:102  error  'className' is defined but never used                                                                                           no-unused-vars
+  353:113  error  'sx' is defined but never used                                                                                                  no-unused-vars
+  360:62   error  'raised' is defined but never used                                                                                              no-unused-vars
+  360:70   error  'elevation' is defined but never used                                                                                           no-unused-vars
+  360:81   error  'variant' is defined but never used                                                                                             no-unused-vars
+  360:90   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  365:69   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  370:95   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  370:99   error  'height' is defined but never used                                                                                              no-unused-vars
+  379:69   error  'disableSpacing' is defined but never used                                                                                      no-unused-vars
+  379:85   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  384:81   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  389:83   error  'avatar' is defined but never used                                                                                              no-unused-vars
+  389:91   error  'variant' is defined but never used                                                                                             no-unused-vars
+  389:100  error  'color' is defined but never used                                                                                               no-unused-vars
+  389:107  error  'size' is defined but never used                                                                                                no-unused-vars
+  389:124  error  'sx' is defined but never used                                                                                                  no-unused-vars
+  398:66   error  'color' is defined but never used                                                                                               no-unused-vars
+  398:73   error  'variant' is defined but never used                                                                                             no-unused-vars
+  398:93   error  'overlap' is defined but never used                                                                                             no-unused-vars
+  398:102  error  'anchorOrigin' is defined but never used                                                                                        no-unused-vars
+  398:127  error  'sx' is defined but never used                                                                                                  no-unused-vars
+  406:64   error  'precision' is defined but never used                                                                                           no-unused-vars
+  406:75   error  'readOnly' is defined but never used                                                                                            no-unused-vars
+  406:85   error  'disabled' is defined but never used                                                                                            no-unused-vars
+  406:95   error  'onChange' is defined but never used                                                                                            no-unused-vars
+  406:105  error  'size' is defined but never used                                                                                                no-unused-vars
+  406:122  error  'sx' is defined but never used                                                                                                  no-unused-vars
+  413:61   error  'placement' is defined but never used                                                                                           no-unused-vars
+  413:72   error  'arrow' is defined but never used                                                                                               no-unused-vars
+  413:79   error  'className' is defined but never used                                                                                           no-unused-vars
+  413:90   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  413:97   error  'rest' is defined but never used                                                                                                no-unused-vars
+  422:45   error  'variant' is defined but never used                                                                                             no-unused-vars
+  422:54   error  'width' is defined but never used                                                                                               no-unused-vars
+  422:61   error  'height' is defined but never used                                                                                              no-unused-vars
+  422:69   error  'animation' is defined but never used                                                                                           no-unused-vars
+  422:91   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  429:62   error  'dense' is defined but never used                                                                                               no-unused-vars
+  429:69   error  'disablePadding' is defined but never used                                                                                      no-unused-vars
+  429:96   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  437:66   error  'button' is defined but never used                                                                                              no-unused-vars
+  437:74   error  'divider' is defined but never used                                                                                             no-unused-vars
+  437:83   error  'disablePadding' is defined but never used                                                                                      no-unused-vars
+  437:99   error  'disableGutters' is defined but never used                                                                                      no-unused-vars
+  437:115  error  'alignItems' is defined but never used                                                                                          no-unused-vars
+  437:144  error  'sx' is defined but never used                                                                                                  no-unused-vars
+  445:80   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  445:84   error  'primaryTypographyProps' is defined but never used                                                                              no-unused-vars
+  445:108  error  'secondaryTypographyProps' is defined but never used                                                                            no-unused-vars
+  453:70   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  458:81   error  'selected' is defined but never used                                                                                            no-unused-vars
+  458:91   error  'disabled' is defined but never used                                                                                            no-unused-vars
+  458:101  error  'sx' is defined but never used                                                                                                  no-unused-vars
+  463:81   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  468:71   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  475:63   error  'size' is defined but never used                                                                                                no-unused-vars
+  475:69   error  'stickyHeader' is defined but never used                                                                                        no-unused-vars
+  475:83   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  480:67   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  485:67   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  490:66   error  'hover' is defined but never used                                                                                               no-unused-vars
+  490:73   error  'selected' is defined but never used                                                                                            no-unused-vars
+  490:83   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  495:67   error  'align' is defined but never used                                                                                               no-unused-vars
+  495:74   error  'padding' is defined but never used                                                                                             no-unused-vars
+  495:83   error  'size' is defined but never used                                                                                                no-unused-vars
+  495:89   error  'variant' is defined but never used                                                                                             no-unused-vars
+  495:98   error  'sortDirection' is defined but never used                                                                                       no-unused-vars
+  495:113  error  'sx' is defined but never used                                                                                                  no-unused-vars
+  500:83   error  'Tag' is assigned a value but never used                                                                                        no-unused-vars
+  500:96   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  507:53   error  'size' is defined but never used                                                                                                no-unused-vars
+  507:59   error  'thickness' is defined but never used                                                                                           no-unused-vars
+  507:70   error  'variant' is defined but never used                                                                                             no-unused-vars
+  507:79   error  'value' is defined but never used                                                                                               no-unused-vars
+  507:86   error  'color' is defined but never used                                                                                               no-unused-vars
+  507:104  error  'sx' is defined but never used                                                                                                  no-unused-vars
+  512:51   error  'variant' is defined but never used                                                                                             no-unused-vars
+  512:60   error  'value' is defined but never used                                                                                               no-unused-vars
+  512:67   error  'valueBuffer' is defined but never used                                                                                         no-unused-vars
+  512:80   error  'color' is defined but never used                                                                                               no-unused-vars
+  512:98   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  517:52   error  'severity' is defined but never used                                                                                            no-unused-vars
+  517:62   error  'variant' is defined but never used                                                                                             no-unused-vars
+  517:71   error  'action' is defined but never used                                                                                              no-unused-vars
+  517:79   error  'onClose' is defined but never used                                                                                             no-unused-vars
+  517:88   error  'icon' is defined but never used                                                                                                no-unused-vars
+  517:105  error  'sx' is defined but never used                                                                                                  no-unused-vars
+  524:68   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  529:61   error  'onClose' is defined but never used                                                                                             no-unused-vars
+  529:70   error  'autoHideDuration' is defined but never used                                                                                    no-unused-vars
+  529:97   error  'action' is defined but never used                                                                                              no-unused-vars
+  529:105  error  'anchorOrigin' is defined but never used                                                                                        no-unused-vars
+  529:130  error  'sx' is defined but never used                                                                                                  no-unused-vars
+  542:59   error  'onClose' is defined but never used                                                                                             no-unused-vars
+  542:68   error  'maxWidth' is defined but never used                                                                                            no-unused-vars
+  542:78   error  'fullWidth' is defined but never used                                                                                           no-unused-vars
+  542:89   error  'fullScreen' is defined but never used                                                                                          no-unused-vars
+  542:112  error  'sx' is defined but never used                                                                                                  no-unused-vars
+  548:69   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  553:71   error  'dividers' is defined but never used                                                                                            no-unused-vars
+  553:81   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  558:75   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  563:71   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  570:57   error  'onClose' is defined but never used                                                                                             no-unused-vars
+  570:66   error  'anchorEl' is defined but never used                                                                                            no-unused-vars
+  570:76   error  'anchorOrigin' is defined but never used                                                                                        no-unused-vars
+  570:90   error  'transformOrigin' is defined but never used                                                                                     no-unused-vars
+  570:118  error  'sx' is defined but never used                                                                                                  no-unused-vars
+  576:83   error  'underline' is defined but never used                                                                                           no-unused-vars
+  576:94   error  'color' is defined but never used                                                                                               no-unused-vars
+  576:101  error  'variant' is defined but never used                                                                                             no-unused-vars
+  576:121  error  'sx' is defined but never used                                                                                                  no-unused-vars
+  587:89   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  588:3    error  'disableGutters' is defined but never used                                                                                      no-unused-vars
+  588:19   error  'elevation' is defined but never used                                                                                           no-unused-vars
+  588:30   error  'square' is defined but never used                                                                                              no-unused-vars
+  588:38   error  'TransitionProps' is defined but never used                                                                                     no-unused-vars
+  605:86   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  616:74   error  'sx' is defined but never used                                                                                                  no-unused-vars
+  625:43   error  'theme' is defined but never used                                                                                               no-unused-vars
+  627:14   error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  652:14   error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  654:14   error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  656:14   error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  657:23   error  '_args' is defined but never used                                                                                               no-unused-vars
+  672:14   error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  672:30   error  'opacity' is defined but never used                                                                                             no-unused-vars
+  673:14   error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  673:31   error  'amount' is defined but never used                                                                                              no-unused-vars
+  674:14   error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  674:32   error  'amount' is defined but never used                                                                                              no-unused-vars
+  677:16   error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\rashi\source\repos\MyMediaVerse\frontend\src\utils\mediaImageUtils.js
+  58:30  error  'mediaType' is defined but never used  no-unused-vars
+
+✖ 464 problems (456 errors, 8 warnings)
+
