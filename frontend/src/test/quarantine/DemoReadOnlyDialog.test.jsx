@@ -1,3 +1,6 @@
+// QUARANTINED (RAS-17): excluded from the run via vitest.config.js.
+// TODO(RAS-29): rewrite against the new test infra (MSW + renderWithProviders).
+// Component moved to src/shared/DemoReadOnlyDialog.jsx in the feature-folder reorg.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 

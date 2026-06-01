@@ -1,3 +1,6 @@
+// QUARANTINED (RAS-17): excluded from the run via vitest.config.js.
+// TODO(RAS-23): rewrite against the new test infra (MSW + renderWithProviders).
+// Component moved to src/features/media/HighlightsSection.jsx (within MediaProfilePage) in the feature-folder reorg.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';

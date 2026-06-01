@@ -1,3 +1,6 @@
+// QUARANTINED (RAS-17): excluded from the run via vitest.config.js.
+// TODO(Todo2 T-13): rewrite once AddMediaForm migrates to React Hook Form + Zod.
+// Component moved to src/features/media/pages/AddMediaForm/ in the feature-folder reorg.
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';

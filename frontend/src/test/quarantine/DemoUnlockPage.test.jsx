@@ -1,3 +1,6 @@
+// QUARANTINED (RAS-17): excluded from the run via vitest.config.js.
+// TODO(RAS-29): rewrite against the new test infra (MSW + renderWithProviders).
+// Component moved to src/features/demo/pages/DemoUnlockPage.jsx in the feature-folder reorg.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';

@@ -1,3 +1,6 @@
+// QUARANTINED (RAS-17): excluded from the run via vitest.config.js.
+// TODO(RAS-28): rewrite against the new test infra (MSW + renderWithProviders).
+// Component moved to src/features/videos/pages/YouTubePlaylistProfile.jsx in the feature-folder reorg.
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
