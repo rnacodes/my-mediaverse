@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act, waitFor } from '@testing-library/react';
-import { DemoReadOnlyProvider } from '../DemoReadOnlyProvider';
-import { useDemoReadOnly } from '../DemoReadOnlyContext';
+import { DemoReadOnlyProvider } from './DemoReadOnlyProvider';
+import { useDemoReadOnly } from './DemoReadOnlyContext';
 
 const TestConsumer = ({ onRender }) => {
     const context = useDemoReadOnly();
