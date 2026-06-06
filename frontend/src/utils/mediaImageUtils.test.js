@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getAspectRatio, getAspectRatioPadding, getObjectFit } from '../mediaImageUtils';
+import { getAspectRatio, getAspectRatioPadding, getObjectFit } from './mediaImageUtils';
 
 describe('getAspectRatio', () => {
   it('returns 2/3 for portrait media types', () => {
