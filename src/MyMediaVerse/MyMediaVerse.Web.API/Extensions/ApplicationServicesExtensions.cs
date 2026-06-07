@@ -35,6 +35,7 @@ public static class ApplicationServicesExtensions
         services.AddScoped<IMediaService, MediaService>();
         services.AddScoped<ITopicsService, TopicsService>();
         services.AddScoped<IGenresService, GenresService>();
+        services.AddScoped<IGenreMappingService, GenreMappingService>();
         services.AddScoped<IRelatedMediaService, RelatedMediaService>();
         services.AddScoped<IMixlistService, MixlistService>();
 

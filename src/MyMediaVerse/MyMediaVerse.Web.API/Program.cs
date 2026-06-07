@@ -37,6 +37,7 @@ var connectionString = DatabaseExtensions.ResolveConnectionString(builder.Config
 builder.Services.AddDatabase(connectionString, builder.Environment);
 
 // --- Application services, external API clients, background workers ---
+builder.Services.AddMemoryCache();
 builder.Services.AddApplicationServices();
 builder.Services.AddExternalApiClients(builder.Configuration, startupLogger);
 builder.Services.AddBackgroundServices(builder.Configuration, builder.Environment, startupLogger);
