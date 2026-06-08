@@ -24,43 +24,6 @@ namespace MyMediaVerse.UnitTests.TestData
             };
         }
 
-        public static Podcast CreatePodcastSeries(string? title = null, string? publisher = null)
-        {
-            return new Podcast
-            {
-                Id = Guid.NewGuid(),
-                Title = title ?? "Test Podcast Series",
-                Publisher = publisher ?? "Test Publisher",
-                PodcastType = PodcastType.Series,
-                MediaType = MediaType.Podcast,
-                Status = Status.Uncharted,
-                DateAdded = DateTime.UtcNow,
-                Topics = new List<Topic>(),
-                Genres = new List<Genre>(),
-                Mixlists = new List<Mixlist>(),
-                Episodes = new List<Podcast>()
-            };
-        }
-
-        public static Podcast CreatePodcastEpisode(string? title = null, Guid? parentId = null)
-        {
-            return new Podcast
-            {
-                Id = Guid.NewGuid(),
-                Title = title ?? "Test Podcast Episode",
-                Publisher = "Test Publisher",
-                PodcastType = PodcastType.Episode,
-                MediaType = MediaType.Podcast,
-                Status = Status.Uncharted,
-                DateAdded = DateTime.UtcNow,
-                ParentPodcastId = parentId,
-                Topics = new List<Topic>(),
-                Genres = new List<Genre>(),
-                Mixlists = new List<Mixlist>(),
-                Episodes = new List<Podcast>()
-            };
-        }
-
         public static Mixlist CreateMixlist(string? name = null)
         {
             return new Mixlist
@@ -136,20 +99,6 @@ namespace MyMediaVerse.UnitTests.TestData
             };
         }
 
-        public static CreatePodcastDto CreatePodcastDto(string? title = null, PodcastType? type = null)
-        {
-            return new CreatePodcastDto
-            {
-                Title = title ?? "Test Podcast",
-                Publisher = "Test Publisher",
-                PodcastType = type ?? PodcastType.Series,
-                MediaType = MediaType.Podcast,
-                Status = Status.Uncharted,
-                Topics = Array.Empty<string>(),
-                Genres = Array.Empty<string>()
-            };
-        }
-
         public static CreateMixlistDto CreateMixlistDto(string? name = null)
         {
             return new CreateMixlistDto
@@ -195,16 +144,6 @@ namespace MyMediaVerse.UnitTests.TestData
                 books.Add(CreateBook($"Test Book {i + 1}", $"Test Author {i + 1}"));
             }
             return books;
-        }
-
-        public static List<Podcast> CreatePodcastSeries(int count)
-        {
-            var podcasts = new List<Podcast>();
-            for (int i = 0; i < count; i++)
-            {
-                podcasts.Add(CreatePodcastSeries($"Test Podcast {i + 1}", $"Test Publisher {i + 1}"));
-            }
-            return podcasts;
         }
 
         public static List<Mixlist> CreateMixlists(int count)

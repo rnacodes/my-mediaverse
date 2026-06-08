@@ -626,65 +626,6 @@ namespace MyMediaVerse.Web.API.Controllers
             return Task.FromResult<Book?>(book);
         }
 
-        // TODO: Update for new PodcastSeries/PodcastEpisode structure
-        /*
-        private async Task<Podcast?> ProcessPodcastRow(CsvReader csv)
-        {
-            var podcast = new Podcast
-            {
-                Title = GetCsvValue(csv, "Title") ?? "Unknown Title",
-                MediaType = MediaType.Podcast,
-                DateAdded = DateTime.UtcNow,
-                Status = ParseStatus(GetCsvValue(csv, "Status")) ?? Status.Uncharted,
-                PodcastType = PodcastType.Series // Default to Series
-            };
-
-            // Optional fields
-            podcast.Description = GetCsvValue(csv, "Description");
-            podcast.Link = GetCsvValue(csv, "Link");
-            podcast.Notes = GetCsvValue(csv, "Notes");
-            podcast.RelatedNotes = GetCsvValue(csv, "RelatedNotes");
-            podcast.Thumbnail = GetCsvValue(csv, "Thumbnail");
-            // Note: Genre is now handled through the navigation property via ProcessTopicsAndGenres
-            podcast.AudioLink = GetCsvValue(csv, "AudioLink");
-            podcast.Publisher = GetCsvValue(csv, "Publisher");
-            podcast.ExternalId = GetCsvValue(csv, "ExternalId");
-
-            // Parse podcast type
-            var podcastTypeStr = GetCsvValue(csv, "PodcastType");
-            if (!string.IsNullOrEmpty(podcastTypeStr) && Enum.TryParse<PodcastType>(podcastTypeStr, true, out PodcastType podcastType))
-                podcast.PodcastType = podcastType;
-
-            // Parse duration
-            var durationStr = GetCsvValue(csv, "DurationInSeconds");
-            if (!string.IsNullOrEmpty(durationStr) && int.TryParse(durationStr, out int duration))
-                podcast.DurationInSeconds = duration;
-
-            // Parse dates
-            var releaseDateStr = GetCsvValue(csv, "ReleaseDate");
-            if (!string.IsNullOrEmpty(releaseDateStr) && DateTime.TryParse(releaseDateStr, out DateTime releaseDate))
-                podcast.ReleaseDate = DateTime.SpecifyKind(releaseDate, DateTimeKind.Utc);
-
-            var dateCompletedStr = GetCsvValue(csv, "DateCompleted");
-            if (!string.IsNullOrEmpty(dateCompletedStr) && DateTime.TryParse(dateCompletedStr, out DateTime dateCompleted))
-                podcast.DateCompleted = DateTime.SpecifyKind(dateCompleted, DateTimeKind.Utc);
-
-            // Parse enums
-            var ratingStr = GetCsvValue(csv, "Rating");
-            if (!string.IsNullOrEmpty(ratingStr) && Enum.TryParse<Rating>(ratingStr, true, out Rating rating))
-                podcast.Rating = rating;
-
-            var ownershipStr = GetCsvValue(csv, "OwnershipStatus");
-            if (!string.IsNullOrEmpty(ownershipStr) && Enum.TryParse<OwnershipStatus>(ownershipStr, true, out OwnershipStatus ownership))
-                podcast.OwnershipStatus = ownership;
-
-            // Note: Topics and Genres can be assigned later through the UI
-            // For now, we'll just create the basic podcast entity
-
-            return podcast;
-        }
-        */
-
         private Task<Movie?> ProcessMovieRow(CsvReader csv)
         {
             var movie = new Movie
