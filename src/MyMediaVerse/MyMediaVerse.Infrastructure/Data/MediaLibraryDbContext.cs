@@ -314,9 +314,12 @@ namespace MyMediaVerse.Infrastructure.Data
                 entity.Property(e => e.TotalEpisodes)
                     .HasDefaultValue(0);
                     
-                // Create index on ExternalId for API imports
-                entity.HasIndex(e => e.ExternalId);
-                
+                // Unique index on ExternalId to make ListenNotes imports idempotent.
+                // Filtered so manually-added series (no ExternalId) are unaffected.
+                entity.HasIndex(e => e.ExternalId)
+                    .IsUnique()
+                    .HasFilter("\"ExternalId\" IS NOT NULL");
+
                 // Create index on IsSubscribed for subscription queries
                 entity.HasIndex(e => e.IsSubscribed);
             });
@@ -344,10 +347,14 @@ namespace MyMediaVerse.Infrastructure.Data
                     
                 // Create index on SeriesId for better query performance
                 entity.HasIndex(e => e.SeriesId);
-                
-                // Create index on ExternalId for API imports
-                entity.HasIndex(e => e.ExternalId);
-                
+
+                // Unique composite index on (SeriesId, ExternalId) to make episode
+                // imports idempotent within a series. Filtered so manually-added
+                // episodes (no ExternalId) are unaffected (NULLs treated as distinct).
+                entity.HasIndex(e => new { e.SeriesId, e.ExternalId })
+                    .IsUnique()
+                    .HasFilter("\"ExternalId\" IS NOT NULL");
+
                 // Create index on ReleaseDate for chronological queries
                 entity.HasIndex(e => e.ReleaseDate);
             });

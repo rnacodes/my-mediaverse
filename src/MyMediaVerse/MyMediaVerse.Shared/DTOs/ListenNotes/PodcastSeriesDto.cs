@@ -27,6 +27,12 @@ namespace MyMediaVerse.Shared.DTOs.ListenNotes
         [JsonPropertyName("episodes")]
         public List<PodcastEpisodeDto> Episodes { get; set; } = new();
 
+        [JsonPropertyName("genre_ids")]
+        public List<int> GenreIds { get; set; } = new();
+
+        [JsonPropertyName("total_episodes")]
+        public int TotalEpisodes { get; set; }
+
         [JsonPropertyName("website")]
         public string? Website { get; set; }
 
