@@ -141,7 +141,7 @@ function MediaInfoCard({
           />
           {mediaItem.mediaType === 'Podcast' && mediaItem.podcastType !== undefined && (
             <Chip
-              label={mediaItem.podcastType === 'Series' || mediaItem.podcastType === 0 ? 'Series' : 'Episode'}
+              label={mediaItem.podcastType === 'Series' ? 'Series' : 'Episode'}
               sx={{
                 backgroundColor: 'rgba(255, 255, 255, 0.2)',
                 color: 'white',

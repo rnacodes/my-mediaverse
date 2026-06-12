@@ -226,6 +226,7 @@ namespace MyMediaVerse.IntegrationTests.Api
             Assert.NotNull(createdEpisode);
             Assert.Equal("Integration Test Episode", createdEpisode.Title);
             Assert.Equal(createdSeries.Id, createdEpisode.SeriesId);
+            Assert.Equal("Episode", createdEpisode.PodcastType);
         }
 
         [Fact]
@@ -269,6 +270,7 @@ namespace MyMediaVerse.IntegrationTests.Api
             Assert.NotNull(episodes);
             Assert.Single(episodes);
             Assert.Equal("Episode for Series Test", episodes[0].Title);
+            Assert.Equal("Episode", episodes[0].PodcastType);
         }
 
         #endregion

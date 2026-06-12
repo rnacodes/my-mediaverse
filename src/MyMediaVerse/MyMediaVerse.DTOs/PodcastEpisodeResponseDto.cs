@@ -61,6 +61,9 @@ namespace MyMediaVerse.DTOs
         
         [JsonPropertyName("publisher")]
         public string? Publisher { get; set; }
+
+        [JsonPropertyName("podcastType")]
+        public string PodcastType { get; set; } = "Episode";
     }
 }
 
