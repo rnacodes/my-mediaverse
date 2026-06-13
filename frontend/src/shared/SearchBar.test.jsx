@@ -5,19 +5,6 @@ import { server } from '@/test/mocks/server';
 import { API_BASE } from '@/test/mocks/handlers';
 import SearchBar from './SearchBar';
 
-// MVP coverage (RAS-31): exercise the four key interactions — empty input, typed
-// (debounced) input, submit, and clear — plus both outcome directions of a search.
-//
-// SearchBar fetches nothing on mount. A search (debounced 300ms after typing, on
-// Enter, or via the search icon) runs searchAll(), which hits TWO endpoints in
-// parallel: GET /media/search and GET /mixlist/search. onUnhandledRequest:'error'
-// means any typing test must mock BOTH. The page's contract with its parent is the
-// `onSearch` callback: it fires (query, results) on a successful search and ('')
-// on clear. The clear icon only renders while there is a query.
-//
-// Real timers are used: the 300ms debounce resolves well within waitFor's window,
-// which avoids the fragility of pairing fake timers with userEvent + MSW.
-
 const mockSearch = ({ media = [], mixlists = [] } = {}) =>
   server.use(
     http.get(`${API_BASE}/media/search`, () => HttpResponse.json(media)),

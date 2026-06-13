@@ -6,20 +6,6 @@ import { server } from '@/test/mocks/server';
 import { API_BASE } from '@/test/mocks/handlers';
 import ResponsiveNavigation from './ResponsiveNavigation';
 
-// MVP coverage (RAS-32): both responsive paths (desktop bar / mobile drawer),
-// nav-link routing, the drawer open interaction, and auth-dependent items.
-//
-// Breakpoint: the component reads useMediaQuery(theme.breakpoints.down('md')),
-// which consults window.matchMedia. setMatchMedia(true) => down('md') matches =>
-// mobile (drawer); false => desktop (AppBar). The setup.js default is matches:false,
-// which afterEach restores.
-//
-// The desktop AppBar is a `banner` landmark; the temporary Drawer is keepMounted but
-// portaled OUTSIDE the banner and marked hidden while closed, so `within(banner)`
-// isolates desktop controls and getByRole's hidden-exclusion ignores the closed
-// drawer items. Auth is seeded at the HTTP boundary: default /auth/refresh =>
-// authenticated; a 401 override => logged out.
-
 const setMatchMedia = (matches) => {
   window.matchMedia = vi.fn().mockImplementation((query) => ({
     matches,

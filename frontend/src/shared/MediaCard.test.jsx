@@ -3,20 +3,6 @@ import { renderWithProviders, screen, fireEvent } from '../test/test-utils';
 import MediaCard from './MediaCard';
 import { makeBook, makeVideo } from '../test/factories/media';
 
-// Phase A reference test (RAS-16, Deliverable 1).
-//
-// MediaCard is a *presentational* component: it renders from its `media` prop
-// synchronously — no hook, no fetch, no async state. So there is no loading
-// state here; the loading -> success -> error path lives in the query layer and
-// is covered separately by the useMedia hook test (Deliverable 2).
-//
-// Conventions enforced by this file (the template the rest of the suite follows):
-//   - renderWithProviders for the real provider stack (real MUI on jsdom)
-//   - factories instead of inline mock objects
-//   - query by role / text; userEvent for interactions
-//   - no .Mui* class queries; getByTestId only where there is genuinely no
-//     accessible handle (the decorative type-icon overlay)
-
 const PLACEHOLDER = 'placehold.co';
 
 describe('MediaCard', () => {

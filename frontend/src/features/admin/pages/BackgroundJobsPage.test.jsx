@@ -5,10 +5,6 @@ import { server } from '@/test/mocks/server';
 import { API_BASE } from '@/test/mocks/handlers';
 import BackgroundJobsPage from './BackgroundJobsPage';
 
-// Smoke test only (RAS-34): this big admin page is left as a future decomposition
-// project, so we just mount it with happy-path data and assert the primary heading.
-// Deep coverage waits until the page is split into smaller components.
-//
 // Five status queries fire on mount and must all be mocked (onUnhandledRequest:'error').
 
 describe('BackgroundJobsPage', () => {

@@ -5,17 +5,9 @@ import { server } from '@/test/mocks/server';
 import { API_BASE } from '@/test/mocks/handlers';
 import TraktSyncPage from './TraktSyncPage';
 
-// MVP coverage (RAS-30): hit every page state once, both outcome directions at least once.
-// TraktSyncPage drives the Trakt import flow via React Query hooks. On mount it fetches
-// GET /trakt/status (retry disabled; an error is treated as disconnected). "Connect" is an
-// OAuth device-code flow; once connected, four sync actions POST and render a summary.
-//
 // Polling note: the device-auth panel begins polling POST /trakt/auth/poll on a
 // timer. We register a 'pending' handler so any timer-driven poll has a handler, but we do
 // not drive the pending -> authorized transition here.
-//
-// "Sync Watch History" / "Sync Watchlist" / "Sync Ratings" each render as both a heading and
-// a button, so those are always selected by role 'button'.
 
 const STATUS = `${API_BASE}/trakt/status`;
 

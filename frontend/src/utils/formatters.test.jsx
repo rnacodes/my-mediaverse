@@ -10,11 +10,6 @@ import {
   getRatingText,
 } from './formatters';
 
-// Pure-function tests (RAS-18 / C.1). No providers, no vi.mock.
-// getRatingIcon returns a MUI icon element, so those cases render it and assert
-// on MUI's auto data-testid (e.g. 'ThumbUpIcon') — the same handle MediaCard.test
-// uses for decorative icons. Everything else is plain value-in / value-out.
-
 describe('formatEnumValue', () => {
   it('inserts a space at camelCase boundaries', () => {
     expect(formatEnumValue('activelyExploring')).toBe('actively Exploring');
