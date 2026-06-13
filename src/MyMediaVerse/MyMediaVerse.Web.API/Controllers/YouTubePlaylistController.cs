@@ -107,7 +107,7 @@ namespace MyMediaVerse.Web.API.Controllers
                 {
                     Id = v.Id,
                     Title = v.Title,
-                    Thumbnail = v.Thumbnail,
+                    Thumbnail = v.GetEffectiveThumbnail(),
                     LengthInSeconds = v.LengthInSeconds,
                     ExternalId = v.ExternalId
                 }).ToList();
@@ -291,7 +291,7 @@ namespace MyMediaVerse.Web.API.Controllers
                     {
                         Id = pv.Video.Id,
                         Title = pv.Video.Title,
-                        Thumbnail = pv.Video.Thumbnail,
+                        Thumbnail = pv.Video.GetEffectiveThumbnail(),
                         LengthInSeconds = pv.Video.LengthInSeconds,
                         Position = pv.Position,
                         ExternalId = pv.Video.ExternalId

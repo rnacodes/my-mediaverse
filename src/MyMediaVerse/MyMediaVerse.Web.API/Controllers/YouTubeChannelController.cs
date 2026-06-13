@@ -110,7 +110,7 @@ namespace MyMediaVerse.Web.API.Controllers
                     Status = v.Status,
                     DateAdded = v.DateAdded,
                     Link = v.Link,
-                    Thumbnail = v.Thumbnail,
+                    Thumbnail = v.GetEffectiveThumbnail(),
                     VideoType = v.VideoType,
                     ParentVideoId = v.ParentVideoId,
                     Platform = v.Platform,

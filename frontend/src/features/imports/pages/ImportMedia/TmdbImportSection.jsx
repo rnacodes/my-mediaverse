@@ -11,6 +11,7 @@ import { searchMovies, searchTvShows, searchMulti, getMovieDetails, getTvShowDet
 import { importMovieFromTmdb } from '@/api/movieService';
 import { importTvShowFromTmdb } from '@/api/tvShowService';
 import WhiteOutlineButton from '@/shared/WhiteOutlineButton';
+import { getPlaceholderImage } from '@/utils/mediaImageUtils';
 
 function TmdbImportSection({ expanded, onAccordionChange }) {
     const navigate = useNavigate();
@@ -132,11 +133,16 @@ function TmdbImportSection({ expanded, onAccordionChange }) {
         }
     };
 
+    const getTmdbPlaceholder = (item) => {
+        const isTv = item?.media_type === 'tv' || tmdbSearchType === 'tv';
+        return getPlaceholderImage(isTv ? 'TVShow' : 'Movie');
+    };
+
     const getTmdbImageUrl = (item) => {
         if (item.poster_path) {
             return `https://image.tmdb.org/t/p/w500${item.poster_path}`;
         }
-        return '/placeholder-movie.png';
+        return getTmdbPlaceholder(item);
     };
 
     const getTmdbItemTitle = (item) => {
@@ -302,7 +308,8 @@ function TmdbImportSection({ expanded, onAccordionChange }) {
                                                             fontSize: '12px'
                                                         }}
                                                         onError={(e) => {
-                                                            e.target.src = '/placeholder-movie.png';
+                                                            e.target.onerror = null;
+                                                            e.target.src = getTmdbPlaceholder(item);
                                                         }}
                                                     />
                                                 </Box>
@@ -469,7 +476,8 @@ function TmdbImportSection({ expanded, onAccordionChange }) {
                                     borderRadius: 8
                                 }}
                                 onError={(e) => {
-                                    e.target.src = '/placeholder-movie.png';
+                                    e.target.onerror = null;
+                                    e.target.src = getTmdbPlaceholder(selectedTmdbItem);
                                 }}
                             />
                             <Box sx={{ flex: 1 }}>
