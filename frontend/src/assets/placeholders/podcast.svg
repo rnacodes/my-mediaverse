@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-label="Podcast placeholder">
+  <rect width="400" height="400" fill="#e91e63"/>
+  <rect width="400" height="400" fill="#000000" opacity="0.15"/>
+  <g fill="#fcfafa" opacity="0.9">
+    <rect x="185" y="130" width="30" height="80" rx="15"/>
+    <path d="M165 185a35 35 0 0 0 70 0" fill="none" stroke="#fcfafa" stroke-width="10"/>
+    <rect x="195" y="220" width="10" height="30"/>
+    <rect x="178" y="250" width="44" height="10" rx="5"/>
+  </g>
+  <text x="200" y="320" fill="#fcfafa" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="bold" text-anchor="middle" opacity="0.9">Podcast</text>
+</svg>

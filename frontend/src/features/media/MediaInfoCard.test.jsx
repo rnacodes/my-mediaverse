@@ -62,10 +62,10 @@ describe('MediaInfoCard thumbnail', () => {
     expect(img).toHaveAttribute('src', thumbnail);
   });
 
-  it('shows the "No Image" placeholder when no thumbnail is set', () => {
+  it('shows the per-type placeholder image when no thumbnail is set', () => {
     renderCard({ mediaType: 'Podcast', status: 'Consuming', title: 'My Podcast' });
 
-    expect(screen.queryByRole('img')).not.toBeInTheDocument();
-    expect(screen.getByText('No Image')).toBeInTheDocument();
+    const img = screen.getByRole('img', { name: 'My Podcast' });
+    expect(img.getAttribute('src')).toContain('podcast.svg');
   });
 });

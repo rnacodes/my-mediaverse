@@ -18,7 +18,7 @@ const mockMediaItems = [
     rating: 4.5,
     notes: 'A classic American novel about the Jazz Age.',
     dateAdded: '2024-01-15',
-    thumbnailUrl: 'https://placehold.co/600x400/474350/fcfafa?text=The+Great+Gatsby'
+    thumbnail: 'https://placehold.co/600x400/474350/fcfafa?text=The+Great+Gatsby'
   },
   {
     id: 2,
@@ -28,7 +28,7 @@ const mockMediaItems = [
     rating: 4.8,
     notes: 'Mind-bending sci-fi thriller about dreams within dreams.',
     dateAdded: '2024-01-20',
-    thumbnailUrl: 'https://placehold.co/600x400/474350/fcfafa?text=Inception'
+    thumbnail: 'https://placehold.co/600x400/474350/fcfafa?text=Inception'
   },
   {
     id: 3,
@@ -38,7 +38,7 @@ const mockMediaItems = [
     rating: 5.0,
     notes: 'One of the greatest TV series ever made.',
     dateAdded: '2024-01-10',
-    thumbnailUrl: 'https://placehold.co/600x400/474350/fcfafa?text=Breaking+Bad'
+    thumbnail: 'https://placehold.co/600x400/474350/fcfafa?text=Breaking+Bad'
   },
   {
     id: 4,
@@ -48,7 +48,7 @@ const mockMediaItems = [
     rating: 4.2,
     notes: 'Long-form conversations with interesting guests.',
     dateAdded: '2024-01-25',
-    thumbnailUrl: 'https://placehold.co/600x400/474350/fcfafa?text=JRE'
+    thumbnail: 'https://placehold.co/600x400/474350/fcfafa?text=JRE'
   },
   {
     id: 5,
@@ -58,7 +58,7 @@ const mockMediaItems = [
     rating: 3.5,
     notes: 'Open-world RPG set in a dystopian future.',
     dateAdded: '2024-01-30',
-    thumbnailUrl: 'https://placehold.co/600x400/474350/fcfafa?text=Cyberpunk+2077'
+    thumbnail: 'https://placehold.co/600x400/474350/fcfafa?text=Cyberpunk+2077'
   },
   {
     id: 6,
@@ -68,7 +68,7 @@ const mockMediaItems = [
     rating: 4.7,
     notes: 'Official React documentation and tutorials.',
     dateAdded: '2024-02-01',
-    thumbnailUrl: 'https://placehold.co/600x400/474350/fcfafa?text=React+Docs'
+    thumbnail: 'https://placehold.co/600x400/474350/fcfafa?text=React+Docs'
   }
 ];
 

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Box, CardMedia, Chip, Typography, Button } from '@mui/material';
-import { getAspectRatio, getObjectFit } from '@/utils/mediaImageUtils';
+import { getAspectRatio, getObjectFit, resolveMediaImage, getPlaceholderImage } from '@/utils/mediaImageUtils';
 
 function MediaInfoCard({
   mediaItem,
@@ -13,11 +13,12 @@ function MediaInfoCard({
 }) {
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
-  const [imageError, setImageError] = useState(false);
 
-  // Load the stored thumbnail URL directly for every media type. CORS does not
-  // apply to <img> rendering, so podcast images need no server-side proxy.
-  const imageUrl = useMemo(() => mediaItem?.thumbnail || '', [mediaItem?.thumbnail]);
+  // Resolve the display image: the stored thumbnail when present, otherwise the
+  // per-media-type placeholder. The thumbnail URL is loaded directly for every
+  // media type — CORS does not apply to <img> rendering, so podcast images need
+  // no server-side proxy.
+  const imageUrl = useMemo(() => resolveMediaImage(mediaItem), [mediaItem]);
 
   const description = mediaItem?.description || mediaItem?.notes;
 
@@ -86,30 +87,27 @@ function MediaInfoCard({
           alignItems: 'center',
           justifyContent: 'center',
         }}>
-          {imageUrl && !imageError ? (
-            <CardMedia
-              component="img"
-              sx={{
-                width: '100%',
-                height: '100%',
-                objectFit: getObjectFit(mediaItem.mediaType),
-                opacity: imageLoaded ? 1 : 0,
-                transition: 'opacity 0.3s ease-in-out',
-                transform: 'translateZ(0)',
-                backfaceVisibility: 'hidden',
-              }}
-              image={imageUrl}
-              alt={mediaItem.title}
-              decoding="async"
-              referrerPolicy="no-referrer"
-              onLoad={() => setImageLoaded(true)}
-              onError={() => setImageError(true)}
-            />
-          ) : (
-            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', px: 2 }}>
-              No Image
-            </Typography>
-          )}
+          <CardMedia
+            component="img"
+            sx={{
+              width: '100%',
+              height: '100%',
+              objectFit: getObjectFit(mediaItem.mediaType),
+              opacity: imageLoaded ? 1 : 0,
+              transition: 'opacity 0.3s ease-in-out',
+              transform: 'translateZ(0)',
+              backfaceVisibility: 'hidden',
+            }}
+            image={imageUrl}
+            alt={mediaItem.title}
+            decoding="async"
+            referrerPolicy="no-referrer"
+            onLoad={() => setImageLoaded(true)}
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.src = getPlaceholderImage(mediaItem.mediaType);
+            }}
+          />
         </Box>
       </Box>
 

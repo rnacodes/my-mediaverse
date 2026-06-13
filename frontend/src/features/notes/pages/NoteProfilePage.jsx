@@ -18,6 +18,7 @@ import { useNote, useMediaForNote, useUpdateNote } from '@/hooks/useNote';
 import { useGenerateNoteDescription } from '@/hooks/useAi';
 import { useReindexNote } from '@/hooks/useTypesense';
 import { formatMediaType, getMediaTypeColor } from '@/utils/formatters';
+import { resolveMediaImage, getPlaceholderImage } from '@/utils/mediaImageUtils';
 import SimilarNotesSection from '../SimilarNotesSection';
 import RelatedMediaByEmbeddingSection from '../RelatedMediaByEmbeddingSection';
 
@@ -480,19 +481,18 @@ function NoteProfilePage() {
                                             }}
                                         >
                                             {/* Thumbnail */}
-                                            {item.thumbnailUrl && (
-                                                <Box
-                                                    component="img"
-                                                    src={item.thumbnailUrl}
-                                                    alt={item.title}
-                                                    sx={{
-                                                        width: { xs: 80, sm: 120 },
-                                                        height: { xs: 80, sm: 120 },
-                                                        objectFit: 'cover',
-                                                        flexShrink: 0
-                                                    }}
-                                                />
-                                            )}
+                                            <Box
+                                                component="img"
+                                                src={resolveMediaImage(item)}
+                                                alt={item.title}
+                                                onError={(e) => { e.target.onerror = null; e.target.src = getPlaceholderImage(item.mediaType); }}
+                                                sx={{
+                                                    width: { xs: 80, sm: 120 },
+                                                    height: { xs: 80, sm: 120 },
+                                                    objectFit: 'cover',
+                                                    flexShrink: 0
+                                                }}
+                                            />
 
                                             {/* Content */}
                                             <Box sx={{ p: 2, flex: 1, minWidth: 0 }}>

@@ -4,6 +4,7 @@ import {
 } from '@mui/material';
 import { ChevronLeft, ChevronRight } from '@mui/icons-material';
 import { formatMediaType } from '@/utils/formatters';
+import { resolveMediaImage, getPlaceholderImage } from '@/utils/mediaImageUtils';
 
 const VISIBLE_ITEMS = 5;
 const MAX_DOTS = 6;
@@ -146,21 +147,20 @@ const SimpleMediaCarousel = ({
                 }}
                 onClick={() => handleMediaClick(media)}
               >
-                {(media.thumbnailUrl || media.thumbnail || media.Thumbnail) && (
-                  <CardMedia
-                    component="img"
-                    height={effectiveImageHeight}
-                    image={media.thumbnailUrl || media.thumbnail || media.Thumbnail}
-                    alt={media.title || media.Title}
-                    sx={{
-                      width: '100%',
-                      height: effectiveImageHeight,
-                      objectFit: 'contain',
-                      backgroundColor: 'rgba(0, 0, 0, 0.35)',
-                      p: 1
-                    }}
-                  />
-                )}
+                <CardMedia
+                  component="img"
+                  height={effectiveImageHeight}
+                  image={resolveMediaImage(media)}
+                  alt={media.title || media.Title}
+                  onError={(e) => { e.target.onerror = null; e.target.src = getPlaceholderImage(media.mediaType || media.MediaType); }}
+                  sx={{
+                    width: '100%',
+                    height: effectiveImageHeight,
+                    objectFit: 'contain',
+                    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+                    p: 1
+                  }}
+                />
                 {showCardContent && (
                   <CardContent sx={{ p: 2.5, textAlign: 'center' }}>
                     <Typography 

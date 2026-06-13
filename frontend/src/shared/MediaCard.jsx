@@ -24,6 +24,7 @@ import {
 } from '@mui/icons-material';
 import { getMediaTypeColor, getStatusColor, commonStyles } from './DesignSystem';
 import { formatMediaType, formatStatus } from '@/utils/formatters';
+import { resolveMediaImage, getPlaceholderImage } from '@/utils/mediaImageUtils';
 
 // Media type icons mapping
 const mediaTypeIcons = {
@@ -88,11 +89,11 @@ const MediaCard = ({
           backgroundColor: 'rgba(0, 0, 0, 0.1)',
           position: 'relative'
         }}
-        image={media.thumbnail || media.thumbnailUrl || media.imageUrl || 'https://placehold.co/600x400/474350/fcfafa?text=No+Image'}
+        image={resolveMediaImage(media)}
         alt={media.title}
         onError={(e) => {
           e.target.onerror = null;
-          e.target.src = 'https://placehold.co/600x400/474350/fcfafa?text=No+Image';
+          e.target.src = getPlaceholderImage(media.mediaType);
         }}
       />
 

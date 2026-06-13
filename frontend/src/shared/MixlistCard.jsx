@@ -1,4 +1,5 @@
 import { Card, CardMedia, CardContent, Typography } from '@mui/material';
+import { resolveMediaImage, getPlaceholderImage } from '@/utils/mediaImageUtils';
 
 // Clickable card for a mixlist. Tolerates both camelCase and PascalCase payloads.
 const MixlistCard = ({ mixlist, onNavigate }) => (
@@ -26,9 +27,9 @@ const MixlistCard = ({ mixlist, onNavigate }) => (
         height: 180,
         transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
       }}
-      image={mixlist.thumbnail || mixlist.Thumbnail}
+      image={resolveMediaImage(mixlist, 'Mixlist')}
       alt={mixlist.name || mixlist.Name}
-      onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/600x400/1e1e1e/fcfafa?text=Image+Error'; }}
+      onError={(e) => { e.target.onerror = null; e.target.src = getPlaceholderImage('Mixlist'); }}
     />
     <CardContent sx={{ flexGrow: 1 }}>
       <Typography gutterBottom variant="h6" component="div" sx={{ fontWeight: 'bold' }}>

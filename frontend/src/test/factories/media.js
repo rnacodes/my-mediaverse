@@ -14,7 +14,7 @@ export const makeMedia = (overrides = {}) => ({
   status: 'Uncharted',
   dateAdded: '2024-01-15T10:00:00Z',
   description: 'A test media item.',
-  thumbnailUrl: 'https://example.com/thumb.jpg',
+  thumbnail: 'https://example.com/thumb.jpg',
   link: null,
   notes: null,
   rating: null,

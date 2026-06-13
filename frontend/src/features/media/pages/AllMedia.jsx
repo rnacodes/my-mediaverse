@@ -10,7 +10,7 @@ import {
 import { ViewModule, ViewList, OpenInNew, Delete, CheckBox, CheckBoxOutlineBlank } from '@mui/icons-material';
 import { useAllMedia, useMediaByType, useBulkDeleteMedia } from '@/hooks/useMedia';
 import { formatMediaType, formatStatus } from '@/utils/formatters';
-import { getAspectRatioPadding } from '@/utils/mediaImageUtils';
+import { getAspectRatioPadding, resolveMediaImage, getPlaceholderImage } from '@/utils/mediaImageUtils';
 
 function AllMedia() {
   const [viewMode, setViewMode] = useState('card'); // 'card' or 'list'
@@ -110,26 +110,25 @@ function AllMedia() {
                 backgroundColor: 'rgba(255, 255, 255, 0.05)'
               }}
             >
-              {(item.thumbnail || item.Thumbnail) && (
-                <CardMedia
-                  component="img"
-                  image={item.thumbnail || item.Thumbnail}
-                  alt={item.title || item.Title}
-                  sx={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    maxWidth: '100%',
-                    maxHeight: '100%',
-                    objectFit: 'cover'
-                  }}
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                  }}
-                />
-              )}
+              <CardMedia
+                component="img"
+                image={resolveMediaImage(item)}
+                alt={item.title || item.Title}
+                sx={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                  objectFit: 'cover'
+                }}
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = getPlaceholderImage(item.mediaType || item.MediaType);
+                }}
+              />
             </Box>
             <CardContent 
               component={Link} 

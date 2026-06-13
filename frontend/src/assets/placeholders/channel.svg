@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-label="Channel placeholder">
+  <rect width="400" height="400" fill="#d32f2f"/>
+  <rect width="400" height="400" fill="#000000" opacity="0.15"/>
+  <g fill="#fcfafa" opacity="0.9">
+    <rect x="130" y="140" width="140" height="90" rx="16"/>
+    <path d="M188 165l30 20-30 20z" fill="#d32f2f"/>
+  </g>
+  <text x="200" y="300" fill="#fcfafa" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="bold" text-anchor="middle" opacity="0.9">Channel</text>
+</svg>

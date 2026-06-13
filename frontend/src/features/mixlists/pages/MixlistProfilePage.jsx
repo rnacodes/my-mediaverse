@@ -12,6 +12,7 @@ import { useReindexMixlist } from '@/hooks/useTypesense';
 import SimpleMediaCarousel from '@/shared/SimpleMediaCarousel';
 import MixlistRelatedNotesSection from '../MixlistRelatedNotesSection';
 import { formatMediaType, formatStatus } from '@/utils/formatters';
+import { resolveMediaImage, getPlaceholderImage } from '@/utils/mediaImageUtils';
 
 function MixlistProfilePage() {
     const { id } = useParams();
@@ -245,14 +246,13 @@ function MixlistProfilePage() {
                     {/* Mixlist Information Card */}
                     <Card sx={{ mb: 4, overflow: 'hidden' }}>
                         {/* Thumbnail */}
-                        {(mixlist.Thumbnail || mixlist.thumbnail) && (
-                            <CardMedia
-                                component="img"
-                                sx={{ width: '100%', height: 250, objectFit: 'cover' }}
-                                image={mixlist.Thumbnail || mixlist.thumbnail}
-                                alt={mixlist.Name || mixlist.name}
-                            />
-                        )}
+                        <CardMedia
+                            component="img"
+                            sx={{ width: '100%', height: 250, objectFit: 'cover' }}
+                            image={resolveMediaImage(mixlist, 'Mixlist')}
+                            alt={mixlist.Name || mixlist.name}
+                            onError={(e) => { e.target.onerror = null; e.target.src = getPlaceholderImage('Mixlist'); }}
+                        />
                         
                         <CardContent sx={{ p: 3 }}>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -456,14 +456,13 @@ function MixlistProfilePage() {
                                     maxWidth: '300px' // Made slimmer for better proportions
                                 }}>
                                     <Card sx={{ overflow: 'hidden' }}>
-                                        {(selectedMedia.thumbnail || selectedMedia.Thumbnail) && (
-                                            <CardMedia
-                                                component="img"
-                                                sx={{ width: '100%', height: 225, objectFit: 'cover' }} // 300 * 0.75 = 225 for 4:3 ratio
-                                                image={selectedMedia.thumbnail || selectedMedia.Thumbnail}
-                                                alt={selectedMedia.title || selectedMedia.Title}
-                                            />
-                                        )}
+                                        <CardMedia
+                                            component="img"
+                                            sx={{ width: '100%', height: 225, objectFit: 'cover' }} // 300 * 0.75 = 225 for 4:3 ratio
+                                            image={resolveMediaImage(selectedMedia)}
+                                            alt={selectedMedia.title || selectedMedia.Title}
+                                            onError={(e) => { e.target.onerror = null; e.target.src = getPlaceholderImage(selectedMedia.mediaType || selectedMedia.MediaType); }}
+                                        />
                                         <CardContent sx={{ p: 2.5 }}>
                                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2 }}>
                                                 <Typography variant="h5" component="h3" sx={{ fontWeight: 'bold', fontSize: '1.2rem' }}>

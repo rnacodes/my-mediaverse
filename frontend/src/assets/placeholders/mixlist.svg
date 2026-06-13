@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-label="Mixlist placeholder">
+  <rect width="400" height="400" fill="#362759"/>
+  <rect width="400" height="400" fill="#000000" opacity="0.12"/>
+  <g fill="#fcfafa" opacity="0.9">
+    <rect x="140" y="150" width="120" height="14" rx="7"/>
+    <rect x="140" y="185" width="120" height="14" rx="7"/>
+    <rect x="140" y="220" width="78" height="14" rx="7"/>
+    <circle cx="252" cy="227" r="22"/>
+    <rect x="272" y="178" width="10" height="49"/>
+  </g>
+  <text x="200" y="320" fill="#fcfafa" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="bold" text-anchor="middle" opacity="0.9">Mixlist</text>
+</svg>
