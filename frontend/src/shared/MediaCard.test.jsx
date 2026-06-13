@@ -74,10 +74,25 @@ describe('MediaCard', () => {
 
     it('falls back to a placeholder image when no thumbnail is provided', () => {
       renderWithProviders(
-        <MediaCard media={makeBook({ thumbnailUrl: null, imageUrl: null })} />,
+        <MediaCard media={makeBook({ thumbnail: null, thumbnailUrl: null, imageUrl: null })} />,
       );
       const thumb = screen.getByRole('img', { name: 'Test Book' });
       expect(thumb.getAttribute('src')).toContain(PLACEHOLDER);
+    });
+
+    it('prefers the API `thumbnail` field over legacy thumbnailUrl/imageUrl', () => {
+      // The API returns `thumbnail`; older shapes used thumbnailUrl/imageUrl, which
+      // stay supported as fallbacks.
+      renderWithProviders(
+        <MediaCard
+          media={makeBook({
+            thumbnail: 'https://example.com/api-thumb.jpg',
+            thumbnailUrl: 'https://example.com/legacy-thumb.jpg',
+          })}
+        />,
+      );
+      const thumb = screen.getByRole('img', { name: 'Test Book' });
+      expect(thumb).toHaveAttribute('src', 'https://example.com/api-thumb.jpg');
     });
   });
 

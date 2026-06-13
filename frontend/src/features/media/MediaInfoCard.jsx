@@ -15,17 +15,9 @@ function MediaInfoCard({
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
 
-  const imageUrl = useMemo(() => {
-    if (!mediaItem?.thumbnail) return '';
-
-    // Only use the ListenNotes proxy for podcast images to handle CORS
-    // Other media types (books, movies, etc.) load images directly
-    if (mediaItem.mediaType === 'Podcast') {
-      return `/api/ListenNotes/image-proxy?imageUrl=${encodeURIComponent(mediaItem.thumbnail)}`;
-    }
-
-    return mediaItem.thumbnail;
-  }, [mediaItem?.thumbnail, mediaItem?.mediaType]);
+  // Load the stored thumbnail URL directly for every media type. CORS does not
+  // apply to <img> rendering, so podcast images need no server-side proxy.
+  const imageUrl = useMemo(() => mediaItem?.thumbnail || '', [mediaItem?.thumbnail]);
 
   const description = mediaItem?.description || mediaItem?.notes;
 

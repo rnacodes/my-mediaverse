@@ -273,6 +273,49 @@ namespace MyMediaVerse.IntegrationTests.Api
             Assert.Equal("Episode", episodes[0].PodcastType);
         }
 
+        [Fact]
+        public async Task GetEpisodesBySeriesId_EpisodeWithoutThumbnail_FallsBackToSeriesThumbnail()
+        {
+            // Arrange - a series with a thumbnail and an episode with none of its own
+            const string seriesThumbnail = "https://example.com/series-cover.jpg";
+
+            var seriesDto = new CreatePodcastSeriesDto
+            {
+                Title = "Series With Thumbnail",
+                Status = Status.Uncharted,
+                Thumbnail = seriesThumbnail
+            };
+
+            var seriesContent = new StringContent(
+                JsonSerializer.Serialize(seriesDto, _jsonOptions), Encoding.UTF8, "application/json");
+            var seriesResponse = await _client.PostAsync("/api/podcast/series", seriesContent);
+            var createdSeries = JsonSerializer.Deserialize<PodcastSeriesResponseDto>(
+                await seriesResponse.Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.NotNull(createdSeries);
+
+            var episodeDto = new CreatePodcastEpisodeDto
+            {
+                Title = "Episode Without Thumbnail",
+                SeriesId = createdSeries.Id,
+                Status = Status.Uncharted
+            };
+
+            var episodeContent = new StringContent(
+                JsonSerializer.Serialize(episodeDto, _jsonOptions), Encoding.UTF8, "application/json");
+            await _client.PostAsync("/api/podcast/episodes", episodeContent);
+
+            // Act
+            var response = await _client.GetAsync($"/api/podcast/series/{createdSeries.Id}/episodes");
+
+            // Assert - the episode inherits the series thumbnail rather than returning blank
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var episodes = JsonSerializer.Deserialize<List<PodcastEpisodeResponseDto>>(
+                await response.Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.NotNull(episodes);
+            Assert.Single(episodes);
+            Assert.Equal(seriesThumbnail, episodes[0].Thumbnail);
+        }
+
         #endregion
 
         #region DELETE Tests

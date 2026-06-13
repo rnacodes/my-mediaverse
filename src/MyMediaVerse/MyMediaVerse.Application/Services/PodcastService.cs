@@ -187,6 +187,7 @@ namespace MyMediaVerse.Application.Services
                 .AsNoTracking()
                 .AsSplitQuery()
                 .Where(e => e.SeriesId == seriesId)
+                .Include(e => e.Series)
                 .Include(e => e.Topics)
                 .Include(e => e.Genres)
                 .OrderByDescending(e => e.ReleaseDate)
