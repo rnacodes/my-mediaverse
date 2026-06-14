@@ -2,19 +2,16 @@ using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Shared.DTOs.ListenNotes;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.DTOs;
-using MyMediaVerse.Shared.Interfaces;
 using Microsoft.Extensions.Logging;
 
 namespace MyMediaVerse.Application.Services
 {
     public class PodcastMappingService : IPodcastMappingService
     {
-        private readonly IThumbnailStorageService _thumbnailStorage;
         private readonly ILogger<PodcastMappingService> _logger;
 
-        public PodcastMappingService(IThumbnailStorageService thumbnailStorage, ILogger<PodcastMappingService> logger)
+        public PodcastMappingService(ILogger<PodcastMappingService> logger)
         {
-            _thumbnailStorage = thumbnailStorage;
             _logger = logger;
         }
 

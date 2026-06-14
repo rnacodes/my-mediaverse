@@ -2,11 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { renderWithProviders, screen, within, act, waitFor } from '@/test/test-utils';
 import DemoReadOnlyDialog from './DemoReadOnlyDialog';
 
-// DemoReadOnlyDialog is the read-only notice shown when a write is blocked on the demo
-// site. It's driven entirely by the real DemoReadOnlyProvider (mounted by
-// renderWithProviders), which opens the dialog in response to a `demoWriteBlocked`
-// window event. Per the C.3 / RAS-20 convention we exercise the real provider rather
-// than mocking useDemoReadOnly, so this also covers the event wiring.
+// Smoke test only - left as a future decomposition
 const fireBlockedWrite = () =>
   act(() => {
     window.dispatchEvent(new CustomEvent('demoWriteBlocked', { detail: null }));

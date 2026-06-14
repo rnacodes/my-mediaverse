@@ -15,65 +15,16 @@ namespace MyMediaVerse.Infrastructure.Services.Storage
     {
         private readonly IAmazonS3? _s3Client;
         private readonly IConfiguration _configuration;
-        private readonly IHttpClientFactory _httpClientFactory;
         private readonly ILogger<ThumbnailStorageService> _logger;
 
         public ThumbnailStorageService(
             IAmazonS3? s3Client,
             IConfiguration configuration,
-            IHttpClientFactory httpClientFactory,
             ILogger<ThumbnailStorageService> logger)
         {
             _s3Client = s3Client;
             _configuration = configuration;
-            _httpClientFactory = httpClientFactory;
             _logger = logger;
-        }
-
-        public async Task<string?> UploadFromUrlAsync(string? imageUrl, string keyPrefix)
-        {
-            if (string.IsNullOrEmpty(imageUrl))
-            {
-                return imageUrl;
-            }
-
-            if (_s3Client == null)
-            {
-                _logger.LogWarning("S3 client is not configured; returning original image URL {ImageUrl}", imageUrl);
-                return imageUrl;
-            }
-
-            try
-            {
-                var (bucketName, endpoint) = GetSpacesConfig();
-                if (bucketName == null || endpoint == null)
-                {
-                    _logger.LogWarning("DigitalOcean Spaces configuration incomplete; keeping original image URL {ImageUrl}", imageUrl);
-                    return imageUrl;
-                }
-
-                var httpClient = _httpClientFactory.CreateClient();
-                httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("MyMediaVerse/1.0");
-
-                using var response = await httpClient.GetAsync(imageUrl);
-                if (!response.IsSuccessStatusCode)
-                {
-                    _logger.LogWarning("Failed to download image from {ImageUrl}: {StatusCode}", imageUrl, response.StatusCode);
-                    return imageUrl;
-                }
-
-                var contentType = response.Content.Headers.ContentType?.MediaType ?? "image/jpeg";
-                using var imageStream = await response.Content.ReadAsStreamAsync();
-
-                var result = await PutObjectAsync(_s3Client, bucketName, endpoint, imageStream, contentType, keyPrefix);
-                _logger.LogInformation("Uploaded thumbnail to DigitalOcean Spaces: {OriginalUrl} -> {PublicUrl}", imageUrl, result.PublicUrl);
-                return result.PublicUrl;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error uploading thumbnail from {ImageUrl}; keeping original URL", imageUrl);
-                return imageUrl;
-            }
         }
 
         public async Task<ThumbnailUploadResult?> UploadStreamAsync(Stream content, string contentType, string keyPrefix)

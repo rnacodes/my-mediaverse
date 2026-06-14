@@ -10,7 +10,7 @@ export const createMediaItem = (overrides = {}) => ({
   status: 'Uncharted',
   dateAdded: '2024-01-15T10:00:00Z',
   description: 'A test media item',
-  thumbnailUrl: 'https://example.com/thumb.jpg',
+  thumbnail: 'https://example.com/thumb.jpg',
   link: null,
   notes: null,
   rating: null,
@@ -36,7 +36,7 @@ export const createVideo = (overrides = {}) => createMediaItem({
   lengthInSeconds: 3600,
   videoType: 'Series',
   link: 'https://youtube.com/watch?v=test',
-  thumbnailUrl: 'https://example.com/video-thumb.jpg',
+  thumbnail: 'https://example.com/video-thumb.jpg',
   ...overrides,
 });
 

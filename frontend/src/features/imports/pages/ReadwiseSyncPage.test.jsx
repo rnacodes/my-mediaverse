@@ -6,14 +6,6 @@ import { API_BASE } from '@/test/mocks/handlers';
 import { makeHighlight } from '@/test/factories/note';
 import ReadwiseSyncPage from './ReadwiseSyncPage';
 
-// MVP coverage (RAS-84): hit every feature of the page once, both outcome directions at
-// least once, and exercise the unlinked-highlight link flow (in-scope, not a smoke test).
-//
-// The page uses React Query hooks. On mount it auto-fetches THREE endpoints
-// (GET /highlight/unlinked, GET /book, GET /article) — all must be mocked every test or the
-// onUnhandledRequest:'error' guard fails it. Connection validation is gated to a button click
-// (the query is enabled:false), so it does NOT fire on mount.
-
 const mockMount = ({ unlinked = [], books = [], articles = [] } = {}) =>
   server.use(
     http.get(`${API_BASE}/highlight/unlinked`, () => HttpResponse.json(unlinked)),

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 270" role="img" aria-label="Article placeholder">
+  <rect width="480" height="270" fill="#4caf50"/>
+  <rect width="480" height="270" fill="#000000" opacity="0.15"/>
+  <g fill="#fcfafa" opacity="0.9">
+    <rect x="200" y="80" width="80" height="14" rx="4"/>
+    <rect x="200" y="108" width="80" height="8" rx="4"/>
+    <rect x="200" y="126" width="80" height="8" rx="4"/>
+    <rect x="200" y="144" width="56" height="8" rx="4"/>
+  </g>
+  <text x="240" y="225" fill="#fcfafa" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="bold" text-anchor="middle" opacity="0.9">Article</text>
+</svg>

@@ -15,6 +15,9 @@ namespace MyMediaVerse.Infrastructure.Services.Sync
         private const int BatchSize = 50;
         private const int ApiDelayMs = 300;
 
+        // Scope-lived genre lookup (lowercase name -> tracked Genre).
+        private Dictionary<string, Genre>? _genreCache;
+
         public TraktSyncService(
             IApplicationDbContext context,
             ITraktApiClient traktClient,
@@ -407,6 +410,7 @@ namespace MyMediaVerse.Infrastructure.Services.Sync
                     movie.DateCompleted ??= watchedMovie.LastWatchedAt;
                 }
 
+                await LinkGenresAsync(movie, watchedMovie.Movie.Genres);
                 _context.Update(movie);
                 result.MoviesUpdated++;
             }
@@ -430,6 +434,7 @@ namespace MyMediaVerse.Infrastructure.Services.Sync
                 };
 
                 _context.Add(newMovie);
+                await LinkGenresAsync(newMovie, watchedMovie.Movie.Genres);
                 result.MoviesCreated++;
                 _logger.LogDebug("Created new movie from Trakt: {Title} ({Year})", newMovie.Title, newMovie.ReleaseYear);
             }
@@ -461,6 +466,8 @@ namespace MyMediaVerse.Infrastructure.Services.Sync
             {
                 result.ShowsUpdated++;
             }
+
+            await LinkGenresAsync(show, watchedShow.Show.Genres);
 
             // Update show-level Trakt fields
             show.TraktId = watchedShow.Show.Ids.Trakt;
@@ -558,6 +565,7 @@ namespace MyMediaVerse.Infrastructure.Services.Sync
                     movie.Notes = item.Notes;
                 }
 
+                await LinkGenresAsync(movie, item.Movie.Genres);
                 _context.Update(movie);
                 result.MoviesUpdated++;
             }
@@ -577,6 +585,7 @@ namespace MyMediaVerse.Infrastructure.Services.Sync
                     DateAdded = DateTime.UtcNow
                 };
                 _context.Add(newMovie);
+                await LinkGenresAsync(newMovie, item.Movie.Genres);
                 result.MoviesCreated++;
             }
 
@@ -600,6 +609,7 @@ namespace MyMediaVerse.Infrastructure.Services.Sync
                     show.Notes = item.Notes;
                 }
 
+                await LinkGenresAsync(show, item.Show.Genres);
                 _context.Update(show);
                 result.ShowsUpdated++;
             }
@@ -618,6 +628,7 @@ namespace MyMediaVerse.Infrastructure.Services.Sync
                     DateAdded = DateTime.UtcNow
                 };
                 _context.Add(newShow);
+                await LinkGenresAsync(newShow, item.Show.Genres);
                 result.ShowsCreated++;
             }
 
@@ -646,6 +657,7 @@ namespace MyMediaVerse.Infrastructure.Services.Sync
                 movie.Rating = MapTraktRating(ratingItem.Rating);
             }
 
+            await LinkGenresAsync(movie, ratingItem.Movie.Genres);
             _context.Update(movie);
             result.MoviesUpdated++;
             result.RatingsProcessed++;
@@ -672,10 +684,63 @@ namespace MyMediaVerse.Infrastructure.Services.Sync
                 show.Rating = MapTraktRating(ratingItem.Rating);
             }
 
+            await LinkGenresAsync(show, ratingItem.Show.Genres);
             _context.Update(show);
             result.ShowsUpdated++;
             result.RatingsProcessed++;
         }
+
+        // --- Genre Helpers ---
+
+        /// <summary>
+        /// Links the given Trakt genre slugs to a media item, creating genre records as needed.
+        /// Idempotent: a slug already linked to the item (by normalized name) is skipped, so
+        /// re-importing the same media never produces duplicate links. The item's <c>Genres</c>
+        /// collection must already be loaded for existing items.
+        /// </summary>
+        private async Task LinkGenresAsync(BaseMediaItem item, IEnumerable<string> genreSlugs)
+        {
+            if (genreSlugs == null) return;
+
+            var cache = await GetGenreCacheAsync();
+
+            foreach (var slug in genreSlugs)
+            {
+                var name = NormalizeGenreName(slug);
+                if (string.IsNullOrEmpty(name)) continue;
+
+                // Skip if this item is already linked to the genre.
+                if (item.Genres.Any(g => g.Name == name)) continue;
+
+                if (!cache.TryGetValue(name, out var genre))
+                {
+                    genre = new Genre { Name = name };
+                    _context.Add(genre);
+                    cache[name] = genre;
+                }
+
+                item.Genres.Add(genre);
+            }
+        }
+
+        private async Task<Dictionary<string, Genre>> GetGenreCacheAsync()
+        {
+            if (_genreCache == null)
+            {
+                var existing = await _context.Genres.ToListAsync();
+                _genreCache = existing.ToDictionary(g => g.Name, g => g, StringComparer.Ordinal);
+            }
+
+            return _genreCache;
+        }
+
+        // Trakt returns lowercase, hyphenated slugs (e.g. "science-fiction"). Normalize to the project's
+        // lowercase convention and replace hyphens with spaces so genres unify with other sources (TMDB,
+        // ListenNotes) rather than creating parallel rows.
+        private static string NormalizeGenreName(string slug) =>
+            string.IsNullOrWhiteSpace(slug)
+                ? string.Empty
+                : slug.Trim().ToLowerInvariant().Replace('-', ' ');
 
         // --- Lookup Helpers ---
 
@@ -684,12 +749,16 @@ namespace MyMediaVerse.Infrastructure.Services.Sync
             // First try TMDB ID match
             if (!string.IsNullOrEmpty(tmdbId))
             {
-                var movie = await _context.Movies.FirstOrDefaultAsync(m => m.TmdbId == tmdbId);
+                var movie = await _context.Movies
+                    .Include(m => m.Genres)
+                    .FirstOrDefaultAsync(m => m.TmdbId == tmdbId);
                 if (movie != null) return movie;
             }
 
             // Fallback: title + year match
-            var query = _context.Movies.Where(m => m.Title.ToLower() == title.ToLower());
+            var query = _context.Movies
+                .Include(m => m.Genres)
+                .Where(m => m.Title.ToLower() == title.ToLower());
             if (year.HasValue)
             {
                 query = query.Where(m => m.ReleaseYear == year.Value);
@@ -702,11 +771,15 @@ namespace MyMediaVerse.Infrastructure.Services.Sync
         {
             if (!string.IsNullOrEmpty(tmdbId))
             {
-                var show = await _context.TvShows.FirstOrDefaultAsync(s => s.TmdbId == tmdbId);
+                var show = await _context.TvShows
+                    .Include(s => s.Genres)
+                    .FirstOrDefaultAsync(s => s.TmdbId == tmdbId);
                 if (show != null) return show;
             }
 
-            var query = _context.TvShows.Where(s => s.Title.ToLower() == title.ToLower());
+            var query = _context.TvShows
+                .Include(s => s.Genres)
+                .Where(s => s.Title.ToLower() == title.ToLower());
             if (year.HasValue)
             {
                 query = query.Where(s => s.FirstAirYear == year.Value);

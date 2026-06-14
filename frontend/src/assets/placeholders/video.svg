@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 270" role="img" aria-label="Video placeholder">
+  <rect width="480" height="270" fill="#f44336"/>
+  <rect width="480" height="270" fill="#000000" opacity="0.15"/>
+  <g fill="#fcfafa" opacity="0.9">
+    <circle cx="240" cy="120" r="42" fill="#fcfafa" opacity="0.9"/>
+    <path d="M228 100l28 20-28 20z" fill="#f44336"/>
+  </g>
+  <text x="240" y="215" fill="#fcfafa" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="bold" text-anchor="middle" opacity="0.9">Video</text>
+</svg>

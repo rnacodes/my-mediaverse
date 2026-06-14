@@ -13,6 +13,7 @@ import {
     importFromYouTubeUrl, checkYouTubeChannelExists
 } from '@/api/youtubeService';
 import WhiteOutlineButton from '@/shared/WhiteOutlineButton';
+import { getPlaceholderImage } from '@/utils/mediaImageUtils';
 import SafeImage from './SafeImage';
 
 function YouTubeImportSection({ expanded, onAccordionChange, onSnackbar }) {
@@ -242,13 +243,14 @@ function YouTubeImportSection({ expanded, onAccordionChange, onSnackbar }) {
         }
     };
 
-    const getYoutubeThumbnailUrl = (thumbnails) => {
-        if (!thumbnails) return '/placeholder-video.png';
+    const getYoutubeThumbnailUrl = (thumbnails, mediaType = 'Video') => {
+        const placeholder = getPlaceholderImage(mediaType);
+        if (!thumbnails) return placeholder;
 
         return thumbnails.high?.url ||
             thumbnails.medium?.url ||
             thumbnails.default?.url ||
-            '/placeholder-video.png';
+            placeholder;
     };
 
     const getYoutubeItemType = (item) => {
@@ -393,6 +395,7 @@ function YouTubeImportSection({ expanded, onAccordionChange, onSnackbar }) {
                                                     >
                                                         <SafeImage
                                                             src={item.thumbnail}
+                                                            fallbackSrc={getPlaceholderImage(getYoutubeItemType(item))}
                                                             alt={item.title}
                                                             style={{
                                                                 width: '100%',

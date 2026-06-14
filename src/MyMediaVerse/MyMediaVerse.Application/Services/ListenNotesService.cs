@@ -12,17 +12,20 @@ namespace MyMediaVerse.Application.Services
         private readonly IListenNotesApiClient _listenNotesApiClient;
         private readonly IPodcastService _podcastService;
         private readonly IPodcastMappingService _podcastMappingService;
+        private readonly IGenreMappingService _genreMappingService;
         private readonly ILogger<ListenNotesService> _logger;
 
         public ListenNotesService(
             IListenNotesApiClient listenNotesApiClient,
             IPodcastService podcastService,
             IPodcastMappingService podcastMappingService,
+            IGenreMappingService genreMappingService,
             ILogger<ListenNotesService> logger)
         {
             _listenNotesApiClient = listenNotesApiClient;
             _podcastService = podcastService;
             _podcastMappingService = podcastMappingService;
+            _genreMappingService = genreMappingService;
             _logger = logger;
         }
 
@@ -126,7 +129,13 @@ namespace MyMediaVerse.Application.Services
 
                 // Map ListenNotes DTO to CreatePodcastSeriesDto
                 var createSeriesDto = _podcastMappingService.MapFromListenNotesSeriesDto(podcastDto);
-                
+
+                // Resolve ListenNotes genre ids to lowercase genre names. PodcastService.CreatePodcastSeriesAsync
+                // handles find-or-create and the many-to-many link (skipping duplicates) from this array.
+                var genreNames = await _genreMappingService.GetGenreNamesAsync(
+                    GenreSource.ListenNotes, podcastDto.GenreIds);
+                createSeriesDto.Genres = genreNames.ToArray();
+
                 // Automatically subscribe when importing a series
                 createSeriesDto.IsSubscribed = true;
 
@@ -172,11 +181,6 @@ namespace MyMediaVerse.Application.Services
                 // Map ListenNotes episode DTO to CreatePodcastEpisodeDto
                 var createEpisodeDto = _podcastMappingService.MapFromListenNotesEpisodeDto(episodeDto);
                 createEpisodeDto.SeriesId = seriesId;
-
-                // Set publisher if available from episodeDto
-                // ListenNotes episode DTOs often don't include publisher directly.
-                // We could fetch the series to get it, but for now, we'll leave it to be filled by the series.
-                // createEpisodeDto.Publisher = episodeDto.Podcast?.Publisher; 
 
                 // Save to database through domain service
                 var savedEpisode = await _podcastService.CreatePodcastEpisodeAsync(createEpisodeDto);

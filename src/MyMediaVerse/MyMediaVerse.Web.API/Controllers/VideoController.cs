@@ -200,7 +200,7 @@ namespace MyMediaVerse.Web.API.Controllers
                 Status = video.Status,
                 DateAdded = video.DateAdded,
                 Link = video.Link,
-                Thumbnail = video.Thumbnail,
+                Thumbnail = video.GetEffectiveThumbnail(),
                 VideoType = video.VideoType,
                 ParentVideoId = video.ParentVideoId,
                 Platform = video.Platform,

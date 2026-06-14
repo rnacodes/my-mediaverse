@@ -9,6 +9,7 @@ import {
 import { Search, Download, Podcasts, ExpandMore, OpenInNew } from '@mui/icons-material';
 import { searchPodcasts, importPodcastSeriesFromApi, importPodcastSeriesByName } from '@/api/podcastService';
 import WhiteOutlineButton from '@/shared/WhiteOutlineButton';
+import { getPlaceholderImage } from '@/utils/mediaImageUtils';
 
 function PodcastImportSection({ expanded, onAccordionChange, onSnackbar }) {
     const navigate = useNavigate();
@@ -43,7 +44,7 @@ function PodcastImportSection({ expanded, onAccordionChange, onSnackbar }) {
                 title: podcast.title_original || podcast.title_highlighted || 'Unknown Title',
                 publisher: podcast.publisher_original || podcast.publisher_highlighted || 'Unknown Publisher',
                 description: podcast.description_original || podcast.description_highlighted || 'No description available',
-                image: podcast.image || 'https://placehold.co/300x300/362759/fcfafa?text=No+Image',
+                image: podcast.image || getPlaceholderImage('Podcast'),
                 total_episodes: podcast.total_episodes || 0,
                 listennotes_url: podcast.listennotes_url || null
             })) || [];

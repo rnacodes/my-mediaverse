@@ -1,7 +1,58 @@
 /**
  * Shared utility for media image display configuration.
- * Single source of truth for aspect ratios and object-fit per media type.
+ * Single source of truth for aspect ratios, object-fit, and placeholder
+ * resolution per media type.
  */
+
+import bookPlaceholder from '@/assets/placeholders/book.svg';
+import moviePlaceholder from '@/assets/placeholders/movie.svg';
+import tvShowPlaceholder from '@/assets/placeholders/tvshow.svg';
+import videoPlaceholder from '@/assets/placeholders/video.svg';
+import channelPlaceholder from '@/assets/placeholders/channel.svg';
+import playlistPlaceholder from '@/assets/placeholders/playlist.svg';
+import podcastPlaceholder from '@/assets/placeholders/podcast.svg';
+import articlePlaceholder from '@/assets/placeholders/article.svg';
+import websitePlaceholder from '@/assets/placeholders/website.svg';
+import mixlistPlaceholder from '@/assets/placeholders/mixlist.svg';
+import defaultPlaceholder from '@/assets/placeholders/default.svg';
+
+// Per-media-type placeholder images, keyed by the PascalCase mediaType enum
+// values the API returns. Used when an item has no thumbnail or its thumbnail
+// fails to load.
+const PLACEHOLDERS = {
+  Book: bookPlaceholder,
+  Movie: moviePlaceholder,
+  TVShow: tvShowPlaceholder,
+  Video: videoPlaceholder,
+  Channel: channelPlaceholder,
+  Playlist: playlistPlaceholder,
+  Podcast: podcastPlaceholder,
+  Article: articlePlaceholder,
+  Website: websitePlaceholder,
+  Mixlist: mixlistPlaceholder,
+};
+
+/**
+ * Returns the placeholder image URL for a given media type, falling back to a
+ * generic placeholder for unknown/missing types.
+ */
+export const getPlaceholderImage = (mediaType) =>
+  PLACEHOLDERS[mediaType] || defaultPlaceholder;
+
+/**
+ * Resolves the display image for a media item: the provider-supplied
+ * `thumbnail` if present, otherwise the per-type placeholder. This is the
+ * single source of truth for picking an image URL — components should not read
+ * `thumbnailUrl`/`imageUrl` or build their own fallback chains.
+ *
+ * @param {object} item        The media item (expects a `thumbnail` field).
+ * @param {string} [typeHint]  Media type to use for the placeholder when the
+ *                             item itself has no `mediaType` (e.g. mixlists).
+ */
+export const resolveMediaImage = (item, typeHint) => {
+  if (!item) return getPlaceholderImage(typeHint);
+  return item.thumbnail || getPlaceholderImage(typeHint || item.mediaType);
+};
 
 /**
  * Returns the CSS aspectRatio value for a given media type.

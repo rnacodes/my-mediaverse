@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600" role="img" aria-label="Book placeholder">
+  <rect width="400" height="600" fill="#9c27b0"/>
+  <rect width="400" height="600" fill="#000000" opacity="0.15"/>
+  <g fill="#fcfafa" opacity="0.85">
+    <path d="M150 220h100a10 10 0 0 1 10 10v150a10 10 0 0 1-10 10h-100a10 10 0 0 1-10-10V230a10 10 0 0 1 10-10zm10 22v126h80V242z"/>
+    <rect x="170" y="262" width="60" height="10" rx="5"/>
+    <rect x="170" y="288" width="60" height="10" rx="5"/>
+    <rect x="170" y="314" width="40" height="10" rx="5"/>
+  </g>
+  <text x="200" y="470" fill="#fcfafa" font-family="Arial, Helvetica, sans-serif" font-size="44" font-weight="bold" text-anchor="middle" opacity="0.9">Book</text>
+</svg>

@@ -3,7 +3,8 @@ import { renderWithProviders, screen } from '@/test/test-utils';
 import MediaInfoCard from './MediaInfoCard';
 
 // MediaInfoCard is a pure presentational component: it does no fetching and takes
-// formatter functions as props. These tests cover the podcast-type chip logic
+// formatter functions as props. These tests cover the podcast-type chip logic and
+// the thumbnail URL it feeds to the hero image.
 
 // Identity/no-op stubs for the formatter props. formatMediaType/formatStatus echo
 // their input so the media-type and status chips have predictable, non-colliding
@@ -49,5 +50,22 @@ describe('MediaInfoCard podcast-type chip', () => {
 
     expect(screen.queryByText('Series')).not.toBeInTheDocument();
     expect(screen.queryByText('Episode')).not.toBeInTheDocument();
+  });
+});
+
+describe('MediaInfoCard thumbnail', () => {
+  it('loads a podcast thumbnail directly from its stored URL (no proxy)', () => {
+    const thumbnail = 'https://cdn.example.com/podcast-cover.jpg';
+    renderCard({ mediaType: 'Podcast', status: 'Consuming', title: 'My Podcast', thumbnail });
+
+    const img = screen.getByRole('img', { name: 'My Podcast' });
+    expect(img).toHaveAttribute('src', thumbnail);
+  });
+
+  it('shows the per-type placeholder image when no thumbnail is set', () => {
+    renderCard({ mediaType: 'Podcast', status: 'Consuming', title: 'My Podcast' });
+
+    const img = screen.getByRole('img', { name: 'My Podcast' });
+    expect(img.getAttribute('src')).toContain('podcast.svg');
   });
 });

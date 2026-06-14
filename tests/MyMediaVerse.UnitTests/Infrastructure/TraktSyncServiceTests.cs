@@ -357,7 +357,8 @@ namespace MyMediaVerse.UnitTests.Infrastructure
 
         private static TraktWatchedMovieDto CreateWatchedMovieDto(
             string title, int? year = null, int? tmdbId = null, int? traktId = null,
-            string? slug = null, int plays = 1, DateTime? lastWatchedAt = null, string? imdbId = null)
+            string? slug = null, int plays = 1, DateTime? lastWatchedAt = null, string? imdbId = null,
+            List<string>? genres = null)
         {
             return new TraktWatchedMovieDto
             {
@@ -373,7 +374,8 @@ namespace MyMediaVerse.UnitTests.Infrastructure
                         Trakt = traktId,
                         Slug = slug,
                         Imdb = imdbId
-                    }
+                    },
+                    Genres = genres ?? new List<string>()
                 }
             };
         }

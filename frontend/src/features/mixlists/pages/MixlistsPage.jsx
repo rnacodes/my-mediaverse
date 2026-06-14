@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Typography, Button, Grid, Card, CardContent, CardMedia, Box, CircularProgress, Chip, Fab, ButtonGroup, List, ListItem, ListItemText, ListItemSecondaryAction, IconButton, Divider, Checkbox, Toolbar, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Snackbar, Alert } from '@mui/material';
 import { Add, ViewModule, ViewList, OpenInNew, Delete, CheckBox, CheckBoxOutlineBlank } from '@mui/icons-material';
 import { useAllMixlists } from '@/hooks/useMixlist';
+import { resolveMediaImage, getPlaceholderImage } from '@/utils/mediaImageUtils';
 
 function MixlistsPage() {
     const [viewMode, setViewMode] = useState('card'); // 'card' or 'list'
@@ -78,7 +79,7 @@ function MixlistsPage() {
             {mixlists.map((mixlist) => {
                 const id = mixlist.id || mixlist.Id;
                 const name = mixlist.Name || mixlist.name || 'Unnamed Mixlist';
-                const thumbnail = mixlist.Thumbnail || mixlist.thumbnail;
+                const thumbnail = resolveMediaImage(mixlist, 'Mixlist');
                 const description = mixlist.Description || mixlist.description;
                 const mediaCount = mixlist.MediaItems ? mixlist.MediaItems.length : (mixlist.mediaItems ? mixlist.mediaItems.length : 0);
                 
@@ -102,17 +103,16 @@ function MixlistsPage() {
                             }}
                             onClick={() => navigate(`/mixlist/${id}`)}
                         >
-                            {thumbnail && (
-                                <CardMedia
-                                    component="img"
-                                    sx={{ 
-                                        height: { xs: 160, sm: 180, md: 200 },
-                                        objectFit: 'cover'
-                                    }}
-                                    image={thumbnail}
-                                    alt={name}
-                                />
-                            )}
+                            <CardMedia
+                                component="img"
+                                sx={{
+                                    height: { xs: 160, sm: 180, md: 200 },
+                                    objectFit: 'cover'
+                                }}
+                                image={thumbnail}
+                                alt={name}
+                                onError={(e) => { e.target.onerror = null; e.target.src = getPlaceholderImage('Mixlist'); }}
+                            />
                             <CardContent sx={{ 
                                 flexGrow: 1, 
                                 display: 'flex', 

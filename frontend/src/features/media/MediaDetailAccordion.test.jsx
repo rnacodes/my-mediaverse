@@ -3,10 +3,7 @@ import { renderWithProviders, screen } from '@/test/test-utils';
 import { makeBook } from '@/test/factories/media';
 import MediaDetailAccordion from './MediaDetailAccordion';
 
-// Smoke test only (RAS-34): this large media-type-switch component is left as a future
-// decomposition project, so we just mount it with a happy-path item and assert it renders
-// its type-specific details heading. No network fires for a Book (RSS/channel queries are
-// gated to Website items and the link dialog respectively).
+// Smoke test only - left as a future decomposition
 
 describe('MediaDetailAccordion', () => {
   it('mounts and renders the details heading for its media type', async () => {

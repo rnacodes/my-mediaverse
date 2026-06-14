@@ -26,14 +26,8 @@ import {
   scriptExecutionKeys,
 } from './queryKeys';
 
-// RAS-18 / C.1 — structural assertions over every query-key factory.
-//
-// These keys define TanStack Query's cache hierarchy: invalidating a parent key
-// (e.g. ['media']) must cascade to its children (['media','list'], ...). A
-// renaming/typo here silently breaks invalidation app-wide, so we pin every
-// factory's exact output AND the prefix relationship.
+// Structural assertions over every query-key factory.
 
-// Shared shape for the many resources that expose the standard all/lists/detail trio.
 const expectStandardTrio = (keys, root) => {
   expect(keys.all).toEqual([root]);
   expect(keys.lists()).toEqual([root, 'list']);

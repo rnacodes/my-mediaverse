@@ -5,10 +5,11 @@ import {
     Chip, LinearProgress, IconButton, Tooltip
 } from '@mui/material';
 import {
-    Star, Archive, CheckCircle, Article as ArticleIcon,
+    Star, Archive, CheckCircle,
     OpenInNew, AccessTime, MenuBook
 } from '@mui/icons-material';
 import { formatStatus } from '@/utils/formatters';
+import { resolveMediaImage, getPlaceholderImage } from '@/utils/mediaImageUtils';
 
 function ArticleCard({ article }) {
     const navigate = useNavigate();
@@ -53,34 +54,18 @@ function ArticleCard({ article }) {
             }}
             onClick={handleCardClick}
         >
-            {article.thumbnail && (
-                <CardMedia
-                    component="img"
-                    height="180"
-                    image={article.thumbnail}
-                    alt={article.title}
-                    sx={{ 
-                      width: '100%',
-                      maxHeight: 180,
-                      objectFit: 'cover' 
-                    }}
-                />
-            )}
-            
-            {!article.thumbnail && (
-                <Box
-                    sx={{
-                        height: 180,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        bgcolor: 'primary.light',
-                        color: 'white'
-                    }}
-                >
-                    <ArticleIcon sx={{ fontSize: 80, opacity: 0.7 }} />
-                </Box>
-            )}
+            <CardMedia
+                component="img"
+                height="180"
+                image={resolveMediaImage(article, 'Article')}
+                alt={article.title}
+                onError={(e) => { e.target.onerror = null; e.target.src = getPlaceholderImage('Article'); }}
+                sx={{
+                  width: '100%',
+                  maxHeight: 180,
+                  objectFit: 'cover'
+                }}
+            />
 
             <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 1 }}>

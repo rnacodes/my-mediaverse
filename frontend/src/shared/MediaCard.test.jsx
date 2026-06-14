@@ -3,21 +3,8 @@ import { renderWithProviders, screen, fireEvent } from '../test/test-utils';
 import MediaCard from './MediaCard';
 import { makeBook, makeVideo } from '../test/factories/media';
 
-// Phase A reference test (RAS-16, Deliverable 1).
-//
-// MediaCard is a *presentational* component: it renders from its `media` prop
-// synchronously — no hook, no fetch, no async state. So there is no loading
-// state here; the loading -> success -> error path lives in the query layer and
-// is covered separately by the useMedia hook test (Deliverable 2).
-//
-// Conventions enforced by this file (the template the rest of the suite follows):
-//   - renderWithProviders for the real provider stack (real MUI on jsdom)
-//   - factories instead of inline mock objects
-//   - query by role / text; userEvent for interactions
-//   - no .Mui* class queries; getByTestId only where there is genuinely no
-//     accessible handle (the decorative type-icon overlay)
-
-const PLACEHOLDER = 'placehold.co';
+// Placeholders are bundled per-type SVG assets resolved by mediaImageUtils;
+// in the test environment the import resolves to its asset path.
 
 describe('MediaCard', () => {
   describe('success — populated media', () => {
@@ -86,12 +73,28 @@ describe('MediaCard', () => {
       expect(screen.queryByText(/\/5$/)).not.toBeInTheDocument(); // rating caption
     });
 
-    it('falls back to a placeholder image when no thumbnail is provided', () => {
+    it('falls back to the per-type placeholder when no thumbnail is provided', () => {
       renderWithProviders(
-        <MediaCard media={makeBook({ thumbnailUrl: null, imageUrl: null })} />,
+        <MediaCard media={makeBook({ thumbnail: null })} />,
       );
       const thumb = screen.getByRole('img', { name: 'Test Book' });
-      expect(thumb.getAttribute('src')).toContain(PLACEHOLDER);
+      expect(thumb.getAttribute('src')).toContain('book.svg');
+    });
+
+    it('reads the canonical `thumbnail` field only (legacy thumbnailUrl is ignored)', () => {
+      // The API returns `thumbnail`. Legacy `thumbnailUrl`/`imageUrl` shapes are no
+      // longer read, so a thumbnail-less item falls back to the placeholder even
+      // when a legacy field is present.
+      renderWithProviders(
+        <MediaCard
+          media={makeBook({
+            thumbnail: null,
+            thumbnailUrl: 'https://example.com/legacy-thumb.jpg',
+          })}
+        />,
+      );
+      const thumb = screen.getByRole('img', { name: 'Test Book' });
+      expect(thumb.getAttribute('src')).toContain('book.svg');
     });
   });
 
@@ -108,7 +111,7 @@ describe('MediaCard', () => {
       // No userEvent equivalent for an <img> load error — a raw DOM event is the
       // only way to drive the onError fallback.
       fireEvent.error(thumb);
-      expect(thumb.getAttribute('src')).toContain(PLACEHOLDER);
+      expect(thumb.getAttribute('src')).toContain('video.svg');
     });
   });
 

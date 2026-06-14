@@ -51,7 +51,7 @@ function CreateMixlistForm() {
         const mixlistData = {
             name: name.trim(),
             description: description.trim() || null,
-            thumbnail: thumbnail || 'https://project-loopbreaker.atl1.cdn.digitaloceanspaces.com/thumbnails/mixlist-placeholder.png',
+            thumbnail: thumbnail || null,
             topics: topics.length > 0 ? topics : [],
             genres: genres.length > 0 ? genres : []
         };
