@@ -182,39 +182,40 @@ namespace MyMediaVerse.Infrastructure.Clients.Trakt
 
         // --- Sync Endpoints ---
 
+        // extended=full is required so the nested movie/show objects include their genre slugs.
         public async Task<List<TraktWatchedMovieDto>> GetWatchedMoviesAsync(string accessToken)
         {
-            return await GetAuthenticatedAsync<List<TraktWatchedMovieDto>>("sync/watched/movies", accessToken)
+            return await GetAuthenticatedAsync<List<TraktWatchedMovieDto>>("sync/watched/movies?extended=full", accessToken)
                    ?? new List<TraktWatchedMovieDto>();
         }
 
         public async Task<List<TraktWatchedShowDto>> GetWatchedShowsAsync(string accessToken)
         {
-            return await GetAuthenticatedAsync<List<TraktWatchedShowDto>>("sync/watched/shows", accessToken)
+            return await GetAuthenticatedAsync<List<TraktWatchedShowDto>>("sync/watched/shows?extended=full", accessToken)
                    ?? new List<TraktWatchedShowDto>();
         }
 
         public async Task<List<TraktWatchlistItemDto>> GetWatchlistMoviesAsync(string accessToken)
         {
-            return await GetAuthenticatedAsync<List<TraktWatchlistItemDto>>("sync/watchlist/movies", accessToken)
+            return await GetAuthenticatedAsync<List<TraktWatchlistItemDto>>("sync/watchlist/movies?extended=full", accessToken)
                    ?? new List<TraktWatchlistItemDto>();
         }
 
         public async Task<List<TraktWatchlistItemDto>> GetWatchlistShowsAsync(string accessToken)
         {
-            return await GetAuthenticatedAsync<List<TraktWatchlistItemDto>>("sync/watchlist/shows", accessToken)
+            return await GetAuthenticatedAsync<List<TraktWatchlistItemDto>>("sync/watchlist/shows?extended=full", accessToken)
                    ?? new List<TraktWatchlistItemDto>();
         }
 
         public async Task<List<TraktRatingItemDto>> GetRatingsMoviesAsync(string accessToken)
         {
-            return await GetAuthenticatedAsync<List<TraktRatingItemDto>>("sync/ratings/movies", accessToken)
+            return await GetAuthenticatedAsync<List<TraktRatingItemDto>>("sync/ratings/movies?extended=full", accessToken)
                    ?? new List<TraktRatingItemDto>();
         }
 
         public async Task<List<TraktRatingItemDto>> GetRatingsShowsAsync(string accessToken)
         {
-            return await GetAuthenticatedAsync<List<TraktRatingItemDto>>("sync/ratings/shows", accessToken)
+            return await GetAuthenticatedAsync<List<TraktRatingItemDto>>("sync/ratings/shows?extended=full", accessToken)
                    ?? new List<TraktRatingItemDto>();
         }
 

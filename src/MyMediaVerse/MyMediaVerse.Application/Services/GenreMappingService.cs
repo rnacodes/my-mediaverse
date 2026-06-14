@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using MyMediaVerse.Application.Interfaces;
+using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.Application.Services
 {
@@ -17,18 +18,18 @@ namespace MyMediaVerse.Application.Services
         private static readonly TimeSpan CacheTtl = TimeSpan.FromHours(24);
 
         private readonly ITmdbService _tmdbService;
-        private readonly IListenNotesService _listenNotesService;
+        private readonly IListenNotesApiClient _listenNotesApiClient;
         private readonly IMemoryCache _cache;
         private readonly ILogger<GenreMappingService> _logger;
 
         public GenreMappingService(
             ITmdbService tmdbService,
-            IListenNotesService listenNotesService,
+            IListenNotesApiClient listenNotesApiClient,
             IMemoryCache cache,
             ILogger<GenreMappingService> logger)
         {
             _tmdbService = tmdbService;
-            _listenNotesService = listenNotesService;
+            _listenNotesApiClient = listenNotesApiClient;
             _cache = cache;
             _logger = logger;
         }
@@ -100,7 +101,7 @@ namespace MyMediaVerse.Application.Services
                 entry.SlidingExpiration = CacheTtl;
 
                 var map = new Dictionary<int, string>();
-                var genres = await _listenNotesService.GetGenresAsync();
+                var genres = await _listenNotesApiClient.GetGenresAsync();
 
                 foreach (var genre in genres.Genres)
                 {

@@ -6,6 +6,7 @@ using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Shared.DTOs.ListenNotes;
 using MyMediaVerse.Shared.DTOs.TMDB;
+using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.UnitTests.Application
 {
@@ -13,7 +14,7 @@ namespace MyMediaVerse.UnitTests.Application
     public class GenreMappingServiceTests
     {
         private readonly ITmdbService _mockTmdbService;
-        private readonly IListenNotesService _mockListenNotesService;
+        private readonly IListenNotesApiClient _mockListenNotesApiClient;
         private readonly IMemoryCache _cache;
         private readonly ILogger<GenreMappingService> _mockLogger;
         private readonly GenreMappingService _service;
@@ -21,7 +22,7 @@ namespace MyMediaVerse.UnitTests.Application
         public GenreMappingServiceTests()
         {
             _mockTmdbService = Substitute.For<ITmdbService>();
-            _mockListenNotesService = Substitute.For<IListenNotesService>();
+            _mockListenNotesApiClient = Substitute.For<IListenNotesApiClient>();
             _cache = new MemoryCache(new MemoryCacheOptions());
             _mockLogger = Substitute.For<ILogger<GenreMappingService>>();
 
@@ -40,7 +41,7 @@ namespace MyMediaVerse.UnitTests.Application
                     new TmdbGenreDto { Id = 10759, Name = "Action & Adventure" }
                 }
             });
-            _mockListenNotesService.GetGenresAsync().Returns(new ListenNotesGenresDto
+            _mockListenNotesApiClient.GetGenresAsync().Returns(new ListenNotesGenresDto
             {
                 Genres = new List<GenreDto>
                 {
@@ -51,7 +52,7 @@ namespace MyMediaVerse.UnitTests.Application
 
             _service = new GenreMappingService(
                 _mockTmdbService,
-                _mockListenNotesService,
+                _mockListenNotesApiClient,
                 _cache,
                 _mockLogger);
         }
@@ -138,7 +139,7 @@ namespace MyMediaVerse.UnitTests.Application
             await _service.GetGenreNameAsync(GenreSource.ListenNotes, 133);
 
             // Assert
-            await _mockListenNotesService.Received(1).GetGenresAsync();
+            await _mockListenNotesApiClient.Received(1).GetGenresAsync();
         }
     }
 }

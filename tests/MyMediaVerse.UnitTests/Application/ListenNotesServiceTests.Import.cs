@@ -52,6 +52,46 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         [Fact]
+        public async Task ImportPodcastSeriesAsync_ShouldResolveGenreIdsToNames_AndPopulateGenres()
+        {
+            // Arrange
+            var podcastId = "test-podcast-id";
+            var podcastDto = CreateListenNotesPodcastSeriesDto();
+            podcastDto.GenreIds = new List<int> { 67, 99 };
+            var createPodcastSeriesDto = CreatePodcastSeriesDto();
+            var expectedPodcastSeries = CreatePodcastSeries();
+
+            _mockListenNotesApiClient
+                .GetPodcastByIdAsync(podcastId, null)
+                .Returns(podcastDto);
+
+            _mockPodcastService
+                .GetPodcastSeriesByTitleAsync(podcastDto.Title, podcastDto.Publisher)
+                .Returns((PodcastSeries?)null);
+
+            _mockPodcastMappingService
+                .MapFromListenNotesSeriesDto(podcastDto)
+                .Returns(createPodcastSeriesDto);
+
+            _mockGenreMappingService
+                .GetGenreNamesAsync(GenreSource.ListenNotes, Arg.Any<IEnumerable<int>>())
+                .Returns(new List<string> { "comedy", "news" });
+
+            _mockPodcastService
+                .CreatePodcastSeriesAsync(createPodcastSeriesDto)
+                .Returns(expectedPodcastSeries);
+
+            // Act
+            await _listenNotesService.ImportPodcastSeriesAsync(podcastId);
+
+            // Assert
+            await _mockGenreMappingService.Received(1)
+                .GetGenreNamesAsync(GenreSource.ListenNotes, podcastDto.GenreIds);
+            // The resolved names are written onto the DTO that gets persisted.
+            createPodcastSeriesDto.Genres.Should().BeEquivalentTo("comedy", "news");
+        }
+
+        [Fact]
         public async Task ImportPodcastSeriesAsync_ShouldReturnExistingPodcastSeries_WhenPodcastAlreadyExists()
         {
             // Arrange

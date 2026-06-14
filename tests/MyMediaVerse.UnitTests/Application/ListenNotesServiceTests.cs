@@ -16,6 +16,7 @@ namespace MyMediaVerse.UnitTests.Application
         private readonly IListenNotesApiClient _mockListenNotesApiClient;
         private readonly IPodcastService _mockPodcastService;
         private readonly IPodcastMappingService _mockPodcastMappingService;
+        private readonly IGenreMappingService _mockGenreMappingService;
         private readonly ILogger<ListenNotesService> _mockLogger;
         private readonly ListenNotesService _listenNotesService;
 
@@ -24,12 +25,14 @@ namespace MyMediaVerse.UnitTests.Application
             _mockListenNotesApiClient = Substitute.For<IListenNotesApiClient>();
             _mockPodcastService = Substitute.For<IPodcastService>();
             _mockPodcastMappingService = Substitute.For<IPodcastMappingService>();
+            _mockGenreMappingService = Substitute.For<IGenreMappingService>();
             _mockLogger = Substitute.For<ILogger<ListenNotesService>>();
-            
+
             _listenNotesService = new ListenNotesService(
                 _mockListenNotesApiClient,
                 _mockPodcastService,
                 _mockPodcastMappingService,
+                _mockGenreMappingService,
                 _mockLogger);
         }
 
