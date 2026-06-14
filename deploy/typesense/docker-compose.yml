@@ -1,0 +1,24 @@
+services:
+  typesense:
+    image: typesense/typesense:27.1
+    container_name: typesense
+    restart: always
+    environment:
+      - TYPESENSE_DATA_DIR=/data
+      - TYPESENSE_API_KEY=${TYPESENSE_API_KEY:?set TYPESENSE_API_KEY in .env}
+      - TYPESENSE_ENABLE_CORS=true
+    volumes:
+      - ${TYPESENSE_DATA_PATH:-./typesense-data}:/data
+    ports:
+      - "8108:8108"
+    # Revisit after the RAM headroom check; raise before/with the move to auto-embedding.
+    mem_limit: 1g
+    mem_reservation: 512m
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'bash -c ''exec 3<>/dev/tcp/127.0.0.1/8108; printf "GET /health HTTP/1.0\r\n\r\n" >&3; grep -q ok <&3'''
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
