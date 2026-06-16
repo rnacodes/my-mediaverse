@@ -13,6 +13,7 @@ namespace MyMediaVerse.Application.Services
         private readonly IYouTubeMappingService _mappingService;
         private readonly IVideoService _videoService;
         private readonly IYouTubeChannelService _channelService;
+        private readonly IYouTubePlaylistService _playlistService;
         private readonly ILogger<YouTubeService> _logger;
 
         public YouTubeService(
@@ -20,12 +21,14 @@ namespace MyMediaVerse.Application.Services
             IYouTubeMappingService mappingService,
             IVideoService videoService,
             IYouTubeChannelService channelService,
+            IYouTubePlaylistService playlistService,
             ILogger<YouTubeService> logger)
         {
             _youTubeApiClient = youTubeApiClient;
             _mappingService = mappingService;
             _videoService = videoService;
             _channelService = channelService;
+            _playlistService = playlistService;
             _logger = logger;
         }
 
@@ -141,111 +144,7 @@ namespace MyMediaVerse.Application.Services
             }
         }
 
-        public async Task<List<Video>> ImportPlaylistAsync(string playlistId, bool importAsChannel = false)
-        {
-            try
-            {
-                _logger.LogInformation($"Importing YouTube playlist: {playlistId}");
-
-                var playlistDto = await _youTubeApiClient.GetPlaylistDetailsAsync(playlistId);
-                if (playlistDto == null)
-                {
-                    throw new InvalidOperationException($"Playlist with ID {playlistId} not found");
-                }
-
-                var playlistItems = await _youTubeApiClient.GetAllPlaylistItemsAsync(playlistId);
-                var videoIds = playlistItems
-                    .Select(item => item.Snippet?.ResourceId?.VideoId ?? item.ContentDetails?.VideoId)
-                    .Where(id => !string.IsNullOrEmpty(id))
-                    .Cast<string>()
-                    .ToList();
-
-                // Get detailed video information for better mapping
-                var videoDetails = new List<YouTubeVideoDto>();
-                if (videoIds.Any())
-                {
-                    // YouTube API allows up to 50 video IDs per request
-                    for (int i = 0; i < videoIds.Count; i += 50)
-                    {
-                        var batch = videoIds.Skip(i).Take(50).ToList();
-                        var batchDetails = await _youTubeApiClient.GetVideosAsync(batch);
-                        videoDetails.AddRange(batchDetails);
-                    }
-                }
-
-                var videos = new List<Video>();
-
-                if (importAsChannel)
-                {
-                    // Create a channel/series entity for the playlist
-                    var playlistEntity = _mappingService.MapPlaylistToEntity(playlistDto);
-                    var savedPlaylist = await _videoService.SaveVideoAsync(playlistEntity, updateIfExists: true);
-                    videos.Add(savedPlaylist);
-
-                    // Import individual videos as episodes of the playlist
-                    var episodeVideos = _mappingService.MapPlaylistItemsToVideoEntities(playlistItems, videoDetails);
-                    foreach (var episode in episodeVideos)
-                    {
-                        episode.ParentVideoId = savedPlaylist.Id;
-                        episode.VideoType = VideoType.Episode;
-                        
-                        // Auto-link channel for each episode
-                        await AutoLinkChannelToVideo(episode, videoDetails);
-                        
-                        var savedEpisode = await _videoService.SaveVideoAsync(episode, updateIfExists: true);
-                        videos.Add(savedEpisode);
-                    }
-                }
-                else
-                {
-                    // Import each video individually without creating a series
-                    var individualVideos = _mappingService.MapPlaylistItemsToVideoEntities(playlistItems, videoDetails);
-                    foreach (var video in individualVideos)
-                    {
-                        // Auto-link channel for each video
-                        await AutoLinkChannelToVideo(video, videoDetails);
-                        
-                        var savedVideo = await _videoService.SaveVideoAsync(video, updateIfExists: true);
-                        videos.Add(savedVideo);
-                    }
-                }
-
-                _logger.LogInformation($"Successfully imported {videos.Count} videos from YouTube playlist: {playlistDto.Snippet?.Title}");
-                return videos;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error importing YouTube playlist: {playlistId}");
-                throw;
-            }
-        }
-
-        public async Task<Video> ImportChannelAsync(string channelId)
-        {
-            try
-            {
-                _logger.LogInformation($"Importing YouTube channel: {channelId}");
-
-                var channelDto = await _youTubeApiClient.GetChannelDetailsAsync(channelId);
-                if (channelDto == null)
-                {
-                    throw new InvalidOperationException($"Channel with ID {channelId} not found");
-                }
-
-                var channel = _mappingService.MapChannelToEntity(channelDto);
-                var savedChannel = await _videoService.SaveVideoAsync(channel, updateIfExists: true);
-
-                _logger.LogInformation($"Successfully imported YouTube channel: {channel.Title}");
-                return savedChannel;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error importing YouTube channel: {channelId}");
-                throw;
-            }
-        }
-
-        public async Task<Video> ImportFromUrlAsync(string url)
+        public async Task<BaseMediaItem> ImportFromUrlAsync(string url)
         {
             try
             {
@@ -258,12 +157,11 @@ namespace MyMediaVerse.Application.Services
                     return await ImportVideoAsync(videoId);
                 }
 
-                // Try to extract playlist ID
+                // Try to extract playlist ID — import as a first-class playlist container
                 var playlistId = YouTubeHelper.ExtractPlaylistIdFromUrl(url);
                 if (!string.IsNullOrEmpty(playlistId))
                 {
-                    var videos = await ImportPlaylistAsync(playlistId, importAsChannel: true);
-                    return videos.FirstOrDefault() ?? throw new InvalidOperationException("No videos imported from playlist");
+                    return await _playlistService.ImportPlaylistFromYouTubeAsync(playlistId);
                 }
 
                 // Try to extract channel identifier (could be ID, handle, or username)
@@ -271,7 +169,7 @@ namespace MyMediaVerse.Application.Services
                 if (!string.IsNullOrEmpty(channelIdentifier))
                 {
                     var resolvedChannelId = await ResolveChannelIdAsync(channelIdentifier);
-                    return await ImportChannelAsync(resolvedChannelId);
+                    return await _channelService.ImportChannelFromYouTubeAsync(resolvedChannelId);
                 }
 
                 throw new ArgumentException($"Unable to extract valid YouTube ID from URL: {url}");
@@ -312,44 +210,6 @@ namespace MyMediaVerse.Application.Services
             }
 
             throw new InvalidOperationException($"Could not resolve channel identifier: {identifier}");
-        }
-
-        /// <summary>
-        /// Helper method to automatically import and link a channel to a video
-        /// </summary>
-        private async Task AutoLinkChannelToVideo(Video video, List<YouTubeVideoDto> videoDetails)
-        {
-            try
-            {
-                // Find the matching video DTO by ExternalId
-                var matchingVideoDto = videoDetails.FirstOrDefault(vd => vd.Id == video.ExternalId);
-                if (matchingVideoDto?.Snippet?.ChannelId == null)
-                {
-                    return; // No channel info available
-                }
-
-                var youtubeChannelId = matchingVideoDto.Snippet.ChannelId;
-
-                // Check if channel already exists
-                var existingChannel = await _channelService.GetChannelByExternalIdAsync(youtubeChannelId);
-                
-                if (existingChannel != null)
-                {
-                    video.ChannelId = existingChannel.Id;
-                }
-                else
-                {
-                    // Import the channel
-                    _logger.LogInformation($"Auto-importing channel: {matchingVideoDto.Snippet.ChannelTitle}");
-                    var importedChannel = await _channelService.ImportChannelFromYouTubeAsync(youtubeChannelId);
-                    video.ChannelId = importedChannel.Id;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, $"Failed to auto-link channel for video {video.Title}, continuing without channel link");
-                // Don't fail the video import if channel linking fails
-            }
         }
     }
 }

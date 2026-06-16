@@ -15,23 +15,7 @@ namespace MyMediaVerse.Domain.Entities
         [Required]
         [StringLength(100)]
         public required string PlaylistExternalId { get; set; }
-        
-        /// <summary>
-        /// The YouTube channel ID that owns this playlist (external YouTube ID)
-        /// </summary>
-        [StringLength(100)]
-        public string? ChannelExternalId { get; set; }
-        
-        /// <summary>
-        /// Foreign key to the YouTubeChannel entity if the channel has been imported
-        /// </summary>
-        public Guid? LinkedYouTubeChannelId { get; set; }
-        
-        /// <summary>
-        /// Navigation property to the associated YouTube channel (if imported)
-        /// </summary>
-        public YouTubeChannel? LinkedYouTubeChannel { get; set; }
-        
+
         /// <summary>
         /// Number of videos in the playlist (snapshot at time of last sync)
         /// </summary>

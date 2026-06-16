@@ -10,8 +10,6 @@ import {
   getYouTubeChannelByUsername,
   getYouTubeChannelUploads,
   importYouTubeVideo,
-  importYouTubePlaylist,
-  importYouTubeChannel,
   getAllYouTubeChannels,
   getYouTubeChannelById,
   getYouTubeChannelByExternalId,
@@ -207,30 +205,6 @@ export function useImportYouTubeVideo() {
     mutationFn: (videoId) => importYouTubeVideo(videoId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: videoKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
-    },
-  });
-}
-
-export function useImportYouTubePlaylist() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ playlistId, importAsChannel = false }) =>
-      importYouTubePlaylist(playlistId, importAsChannel),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: youtubeKeys.playlists.lists() });
-      queryClient.invalidateQueries({ queryKey: youtubeKeys.channels.lists() });
-      queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
-    },
-  });
-}
-
-export function useImportYouTubeChannel() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (channelId) => importYouTubeChannel(channelId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: youtubeKeys.channels.lists() });
       queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
     },
   });

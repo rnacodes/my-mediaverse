@@ -314,75 +314,12 @@ namespace MyMediaVerse.Web.API.Controllers
         }
 
         /// <summary>
-        /// Import a YouTube playlist into the media library
-        /// </summary>
-        /// <param name="playlistId">YouTube playlist ID</param>
-        /// <param name="importAsChannel">Whether to import as a channel/series with episodes</param>
-        /// <returns>List of imported video entities</returns>
-        [HttpPost("import/playlist/{playlistId}")]
-        public async Task<ActionResult<List<Video>>> ImportPlaylist(
-            string playlistId,
-            [FromQuery] bool importAsChannel = false)
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(playlistId))
-                {
-                    return BadRequest("Playlist ID is required");
-                }
-
-                var result = await _youTubeService.ImportPlaylistAsync(playlistId, importAsChannel);
-                return Ok(result);
-            }
-            catch (InvalidOperationException ex)
-            {
-                _logger.LogWarning(ex, "Playlist not found for import: {PlaylistId}", playlistId);
-                return NotFound($"Playlist with ID {playlistId} not found");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error importing YouTube playlist: {PlaylistId}", playlistId);
-                return StatusCode(500, "An error occurred while importing the playlist");
-            }
-        }
-
-        /// <summary>
-        /// Import a YouTube channel into the media library
-        /// </summary>
-        /// <param name="channelId">YouTube channel ID</param>
-        /// <returns>Imported channel entity</returns>
-        [HttpPost("import/channel/{channelId}")]
-        public async Task<ActionResult<Video>> ImportChannel(string channelId)
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(channelId))
-                {
-                    return BadRequest("Channel ID is required");
-                }
-
-                var result = await _youTubeService.ImportChannelAsync(channelId);
-                return Created($"/api/YouTube/channel/{channelId}", result);
-            }
-            catch (InvalidOperationException ex)
-            {
-                _logger.LogWarning(ex, "Channel not found for import: {ChannelId}", channelId);
-                return NotFound($"Channel with ID {channelId} not found");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error importing YouTube channel: {ChannelId}", channelId);
-                return StatusCode(500, "An error occurred while importing the channel");
-            }
-        }
-
-        /// <summary>
         /// Import from a YouTube URL (auto-detects video, playlist, or channel)
         /// </summary>
         /// <param name="request">Import request containing the YouTube URL</param>
         /// <returns>Imported entity</returns>
         [HttpPost("import/url")]
-        public async Task<ActionResult<Video>> ImportFromUrl([FromBody] ImportUrlRequest request)
+        public async Task<ActionResult<BaseMediaItem>> ImportFromUrl([FromBody] ImportUrlRequest request)
         {
             try
             {

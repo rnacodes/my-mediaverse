@@ -31,7 +31,6 @@ namespace MyMediaVerse.UnitTests.Application
             result.Platform.Should().Be("YouTube");
             result.ExternalId.Should().Be("vid123");
             result.MediaType.Should().Be(MediaType.Video);
-            result.VideoType.Should().Be(VideoType.Episode);
             result.DateAdded.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
         }
 
@@ -88,58 +87,6 @@ namespace MyMediaVerse.UnitTests.Application
             var videoDto = new YouTubeVideoDto { Id = "vid123", Snippet = null };
 
             Action act = () => _service.MapVideoToEntity(videoDto);
-
-            act.Should().Throw<ArgumentException>();
-        }
-
-        #endregion
-
-        #region MapPlaylistToEntity
-
-        [Fact]
-        public void MapPlaylistToEntity_ValidDto_MapsCorrectly()
-        {
-            var playlistDto = CreateTestPlaylistDto("PL123", "My Playlist", "Playlist description");
-
-            var result = _service.MapPlaylistToEntity(playlistDto);
-
-            result.Title.Should().Be("My Playlist");
-            result.Description.Should().Be("Playlist description");
-            result.Link.Should().Be("https://www.youtube.com/playlist?list=PL123");
-            result.ExternalId.Should().Be("PL123");
-            result.VideoType.Should().Be(VideoType.Series);
-            result.MediaType.Should().Be(MediaType.Video);
-        }
-
-        [Fact]
-        public void MapPlaylistToEntity_NullDto_ThrowsArgumentException()
-        {
-            Action act = () => _service.MapPlaylistToEntity(null!);
-
-            act.Should().Throw<ArgumentException>();
-        }
-
-        #endregion
-
-        #region MapChannelToEntity
-
-        [Fact]
-        public void MapChannelToEntity_ValidDto_MapsCorrectly()
-        {
-            var channelDto = CreateTestChannelDto("UC123", "Test Channel");
-
-            var result = _service.MapChannelToEntity(channelDto);
-
-            result.Title.Should().Be("Test Channel");
-            result.Link.Should().Be("https://www.youtube.com/channel/UC123");
-            result.ExternalId.Should().Be("UC123");
-            result.VideoType.Should().Be(VideoType.Channel);
-        }
-
-        [Fact]
-        public void MapChannelToEntity_NullDto_ThrowsArgumentException()
-        {
-            Action act = () => _service.MapChannelToEntity(null!);
 
             act.Should().Throw<ArgumentException>();
         }
@@ -224,7 +171,6 @@ namespace MyMediaVerse.UnitTests.Application
 
             result.Title.Should().Be("My Playlist");
             result.PlaylistExternalId.Should().Be("PL123");
-            result.ChannelExternalId.Should().Be("UC456");
             result.MediaType.Should().Be(MediaType.Playlist);
             result.VideoCount.Should().Be(25);
             result.PrivacyStatus.Should().Be("public");
@@ -264,7 +210,6 @@ namespace MyMediaVerse.UnitTests.Application
             result.Title.Should().Be("Video in Playlist");
             result.ExternalId.Should().Be("vid789");
             result.Link.Should().Be("https://www.youtube.com/watch?v=vid789");
-            result.VideoType.Should().Be(VideoType.Episode);
         }
 
         [Fact]

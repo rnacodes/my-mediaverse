@@ -386,21 +386,19 @@ namespace MyMediaVerse.UnitTests.TestData
         }
 
         // Video Test Data Factory Methods
-        public static Video CreateVideo(string? title = null, string? platform = null, VideoType? videoType = null)
+        public static Video CreateVideo(string? title = null, string? platform = null)
         {
             return new Video
             {
                 Id = Guid.NewGuid(),
                 Title = title ?? "Test Video",
                 Platform = platform ?? "YouTube",
-                VideoType = videoType ?? VideoType.Episode,
                 MediaType = MediaType.Video,
                 Status = Status.Uncharted,
                 DateAdded = DateTime.UtcNow,
                 Topics = new List<Topic>(),
                 Genres = new List<Genre>(),
                 Mixlists = new List<Mixlist>(),
-                Episodes = new List<Video>(),
                 PlaylistVideos = new List<YouTubePlaylistVideo>()
             };
         }

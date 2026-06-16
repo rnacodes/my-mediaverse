@@ -82,40 +82,6 @@ namespace MyMediaVerse.IntegrationTests.Api
 
         #endregion
 
-        #region YouTube Channel Import Validation Tests
-
-        [Fact]
-        public async Task ImportChannel_WithEmptyChannelId_ShouldReturnBadRequest()
-        {
-            // Act
-            var response = await _client.PostAsync("/api/youtube/import/channel/ ", null);
-
-            // Assert
-            Assert.True(
-                response.StatusCode == HttpStatusCode.BadRequest ||
-                response.StatusCode == HttpStatusCode.NotFound,
-                $"Expected 400 or 404 but got {(int)response.StatusCode}");
-        }
-
-        #endregion
-
-        #region YouTube Playlist Import Validation Tests
-
-        [Fact]
-        public async Task ImportPlaylist_WithEmptyPlaylistId_ShouldReturnBadRequest()
-        {
-            // Act
-            var response = await _client.PostAsync("/api/youtube/import/playlist/ ", null);
-
-            // Assert
-            Assert.True(
-                response.StatusCode == HttpStatusCode.BadRequest ||
-                response.StatusCode == HttpStatusCode.NotFound,
-                $"Expected 400 or 404 but got {(int)response.StatusCode}");
-        }
-
-        #endregion
-
         #region YouTube URL Import Validation Tests
 
         [Fact]

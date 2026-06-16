@@ -1,32 +1,13 @@
-import { Controller, useFormContext } from 'react-hook-form';
-import { Box, Typography, FormControl, FormLabel, RadioGroup, FormControlLabel, Radio, MenuItem } from '@mui/material';
+import { Box, Typography, MenuItem } from '@mui/material';
 import { ControlledTextField, ControlledSelect } from '@/shared/form/controls';
-import { sectionHeadingSx, choiceLabelSx } from '@/shared/form/styles';
+import { sectionHeadingSx } from '@/shared/form/styles';
 
 function VideoFields() {
-  const { control } = useFormContext();
   return (
     <Box sx={{ mt: 3, mb: 2 }}>
       <Typography variant="h6" sx={sectionHeadingSx}>
         Video Details
       </Typography>
-
-      <FormControl component="fieldset" fullWidth margin="normal">
-        <FormLabel component="legend" sx={{ color: '#ffffff', fontSize: '14px', '&.Mui-focused': { color: '#ffffff' } }}>
-          Video Type:
-        </FormLabel>
-        <Controller
-          name="videoType"
-          control={control}
-          render={({ field }) => (
-            <RadioGroup {...field} sx={choiceLabelSx}>
-              <FormControlLabel value="Series" control={<Radio />} label="Series" />
-              <FormControlLabel value="Episode" control={<Radio />} label="Episode" />
-              <FormControlLabel value="Channel" control={<Radio />} label="Channel" />
-            </RadioGroup>
-          )}
-        />
-      </FormControl>
 
       <ControlledSelect name="platform" label="Platform *" required>
         <MenuItem value="YouTube">YouTube</MenuItem>

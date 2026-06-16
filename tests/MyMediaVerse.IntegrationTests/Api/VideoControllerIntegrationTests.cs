@@ -51,20 +51,6 @@ namespace MyMediaVerse.IntegrationTests.Api
         }
 
         [Fact]
-        public async Task GetVideoSeries_ShouldReturnOk()
-        {
-            // Act
-            var response = await _client.GetAsync("/api/video/series");
-
-            // Assert
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-
-            var content = await response.Content.ReadAsStringAsync();
-            var series = JsonSerializer.Deserialize<List<VideoResponseDto>>(content, _jsonOptions);
-            Assert.NotNull(series);
-        }
-
-        [Fact]
         public async Task GetVideo_WithValidId_ShouldReturnOk()
         {
             // Arrange - First create a video
@@ -72,7 +58,6 @@ namespace MyMediaVerse.IntegrationTests.Api
             {
                 Title = "Test Video for Get",
                 Platform = "YouTube",
-                VideoType = VideoType.Series,
                 Status = Status.Uncharted,
                 Topics = new[] { "test" },
                 Genres = new[] { "educational" }
@@ -137,7 +122,6 @@ namespace MyMediaVerse.IntegrationTests.Api
             {
                 Title = "New Test Video",
                 Platform = "YouTube",
-                VideoType = VideoType.Series,
                 Status = Status.Uncharted,
                 Description = "Test description",
                 LengthInSeconds = 3600,
@@ -164,7 +148,6 @@ namespace MyMediaVerse.IntegrationTests.Api
             Assert.NotNull(createdVideo);
             Assert.Equal("New Test Video", createdVideo.Title);
             Assert.Equal("YouTube", createdVideo.Platform);
-            Assert.Equal(VideoType.Series, createdVideo.VideoType);
             Assert.Equal(MediaType.Video, createdVideo.MediaType);
             Assert.Equal("Test description", createdVideo.Description);
             Assert.Equal(3600, createdVideo.LengthInSeconds);
@@ -176,66 +159,6 @@ namespace MyMediaVerse.IntegrationTests.Api
         }
 
         [Fact]
-        public async Task CreateVideo_WithEpisodeType_ShouldReturnCreated()
-        {
-            // Arrange - First create a parent series
-            var seriesDto = new CreateVideoDto
-            {
-                Title = "Parent Series",
-                Platform = "YouTube",
-                VideoType = VideoType.Series,
-                Status = Status.Uncharted,
-                Topics = new[] { "test" },
-                Genres = new[] { "educational" }
-            };
-
-            var seriesContent = new StringContent(
-                JsonSerializer.Serialize(seriesDto, _jsonOptions),
-                Encoding.UTF8,
-                "application/json"
-            );
-
-            var seriesResponse = await _client.PostAsync("/api/video", seriesContent);
-            var parentSeries = JsonSerializer.Deserialize<VideoResponseDto>(
-                await seriesResponse.Content.ReadAsStringAsync(),
-                _jsonOptions
-            );
-            Assert.NotNull(parentSeries);
-
-            // Now create an episode
-            var episodeDto = new CreateVideoDto
-            {
-                Title = "Episode 1",
-                Platform = "YouTube",
-                VideoType = VideoType.Episode,
-                Status = Status.Uncharted,
-                ParentVideoId = parentSeries.Id,
-                Topics = new[] { "test" },
-                Genres = new[] { "educational" }
-            };
-
-            var episodeContent = new StringContent(
-                JsonSerializer.Serialize(episodeDto, _jsonOptions),
-                Encoding.UTF8,
-                "application/json"
-            );
-
-            // Act
-            var response = await _client.PostAsync("/api/video", episodeContent);
-
-            // Assert
-            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-
-            var responseContent = await response.Content.ReadAsStringAsync();
-            var createdEpisode = JsonSerializer.Deserialize<VideoResponseDto>(responseContent, _jsonOptions);
-
-            Assert.NotNull(createdEpisode);
-            Assert.Equal("Episode 1", createdEpisode.Title);
-            Assert.Equal(VideoType.Episode, createdEpisode.VideoType);
-            Assert.Equal(parentSeries.Id, createdEpisode.ParentVideoId);
-        }
-
-        [Fact]
         public async Task CreateVideo_WithInvalidData_ShouldReturnBadRequest()
         {
             // Arrange - Missing required fields
@@ -243,7 +166,6 @@ namespace MyMediaVerse.IntegrationTests.Api
             {
                 Title = "", // Empty title to test validation
                 Platform = "", // Empty platform to test validation
-                VideoType = VideoType.Series,
                 Status = Status.Uncharted
             };
 
@@ -272,7 +194,6 @@ namespace MyMediaVerse.IntegrationTests.Api
             {
                 Title = "Original Title",
                 Platform = "YouTube",
-                VideoType = VideoType.Series,
                 Status = Status.Uncharted,
                 Topics = new[] { "original" },
                 Genres = new[] { "original" }
@@ -296,7 +217,6 @@ namespace MyMediaVerse.IntegrationTests.Api
             {
                 Title = "Updated Title",
                 Platform = "Vimeo",
-                VideoType = VideoType.Episode,
                 Status = Status.ActivelyExploring,
                 Description = "Updated description",
                 Topics = new[] { "updated", "modified" },
@@ -321,7 +241,6 @@ namespace MyMediaVerse.IntegrationTests.Api
             Assert.NotNull(updatedVideo);
             Assert.Equal("Updated Title", updatedVideo.Title);
             Assert.Equal("Vimeo", updatedVideo.Platform);
-            Assert.Equal(VideoType.Episode, updatedVideo.VideoType);
             Assert.Equal(Status.ActivelyExploring, updatedVideo.Status);
             Assert.Equal("Updated description", updatedVideo.Description);
             Assert.Contains("updated", updatedVideo.Topics);
@@ -339,7 +258,6 @@ namespace MyMediaVerse.IntegrationTests.Api
             {
                 Title = "Updated Title",
                 Platform = "YouTube",
-                VideoType = VideoType.Series,
                 Status = Status.Uncharted
             };
 
@@ -368,7 +286,6 @@ namespace MyMediaVerse.IntegrationTests.Api
             {
                 Title = "Video to Delete",
                 Platform = "YouTube",
-                VideoType = VideoType.Series,
                 Status = Status.Uncharted,
                 Topics = new[] { "test" },
                 Genres = new[] { "test" }
@@ -456,7 +373,6 @@ namespace MyMediaVerse.IntegrationTests.Api
             {
                 Title = new string('A', 501), // Exceeds 500 character limit
                 Platform = "YouTube",
-                VideoType = VideoType.Series,
                 Status = Status.Uncharted
             };
 
@@ -481,7 +397,6 @@ namespace MyMediaVerse.IntegrationTests.Api
             {
                 Title = "Test Video",
                 Platform = "YouTube",
-                VideoType = VideoType.Series,
                 Status = Status.Uncharted,
                 Link = "not-a-valid-url"
             };
@@ -507,7 +422,6 @@ namespace MyMediaVerse.IntegrationTests.Api
             {
                 Title = "Test Video",
                 Platform = "YouTube",
-                VideoType = VideoType.Series,
                 Status = Status.Uncharted,
                 LengthInSeconds = -100
             };

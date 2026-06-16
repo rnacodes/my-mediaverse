@@ -78,23 +78,6 @@ namespace MyMediaVerse.Application.Services
             }
         }
 
-        public async Task<IEnumerable<Video>> GetVideoSeriesAsync()
-        {
-            try
-            {
-                return await _context.Videos
-                    .Include(v => v.Topics)
-                    .Include(v => v.Genres)
-                    .Where(v => v.VideoType == VideoType.Series)
-                    .ToListAsync();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error occurred while retrieving video series");
-                throw;
-            }
-        }
-
         public async Task<Video> CreateVideoAsync(CreateVideoDto dto)
         {
             try
@@ -113,15 +96,13 @@ namespace MyMediaVerse.Application.Services
                     Description = dto.Description,
                     RelatedNotes = dto.RelatedNotes,
                     Thumbnail = dto.Thumbnail,
-                    VideoType = dto.VideoType,
-                    ParentVideoId = dto.ParentVideoId,
                     Platform = dto.Platform,
                     ChannelId = dto.ChannelId,
                     LengthInSeconds = dto.LengthInSeconds,
                     ExternalId = dto.ExternalId
                 };
 
-                // Handle Topics: use DTO topics if provided, otherwise inherit from channel or parent video
+                // Handle Topics: use DTO topics if provided, otherwise inherit from channel
                 var topicNames = dto.Topics?.Where(t => !string.IsNullOrWhiteSpace(t)).ToArray();
                 if ((topicNames == null || topicNames.Length == 0) && dto.ChannelId.HasValue)
                 {
@@ -129,13 +110,6 @@ namespace MyMediaVerse.Application.Services
                         .Include(c => c.Topics)
                         .FirstOrDefaultAsync(c => c.Id == dto.ChannelId.Value);
                     topicNames = channel?.Topics?.Select(t => t.Name).ToArray() ?? Array.Empty<string>();
-                }
-                if ((topicNames == null || topicNames.Length == 0) && dto.ParentVideoId.HasValue)
-                {
-                    var parentVideo = await _context.Videos
-                        .Include(v => v.Topics)
-                        .FirstOrDefaultAsync(v => v.Id == dto.ParentVideoId.Value);
-                    topicNames = parentVideo?.Topics?.Select(t => t.Name).ToArray() ?? Array.Empty<string>();
                 }
 
                 foreach (var topicName in topicNames ?? Array.Empty<string>())
@@ -152,7 +126,7 @@ namespace MyMediaVerse.Application.Services
                     }
                 }
 
-                // Handle Genres: use DTO genres if provided, otherwise inherit from channel or parent video
+                // Handle Genres: use DTO genres if provided, otherwise inherit from channel
                 var genreNames = dto.Genres?.Where(g => !string.IsNullOrWhiteSpace(g)).ToArray();
                 if ((genreNames == null || genreNames.Length == 0) && dto.ChannelId.HasValue)
                 {
@@ -160,13 +134,6 @@ namespace MyMediaVerse.Application.Services
                         .Include(c => c.Genres)
                         .FirstOrDefaultAsync(c => c.Id == dto.ChannelId.Value);
                     genreNames = channel?.Genres?.Select(g => g.Name).ToArray() ?? Array.Empty<string>();
-                }
-                if ((genreNames == null || genreNames.Length == 0) && dto.ParentVideoId.HasValue)
-                {
-                    var parentVideo = await _context.Videos
-                        .Include(v => v.Genres)
-                        .FirstOrDefaultAsync(v => v.Id == dto.ParentVideoId.Value);
-                    genreNames = parentVideo?.Genres?.Select(g => g.Name).ToArray() ?? Array.Empty<string>();
                 }
 
                 foreach (var genreName in genreNames ?? Array.Empty<string>())
@@ -215,8 +182,6 @@ namespace MyMediaVerse.Application.Services
                 video.Description = dto.Description;
                 video.RelatedNotes = dto.RelatedNotes;
                 video.Thumbnail = dto.Thumbnail;
-                video.VideoType = dto.VideoType;
-                video.ParentVideoId = dto.ParentVideoId;
                 video.Platform = dto.Platform;
                 video.ChannelId = dto.ChannelId;
                 video.LengthInSeconds = dto.LengthInSeconds;
@@ -404,32 +369,6 @@ namespace MyMediaVerse.Application.Services
             }
         }
 
-        public async Task<Video> SaveVideoWithEpisodesAsync(Video videoSeries, bool updateIfExists = true)
-        {
-            // First save or update the video series
-            var savedSeries = await SaveVideoAsync(videoSeries, updateIfExists);
-
-            // If there are episodes to save
-            if (videoSeries.Episodes != null && videoSeries.Episodes.Any())
-            {
-                foreach (var episode in videoSeries.Episodes)
-                {
-                    // Make sure episode is linked to the correct series
-                    episode.ParentVideoId = savedSeries.Id;
-                    episode.VideoType = VideoType.Episode;
-
-                    // Save the episode (with duplicate checking)
-                    await SaveVideoAsync(episode, updateIfExists);
-                }
-
-                // Refresh the series with all episodes
-                // Note: Collection loading was previously done via _context.Entry() but is not needed here
-                // The series will be properly loaded when queried later
-            }
-
-            return savedSeries;
-        }
-
         public async Task<bool> VideoExistsAsync(string title, Guid? channelId = null)
         {
             var query = _context.Videos.AsQueryable();
@@ -446,15 +385,6 @@ namespace MyMediaVerse.Application.Services
             return await query.AnyAsync();
         }
 
-        public async Task<bool> VideoEpisodeExistsAsync(Guid? parentVideoId, string episodeTitle)
-        {
-            return await _context.Videos
-                .AnyAsync(e =>
-                    e.ParentVideoId == parentVideoId &&
-                    e.VideoType == VideoType.Episode &&
-                    e.Title.ToLower() == episodeTitle.ToLower());
-        }
-
         public async Task<Video?> GetVideoByTitleAsync(string title, Guid? channelId = null)
         {
             var query = _context.Videos.AsQueryable();
@@ -469,15 +399,6 @@ namespace MyMediaVerse.Application.Services
             }
 
             return await query.FirstOrDefaultAsync();
-        }
-
-        public async Task<Video?> GetVideoEpisodeByTitleAsync(Guid? parentVideoId, string episodeTitle)
-        {
-            return await _context.Videos
-                .FirstOrDefaultAsync(e =>
-                    e.ParentVideoId == parentVideoId &&
-                    e.VideoType == VideoType.Episode &&
-                    e.Title.ToLower() == episodeTitle.ToLower());
         }
     }
 }

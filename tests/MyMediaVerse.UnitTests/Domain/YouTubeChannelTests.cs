@@ -85,7 +85,6 @@ namespace MyMediaVerse.UnitTests.Domain
             {
                 Title = "Test Video",
                 Platform = "YouTube",
-                VideoType = VideoType.Episode,
                 ChannelId = channel.Id
             };
 

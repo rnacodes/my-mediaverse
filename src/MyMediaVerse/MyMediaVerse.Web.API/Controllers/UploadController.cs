@@ -819,7 +819,6 @@ namespace MyMediaVerse.Web.API.Controllers
                 Title = GetCsvValue(csv, "Title") ?? "Unknown Title",
                 MediaType = MediaType.Video,
                 Platform = GetCsvValue(csv, "Platform") ?? "YouTube", // Default to YouTube, required field
-                VideoType = VideoType.Episode, // Default to Episode for standalone videos
                 DateAdded = DateTime.UtcNow,
                 Status = ParseStatus(GetCsvValue(csv, "Status")) ?? Status.Uncharted
             };
@@ -836,11 +835,6 @@ namespace MyMediaVerse.Web.API.Controllers
             var lengthStr = GetCsvValue(csv, "LengthInSeconds") ?? GetCsvValue(csv, "DurationInSeconds");
             if (!string.IsNullOrEmpty(lengthStr) && int.TryParse(lengthStr, out int length))
                 video.LengthInSeconds = length;
-
-            // Parse video type
-            var videoTypeStr = GetCsvValue(csv, "VideoType");
-            if (!string.IsNullOrEmpty(videoTypeStr) && Enum.TryParse<VideoType>(videoTypeStr, true, out VideoType videoType))
-                video.VideoType = videoType;
 
             // Parse dates
             var dateCompletedStr = GetCsvValue(csv, "DateCompleted");

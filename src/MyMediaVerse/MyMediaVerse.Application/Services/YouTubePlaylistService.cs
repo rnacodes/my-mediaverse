@@ -114,19 +114,6 @@ namespace MyMediaVerse.Application.Services
                 // Create playlist entity
                 var playlist = _mappingService.MapPlaylistToYouTubePlaylistEntity(playlistDto);
 
-                // Try to link to YouTubeChannel if it exists
-                if (!string.IsNullOrEmpty(playlist.ChannelExternalId))
-                {
-                    var linkedChannel = await _context.YouTubeChannels
-                        .FirstOrDefaultAsync(c => c.ChannelExternalId == playlist.ChannelExternalId);
-
-                    if (linkedChannel != null)
-                    {
-                        playlist.LinkedYouTubeChannelId = linkedChannel.Id;
-                        _logger.LogInformation($"Linked playlist to existing channel: {linkedChannel.Title}");
-                    }
-                }
-
                 // Save playlist (without importing videos - similar to podcast series)
                 var savedPlaylist = await SavePlaylistAsync(playlist, updateIfExists: false);
 

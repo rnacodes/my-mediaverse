@@ -22,6 +22,7 @@ namespace MyMediaVerse.UnitTests.Application
         private readonly IYouTubeMappingService _mockMappingService;
         private readonly IVideoService _mockVideoService;
         private readonly IYouTubeChannelService _mockChannelService;
+        private readonly IYouTubePlaylistService _mockPlaylistService;
         private readonly ILogger<YouTubeService> _mockLogger;
         private readonly YouTubeService _service;
 
@@ -31,6 +32,7 @@ namespace MyMediaVerse.UnitTests.Application
             _mockMappingService = Substitute.For<IYouTubeMappingService>();
             _mockVideoService = Substitute.For<IVideoService>();
             _mockChannelService = Substitute.For<IYouTubeChannelService>();
+            _mockPlaylistService = Substitute.For<IYouTubePlaylistService>();
             _mockLogger = Substitute.For<ILogger<YouTubeService>>();
 
             _mockApiClient
@@ -46,6 +48,7 @@ namespace MyMediaVerse.UnitTests.Application
                 _mockMappingService,
                 _mockVideoService,
                 _mockChannelService,
+                _mockPlaylistService,
                 _mockLogger);
         }
 
@@ -234,126 +237,6 @@ namespace MyMediaVerse.UnitTests.Application
 
         #endregion
 
-        #region ImportPlaylistAsync Tests
-
-        [Fact]
-        public async Task ImportPlaylistAsync_WithValidPlaylistId_ShouldImportAllVideos()
-        {
-            // Arrange
-            var playlistId = "test_playlist_id";
-            var playlistDto = new YouTubePlaylistDto
-            {
-                Id = playlistId,
-                Snippet = new YouTubePlaylistSnippetDto { Title = "Test Playlist" }
-            };
-
-            var playlistItems = new List<YouTubePlaylistItemDto>
-            {
-                new YouTubePlaylistItemDto
-                {
-                    Snippet = new YouTubePlaylistItemSnippetDto
-                    {
-                        ResourceId = new YouTubeResourceIdDto { VideoId = "video1" }
-                    }
-                },
-                new YouTubePlaylistItemDto
-                {
-                    Snippet = new YouTubePlaylistItemSnippetDto
-                    {
-                        ResourceId = new YouTubeResourceIdDto { VideoId = "video2" }
-                    }
-                }
-            };
-
-            var videoDetails = new List<YouTubeVideoDto>
-            {
-                new YouTubeVideoDto { Id = "video1", Snippet = new YouTubeVideoSnippetDto { Title = "Video 1" } },
-                new YouTubeVideoDto { Id = "video2", Snippet = new YouTubeVideoSnippetDto { Title = "Video 2" } }
-            };
-
-            var mappedVideos = new List<Video>
-            {
-                new Video { Title = "Video 1", MediaType = MediaType.Video, Platform = "YouTube" },
-                new Video { Title = "Video 2", MediaType = MediaType.Video, Platform = "YouTube" }
-            };
-
-            var savedVideos = new List<Video>
-            {
-                new Video { Id = Guid.NewGuid(), Title = "Video 1", MediaType = MediaType.Video, Platform = "YouTube" },
-                new Video { Id = Guid.NewGuid(), Title = "Video 2", MediaType = MediaType.Video, Platform = "YouTube" }
-            };
-
-            _mockApiClient
-                .GetPlaylistDetailsAsync(playlistId)
-                .Returns(playlistDto);
-
-            _mockApiClient
-                .GetAllPlaylistItemsAsync(playlistId)
-                .Returns(playlistItems);
-
-            _mockApiClient
-                .GetVideosAsync(Arg.Any<List<string>>())
-                .Returns(videoDetails);
-
-            // Setup for AutoLinkChannelToVideo to prevent NullReferenceException
-            _mockChannelService.GetChannelByExternalIdAsync(Arg.Any<string>()).Returns((YouTubeChannel?)null);
-            _mockChannelService.ImportChannelFromYouTubeAsync(Arg.Any<string>()).Returns(new YouTubeChannel { Id = Guid.NewGuid(), Title = "Imported Channel", ChannelExternalId = "channel_id", MediaType = MediaType.Channel });
-
-            _mockMappingService
-                .MapVideoToEntity(videoDetails[0])
-                .Returns(mappedVideos[0]);
-
-            _mockMappingService
-                .MapVideoToEntity(videoDetails[1])
-                .Returns(mappedVideos[1]);
-
-            _mockMappingService
-                .MapPlaylistItemsToVideoEntities(Arg.Any<List<YouTubePlaylistItemDto>>(), Arg.Any<List<YouTubeVideoDto>>())
-                .Returns(mappedVideos);
-
-            _mockVideoService
-                .SaveVideoAsync(mappedVideos[0], true)
-                .Returns(savedVideos[0]);
-
-            _mockVideoService
-                .SaveVideoAsync(mappedVideos[1], true)
-                .Returns(savedVideos[1]);
-
-            // Act
-            var result = await _service.ImportPlaylistAsync(playlistId);
-
-            // Assert
-            result.Should().NotBeNull();
-            result.Should().HaveCount(2);
-            result.Should().Contain(savedVideos[0]);
-            result.Should().Contain(savedVideos[1]);
-
-            _mockApiClient.Received(1).GetPlaylistDetailsAsync(playlistId);
-            _mockApiClient.Received(1).GetAllPlaylistItemsAsync(playlistId);
-            _mockApiClient.Received(1).GetVideosAsync(Arg.Is<List<string>>(l => l.Contains("video1") && l.Contains("video2")));
-        }
-
-        [Fact]
-        public async Task ImportPlaylistAsync_WithInvalidPlaylistId_ShouldThrowException()
-        {
-            // Arrange
-            var playlistId = "invalid_playlist_id";
-
-            _mockApiClient
-                .GetPlaylistDetailsAsync(playlistId)
-                .Returns((YouTubePlaylistDto?)null);
-
-            // Act & Assert
-            var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-                () => _service.ImportPlaylistAsync(playlistId));
-
-            exception.Message.Should().Contain($"Playlist with ID {playlistId} not found");
-            _mockApiClient.Received(1).GetPlaylistDetailsAsync(playlistId);
-            _mockApiClient.DidNotReceive().GetAllPlaylistItemsAsync(Arg.Any<string>());
-        }
-
-        #endregion
-
         #region ImportFromUrlAsync Tests
 
         [Fact]
@@ -393,6 +276,58 @@ namespace MyMediaVerse.UnitTests.Application
             result.Should().NotBeNull();
             result.Should().BeSameAs(savedVideo);
             _mockApiClient.Received(1).GetVideoDetailsAsync(videoId);
+        }
+
+        [Fact]
+        public async Task ImportFromUrlAsync_WithPlaylistUrl_ShouldImportPlaylistContainer()
+        {
+            // Arrange
+            var playlistId = "PLtest_playlist_id";
+            var playlistUrl = $"https://www.youtube.com/playlist?list={playlistId}";
+            var importedPlaylist = new YouTubePlaylist
+            {
+                Id = Guid.NewGuid(),
+                Title = "Test Playlist",
+                PlaylistExternalId = playlistId,
+                MediaType = MediaType.Playlist
+            };
+
+            _mockPlaylistService
+                .ImportPlaylistFromYouTubeAsync(playlistId)
+                .Returns(importedPlaylist);
+
+            // Act
+            var result = await _service.ImportFromUrlAsync(playlistUrl);
+
+            // Assert
+            result.Should().BeSameAs(importedPlaylist);
+            await _mockPlaylistService.Received(1).ImportPlaylistFromYouTubeAsync(playlistId);
+        }
+
+        [Fact]
+        public async Task ImportFromUrlAsync_WithChannelUrl_ShouldImportChannelContainer()
+        {
+            // Arrange
+            var channelId = "UC_test_channel_id";
+            var channelUrl = $"https://www.youtube.com/channel/{channelId}";
+            var importedChannel = new YouTubeChannel
+            {
+                Id = Guid.NewGuid(),
+                Title = "Test Channel",
+                ChannelExternalId = channelId,
+                MediaType = MediaType.Channel
+            };
+
+            _mockChannelService
+                .ImportChannelFromYouTubeAsync(channelId)
+                .Returns(importedChannel);
+
+            // Act
+            var result = await _service.ImportFromUrlAsync(channelUrl);
+
+            // Assert
+            result.Should().BeSameAs(importedChannel);
+            await _mockChannelService.Received(1).ImportChannelFromYouTubeAsync(channelId);
         }
 
         [Fact]

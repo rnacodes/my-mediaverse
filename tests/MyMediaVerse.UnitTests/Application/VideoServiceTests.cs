@@ -102,7 +102,6 @@ namespace MyMediaVerse.UnitTests.Application
             {
                 Title = "Test Video",
                 Platform = "YouTube",
-                VideoType = VideoType.Series,
                 Status = Status.Uncharted,
                 Topics = new[] { "technology", "programming" },
                 Genres = new[] { "educational", "tutorial" }
@@ -122,7 +121,6 @@ namespace MyMediaVerse.UnitTests.Application
             result.Should().NotBeNull();
             result.Title.Should().Be("Test Video");
             result.Platform.Should().Be("YouTube");
-            result.VideoType.Should().Be(VideoType.Series);
             result.MediaType.Should().Be(MediaType.Video);
             result.Topics.Should().HaveCount(2);
             result.Genres.Should().HaveCount(2);
@@ -140,7 +138,6 @@ namespace MyMediaVerse.UnitTests.Application
             {
                 Title = "Test Video",
                 Platform = "YouTube",
-                VideoType = VideoType.Series,
                 Status = Status.Uncharted,
                 Topics = new[] { "technology" },
                 Genres = new[] { "educational" }
@@ -193,7 +190,6 @@ namespace MyMediaVerse.UnitTests.Application
             {
                 Title = "Updated Title",
                 Platform = "Vimeo",
-                VideoType = VideoType.Episode,
                 Status = Status.ActivelyExploring
             };
 
@@ -204,7 +200,6 @@ namespace MyMediaVerse.UnitTests.Application
             result.Should().NotBeNull();
             result.Title.Should().Be("Updated Title");
             result.Platform.Should().Be("Vimeo");
-            result.VideoType.Should().Be(VideoType.Episode);
             result.Status.Should().Be(Status.ActivelyExploring);
             
             // Clear tracker and reload from database to verify persistence
@@ -219,7 +214,7 @@ namespace MyMediaVerse.UnitTests.Application
         {
             // Arrange
             var videoId = Guid.NewGuid();
-            var dto = new CreateVideoDto { Title = "Test", Platform = "YouTube", VideoType = VideoType.Series, Status = Status.Uncharted };
+            var dto = new CreateVideoDto { Title = "Test", Platform = "YouTube", Status = Status.Uncharted };
 
             // Act & Assert
             var exception = await Assert.ThrowsAsync<ArgumentException>(() => _service.UpdateVideoAsync(videoId, dto));
@@ -296,32 +291,6 @@ namespace MyMediaVerse.UnitTests.Application
 
         #endregion
 
-        #region GetVideoSeriesAsync Tests
-
-        [Fact]
-        public async Task GetVideoSeriesAsync_ShouldReturnOnlySeriesVideos()
-        {
-            // Arrange
-            var videos = new List<Video>
-            {
-                new Video { Id = Guid.NewGuid(), Title = "Series 1", Platform = "YouTube", VideoType = VideoType.Series, Topics = new List<Topic>(), Genres = new List<Genre>() },
-                new Video { Id = Guid.NewGuid(), Title = "Episode 1", Platform = "YouTube", VideoType = VideoType.Episode, Topics = new List<Topic>(), Genres = new List<Genre>() },
-                new Video { Id = Guid.NewGuid(), Title = "Series 2", Platform = "YouTube", VideoType = VideoType.Series, Topics = new List<Topic>(), Genres = new List<Genre>() }
-            };
-            Context.Videos.AddRange(videos);
-            await Context.SaveChangesAsync();
-
-            // Act
-            var result = await _service.GetVideoSeriesAsync();
-
-            // Assert
-            result.Should().NotBeNull();
-            result.Should().HaveCount(2);
-            result.All(v => v.VideoType == VideoType.Series).Should().BeTrue();
-        }
-
-        #endregion
-
         #region VideoExistsAsync Tests
 
         [Fact]
@@ -385,7 +354,6 @@ namespace MyMediaVerse.UnitTests.Application
             {
                 Title = "Test Video",
                 Platform = "YouTube",
-                VideoType = VideoType.Series,
                 Status = Status.Uncharted,
                 ChannelId = channelId
                 // No topics or genres provided
@@ -400,49 +368,6 @@ namespace MyMediaVerse.UnitTests.Application
             result.Topics.First().Name.Should().Be("technology");
             result.Genres.Should().HaveCount(1);
             result.Genres.First().Name.Should().Be("educational");
-        }
-
-        [Fact]
-        public async Task CreateVideoAsync_WithNoTopicsOrGenres_ShouldInheritFromParentVideo()
-        {
-            // Arrange
-            var parentTopic = new Topic { Name = "programming" };
-            var parentGenre = new Genre { Name = "tutorial" };
-            Context.Topics.Add(parentTopic);
-            Context.Genres.Add(parentGenre);
-            await Context.SaveChangesAsync();
-
-            var parentVideo = new Video
-            {
-                Id = Guid.NewGuid(),
-                Title = "Parent Series",
-                Platform = "YouTube",
-                VideoType = VideoType.Series,
-                Topics = new List<Topic> { parentTopic },
-                Genres = new List<Genre> { parentGenre }
-            };
-            Context.Videos.Add(parentVideo);
-            await Context.SaveChangesAsync();
-
-            var dto = new CreateVideoDto
-            {
-                Title = "Episode 1",
-                Platform = "YouTube",
-                VideoType = VideoType.Episode,
-                Status = Status.Uncharted,
-                ParentVideoId = parentVideo.Id
-                // No topics or genres, no channel
-            };
-
-            // Act
-            var result = await _service.CreateVideoAsync(dto);
-
-            // Assert
-            result.Should().NotBeNull();
-            result.Topics.Should().HaveCount(1);
-            result.Topics.First().Name.Should().Be("programming");
-            result.Genres.Should().HaveCount(1);
-            result.Genres.First().Name.Should().Be("tutorial");
         }
 
         [Fact]
@@ -469,7 +394,6 @@ namespace MyMediaVerse.UnitTests.Application
             {
                 Title = "Test Video",
                 Platform = "YouTube",
-                VideoType = VideoType.Series,
                 Status = Status.Uncharted,
                 ChannelId = channelId,
                 Topics = new[] { "science" },
@@ -486,58 +410,6 @@ namespace MyMediaVerse.UnitTests.Application
             result.Topics.Select(t => t.Name).Should().NotContain("technology");
             result.Genres.Should().HaveCount(1);
             result.Genres.First().Name.Should().Be("documentary");
-        }
-
-        [Fact]
-        public async Task CreateVideoAsync_ChannelInheritanceTakesPrecedenceOverParentVideo()
-        {
-            // Arrange
-            var channelId = Guid.NewGuid();
-            var channelTopic = new Topic { Name = "channel-topic" };
-            var parentTopic = new Topic { Name = "parent-topic" };
-            Context.Topics.AddRange(channelTopic, parentTopic);
-            await Context.SaveChangesAsync();
-
-            var channel = new YouTubeChannel
-            {
-                Id = channelId,
-                Title = "Channel",
-                ChannelExternalId = "UC_test789",
-                Topics = new List<Topic> { channelTopic },
-                Genres = new List<Genre>()
-            };
-            Context.YouTubeChannels.Add(channel);
-
-            var parentVideo = new Video
-            {
-                Id = Guid.NewGuid(),
-                Title = "Parent Series",
-                Platform = "YouTube",
-                VideoType = VideoType.Series,
-                Topics = new List<Topic> { parentTopic },
-                Genres = new List<Genre>()
-            };
-            Context.Videos.Add(parentVideo);
-            await Context.SaveChangesAsync();
-
-            var dto = new CreateVideoDto
-            {
-                Title = "Episode",
-                Platform = "YouTube",
-                VideoType = VideoType.Episode,
-                Status = Status.Uncharted,
-                ChannelId = channelId,
-                ParentVideoId = parentVideo.Id
-                // No topics/genres â€” should inherit from channel, not parent
-            };
-
-            // Act
-            var result = await _service.CreateVideoAsync(dto);
-
-            // Assert
-            result.Should().NotBeNull();
-            result.Topics.Should().HaveCount(1);
-            result.Topics.First().Name.Should().Be("channel-topic");
         }
 
         #endregion

@@ -232,13 +232,6 @@ export const MediaListItem = React.memo(({ item, isSelected = false, onToggleSel
                             sx={{ fontSize: '0.7rem' }}
                         />
                     )}
-                    {item.mediaType === 'Video' && item.videoType && (
-                        <Chip 
-                            label={item.videoType} 
-                            size="small"
-                            sx={{ fontSize: '0.7rem' }}
-                        />
-                    )}
                     {item.mediaType === 'Article' && item.isStarred && (
                         <Chip 
                             icon={<Star sx={{ fontSize: 14 }} />} 

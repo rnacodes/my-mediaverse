@@ -20,9 +20,6 @@ namespace MyMediaVerse.DTOs
         [JsonPropertyName("thumbnail")]
         public string? Thumbnail { get; set; }
         
-        [JsonPropertyName("linkedYouTubeChannelId")]
-        public Guid? LinkedYouTubeChannelId { get; set; }
-        
         [JsonPropertyName("videoCount")]
         public int? VideoCount { get; set; }
         

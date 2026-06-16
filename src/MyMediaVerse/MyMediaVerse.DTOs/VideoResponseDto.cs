@@ -29,12 +29,6 @@ namespace MyMediaVerse.DTOs
         [JsonPropertyName("thumbnail")]
         public string? Thumbnail { get; set; }
         
-        [JsonPropertyName("videoType")]
-        public VideoType VideoType { get; set; }
-        
-        [JsonPropertyName("parentVideoId")]
-        public Guid? ParentVideoId { get; set; }
-        
         [JsonPropertyName("platform")]
         public string Platform { get; set; } = string.Empty;
         

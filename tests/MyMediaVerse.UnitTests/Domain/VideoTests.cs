@@ -25,10 +25,7 @@ namespace MyMediaVerse.UnitTests.Domain
             video.Should().NotBeNull();
             video.Title.Should().Be("Test Video");
             video.Platform.Should().Be("YouTube");
-            video.VideoType.Should().Be(VideoType.Series); // Default value
             video.LengthInSeconds.Should().Be(0);
-            video.Episodes.Should().NotBeNull();
-            video.Episodes.Should().BeEmpty();
             video.Topics.Should().NotBeNull();
             video.Genres.Should().NotBeNull();
         }
@@ -42,7 +39,6 @@ namespace MyMediaVerse.UnitTests.Domain
         {
             // Arrange
             var videoId = Guid.NewGuid();
-            var parentVideoId = Guid.NewGuid();
             var dateAdded = DateTime.UtcNow;
             var dateCompleted = DateTime.UtcNow.AddDays(-1);
 
@@ -52,8 +48,6 @@ namespace MyMediaVerse.UnitTests.Domain
                 Id = videoId,
                 Title = "Test Video",
                 Platform = "YouTube",
-                VideoType = VideoType.Episode,
-                ParentVideoId = parentVideoId,
                 ChannelId = Guid.NewGuid(),
                 LengthInSeconds = 3600,
                 ExternalId = "external123",
@@ -74,8 +68,6 @@ namespace MyMediaVerse.UnitTests.Domain
             video.Id.Should().Be(videoId);
             video.Title.Should().Be("Test Video");
             video.Platform.Should().Be("YouTube");
-            video.VideoType.Should().Be(VideoType.Episode);
-            video.ParentVideoId.Should().Be(parentVideoId);
             video.ChannelId.Should().NotBeNull();
             video.LengthInSeconds.Should().Be(3600);
             video.ExternalId.Should().Be("external123");
@@ -107,14 +99,15 @@ namespace MyMediaVerse.UnitTests.Domain
                 Thumbnail = "https://example.com/video-thumb.jpg"
             };
 
-            var parentVideo = new Video
+            var channel = new YouTubeChannel
             {
-                Title = "Parent Series",
-                Platform = "YouTube",
-                Thumbnail = "https://example.com/parent-thumb.jpg"
+                Title = "Parent Channel",
+                ChannelExternalId = "UC_test_channel",
+                MediaType = MediaType.Channel,
+                Thumbnail = "https://example.com/channel-thumb.jpg"
             };
 
-            video.ParentVideo = parentVideo;
+            video.Channel = channel;
 
             // Act
             var result = video.GetEffectiveThumbnail();
@@ -124,7 +117,7 @@ namespace MyMediaVerse.UnitTests.Domain
         }
 
         [Fact]
-        public void GetEffectiveThumbnail_WhenVideoHasNoThumbnailButParentDoes_ShouldReturnParentThumbnail()
+        public void GetEffectiveThumbnail_WhenVideoHasNoThumbnailButChannelDoes_ShouldReturnChannelThumbnail()
         {
             // Arrange
             var video = new Video
@@ -134,24 +127,25 @@ namespace MyMediaVerse.UnitTests.Domain
                 Thumbnail = null
             };
 
-            var parentVideo = new Video
+            var channel = new YouTubeChannel
             {
-                Title = "Parent Series",
-                Platform = "YouTube",
-                Thumbnail = "https://example.com/parent-thumb.jpg"
+                Title = "Parent Channel",
+                ChannelExternalId = "UC_test_channel",
+                MediaType = MediaType.Channel,
+                Thumbnail = "https://example.com/channel-thumb.jpg"
             };
 
-            video.ParentVideo = parentVideo;
+            video.Channel = channel;
 
             // Act
             var result = video.GetEffectiveThumbnail();
 
             // Assert
-            result.Should().Be("https://example.com/parent-thumb.jpg");
+            result.Should().Be("https://example.com/channel-thumb.jpg");
         }
 
         [Fact]
-        public void GetEffectiveThumbnail_WhenVideoHasEmptyThumbnailButParentDoes_ShouldReturnParentThumbnail()
+        public void GetEffectiveThumbnail_WhenVideoHasEmptyThumbnailButChannelDoes_ShouldReturnChannelThumbnail()
         {
             // Arrange
             var video = new Video
@@ -161,24 +155,25 @@ namespace MyMediaVerse.UnitTests.Domain
                 Thumbnail = ""
             };
 
-            var parentVideo = new Video
+            var channel = new YouTubeChannel
             {
-                Title = "Parent Series",
-                Platform = "YouTube",
-                Thumbnail = "https://example.com/parent-thumb.jpg"
+                Title = "Parent Channel",
+                ChannelExternalId = "UC_test_channel",
+                MediaType = MediaType.Channel,
+                Thumbnail = "https://example.com/channel-thumb.jpg"
             };
 
-            video.ParentVideo = parentVideo;
+            video.Channel = channel;
 
             // Act
             var result = video.GetEffectiveThumbnail();
 
             // Assert
-            result.Should().Be("https://example.com/parent-thumb.jpg");
+            result.Should().Be("https://example.com/channel-thumb.jpg");
         }
 
         [Fact]
-        public void GetEffectiveThumbnail_WhenNeitherVideoNorParentHasThumbnail_ShouldReturnNull()
+        public void GetEffectiveThumbnail_WhenNeitherVideoNorChannelHasThumbnail_ShouldReturnNull()
         {
             // Arrange
             var video = new Video
@@ -188,14 +183,15 @@ namespace MyMediaVerse.UnitTests.Domain
                 Thumbnail = null
             };
 
-            var parentVideo = new Video
+            var channel = new YouTubeChannel
             {
-                Title = "Parent Series",
-                Platform = "YouTube",
+                Title = "Parent Channel",
+                ChannelExternalId = "UC_test_channel",
+                MediaType = MediaType.Channel,
                 Thumbnail = null
             };
 
-            video.ParentVideo = parentVideo;
+            video.Channel = channel;
 
             // Act
             var result = video.GetEffectiveThumbnail();
@@ -205,7 +201,7 @@ namespace MyMediaVerse.UnitTests.Domain
         }
 
         [Fact]
-        public void GetEffectiveThumbnail_WhenVideoHasNoParent_ShouldReturnVideoThumbnail()
+        public void GetEffectiveThumbnail_WhenVideoHasNoChannel_ShouldReturnVideoThumbnail()
         {
             // Arrange
             var video = new Video
@@ -213,7 +209,7 @@ namespace MyMediaVerse.UnitTests.Domain
                 Title = "Test Video",
                 Platform = "YouTube",
                 Thumbnail = "https://example.com/video-thumb.jpg",
-                ParentVideo = null
+                Channel = null
             };
 
             // Act
@@ -224,7 +220,7 @@ namespace MyMediaVerse.UnitTests.Domain
         }
 
         [Fact]
-        public void GetEffectiveThumbnail_WhenVideoHasNoParentAndNoThumbnail_ShouldReturnNull()
+        public void GetEffectiveThumbnail_WhenVideoHasNoChannelAndNoThumbnail_ShouldReturnNull()
         {
             // Arrange
             var video = new Video
@@ -232,7 +228,7 @@ namespace MyMediaVerse.UnitTests.Domain
                 Title = "Test Video",
                 Platform = "YouTube",
                 Thumbnail = null,
-                ParentVideo = null
+                Channel = null
             };
 
             // Act
@@ -244,153 +240,7 @@ namespace MyMediaVerse.UnitTests.Domain
 
         #endregion
 
-        #region IsSeries Property Tests
-
-        [Fact]
-        public void IsSeries_WhenVideoTypeIsSeries_ShouldReturnTrue()
-        {
-            // Arrange
-            var video = new Video
-            {
-                Title = "Test Series",
-                Platform = "YouTube",
-                VideoType = VideoType.Series
-            };
-
-            // Act & Assert
-            video.IsSeries.Should().BeTrue();
-        }
-
-        [Fact]
-        public void IsSeries_WhenVideoTypeIsEpisode_ShouldReturnFalse()
-        {
-            // Arrange
-            var video = new Video
-            {
-                Title = "Test Episode",
-                Platform = "YouTube",
-                VideoType = VideoType.Episode
-            };
-
-            // Act & Assert
-            video.IsSeries.Should().BeFalse();
-        }
-
-        [Fact]
-        public void IsSeries_WhenVideoTypeIsChannel_ShouldReturnFalse()
-        {
-            // Arrange
-            var video = new Video
-            {
-                Title = "Test Channel",
-                Platform = "YouTube",
-                VideoType = VideoType.Channel
-            };
-
-            // Act & Assert
-            video.IsSeries.Should().BeFalse();
-        }
-
-        #endregion
-
-        #region IsEpisode Property Tests
-
-        [Fact]
-        public void IsEpisode_WhenVideoTypeIsEpisode_ShouldReturnTrue()
-        {
-            // Arrange
-            var video = new Video
-            {
-                Title = "Test Episode",
-                Platform = "YouTube",
-                VideoType = VideoType.Episode
-            };
-
-            // Act & Assert
-            video.IsEpisode.Should().BeTrue();
-        }
-
-        [Fact]
-        public void IsEpisode_WhenVideoTypeIsSeries_ShouldReturnFalse()
-        {
-            // Arrange
-            var video = new Video
-            {
-                Title = "Test Series",
-                Platform = "YouTube",
-                VideoType = VideoType.Series
-            };
-
-            // Act & Assert
-            video.IsEpisode.Should().BeFalse();
-        }
-
-        [Fact]
-        public void IsEpisode_WhenVideoTypeIsChannel_ShouldReturnFalse()
-        {
-            // Arrange
-            var video = new Video
-            {
-                Title = "Test Channel",
-                Platform = "YouTube",
-                VideoType = VideoType.Channel
-            };
-
-            // Act & Assert
-            video.IsEpisode.Should().BeFalse();
-        }
-
-        #endregion
-
         #region Navigation Properties Tests
-
-        [Fact]
-        public void Video_ShouldSupportParentChildRelationship()
-        {
-            // Arrange
-            var parentSeries = new Video
-            {
-                Id = Guid.NewGuid(),
-                Title = "Parent Series",
-                Platform = "YouTube",
-                VideoType = VideoType.Series
-            };
-
-            var episode1 = new Video
-            {
-                Id = Guid.NewGuid(),
-                Title = "Episode 1",
-                Platform = "YouTube",
-                VideoType = VideoType.Episode,
-                ParentVideoId = parentSeries.Id,
-                ParentVideo = parentSeries
-            };
-
-            var episode2 = new Video
-            {
-                Id = Guid.NewGuid(),
-                Title = "Episode 2",
-                Platform = "YouTube",
-                VideoType = VideoType.Episode,
-                ParentVideoId = parentSeries.Id,
-                ParentVideo = parentSeries
-            };
-
-            // Act
-            parentSeries.Episodes.Add(episode1);
-            parentSeries.Episodes.Add(episode2);
-
-            // Assert
-            parentSeries.Episodes.Should().HaveCount(2);
-            parentSeries.Episodes.Should().Contain(episode1);
-            parentSeries.Episodes.Should().Contain(episode2);
-            
-            episode1.ParentVideo.Should().Be(parentSeries);
-            episode1.ParentVideoId.Should().Be(parentSeries.Id);
-            
-            episode2.ParentVideo.Should().Be(parentSeries);
-            episode2.ParentVideoId.Should().Be(parentSeries.Id);
-        }
 
         [Fact]
         public void Video_ShouldSupportTopicsAndGenres()
@@ -425,37 +275,6 @@ namespace MyMediaVerse.UnitTests.Domain
 
         #endregion
 
-        #region VideoType Enum Tests
-
-        [Fact]
-        public void VideoType_ShouldHaveExpectedValues()
-        {
-            // Assert
-            Enum.GetValues<VideoType>().Should().Contain(VideoType.Series);
-            Enum.GetValues<VideoType>().Should().Contain(VideoType.Episode);
-            Enum.GetValues<VideoType>().Should().Contain(VideoType.Channel);
-        }
-
-        [Theory]
-        [InlineData(VideoType.Series)]
-        [InlineData(VideoType.Episode)]
-        [InlineData(VideoType.Channel)]
-        public void VideoType_ShouldBeAssignableToVideo(VideoType videoType)
-        {
-            // Arrange & Act
-            var video = new Video
-            {
-                Title = "Test Video",
-                Platform = "YouTube",
-                VideoType = videoType
-            };
-
-            // Assert
-            video.VideoType.Should().Be(videoType);
-        }
-
-        #endregion
-
         #region Validation Tests
 
         [Fact]
@@ -465,14 +284,12 @@ namespace MyMediaVerse.UnitTests.Domain
             var video = new Video
             {
                 Title = "Test Video",
-                Platform = "YouTube",
-                VideoType = VideoType.Series
+                Platform = "YouTube"
             };
 
             // Assert
             video.Title.Should().NotBeNullOrEmpty();
             video.Platform.Should().NotBeNullOrEmpty();
-            video.VideoType.Should().BeDefined();
         }
 
         [Theory]
