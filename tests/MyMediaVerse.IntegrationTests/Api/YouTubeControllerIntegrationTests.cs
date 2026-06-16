@@ -301,54 +301,6 @@ namespace MyMediaVerse.IntegrationTests.Api
             response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         }
 
-        [Fact]
-        public async Task ImportPlaylist_WithValidPlaylistId_ShouldReturnOk()
-        {
-            // Arrange
-            var playlistId = "PLFgquLnL59alCl_2TQvOiD5Vgm1hCaGSI";
-            var expectedVideos = new List<Video>
-            {
-                CreateVideoEntity("vid1", "Video 1"),
-                CreateVideoEntity("vid2", "Video 2")
-            };
-            var (client, _) = _factory.CreateClientWithSubstitute<IYouTubeService>(mock =>
-                mock.ImportPlaylistAsync(playlistId, false).Returns(expectedVideos));
-
-            // Act
-            var response = await client.PostAsync($"/api/YouTube/import/playlist/{playlistId}", null);
-
-            // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
-            var importedVideos = await response.Content.ReadFromJsonAsync<List<Video>>(_jsonOptions);
-            importedVideos.Should().NotBeNull();
-            importedVideos!.Count.Should().BeGreaterThan(0);
-
-            foreach (var video in importedVideos)
-            {
-                video.Platform.Should().Be("YouTube");
-                video.MediaType.Should().Be(MediaType.Video);
-            }
-        }
-
-        [Fact]
-        public async Task ImportChannel_WithValidChannelId_ShouldReturnCreated()
-        {
-            // Arrange
-            var channelId = "UCuAXFkgsw1L7xaCfnd5JJOw";
-            var expectedChannel = CreateVideoEntity(channelId, "Test Channel");
-            var (client, _) = _factory.CreateClientWithSubstitute<IYouTubeService>(mock =>
-                mock.ImportChannelAsync(channelId).Returns(expectedChannel));
-
-            // Act
-            var response = await client.PostAsync($"/api/YouTube/import/channel/{channelId}", null);
-
-            // Assert
-            response.StatusCode.Should().Be(HttpStatusCode.Created);
-            var importedChannel = await response.Content.ReadFromJsonAsync<Video>(_jsonOptions);
-            importedChannel.Should().NotBeNull();
-            importedChannel!.Platform.Should().Be("YouTube");
-        }
-
         #endregion
 
         #region Error Handling Tests

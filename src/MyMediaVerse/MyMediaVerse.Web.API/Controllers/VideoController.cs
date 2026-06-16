@@ -35,23 +35,6 @@ namespace MyMediaVerse.Web.API.Controllers
             }
         }
 
-        // GET: api/video/series
-        [HttpGet("series")]
-        public async Task<ActionResult<IEnumerable<VideoResponseDto>>> GetVideoSeries()
-        {
-            try
-            {
-                var series = await _videoService.GetVideoSeriesAsync();
-                var response = series.Select(MapToResponseDto).ToList();
-                return Ok(response);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error occurred while retrieving video series");
-                return StatusCode(500, new { error = "Failed to retrieve video series", details = ex.Message });
-            }
-        }
-
         // GET: api/video/{id}
         [HttpGet("{id}")]
         public async Task<ActionResult<VideoResponseDto>> GetVideo(Guid id)
@@ -201,8 +184,6 @@ namespace MyMediaVerse.Web.API.Controllers
                 DateAdded = video.DateAdded,
                 Link = video.Link,
                 Thumbnail = video.GetEffectiveThumbnail(),
-                VideoType = video.VideoType,
-                ParentVideoId = video.ParentVideoId,
                 Platform = video.Platform,
                 ChannelId = video.ChannelId,
                 Channel = video.Channel != null ? new YouTubeChannelInfoDto

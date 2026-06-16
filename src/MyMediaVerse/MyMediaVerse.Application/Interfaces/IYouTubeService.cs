@@ -18,8 +18,6 @@ namespace MyMediaVerse.Application.Interfaces
         
         // Import methods
         Task<Video> ImportVideoAsync(string videoId);
-        Task<List<Video>> ImportPlaylistAsync(string playlistId, bool importAsChannel = false);
-        Task<Video> ImportChannelAsync(string channelId);
-        Task<Video> ImportFromUrlAsync(string url);
+        Task<BaseMediaItem> ImportFromUrlAsync(string url);
     }
 }

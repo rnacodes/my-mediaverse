@@ -56,14 +56,6 @@ namespace MyMediaVerse.DTOs
 
         // Video specific properties
         [Required]
-        [JsonPropertyName("videoType")]
-        public VideoType VideoType { get; set; } = VideoType.Series;
-
-        // For episodes: Foreign Key to parent series
-        [JsonPropertyName("parentVideoId")]
-        public Guid? ParentVideoId { get; set; }
-
-        [Required]
         [StringLength(100)]
         [JsonPropertyName("platform")]
         public required string Platform { get; set; }

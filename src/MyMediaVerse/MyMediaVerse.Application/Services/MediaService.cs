@@ -526,8 +526,7 @@ namespace MyMediaVerse.Application.Services
                 RelatedNotes = dto.RelatedNotes,
                 Thumbnail = dto.Thumbnail,
                 Platform = "YouTube",
-                ChannelId = null,
-                VideoType = VideoType.Series
+                ChannelId = null
             };
         }
 

@@ -75,11 +75,9 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
           thumbnail: mediaItem.thumbnail || '',
           topics: mediaItem.topicNames || mediaItem.topics || [],
           genres: mediaItem.genreNames || mediaItem.genres || [],
-          videoType: mediaItem.videoType,
           platform: mediaItem.platform || 'YouTube',
           lengthInSeconds: mediaItem.lengthInSeconds || 0,
           externalId: mediaItem.externalId || '',
-          parentVideoId: mediaItem.parentVideoId || null,
           channelId,
         },
       },
@@ -983,25 +981,6 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
               </Box>
             )}
             
-            {mediaItem.videoType !== undefined && (
-              <Box sx={{
-                display: 'flex',
-                flexDirection: { xs: 'column', sm: 'row' },
-                alignItems: { xs: 'flex-start', sm: 'center' },
-                gap: { xs: 0.5, sm: 0 }
-              }}>
-                <Typography variant="body1" sx={{ mr: 1, minWidth: { sm: '120px' }, fontSize: '0.875rem' }}>
-                  <strong>Video Type:</strong>
-                </Typography>
-                <Typography variant="body1" sx={{ fontSize: '0.875rem' }}>
-                  {mediaItem.videoType === 'Series' || mediaItem.videoType === 0 ? 'Series' :
-                   mediaItem.videoType === 'Episode' || mediaItem.videoType === 1 ? 'Episode' :
-                   mediaItem.videoType === 'Channel' || mediaItem.videoType === 2 ? 'Channel' :
-                   mediaItem.videoType}
-                </Typography>
-              </Box>
-            )}
-            
             {mediaItem.channel && (
               <Box sx={{
                 display: 'flex',
@@ -1070,20 +1049,6 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
                   <strong>External ID:</strong>
                 </Typography>
                 <Typography variant="body1" sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>{mediaItem.externalId}</Typography>
-              </Box>
-            )}
-            
-            {mediaItem.parentVideoId && (
-              <Box sx={{
-                display: 'flex',
-                flexDirection: { xs: 'column', sm: 'row' },
-                alignItems: { xs: 'flex-start', sm: 'center' },
-                gap: { xs: 0.5, sm: 0 }
-              }}>
-                <Typography variant="body1" sx={{ mr: 1, minWidth: { sm: '120px' }, fontSize: '0.875rem' }}>
-                  <strong>Parent Video ID:</strong>
-                </Typography>
-                <Typography variant="body1" sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>{mediaItem.parentVideoId}</Typography>
               </Box>
             )}
 
@@ -1587,7 +1552,7 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
           (mediaItem.mediaType === 'Book' && !mediaItem.author && !mediaItem.isbn && !mediaItem.asin && !mediaItem.format && mediaItem.partOfSeries === undefined) ||
           (mediaItem.mediaType === 'Movie' && !mediaItem.director && !mediaItem.cast && !mediaItem.releaseYear && !mediaItem.runtimeMinutes && !mediaItem.mpaaRating && !mediaItem.tmdbRating) ||
           (mediaItem.mediaType === 'TVShow' && !mediaItem.creator && !mediaItem.cast && !mediaItem.firstAirYear && !mediaItem.numberOfSeasons && !mediaItem.contentRating) ||
-          (mediaItem.mediaType === 'Video' && !mediaItem.platform && !mediaItem.channel && !mediaItem.lengthInSeconds && mediaItem.videoType === undefined && !mediaItem.externalId) ||
+          (mediaItem.mediaType === 'Video' && !mediaItem.platform && !mediaItem.channel && !mediaItem.lengthInSeconds && !mediaItem.externalId) ||
           (mediaItem.mediaType === 'Article' && !mediaItem.author && !mediaItem.publication && !mediaItem.publicationDate && !mediaItem.originalUrl && !mediaItem.readingProgress && !mediaItem.estimatedReadingTimeMinutes && !mediaItem.wordCount) ||
           (mediaItem.mediaType === 'Website' && !mediaItem.domain && !mediaItem.author && !mediaItem.publication && !mediaItem.rssFeedUrl && !mediaItem.lastCheckedDate)) && (
           <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>

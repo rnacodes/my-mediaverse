@@ -18,13 +18,10 @@ namespace MyMediaVerse.UnitTests.Domain
             playlist.Id.Should().NotBeEmpty();
             playlist.Title.Should().Be("");
             playlist.PlaylistExternalId.Should().Be("");
-            playlist.ChannelExternalId.Should().BeNull();
-            playlist.LinkedYouTubeChannelId.Should().BeNull();
             playlist.VideoCount.Should().BeNull();
             playlist.PublishedAt.Should().BeNull();
             playlist.LastSyncedAt.Should().BeNull();
             playlist.PrivacyStatus.Should().BeNull();
-            playlist.LinkedYouTubeChannel.Should().BeNull();
             playlist.PlaylistVideos.Should().NotBeNull().And.BeEmpty();
             playlist.Topics.Should().NotBeNull().And.BeEmpty();
             playlist.Genres.Should().NotBeNull().And.BeEmpty();
@@ -41,13 +38,10 @@ namespace MyMediaVerse.UnitTests.Domain
             // Arrange
             var playlist = new YouTubePlaylist { Title = "", PlaylistExternalId = "" };
             var testDate = DateTime.UtcNow;
-            var channelId = Guid.NewGuid();
 
             // Act
             playlist.Title = "Linear Algebra Playlist";
             playlist.PlaylistExternalId = "PLZHQObOWTQDPD3MizzM2xVFitgF8hE_ab";
-            playlist.ChannelExternalId = "UCYO_jab_esuFRV4b17AJtAw";
-            playlist.LinkedYouTubeChannelId = channelId;
             playlist.VideoCount = 16;
             playlist.PublishedAt = testDate.AddYears(-5);
             playlist.LastSyncedAt = testDate;
@@ -57,8 +51,6 @@ namespace MyMediaVerse.UnitTests.Domain
             // Assert
             playlist.Title.Should().Be("Linear Algebra Playlist");
             playlist.PlaylistExternalId.Should().Be("PLZHQObOWTQDPD3MizzM2xVFitgF8hE_ab");
-            playlist.ChannelExternalId.Should().Be("UCYO_jab_esuFRV4b17AJtAw");
-            playlist.LinkedYouTubeChannelId.Should().Be(channelId);
             playlist.VideoCount.Should().Be(16);
             playlist.PublishedAt.Should().Be(testDate.AddYears(-5));
             playlist.LastSyncedAt.Should().Be(testDate);
@@ -71,27 +63,11 @@ namespace MyMediaVerse.UnitTests.Domain
         #region Navigation Property Tests
 
         [Fact]
-        public void LinkedYouTubeChannel_CanBeSetAndRetrieved()
-        {
-            // Arrange
-            var channel = new YouTubeChannel { Title = "3Blue1Brown", ChannelExternalId = "UC_test" };
-            var playlist = new YouTubePlaylist { Title = "Test", PlaylistExternalId = "PL_test" };
-
-            // Act
-            playlist.LinkedYouTubeChannel = channel;
-            playlist.LinkedYouTubeChannelId = channel.Id;
-
-            // Assert
-            playlist.LinkedYouTubeChannel.Should().NotBeNull();
-            playlist.LinkedYouTubeChannel!.Title.Should().Be("3Blue1Brown");
-        }
-
-        [Fact]
         public void PlaylistVideos_CanBeAddedAndRetrieved()
         {
             // Arrange
             var playlist = new YouTubePlaylist { Title = "Test", PlaylistExternalId = "PL_test" };
-            var video = new Video { Title = "Video 1", Platform = "YouTube", VideoType = VideoType.Episode };
+            var video = new Video { Title = "Video 1", Platform = "YouTube" };
             var playlistVideo = new YouTubePlaylistVideo
             {
                 YouTubePlaylistId = playlist.Id,

@@ -267,8 +267,6 @@ namespace MyMediaVerse.Web.API.Controllers
                 Link = playlist.Link,
                 Thumbnail = playlist.Thumbnail,
                 PlaylistExternalId = playlist.PlaylistExternalId,
-                ChannelExternalId = playlist.ChannelExternalId,
-                LinkedYouTubeChannelId = playlist.LinkedYouTubeChannelId,
                 VideoCount = playlist.VideoCount,
                 PublishedAt = playlist.PublishedAt,
                 LastSyncedAt = playlist.LastSyncedAt,

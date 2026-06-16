@@ -20,58 +20,12 @@ namespace MyMediaVerse.Application.Services
                 Platform = "YouTube",
                 ExternalId = videoDto.Id,
                 MediaType = MediaType.Video,
-                VideoType = VideoType.Episode, // Individual videos are episodes
                 Thumbnail = GetBestThumbnailUrl(videoDto.Snippet.Thumbnails),
                 LengthInSeconds = YouTubeHelper.ParseDurationToSeconds(videoDto.ContentDetails?.Duration),
                 DateAdded = DateTime.UtcNow
             };
 
             return video;
-        }
-
-        public Video MapPlaylistToEntity(YouTubePlaylistDto playlistDto)
-        {
-            if (playlistDto?.Snippet == null)
-                throw new ArgumentException("Playlist DTO or snippet cannot be null", nameof(playlistDto));
-
-            var playlist = new Video
-            {
-                Title = playlistDto.Snippet.Title ?? "Unknown Playlist",
-                Description = playlistDto.Snippet.Description,
-                Link = $"https://www.youtube.com/playlist?list={playlistDto.Id}",
-                Platform = "YouTube",
-                ExternalId = playlistDto.Id,
-                MediaType = MediaType.Video,
-                VideoType = VideoType.Series, // Playlists are series
-                Thumbnail = GetBestThumbnailUrl(playlistDto.Snippet.Thumbnails),
-                DateAdded = DateTime.UtcNow
-            };
-
-            return playlist;
-        }
-
-        public Video MapChannelToEntity(YouTubeChannelDto channelDto)
-        {
-            //TODO: Remove this method in a future version
-            // NOTE: This method is deprecated and will be removed in a future version
-            // Use MapChannelToYouTubeChannelEntity instead
-            if (channelDto?.Snippet == null)
-                throw new ArgumentException("Channel DTO or snippet cannot be null", nameof(channelDto));
-
-            var channel = new Video
-            {
-                Title = channelDto.Snippet.Title ?? "Unknown Channel",
-                Description = channelDto.Snippet.Description,
-                Link = $"https://www.youtube.com/channel/{channelDto.Id}",
-                Platform = "YouTube",
-                ExternalId = channelDto.Id,
-                MediaType = MediaType.Video,
-                VideoType = VideoType.Channel, // Channels are channels
-                Thumbnail = GetBestThumbnailUrl(channelDto.Snippet.Thumbnails),
-                DateAdded = DateTime.UtcNow
-            };
-
-            return channel;
         }
 
         public YouTubeChannel MapChannelToYouTubeChannelEntity(YouTubeChannelDto channelDto)
@@ -127,7 +81,6 @@ namespace MyMediaVerse.Application.Services
                 Description = playlistDto.Snippet.Description,
                 Link = $"https://www.youtube.com/playlist?list={playlistDto.Id}",
                 PlaylistExternalId = playlistDto.Id ?? throw new ArgumentException("Playlist ID cannot be null"),
-                ChannelExternalId = playlistDto.Snippet.ChannelId,
                 MediaType = MediaType.Playlist,
                 Thumbnail = GetBestThumbnailUrl(playlistDto.Snippet.Thumbnails),
                 PublishedAt = playlistDto.Snippet.PublishedAt,
@@ -165,7 +118,6 @@ namespace MyMediaVerse.Application.Services
                 Platform = "YouTube",
                 ExternalId = videoId,
                 MediaType = MediaType.Video,
-                VideoType = VideoType.Episode, // Playlist items are episodes
                 Thumbnail = GetBestThumbnailUrl(playlistItemDto.Snippet.Thumbnails),
                 DateAdded = DateTime.UtcNow
             };

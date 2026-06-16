@@ -21,13 +21,7 @@ namespace MyMediaVerse.DTOs
         
         [JsonPropertyName("playlistExternalId")]
         public required string PlaylistExternalId { get; set; }
-        
-        [JsonPropertyName("channelExternalId")]
-        public string? ChannelExternalId { get; set; }
-        
-        [JsonPropertyName("linkedYouTubeChannelId")]
-        public Guid? LinkedYouTubeChannelId { get; set; }
-        
+
         [JsonPropertyName("videoCount")]
         public int? VideoCount { get; set; }
         

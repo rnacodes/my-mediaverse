@@ -34,7 +34,6 @@ export const createVideo = (overrides = {}) => createMediaItem({
   platform: 'YouTube',
   channelName: 'Test Channel',
   lengthInSeconds: 3600,
-  videoType: 'Series',
   link: 'https://youtube.com/watch?v=test',
   thumbnail: 'https://example.com/video-thumb.jpg',
   ...overrides,

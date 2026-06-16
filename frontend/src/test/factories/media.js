@@ -65,7 +65,6 @@ export const makeVideo = (overrides = {}) =>
     platform: 'YouTube',
     channelName: 'Test Channel',
     lengthInSeconds: 3600,
-    videoType: 'Series',
     link: 'https://youtube.com/watch?v=test',
     ...overrides,
   });

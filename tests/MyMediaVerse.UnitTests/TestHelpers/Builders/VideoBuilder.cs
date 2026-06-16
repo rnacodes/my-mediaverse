@@ -15,21 +15,9 @@ namespace MyMediaVerse.UnitTests.TestHelpers.Builders
             return this;
         }
 
-        public VideoBuilder WithVideoType(VideoType videoType)
-        {
-            Item.VideoType = videoType;
-            return this;
-        }
-
         public VideoBuilder WithChannel(Guid channelId)
         {
             Item.ChannelId = channelId;
-            return this;
-        }
-
-        public VideoBuilder WithEpisodes(params Video[] episodes)
-        {
-            Item.Episodes = episodes.ToList();
             return this;
         }
     }

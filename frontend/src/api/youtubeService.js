@@ -126,32 +126,8 @@ export const importYouTubeVideo = async (videoId) => {
     }
 };
 
-export const importYouTubePlaylist = async (playlistId, importAsChannel = false) => {
-    try {
-        const params = new URLSearchParams({
-            importAsChannel: importAsChannel.toString()
-        });
-
-        const response = await apiClient.post(`/youtube/import/playlist/${playlistId}?${params}`);
-        return response.data;
-    } catch (error) {
-        console.error('Error importing YouTube playlist:', error);
-        throw error;
-    }
-};
-
-export const importYouTubeChannel = async (channelId) => {
-    try {
-        const response = await apiClient.post(`/youtube/import/channel/${channelId}`);
-        return response.data;
-    } catch (error) {
-        console.error('Error importing YouTube channel:', error);
-        throw error;
-    }
-};
-
 // ============================================
-// YouTube Channel Management API calls (new channel entity endpoints)
+// YouTube Channel Management API calls
 // ============================================
 
 export const getAllYouTubeChannels = async () => {

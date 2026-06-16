@@ -4,9 +4,7 @@ import { z } from 'zod';
 // in the dropdown and is blocked at submit time (see AddMediaForm shell).
 export const SUPPORTED_TYPES = ['Podcast', 'Book', 'Movie', 'TVShow', 'Video'];
 
-// Initial form state. Replaces the ~40 useState declarations of the old form.
 export const defaultValues = {
-  // Common
   title: '',
   mediaType: '',
   link: '',
@@ -37,17 +35,12 @@ export const defaultValues = {
   // TV Show
   creator: '',
   // Video
-  videoType: 'Series',
   platform: 'YouTube',
   channelName: '',
   lengthInSeconds: '',
   externalId: '',
 };
 
-// One flat schema validated against every submit. Type-specific requirements
-// (e.g. a book needs an author) are enforced in superRefine so the error maps
-// to the right field and the empty / "Coming Soon" media types validate cleanly
-// — both of which a discriminatedUnion handles awkwardly in a plain-JS app.
 export const mediaSchema = z
   .object({
     title: z.string().trim().min(1, 'Title is required'),
@@ -80,7 +73,6 @@ export const mediaSchema = z
     // TV Show
     creator: z.string().optional(),
     // Video
-    videoType: z.string(),
     platform: z.string(),
     channelName: z.string().optional(),
     lengthInSeconds: z.string().optional(),
@@ -92,12 +84,6 @@ export const mediaSchema = z
     }
   });
 
-// ---- Payload builders ----------------------------------------------------
-// These mirror the exact shapes the old handleSubmit posted, so the backend
-// contract is unchanged. Dead fields that never had inputs (relatedNotes, the
-// unrendered Movie/TV columns) are dropped — they were always null anyway.
-
-// Fields common to the type-specific create endpoints.
 function typedBase(d, mediaType) {
   return {
     title: d.title,
@@ -115,8 +101,6 @@ function typedBase(d, mediaType) {
   };
 }
 
-// Generic /api/media payload (Podcast series, and the not-yet-specialized fallback).
-// Optional fields are omitted unless set, matching the old behavior.
 export function buildMediaPayload(d) {
   const payload = {
     title: d.title,
@@ -174,8 +158,6 @@ export function buildTvShowPayload(d) {
 export function buildVideoPayload(d) {
   return {
     ...typedBase(d, 'Video'),
-    videoType: d.videoType,
-    parentVideoId: null,
     platform: d.platform || 'YouTube',
     channelName: d.channelName || null,
     lengthInSeconds: d.lengthInSeconds ? parseInt(d.lengthInSeconds, 10) : 0,

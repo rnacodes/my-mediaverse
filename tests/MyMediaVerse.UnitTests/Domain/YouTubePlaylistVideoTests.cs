@@ -76,7 +76,7 @@ namespace MyMediaVerse.UnitTests.Domain
         {
             // Arrange
             var playlist = new YouTubePlaylist { Title = "Math Series", PlaylistExternalId = "PL_test" };
-            var video = new Video { Title = "Linear Algebra", Platform = "YouTube", VideoType = VideoType.Episode };
+            var video = new Video { Title = "Linear Algebra", Platform = "YouTube" };
 
             // Act
             var playlistVideo = new YouTubePlaylistVideo

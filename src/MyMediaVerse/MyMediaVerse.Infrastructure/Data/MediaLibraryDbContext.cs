@@ -522,30 +522,17 @@ namespace MyMediaVerse.Infrastructure.Data
                     
                 entity.Property(e => e.LengthInSeconds)
                     .HasDefaultValue(0);
-                    
-                entity.Property(e => e.VideoType)
-                    .HasConversion<string>()
-                    .HasMaxLength(50)
-                    .IsRequired();
-                    
+
                 entity.Property(e => e.ExternalId)
                     .HasMaxLength(200);
-                    
-                // Configure self-referencing relationship for Series->Episodes
-                entity.HasOne(e => e.ParentVideo)
-                    .WithMany(s => s.Episodes)
-                    .HasForeignKey(e => e.ParentVideoId)
-                    .OnDelete(DeleteBehavior.Restrict); // Prevent cascade delete to avoid orphaned episodes
-                    
+
                 // Configure relationship with YouTubeChannel
                 entity.HasOne(e => e.Channel)
                     .WithMany(c => c.Videos)
                     .HasForeignKey(e => e.ChannelId)
                     .OnDelete(DeleteBehavior.SetNull); // When channel deleted, videos remain but ChannelId becomes null
-                    
+
                 // Create indexes for better query performance
-                entity.HasIndex(e => e.VideoType);
-                entity.HasIndex(e => e.ParentVideoId);
                 entity.HasIndex(e => e.ExternalId);
                 entity.HasIndex(e => e.Platform);
                 entity.HasIndex(e => e.ChannelId);
@@ -583,25 +570,15 @@ namespace MyMediaVerse.Infrastructure.Data
                 entity.Property(e => e.PlaylistExternalId)
                     .HasMaxLength(100)
                     .IsRequired();
-                    
-                entity.Property(e => e.ChannelExternalId)
-                    .HasMaxLength(100);
-                    
+
                 entity.Property(e => e.PrivacyStatus)
                     .HasMaxLength(50);
-                    
-                // Configure relationship with YouTubeChannel (optional)
-                entity.HasOne(e => e.LinkedYouTubeChannel)
-                    .WithMany() // A channel can have many playlists, but we don't track this on the channel side
-                    .HasForeignKey(e => e.LinkedYouTubeChannelId)
-                    .OnDelete(DeleteBehavior.SetNull); // When channel deleted, playlist remains but link becomes null
-                    
+
                 // Create unique index on PlaylistExternalId to prevent duplicate playlist imports
                 entity.HasIndex(e => e.PlaylistExternalId)
                     .IsUnique();
-                    
+
                 // Create indexes for better query performance
-                entity.HasIndex(e => e.LinkedYouTubeChannelId);
                 entity.HasIndex(e => e.PublishedAt);
                 entity.HasIndex(e => e.LastSyncedAt);
             });

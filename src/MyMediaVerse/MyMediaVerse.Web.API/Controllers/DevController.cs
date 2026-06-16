@@ -229,7 +229,6 @@ namespace MyMediaVerse.Web.API.Controllers
                     Thumbnail = "https://placehold.co/300x450/474350/fcfafa?text=AI+Future",
                     Link = "https://www.youtube.com/watch?v=demo1",
                     Platform = "YouTube",
-                    VideoType = VideoType.Series,
                     Topics = new List<Topic> { topics[0] }, // technology
                     Genres = new List<Genre> { genres[1], genres[4] }  // documentary, educational
                 };
@@ -245,7 +244,6 @@ namespace MyMediaVerse.Web.API.Controllers
                     Thumbnail = "https://placehold.co/300x450/474350/fcfafa?text=Computing",
                     Link = "https://www.youtube.com/watch?v=demo2",
                     Platform = "YouTube",
-                    VideoType = VideoType.Series,
                     Topics = new List<Topic> { topics[0], topics[3] }, // technology, history
                     Genres = new List<Genre> { genres[1] }  // documentary
                 };
