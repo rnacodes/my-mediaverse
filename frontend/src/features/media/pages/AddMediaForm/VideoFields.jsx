@@ -19,15 +19,6 @@ function VideoFields() {
       </ControlledSelect>
 
       <ControlledTextField
-        name="channelName"
-        label="Channel Name (Optional)"
-        placeholder="Enter channel/creator name..."
-        variant="outlined"
-        fullWidth
-        margin="normal"
-      />
-
-      <ControlledTextField
         name="lengthInSeconds"
         label="Length (seconds)"
         placeholder="Enter video length in seconds..."

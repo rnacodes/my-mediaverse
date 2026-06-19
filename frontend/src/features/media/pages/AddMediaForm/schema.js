@@ -36,7 +36,6 @@ export const defaultValues = {
   creator: '',
   // Video
   platform: 'YouTube',
-  channelName: '',
   lengthInSeconds: '',
   externalId: '',
 };
@@ -74,7 +73,6 @@ export const mediaSchema = z
     creator: z.string().optional(),
     // Video
     platform: z.string(),
-    channelName: z.string().optional(),
     lengthInSeconds: z.string().optional(),
     externalId: z.string().optional(),
   })
@@ -134,7 +132,7 @@ export function buildBookPayload(d) {
 export function buildEpisodePayload(d) {
   return {
     ...typedBase(d, 'Podcast'),
-    parentPodcastId: d.selectedPodcastSeries?.id || d.selectedPodcastSeries?.Id || d.podcastSeriesId,
+    seriesId: d.selectedPodcastSeries?.id || d.selectedPodcastSeries?.Id || d.podcastSeriesId,
     audioLink: null,
     releaseDate: null,
     durationInSeconds: d.durationInSeconds ? parseInt(d.durationInSeconds, 10) : 0,
@@ -159,7 +157,6 @@ export function buildVideoPayload(d) {
   return {
     ...typedBase(d, 'Video'),
     platform: d.platform || 'YouTube',
-    channelName: d.channelName || null,
     lengthInSeconds: d.lengthInSeconds ? parseInt(d.lengthInSeconds, 10) : 0,
     externalId: d.externalId || null,
   };
