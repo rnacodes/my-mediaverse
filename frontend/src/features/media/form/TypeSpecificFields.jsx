@@ -5,8 +5,7 @@ import MovieFields from './MovieFields';
 import TVShowFields from './TVShowFields';
 import VideoFields from './VideoFields';
 
-// Renders the field block for the currently selected media type.
-function TypeSpecificFields() {
+function TypeSpecificFields({ editing = false }) {
   const { watch } = useFormContext();
   const mediaType = watch('mediaType');
 
@@ -14,7 +13,7 @@ function TypeSpecificFields() {
     case 'Book':
       return <BookFields />;
     case 'Podcast':
-      return <PodcastFields />;
+      return <PodcastFields lockType={editing} />;
     case 'Movie':
       return <MovieFields />;
     case 'TVShow':

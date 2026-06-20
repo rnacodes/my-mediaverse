@@ -25,15 +25,39 @@ export const defaultValues = {
   goodreadsRating: '',
   format: 'Digital',
   partOfSeries: false,
+  yearPublished: '',
+  dateRead: '',
+  myReview: '',
   // Podcast
   podcastType: '',
   podcastSeriesId: '',
   selectedPodcastSeries: null,
   durationInSeconds: '',
+  episodeNumber: '',
+  seasonNumber: '',
+  releaseDate: '',
+  audioLink: '',
   // Movie
   director: '',
+  releaseYear: '',
+  runtimeMinutes: '',
+  mpaaRating: '',
+  originalTitle: '',
   // TV Show
   creator: '',
+  firstAirYear: '',
+  lastAirYear: '',
+  numberOfSeasons: '',
+  numberOfEpisodes: '',
+  contentRating: '',
+  originalName: '',
+  // Shared by Movie + TV Show
+  cast: '',
+  tagline: '',
+  homepage: '',
+  originalLanguage: '',
+  // Shared by Book + Podcast Series
+  publisher: '',
   // Video
   platform: 'YouTube',
   lengthInSeconds: '',
@@ -62,15 +86,39 @@ export const mediaSchema = z
     goodreadsRating: z.string().optional(),
     format: z.string(),
     partOfSeries: z.boolean(),
+    yearPublished: z.string().optional(),
+    dateRead: z.string().optional(),
+    myReview: z.string().optional(),
     // Podcast
     podcastType: z.string().optional(),
     podcastSeriesId: z.string().optional(),
     selectedPodcastSeries: z.any().nullable(),
     durationInSeconds: z.string().optional(),
+    episodeNumber: z.string().optional(),
+    seasonNumber: z.string().optional(),
+    releaseDate: z.string().optional(),
+    audioLink: z.string().optional(),
     // Movie
     director: z.string().optional(),
+    releaseYear: z.string().optional(),
+    runtimeMinutes: z.string().optional(),
+    mpaaRating: z.string().optional(),
+    originalTitle: z.string().optional(),
     // TV Show
     creator: z.string().optional(),
+    firstAirYear: z.string().optional(),
+    lastAirYear: z.string().optional(),
+    numberOfSeasons: z.string().optional(),
+    numberOfEpisodes: z.string().optional(),
+    contentRating: z.string().optional(),
+    originalName: z.string().optional(),
+    // Shared by Movie + TV Show
+    cast: z.string().optional(),
+    tagline: z.string().optional(),
+    homepage: z.string().optional(),
+    originalLanguage: z.string().optional(),
+    // Shared by Book + Podcast Series
+    publisher: z.string().optional(),
     // Video
     platform: z.string(),
     lengthInSeconds: z.string().optional(),
@@ -81,6 +129,9 @@ export const mediaSchema = z
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['author'], message: 'Author is required' });
     }
   });
+
+// Parse an optional numeric text input to an integer, or null when blank.
+const toIntOrNull = (v) => (v ? parseInt(v, 10) : null);
 
 function typedBase(d, mediaType) {
   return {
@@ -126,6 +177,10 @@ export function buildBookPayload(d) {
     format: d.format,
     partOfSeries: d.partOfSeries,
     goodreadsRating: d.goodreadsRating ? parseFloat(d.goodreadsRating) : null,
+    publisher: d.publisher || null,
+    yearPublished: toIntOrNull(d.yearPublished),
+    dateRead: d.dateRead || null,
+    myReview: d.myReview || null,
   };
 }
 
@@ -133,9 +188,18 @@ export function buildEpisodePayload(d) {
   return {
     ...typedBase(d, 'Podcast'),
     seriesId: d.selectedPodcastSeries?.id || d.selectedPodcastSeries?.Id || d.podcastSeriesId,
-    audioLink: null,
-    releaseDate: null,
+    audioLink: d.audioLink || null,
+    releaseDate: d.releaseDate || null,
     durationInSeconds: d.durationInSeconds ? parseInt(d.durationInSeconds, 10) : 0,
+    episodeNumber: toIntOrNull(d.episodeNumber),
+    seasonNumber: toIntOrNull(d.seasonNumber),
+  };
+}
+
+export function buildSeriesPayload(d) {
+  return {
+    ...typedBase(d, 'Podcast'),
+    publisher: d.publisher || null,
   };
 }
 
@@ -143,6 +207,14 @@ export function buildMoviePayload(d) {
   return {
     ...typedBase(d, 'Movie'),
     director: d.director || null,
+    cast: d.cast || null,
+    releaseYear: toIntOrNull(d.releaseYear),
+    runtimeMinutes: toIntOrNull(d.runtimeMinutes),
+    mpaaRating: d.mpaaRating || null,
+    tagline: d.tagline || null,
+    homepage: d.homepage || null,
+    originalLanguage: d.originalLanguage || null,
+    originalTitle: d.originalTitle || null,
   };
 }
 
@@ -150,6 +222,16 @@ export function buildTvShowPayload(d) {
   return {
     ...typedBase(d, 'TVShow'),
     creator: d.creator || null,
+    cast: d.cast || null,
+    firstAirYear: toIntOrNull(d.firstAirYear),
+    lastAirYear: toIntOrNull(d.lastAirYear),
+    numberOfSeasons: toIntOrNull(d.numberOfSeasons),
+    numberOfEpisodes: toIntOrNull(d.numberOfEpisodes),
+    contentRating: d.contentRating || null,
+    tagline: d.tagline || null,
+    homepage: d.homepage || null,
+    originalLanguage: d.originalLanguage || null,
+    originalName: d.originalName || null,
   };
 }
 

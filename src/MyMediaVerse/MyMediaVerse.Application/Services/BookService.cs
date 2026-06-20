@@ -129,7 +129,11 @@ namespace MyMediaVerse.Application.Services
                     ASIN = dto.ASIN,
                     Format = dto.Format,
                     PartOfSeries = dto.PartOfSeries,
-                    GoodreadsRating = dto.GoodreadsRating
+                    GoodreadsRating = dto.GoodreadsRating,
+                    Publisher = dto.Publisher,
+                    YearPublished = dto.YearPublished,
+                    DateRead = dto.DateRead,
+                    MyReview = dto.MyReview
                 };
                 
                 // If GoodreadsRating is provided but Rating is not, auto-convert
@@ -184,7 +188,11 @@ namespace MyMediaVerse.Application.Services
                 book.Format = dto.Format;
                 book.PartOfSeries = dto.PartOfSeries;
                 book.GoodreadsRating = dto.GoodreadsRating;
-                
+                book.Publisher = dto.Publisher;
+                book.YearPublished = dto.YearPublished;
+                book.DateRead = dto.DateRead;
+                book.MyReview = dto.MyReview;
+
                 // If GoodreadsRating is provided but Rating is not, auto-convert
                 if (dto.GoodreadsRating.HasValue && !dto.Rating.HasValue)
                 {

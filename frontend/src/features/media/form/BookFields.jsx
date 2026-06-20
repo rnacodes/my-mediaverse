@@ -51,6 +51,35 @@ function BookFields() {
         helperText="Will auto-convert to MMV rating if not set manually"
       />
 
+      <ControlledTextField
+        name="publisher"
+        label="Publisher"
+        placeholder="Publisher name..."
+        variant="outlined"
+        fullWidth
+        margin="normal"
+      />
+
+      <ControlledTextField
+        name="yearPublished"
+        label="Year Published"
+        placeholder="e.g., 2014"
+        variant="outlined"
+        fullWidth
+        margin="normal"
+        type="number"
+      />
+
+      <ControlledTextField
+        name="dateRead"
+        label="Date Read"
+        type="date"
+        variant="outlined"
+        fullWidth
+        margin="normal"
+        InputLabelProps={{ shrink: true }}
+      />
+
       <ControlledSelect name="format" label="Format">
         <MenuItem value="Digital">Digital</MenuItem>
         <MenuItem value="Physical">Physical</MenuItem>
@@ -66,6 +95,17 @@ function BookFields() {
             sx={{ mt: 1, ...choiceLabelSx }}
           />
         )}
+      />
+
+      <ControlledTextField
+        name="myReview"
+        label="My Review"
+        placeholder="Your review or thoughts..."
+        variant="outlined"
+        fullWidth
+        multiline
+        rows={4}
+        margin="normal"
       />
     </Box>
   );

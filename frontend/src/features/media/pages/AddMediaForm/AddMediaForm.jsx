@@ -2,32 +2,31 @@ import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
 import { Box, Typography, Button } from '@mui/material';
-import { useAddMedia } from '@/hooks/useMedia';
 import { useAddMediaToMixlist } from '@/hooks/useMixlist';
-import { useCreatePodcastEpisode } from '@/hooks/usePodcast';
+import { useCreatePodcastEpisode, useCreatePodcastSeries } from '@/hooks/usePodcast';
 import { useCreateBook } from '@/hooks/useBook';
 import { useCreateMovie } from '@/hooks/useMovie';
 import { useCreateTvShow } from '@/hooks/useTvShow';
 import { useCreateVideo } from '@/hooks/useVideo';
 import {
   mediaSchema, defaultValues, SUPPORTED_TYPES,
-  buildMediaPayload, buildBookPayload, buildEpisodePayload,
+  buildBookPayload, buildEpisodePayload, buildSeriesPayload,
   buildMoviePayload, buildTvShowPayload, buildVideoPayload,
-} from './schema';
-import CommonFields from './CommonFields';
+} from '@/features/media/form/schema';
+import CommonFields from '@/features/media/form/CommonFields';
+import TypeSpecificFields from '@/features/media/form/TypeSpecificFields';
 import MixlistSelector from './MixlistSelector';
-import TypeSpecificFields from './TypeSpecificFields';
 
 function AddMediaForm() {
   const navigate = useNavigate();
   const methods = useForm({ resolver: zodResolver(mediaSchema), defaultValues });
 
-  const addMedia = useAddMedia();
   const createBook = useCreateBook();
   const createMovie = useCreateMovie();
   const createTvShow = useCreateTvShow();
   const createVideo = useCreateVideo();
   const createEpisode = useCreatePodcastEpisode();
+  const createSeries = useCreatePodcastSeries();
   const addToMixlist = useAddMediaToMixlist();
 
   // Route the validated form to the right create endpoint, then attach it to
@@ -45,9 +44,9 @@ function AddMediaForm() {
       case 'Podcast':
         return data.podcastType === 'Episode'
           ? createEpisode.mutateAsync(buildEpisodePayload(data))
-          : addMedia.mutateAsync(buildMediaPayload(data));
+          : createSeries.mutateAsync(buildSeriesPayload(data));
       default:
-        return addMedia.mutateAsync(buildMediaPayload(data));
+        throw new Error(`Unsupported media type: ${data.mediaType}`);
     }
   };
 

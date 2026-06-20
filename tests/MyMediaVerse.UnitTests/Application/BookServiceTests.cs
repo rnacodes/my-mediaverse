@@ -194,6 +194,56 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         [Fact]
+        public async Task CreateBookAsync_ShouldMapExtendedFields()
+        {
+            // Arrange
+            var dto = TestDataFactory.CreateBookDto("Extended Book", "Extended Author");
+            dto.Publisher = "Penguin";
+            dto.YearPublished = 2014;
+            dto.DateRead = new DateTime(2020, 1, 1);
+            dto.MyReview = "A thorough review.";
+
+            // Act
+            var result = await _bookService.CreateBookAsync(dto);
+
+            // Assert
+            Context.ChangeTracker.Clear();
+            var saved = await Context.Books.FindAsync(result.Id);
+            saved.Should().NotBeNull();
+            saved!.Publisher.Should().Be("Penguin");
+            saved.YearPublished.Should().Be(2014);
+            saved.DateRead.Should().Be(new DateTime(2020, 1, 1));
+            saved.MyReview.Should().Be("A thorough review.");
+        }
+
+        [Fact]
+        public async Task UpdateBookAsync_ShouldMapExtendedFields()
+        {
+            // Arrange
+            var existingBook = TestDataFactory.CreateBook("Original", "Author");
+            Context.Books.Add(existingBook);
+            await Context.SaveChangesAsync();
+
+            var dto = TestDataFactory.CreateBookDto("Original", "Author");
+            dto.Publisher = "Tor";
+            dto.YearPublished = 1999;
+            dto.DateRead = new DateTime(2019, 6, 15);
+            dto.MyReview = "Updated review.";
+
+            // Act
+            await _bookService.UpdateBookAsync(existingBook.Id, dto);
+
+            // Assert
+            Context.ChangeTracker.Clear();
+            var updated = await Context.Books.FindAsync(existingBook.Id);
+            updated.Should().NotBeNull();
+            updated!.Publisher.Should().Be("Tor");
+            updated.YearPublished.Should().Be(1999);
+            updated.DateRead.Should().Be(new DateTime(2019, 6, 15));
+            updated.MyReview.Should().Be("Updated review.");
+        }
+
+        [Fact]
         public async Task UpdateBookAsync_ShouldThrowInvalidOperationException_WhenBookDoesNotExist()
         {
             // Arrange

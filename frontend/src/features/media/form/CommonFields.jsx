@@ -9,7 +9,7 @@ import { useUploadThumbnail } from '@/hooks/useUpload';
 import { ControlledTextField } from '@/shared/form/controls';
 import { fieldSx, selectFormSx } from '@/shared/form/styles';
 
-function CommonFields() {
+function CommonFields({ lockMediaType = false }) {
   const { control, watch, setValue, formState: { errors } } = useFormContext();
   const status = watch('status');
   const thumbnail = watch('thumbnail');
@@ -75,17 +75,13 @@ function CommonFields() {
           name="mediaType"
           control={control}
           render={({ field }) => (
-            <Select labelId="media-type-label" label="Media Type" data-testid="media-type-select" {...field}>
+            <Select labelId="media-type-label" label="Media Type" data-testid="media-type-select" disabled={lockMediaType} {...field}>
               <MenuItem value="Article">Article (Coming Soon)</MenuItem>
               <MenuItem value="Book">Book</MenuItem>
-              <MenuItem value="Document">Document (Coming Soon)</MenuItem>
               <MenuItem value="Movie">Movie</MenuItem>
-              <MenuItem value="Music">Music (Coming Soon)</MenuItem>
-              <MenuItem value="Other">Other (Coming Soon)</MenuItem>
               <MenuItem value="Podcast">Podcast</MenuItem>
               <MenuItem value="TVShow">TV Show</MenuItem>
               <MenuItem value="Video">Video</MenuItem>
-              <MenuItem value="VideoGame">Video Game (Coming Soon)</MenuItem>
               <MenuItem value="Website">Website (Coming Soon)</MenuItem>
             </Select>
           )}
