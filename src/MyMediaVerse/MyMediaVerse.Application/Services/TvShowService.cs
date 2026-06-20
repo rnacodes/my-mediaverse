@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Application.Interfaces;
+using MyMediaVerse.Application.Utilities;
 
 namespace MyMediaVerse.Application.Services
 {
@@ -121,7 +122,7 @@ namespace MyMediaVerse.Application.Services
                     Notes = dto.Notes,
                     Status = dto.Status,
                     DateAdded = DateTime.UtcNow,
-                    DateCompleted = dto.DateCompleted,
+                    DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted),
                     Rating = dto.Rating,
                     OwnershipStatus = dto.OwnershipStatus,
                     Description = dto.Description,
@@ -177,7 +178,7 @@ namespace MyMediaVerse.Application.Services
                 tvShow.Link = dto.Link;
                 tvShow.Notes = dto.Notes;
                 tvShow.Status = dto.Status;
-                tvShow.DateCompleted = dto.DateCompleted;
+                tvShow.DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted);
                 tvShow.Rating = dto.Rating;
                 tvShow.OwnershipStatus = dto.OwnershipStatus;
                 tvShow.Description = dto.Description;
@@ -371,7 +372,7 @@ namespace MyMediaVerse.Application.Services
                     Notes = dto.Notes,
                     Status = dto.Status,
                     DateAdded = DateTime.UtcNow,
-                    DateCompleted = dto.DateCompleted,
+                    DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted),
                     Rating = dto.Rating,
                     OwnershipStatus = dto.OwnershipStatus,
                     Description = dto.Description,

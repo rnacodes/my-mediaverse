@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MyMediaVerse.Application.Interfaces;
+using MyMediaVerse.Application.Utilities;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Shared.Interfaces;
@@ -101,7 +102,7 @@ namespace MyMediaVerse.Application.Services
                     Notes = dto.Notes,
                     Status = dto.Status,
                     DateAdded = DateTime.UtcNow,
-                    DateCompleted = dto.DateCompleted,
+                    DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted),
                     Rating = dto.Rating,
                     OwnershipStatus = dto.OwnershipStatus,
                     Description = dto.Description,
@@ -164,7 +165,7 @@ namespace MyMediaVerse.Application.Services
                 document.Link = dto.Link;
                 document.Notes = dto.Notes;
                 document.Status = dto.Status;
-                document.DateCompleted = dto.DateCompleted;
+                document.DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted);
                 document.Rating = dto.Rating;
                 document.OwnershipStatus = dto.OwnershipStatus;
                 document.Description = dto.Description;

@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyMediaVerse.Application.Interfaces;
+using MyMediaVerse.Application.Utilities;
 using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.Application.Services
@@ -78,7 +79,7 @@ namespace MyMediaVerse.Application.Services
                 Notes = dto.Notes,
                 Status = dto.Status,
                 DateAdded = DateTime.UtcNow,
-                DateCompleted = dto.DateCompleted,
+                DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted),
                 Rating = dto.Rating,
                 OwnershipStatus = dto.OwnershipStatus,
                 Description = dto.Description,
@@ -237,7 +238,7 @@ namespace MyMediaVerse.Application.Services
                 Notes = dto.Notes,
                 Status = dto.Status,
                 DateAdded = DateTime.UtcNow,
-                DateCompleted = dto.DateCompleted,
+                DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted),
                 Rating = dto.Rating,
                 OwnershipStatus = dto.OwnershipStatus,
                 Description = dto.Description,
@@ -245,7 +246,7 @@ namespace MyMediaVerse.Application.Services
                 Thumbnail = dto.Thumbnail,
                 SeriesId = dto.SeriesId,
                 AudioLink = dto.AudioLink,
-                ReleaseDate = dto.ReleaseDate,
+                ReleaseDate = DateTimeNormalizer.ToUtc(dto.ReleaseDate),
                 DurationInSeconds = dto.DurationInSeconds,
                 EpisodeNumber = dto.EpisodeNumber,
                 SeasonNumber = dto.SeasonNumber,
@@ -439,7 +440,7 @@ namespace MyMediaVerse.Application.Services
                             AudioLink = createEpisodeDto.AudioLink,
                             ExternalId = createEpisodeDto.ExternalId,
                             Thumbnail = createEpisodeDto.Thumbnail,
-                            ReleaseDate = createEpisodeDto.ReleaseDate,
+                            ReleaseDate = DateTimeNormalizer.ToUtc(createEpisodeDto.ReleaseDate),
                             DurationInSeconds = createEpisodeDto.DurationInSeconds,
                             Description = createEpisodeDto.Description,
                             Publisher = createEpisodeDto.Publisher,

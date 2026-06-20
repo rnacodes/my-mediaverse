@@ -5,6 +5,12 @@ backup dump, and tear it down. This gives you a testing database that is **decou
 live demo/production databases** — safe for Playwright E2E runs, manual poking, and rehearsing
 migrations before applying them for real.
 
+> **Local-testing convention:** when testing locally, **unless explicitly indicated otherwise,
+> point the backend at this Docker test DB** (`localhost:5433`) — **not** the live demo or
+> production databases. This keeps local experiments, reindexes, and migration rehearsals off
+> the real data. Reindexing the *live* demo/prod Typesense collections is the documented
+> exception: that intentionally requires pointing at the corresponding live DB.
+
 The frontend never talks to the database directly (it only knows `localhost:5033/api`), so using
 this DB is purely a matter of pointing the **backend** at it. Keep `VITE_DEMO_MODE=true` to skip
 auth, same as normal demo dev.
@@ -22,6 +28,8 @@ auth, same as normal demo dev.
 | `create-testing-db.ps1` | Spins up the `mmv-testing-db` container (pgvector, port 5433, named volume) and waits until it's ready. |
 | `seed-testing-db.ps1` | Restores the demo backup dump into the container — schema, EF migration history, and all data. Re-runnable (clean reseed each time). |
 | `delete-testing-db.ps1` | Removes the container; `-RemoveVolume` also deletes the data volume for a full wipe. |
+| `create-testing-typesense.ps1` | Spins up the `mmv-testing-typesense` container (typesense 30.2, port 8108, named volume) for isolated local **search** and waits until it's healthy. |
+| `delete-testing-typesense.ps1` | Removes the Typesense container; `-RemoveVolume` also deletes its data volume. |
 
 All three accept parameters (container name, port, db name, image, etc.) — run
 `Get-Help .\create-testing-db.ps1 -Detailed` to see them. The defaults match this README.
@@ -60,6 +68,31 @@ dotnet run
 `ConnectionStrings__DefaultConnection` is the reliable override (it wins over `DATABASE_URL` and
 appsettings). The app does **not** auto-migrate on startup, but you don't need it to here — the
 seed restores a fully-built schema (including `__EFMigrationsHistory`) straight from the dump.
+
+## Local search (Typesense)
+
+The Postgres test DB on its own has no search backend — search goes through Typesense, not the
+database. For fully isolated local search (including auto-embedding and hybrid search), stand up a
+local Typesense container alongside the test DB instead of pointing at the live Droplet:
+
+```powershell
+# 1. Start a local Typesense (empty, no collections yet)
+.\create-testing-typesense.ps1
+
+# 2. In the backend window, point at BOTH the test DB and local Typesense:
+$env:ConnectionStrings__DefaultConnection = "Host=localhost;Port=5433;Database=mmvdemodb;Username=postgres;Password=test"
+$env:TYPESENSE_HOST = "localhost"; $env:TYPESENSE_PORT = "8108"; $env:TYPESENSE_PROTOCOL = "http"
+$env:TYPESENSE_ADMIN_API_KEY = "test-api-key"
+$env:OPENAI_API_KEY = "<key from repo-root .env>"   # required for auto-embedding; omit for keyword-only
+cd ..\..\src\MyMediaVerse\MyMediaVerse.Web.API; dotnet run
+
+# 3. A fresh Typesense has no collections — reindex once to create + populate them:
+#    POST /api/search/reindex, /reindex-mixlists, /reindex-notes, /reindex-highlights  (auth required)
+```
+
+The `embedding` field (and therefore hybrid/semantic search) is only created when the backend that
+builds the collections has `OPENAI_API_KEY` set. Without a key, collections come up keyword-only —
+which is fine for non-search testing. Tear down with `.\delete-testing-typesense.ps1 [-RemoveVolume]`.
 
 ## Day-to-day
 

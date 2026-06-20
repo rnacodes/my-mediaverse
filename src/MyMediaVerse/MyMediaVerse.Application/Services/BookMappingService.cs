@@ -31,7 +31,7 @@ namespace MyMediaVerse.Application.Services
                 Notes = dto.Notes,
                 Status = dto.Status,
                 DateAdded = DateTime.UtcNow,
-                DateCompleted = dto.DateCompleted,
+                DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted),
                 Rating = dto.Rating,
                 OwnershipStatus = dto.OwnershipStatus,
                 Description = dto.Description,
@@ -46,7 +46,7 @@ namespace MyMediaVerse.Application.Services
                 AverageRating = dto.AverageRating,
                 YearPublished = dto.YearPublished,
                 OriginalPublicationYear = dto.OriginalPublicationYear,
-                DateRead = dto.DateRead,
+                DateRead = DateTimeNormalizer.ToUtc(dto.DateRead),
                 MyReview = dto.MyReview,
                 Publisher = dto.Publisher,
                 GoodreadsTags = dto.GoodreadsTags ?? new List<string>()

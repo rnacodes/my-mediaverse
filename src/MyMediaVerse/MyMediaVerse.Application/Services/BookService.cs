@@ -118,7 +118,7 @@ namespace MyMediaVerse.Application.Services
                     Notes = dto.Notes,
                     Status = dto.Status,
                     DateAdded = DateTime.UtcNow,
-                    DateCompleted = dto.DateCompleted,
+                    DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted),
                     Rating = dto.Rating,
                     OwnershipStatus = dto.OwnershipStatus,
                     Description = dto.Description,
@@ -132,7 +132,7 @@ namespace MyMediaVerse.Application.Services
                     GoodreadsRating = dto.GoodreadsRating,
                     Publisher = dto.Publisher,
                     YearPublished = dto.YearPublished,
-                    DateRead = dto.DateRead,
+                    DateRead = DateTimeNormalizer.ToUtc(dto.DateRead),
                     MyReview = dto.MyReview
                 };
                 
@@ -176,7 +176,7 @@ namespace MyMediaVerse.Application.Services
                 book.Link = dto.Link;
                 book.Notes = dto.Notes;
                 book.Status = dto.Status;
-                book.DateCompleted = dto.DateCompleted;
+                book.DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted);
                 book.Rating = dto.Rating;
                 book.OwnershipStatus = dto.OwnershipStatus;
                 book.Description = dto.Description;
@@ -190,7 +190,7 @@ namespace MyMediaVerse.Application.Services
                 book.GoodreadsRating = dto.GoodreadsRating;
                 book.Publisher = dto.Publisher;
                 book.YearPublished = dto.YearPublished;
-                book.DateRead = dto.DateRead;
+                book.DateRead = DateTimeNormalizer.ToUtc(dto.DateRead);
                 book.MyReview = dto.MyReview;
 
                 // If GoodreadsRating is provided but Rating is not, auto-convert

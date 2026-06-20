@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyMediaVerse.Application.Interfaces;
+using MyMediaVerse.Application.Utilities;
 
 namespace MyMediaVerse.Application.Services
 {
@@ -90,7 +91,7 @@ namespace MyMediaVerse.Application.Services
                     Notes = dto.Notes,
                     Status = dto.Status,
                     DateAdded = DateTime.UtcNow,
-                    DateCompleted = dto.DateCompleted,
+                    DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted),
                     Rating = dto.Rating,
                     OwnershipStatus = dto.OwnershipStatus,
                     Description = dto.Description,
@@ -176,7 +177,7 @@ namespace MyMediaVerse.Application.Services
                 video.Link = dto.Link;
                 video.Notes = dto.Notes;
                 video.Status = dto.Status;
-                video.DateCompleted = dto.DateCompleted;
+                video.DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted);
                 video.Rating = dto.Rating;
                 video.OwnershipStatus = dto.OwnershipStatus;
                 video.Description = dto.Description;
