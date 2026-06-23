@@ -149,7 +149,7 @@ namespace MyMediaVerse.Application.Services
                     Notes = dto.Notes,
                     Status = dto.Status,
                     DateAdded = DateTime.UtcNow,
-                    DateCompleted = dto.DateCompleted,
+                    DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted),
                     Rating = dto.Rating,
                     OwnershipStatus = dto.OwnershipStatus,
                     Description = dto.Description,
@@ -204,7 +204,7 @@ namespace MyMediaVerse.Application.Services
                 article.Link = dto.Link;
                 article.Notes = dto.Notes;
                 article.Status = dto.Status;
-                article.DateCompleted = dto.DateCompleted;
+                article.DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted);
                 article.Rating = dto.Rating;
                 article.OwnershipStatus = dto.OwnershipStatus;
                 article.Description = dto.Description;

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MyMediaVerse.Application.Interfaces;
+using MyMediaVerse.Application.Utilities;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Shared.Interfaces;
@@ -167,7 +168,7 @@ namespace MyMediaVerse.Application.Services
             existingItem.Link = dto.Link;
             existingItem.Notes = dto.Notes;
             existingItem.Status = dto.Status;
-            existingItem.DateCompleted = dto.DateCompleted;
+            existingItem.DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted);
             existingItem.Rating = dto.Rating;
             existingItem.OwnershipStatus = dto.OwnershipStatus;
             existingItem.Description = dto.Description;
@@ -478,7 +479,7 @@ namespace MyMediaVerse.Application.Services
                 Notes = dto.Notes,
                 Status = dto.Status,
                 DateAdded = DateTime.UtcNow,
-                DateCompleted = dto.DateCompleted?.ToUniversalTime(),
+                DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted),
                 Rating = dto.Rating,
                 OwnershipStatus = dto.OwnershipStatus,
                 Description = dto.Description,
@@ -500,7 +501,7 @@ namespace MyMediaVerse.Application.Services
                 Notes = dto.Notes,
                 Status = dto.Status,
                 DateAdded = DateTime.UtcNow,
-                DateCompleted = dto.DateCompleted?.ToUniversalTime(),
+                DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted),
                 Rating = dto.Rating,
                 OwnershipStatus = dto.OwnershipStatus,
                 Description = dto.Description,
@@ -519,7 +520,7 @@ namespace MyMediaVerse.Application.Services
                 Notes = dto.Notes,
                 Status = dto.Status,
                 DateAdded = DateTime.UtcNow,
-                DateCompleted = dto.DateCompleted?.ToUniversalTime(),
+                DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted),
                 Rating = dto.Rating,
                 OwnershipStatus = dto.OwnershipStatus,
                 Description = dto.Description,
@@ -540,7 +541,7 @@ namespace MyMediaVerse.Application.Services
                 Notes = dto.Notes,
                 Status = dto.Status,
                 DateAdded = DateTime.UtcNow,
-                DateCompleted = dto.DateCompleted?.ToUniversalTime(),
+                DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted),
                 Rating = dto.Rating,
                 OwnershipStatus = dto.OwnershipStatus,
                 Description = dto.Description,
@@ -559,7 +560,7 @@ namespace MyMediaVerse.Application.Services
                 Notes = dto.Notes,
                 Status = dto.Status,
                 DateAdded = DateTime.UtcNow,
-                DateCompleted = dto.DateCompleted?.ToUniversalTime(),
+                DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted),
                 Rating = dto.Rating,
                 OwnershipStatus = dto.OwnershipStatus,
                 Description = dto.Description,
@@ -579,7 +580,7 @@ namespace MyMediaVerse.Application.Services
                 Notes = dto.Notes,
                 Status = dto.Status,
                 DateAdded = DateTime.UtcNow,
-                DateCompleted = dto.DateCompleted?.ToUniversalTime(),
+                DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted),
                 Rating = dto.Rating,
                 OwnershipStatus = dto.OwnershipStatus,
                 Description = dto.Description,
@@ -598,7 +599,7 @@ namespace MyMediaVerse.Application.Services
                 Notes = dto.Notes,
                 Status = dto.Status,
                 DateAdded = DateTime.UtcNow,
-                DateCompleted = dto.DateCompleted?.ToUniversalTime(),
+                DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted),
                 Rating = dto.Rating,
                 OwnershipStatus = dto.OwnershipStatus,
                 Description = dto.Description,

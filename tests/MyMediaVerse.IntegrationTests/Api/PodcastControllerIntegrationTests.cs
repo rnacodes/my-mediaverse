@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -429,6 +430,203 @@ namespace MyMediaVerse.IntegrationTests.Api
 
             var getEpisode2Response = await _client.GetAsync($"/api/podcast/episodes/{createdEpisode2.Id}");
             Assert.Equal(HttpStatusCode.NotFound, getEpisode2Response.StatusCode);
+        }
+
+        #endregion
+
+        #region PUT Tests
+
+        [Fact]
+        public async Task UpdatePodcastSeries_ShouldReplaceTopicsAndGenres_RemovingOldOnes()
+        {
+            // Arrange - create a series with an initial set of topics/genres
+            var createDto = new CreatePodcastSeriesDto
+            {
+                Title = "Series To Update",
+                Status = Status.Uncharted,
+                Topics = new[] { "alpha", "beta" },
+                Genres = new[] { "old-genre" }
+            };
+            var createContent = new StringContent(JsonSerializer.Serialize(createDto, _jsonOptions), Encoding.UTF8, "application/json");
+            var createResponse = await _client.PostAsync("/api/podcast/series", createContent);
+            Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+            var created = JsonSerializer.Deserialize<PodcastSeriesResponseDto>(
+                await createResponse.Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.NotNull(created);
+
+            // Act - replace the topics/genres (mixed case to verify normalization)
+            var updateDto = new CreatePodcastSeriesDto
+            {
+                Title = "Series Updated",
+                Status = Status.Completed,
+                Topics = new[] { "Beta", "Gamma" },
+                Genres = new[] { "New-Genre" }
+            };
+            var updateContent = new StringContent(JsonSerializer.Serialize(updateDto, _jsonOptions), Encoding.UTF8, "application/json");
+            var updateResponse = await _client.PutAsync($"/api/podcast/series/{created.Id}", updateContent);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+
+            var getResponse = await _client.GetAsync($"/api/podcast/series/{created.Id}");
+            var updated = JsonSerializer.Deserialize<PodcastSeriesResponseDto>(
+                await getResponse.Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.NotNull(updated);
+            Assert.Equal("Series Updated", updated.Title);
+            Assert.Equal(new[] { "beta", "gamma" }, updated.Topics.OrderBy(t => t).ToArray());
+            Assert.DoesNotContain("alpha", updated.Topics);
+            Assert.Equal(new[] { "new-genre" }, updated.Genres.ToArray());
+            Assert.DoesNotContain("old-genre", updated.Genres);
+        }
+
+        [Fact]
+        public async Task UpdatePodcastSeries_ShouldPreserveSubscriptionState()
+        {
+            // Arrange - a subscribed series with an external id (sync plumbing)
+            var createDto = new CreatePodcastSeriesDto
+            {
+                Title = "Subscribed Series",
+                Status = Status.Uncharted,
+                IsSubscribed = true,
+                ExternalId = "listennotes-xyz"
+            };
+            var createContent = new StringContent(JsonSerializer.Serialize(createDto, _jsonOptions), Encoding.UTF8, "application/json");
+            var created = JsonSerializer.Deserialize<PodcastSeriesResponseDto>(
+                await (await _client.PostAsync("/api/podcast/series", createContent)).Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.NotNull(created);
+
+            // Act - edit-form payload carries no subscription/sync fields
+            var updateDto = new CreatePodcastSeriesDto { Title = "Subscribed Series Renamed", Status = Status.Uncharted };
+            var updateContent = new StringContent(JsonSerializer.Serialize(updateDto, _jsonOptions), Encoding.UTF8, "application/json");
+            await _client.PutAsync($"/api/podcast/series/{created.Id}", updateContent);
+
+            // Assert - subscription/sync state survives the edit
+            var updated = JsonSerializer.Deserialize<PodcastSeriesResponseDto>(
+                await (await _client.GetAsync($"/api/podcast/series/{created.Id}")).Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.NotNull(updated);
+            Assert.Equal("Subscribed Series Renamed", updated.Title);
+            Assert.True(updated.IsSubscribed);
+            Assert.Equal("listennotes-xyz", updated.ExternalId);
+        }
+
+        [Fact]
+        public async Task UpdatePodcastSeries_WithInvalidId_ShouldReturnNotFound()
+        {
+            var updateDto = new CreatePodcastSeriesDto { Title = "Nope", Status = Status.Uncharted };
+            var content = new StringContent(JsonSerializer.Serialize(updateDto, _jsonOptions), Encoding.UTF8, "application/json");
+
+            var response = await _client.PutAsync($"/api/podcast/series/{Guid.NewGuid()}", content);
+
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task UpdatePodcastEpisode_ShouldUpdateFields_AndKeepSeriesId()
+        {
+            // Arrange - a series and an episode under it
+            var seriesContent = new StringContent(
+                JsonSerializer.Serialize(new CreatePodcastSeriesDto { Title = "Series For Episode Update", Status = Status.Uncharted }, _jsonOptions),
+                Encoding.UTF8, "application/json");
+            var series = JsonSerializer.Deserialize<PodcastSeriesResponseDto>(
+                await (await _client.PostAsync("/api/podcast/series", seriesContent)).Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.NotNull(series);
+
+            var episodeContent = new StringContent(
+                JsonSerializer.Serialize(new CreatePodcastEpisodeDto
+                {
+                    Title = "Episode Original",
+                    SeriesId = series.Id,
+                    Status = Status.Uncharted,
+                    DurationInSeconds = 100
+                }, _jsonOptions),
+                Encoding.UTF8, "application/json");
+            var episode = JsonSerializer.Deserialize<PodcastEpisodeResponseDto>(
+                await (await _client.PostAsync("/api/podcast/episodes", episodeContent)).Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.NotNull(episode);
+
+            // Act - update editable fields (SeriesId in the DTO is intentionally a different value)
+            var updateDto = new CreatePodcastEpisodeDto
+            {
+                Title = "Episode Updated",
+                SeriesId = Guid.NewGuid(),
+                Status = Status.Completed,
+                AudioLink = "https://example.com/ep.mp3",
+                DurationInSeconds = 3600,
+                EpisodeNumber = 7
+            };
+            var updateContent = new StringContent(JsonSerializer.Serialize(updateDto, _jsonOptions), Encoding.UTF8, "application/json");
+            var updateResponse = await _client.PutAsync($"/api/podcast/episodes/{episode.Id}", updateContent);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+            var updated = JsonSerializer.Deserialize<PodcastEpisodeResponseDto>(
+                await (await _client.GetAsync($"/api/podcast/episodes/{episode.Id}")).Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.NotNull(updated);
+            Assert.Equal("Episode Updated", updated.Title);
+            Assert.Equal(3600, updated.DurationInSeconds);
+            Assert.Equal(7, updated.EpisodeNumber);
+            Assert.Equal("https://example.com/ep.mp3", updated.AudioLink);
+            // The episode stays with its original series regardless of the DTO value
+            Assert.Equal(series.Id, updated.SeriesId);
+        }
+
+        [Fact]
+        public async Task UpdatePodcastEpisode_ShouldReplaceTopicsAndGenres_RemovingOldOnes()
+        {
+            // Arrange - a series and an episode that starts with its own topics/genres
+            var seriesContent = new StringContent(
+                JsonSerializer.Serialize(new CreatePodcastSeriesDto { Title = "Series For Episode Tags", Status = Status.Uncharted }, _jsonOptions),
+                Encoding.UTF8, "application/json");
+            var series = JsonSerializer.Deserialize<PodcastSeriesResponseDto>(
+                await (await _client.PostAsync("/api/podcast/series", seriesContent)).Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.NotNull(series);
+
+            var episodeContent = new StringContent(
+                JsonSerializer.Serialize(new CreatePodcastEpisodeDto
+                {
+                    Title = "Tagged Episode",
+                    SeriesId = series.Id,
+                    Status = Status.Uncharted,
+                    Topics = new[] { "alpha", "beta" },
+                    Genres = new[] { "old-genre" }
+                }, _jsonOptions),
+                Encoding.UTF8, "application/json");
+            var episode = JsonSerializer.Deserialize<PodcastEpisodeResponseDto>(
+                await (await _client.PostAsync("/api/podcast/episodes", episodeContent)).Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.NotNull(episode);
+
+            // Act - replace the topics/genres (mixed case to verify normalization)
+            var updateDto = new CreatePodcastEpisodeDto
+            {
+                Title = "Tagged Episode",
+                SeriesId = series.Id,
+                Status = Status.Uncharted,
+                Topics = new[] { "Beta", "Gamma" },
+                Genres = new[] { "New-Genre" }
+            };
+            var updateContent = new StringContent(JsonSerializer.Serialize(updateDto, _jsonOptions), Encoding.UTF8, "application/json");
+            var updateResponse = await _client.PutAsync($"/api/podcast/episodes/{episode.Id}", updateContent);
+            Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+
+            // Assert - re-fetch so we observe persisted state surfaced through the response DTO
+            var updated = JsonSerializer.Deserialize<PodcastEpisodeResponseDto>(
+                await (await _client.GetAsync($"/api/podcast/episodes/{episode.Id}")).Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.NotNull(updated);
+            Assert.Equal(new[] { "beta", "gamma" }, updated.Topics.OrderBy(t => t).ToArray());
+            Assert.DoesNotContain("alpha", updated.Topics);
+            Assert.Equal(new[] { "new-genre" }, updated.Genres.ToArray());
+            Assert.DoesNotContain("old-genre", updated.Genres);
+        }
+
+        [Fact]
+        public async Task UpdatePodcastEpisode_WithInvalidId_ShouldReturnNotFound()
+        {
+            var updateDto = new CreatePodcastEpisodeDto { Title = "Nope", SeriesId = Guid.NewGuid(), Status = Status.Uncharted };
+            var content = new StringContent(JsonSerializer.Serialize(updateDto, _jsonOptions), Encoding.UTF8, "application/json");
+
+            var response = await _client.PutAsync($"/api/podcast/episodes/{Guid.NewGuid()}", content);
+
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         }
 
         #endregion

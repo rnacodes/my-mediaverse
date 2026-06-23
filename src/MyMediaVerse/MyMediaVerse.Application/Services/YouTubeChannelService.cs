@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MyMediaVerse.Application.Interfaces;
+using MyMediaVerse.Application.Utilities;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Shared.Interfaces;
@@ -216,7 +217,7 @@ namespace MyMediaVerse.Application.Services
                 channel.Country = dto.Country;
                 channel.PublishedAt = dto.PublishedAt;
                 channel.Status = dto.Status;
-                channel.DateCompleted = dto.DateCompleted;
+                channel.DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted);
                 channel.Rating = dto.Rating;
                 channel.Notes = dto.Notes;
                 channel.RelatedNotes = dto.RelatedNotes;

@@ -2,9 +2,12 @@ import { useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { Box, Typography, FormControl, FormLabel, RadioGroup, FormControlLabel, Radio, Autocomplete, TextField } from '@mui/material';
 import { usePodcastSeriesSearch } from '@/hooks/usePodcast';
+import { ControlledTextField } from '@/shared/form/controls';
 import { fieldSx, choiceLabelSx } from '@/shared/form/styles';
 
-function PodcastFields() {
+// lockType disables the Series/Episode discriminator + parent-series selector
+// in edit mode, where a podcast item's kind and parent can no longer change.
+function PodcastFields({ lockType = false }) {
   const { control, watch, setValue } = useFormContext();
   const podcastType = watch('podcastType');
   const durationInSeconds = watch('durationInSeconds');
@@ -35,12 +38,16 @@ function PodcastFields() {
           control={control}
           render={({ field }) => (
             <RadioGroup {...field} row sx={{ mt: 1, ...choiceLabelSx }}>
-              <FormControlLabel value="Series" control={<Radio />} label="Series" />
-              <FormControlLabel value="Episode" control={<Radio />} label="Episode" />
+              <FormControlLabel value="Series" control={<Radio />} label="Series" disabled={lockType} />
+              <FormControlLabel value="Episode" control={<Radio />} label="Episode" disabled={lockType} />
             </RadioGroup>
           )}
         />
       </FormControl>
+
+      {podcastType === 'Series' && (
+        <ControlledTextField name="publisher" label="Publisher" placeholder="Publisher name..." variant="outlined" fullWidth margin="normal" />
+      )}
 
       {podcastType === 'Episode' && (
         <>
@@ -52,6 +59,7 @@ function PodcastFields() {
                 options={seriesSuggestions}
                 getOptionLabel={(option) => option.title || option.Title || ''}
                 value={field.value}
+                disabled={lockType}
                 onChange={(_event, newValue) => {
                   field.onChange(newValue);
                   setValue('podcastSeriesId', newValue?.id || newValue?.Id || '');
@@ -82,6 +90,10 @@ function PodcastFields() {
             onChange={handleDurationChange}
             sx={fieldSx}
           />
+          <ControlledTextField name="episodeNumber" label="Episode Number" placeholder="e.g., 12" variant="outlined" fullWidth margin="normal" type="number" />
+          <ControlledTextField name="seasonNumber" label="Season Number" placeholder="e.g., 2" variant="outlined" fullWidth margin="normal" type="number" />
+          <ControlledTextField name="releaseDate" label="Release Date" type="date" variant="outlined" fullWidth margin="normal" InputLabelProps={{ shrink: true }} />
+          <ControlledTextField name="audioLink" label="Audio Link" placeholder="https://...mp3" variant="outlined" fullWidth margin="normal" />
         </>
       )}
     </Box>

@@ -4,6 +4,7 @@ using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Shared.DTOs.TMDB;
 using MyMediaVerse.Application.Interfaces;
+using MyMediaVerse.Application.Utilities;
 
 namespace MyMediaVerse.Application.Services
 {
@@ -28,7 +29,7 @@ namespace MyMediaVerse.Application.Services
                 Notes = dto.Notes,
                 Status = dto.Status,
                 DateAdded = DateTime.UtcNow,
-                DateCompleted = dto.DateCompleted,
+                DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted),
                 Rating = dto.Rating,
                 OwnershipStatus = dto.OwnershipStatus,
                 Description = dto.Description,

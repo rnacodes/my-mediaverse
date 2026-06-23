@@ -77,6 +77,19 @@ namespace MyMediaVerse.Infrastructure.Models
         [JsonPropertyName("linked_media_count")]
         public int LinkedMediaCount { get; set; }
 
-        // Note: Vector embeddings are stored in PostgreSQL with pgvector, not in Typesense
+        /// <summary>
+        /// Text composed for semantic embedding. Typesense auto-embeds this via the collection's
+        /// embedding field, so keyword and vector search stay sourced from one place. Serialized
+        /// on write; ignored when search hits are deserialized back (no setter).
+        /// </summary>
+        [JsonPropertyName("embedding_source")]
+        public string EmbeddingSource => string.Join("\n", new[]
+        {
+            Title,
+            Description,
+            Content,
+            Tags.Count > 0 ? string.Join(", ", Tags) : null,
+            VaultName,
+        }.Where(s => !string.IsNullOrWhiteSpace(s)));
     }
 }

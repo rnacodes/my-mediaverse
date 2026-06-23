@@ -41,6 +41,11 @@ public static class SearchExtensions
                 port = 443;
             }
 
+            // The Typesense client wants a BARE host (no scheme, no port). It also builds its URI in
+            // the constructor, so a host like "http://localhost:8108" throws UriFormatException and
+            // would take search down. Normalize common mistakes (full URL or host:port) into parts.
+            (host, port, protocol) = NormalizeTypesenseEndpoint(host, port, protocol, logger);
+
             var nodes = new List<Node>
             {
                 new Node(host, port.ToString(), protocol)
@@ -48,15 +53,57 @@ public static class SearchExtensions
 
             var config = new Config(nodes, apiKey);
 
-            logger.LogInformation("Typesense client configured successfully.");
-
-            var httpClient = new HttpClient();
-            return new TypesenseClient(Options.Create(config), httpClient);
+            try
+            {
+                var httpClient = new HttpClient();
+                var client = new TypesenseClient(Options.Create(config), httpClient);
+                logger.LogInformation("Typesense client configured successfully (Host:{Host}, Port:{Port}, Protocol:{Protocol}).", host, port, protocol);
+                return client;
+            }
+            catch (UriFormatException ex)
+            {
+                logger.LogError(ex, "Typesense host '{Host}' could not be parsed into a valid URI. Search will be disabled. Set TYPESENSE_HOST to a bare hostname (e.g. 'localhost' or 'search.example.com') with TYPESENSE_PORT/TYPESENSE_PROTOCOL separate.", host);
+                return CreateDisabledTypesenseClient();
+            }
         });
 
         services.AddScoped<ITypesenseService, TypesenseService>();
 
         return services;
+    }
+
+    /// <summary>
+    /// Normalizes a configured Typesense host into the bare host + port/protocol the client expects.
+    /// Tolerates a pasted full URL ("https://host:443") or a "host:port" string, which the v8 client
+    /// would otherwise reject with a UriFormatException at construction.
+    /// </summary>
+    private static (string host, int port, string protocol) NormalizeTypesenseEndpoint(
+        string host, int port, string protocol, ILogger logger)
+    {
+        host = host.Trim();
+
+        // Full URL pasted in (e.g. "https://search.example.com" or "http://localhost:8108").
+        if (host.Contains("://") && Uri.TryCreate(host, UriKind.Absolute, out var uri))
+        {
+            var normalizedPort = uri.IsDefaultPort ? port : uri.Port;
+            logger.LogWarning(
+                "TYPESENSE_HOST '{Raw}' looks like a URL; using Host='{Host}', Port={Port}, Protocol='{Protocol}'. Prefer a bare hostname with TYPESENSE_PORT/TYPESENSE_PROTOCOL separate.",
+                host, uri.Host, normalizedPort, uri.Scheme);
+            return (uri.Host, normalizedPort, uri.Scheme);
+        }
+
+        // "host:port" with no scheme (e.g. "localhost:8108").
+        var lastColon = host.LastIndexOf(':');
+        if (lastColon > 0 && int.TryParse(host[(lastColon + 1)..], out var embeddedPort))
+        {
+            var bareHost = host[..lastColon];
+            logger.LogWarning(
+                "TYPESENSE_HOST '{Raw}' includes a port; using Host='{Host}', Port={Port}. Prefer a bare hostname with TYPESENSE_PORT separate.",
+                host, bareHost, embeddedPort);
+            return (bareHost, embeddedPort, protocol);
+        }
+
+        return (host, port, protocol);
     }
 
     // Returned when Typesense is unconfigured so DI resolution doesn't fail.

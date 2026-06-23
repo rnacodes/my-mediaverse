@@ -129,5 +129,20 @@ namespace MyMediaVerse.Infrastructure.Models
         /// </summary>
         [JsonPropertyName("image_url")]
         public string? ImageUrl { get; set; }
+
+        /// <summary>
+        /// Text composed for semantic embedding. Typesense auto-embeds this via the collection's
+        /// embedding field, so keyword and vector search stay sourced from one place. Serialized
+        /// on write; ignored when search hits are deserialized back (no setter).
+        /// </summary>
+        [JsonPropertyName("embedding_source")]
+        public string EmbeddingSource => string.Join("\n", new[]
+        {
+            Text,
+            Note,
+            Title,
+            Author,
+            Tags.Count > 0 ? string.Join(", ", Tags) : null,
+        }.Where(s => !string.IsNullOrWhiteSpace(s)));
     }
 }

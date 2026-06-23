@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MyMediaVerse.Application.Interfaces;
+using MyMediaVerse.Application.Utilities;
 
 namespace MyMediaVerse.Application.Services
 {
@@ -90,7 +91,7 @@ namespace MyMediaVerse.Application.Services
                     Notes = dto.Notes,
                     Status = dto.Status,
                     DateAdded = DateTime.UtcNow,
-                    DateCompleted = dto.DateCompleted,
+                    DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted),
                     Rating = dto.Rating,
                     OwnershipStatus = dto.OwnershipStatus,
                     Description = dto.Description,
@@ -165,7 +166,12 @@ namespace MyMediaVerse.Application.Services
         {
             try
             {
-                var video = await GetVideoByIdAsync(id);
+                // Load tracked (with topics/genres) so EF can persist removed relationships
+                // when the collections are replaced below.
+                var video = await _context.Videos
+                    .Include(v => v.Topics)
+                    .Include(v => v.Genres)
+                    .FirstOrDefaultAsync(v => v.Id == id);
                 if (video == null)
                 {
                     throw new ArgumentException($"Video with ID {id} not found");
@@ -176,7 +182,7 @@ namespace MyMediaVerse.Application.Services
                 video.Link = dto.Link;
                 video.Notes = dto.Notes;
                 video.Status = dto.Status;
-                video.DateCompleted = dto.DateCompleted;
+                video.DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted);
                 video.Rating = dto.Rating;
                 video.OwnershipStatus = dto.OwnershipStatus;
                 video.Description = dto.Description;
@@ -187,11 +193,10 @@ namespace MyMediaVerse.Application.Services
                 video.LengthInSeconds = dto.LengthInSeconds;
                 video.ExternalId = dto.ExternalId;
 
-                // Clear existing topics and genres and save immediately to avoid FK conflicts
+                // Clear existing topics and genres and save immediately so the removed
+                // join rows are persisted before the new ones are added.
                 video.Topics.Clear();
                 video.Genres.Clear();
-                _context.ClearChangeTracker();
-                _context.Update(video);
                 await _context.SaveChangesAsync();
 
                 // Add new Topics

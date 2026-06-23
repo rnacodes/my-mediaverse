@@ -118,7 +118,7 @@ namespace MyMediaVerse.Application.Services
                     Notes = dto.Notes,
                     Status = dto.Status,
                     DateAdded = DateTime.UtcNow,
-                    DateCompleted = dto.DateCompleted,
+                    DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted),
                     Rating = dto.Rating,
                     OwnershipStatus = dto.OwnershipStatus,
                     Description = dto.Description,
@@ -129,7 +129,11 @@ namespace MyMediaVerse.Application.Services
                     ASIN = dto.ASIN,
                     Format = dto.Format,
                     PartOfSeries = dto.PartOfSeries,
-                    GoodreadsRating = dto.GoodreadsRating
+                    GoodreadsRating = dto.GoodreadsRating,
+                    Publisher = dto.Publisher,
+                    YearPublished = dto.YearPublished,
+                    DateRead = DateTimeNormalizer.ToUtc(dto.DateRead),
+                    MyReview = dto.MyReview
                 };
                 
                 // If GoodreadsRating is provided but Rating is not, auto-convert
@@ -161,7 +165,12 @@ namespace MyMediaVerse.Application.Services
         {
             try
             {
-                var book = await GetBookByIdAsync(id);
+                // Load tracked (with topics/genres) so EF can persist removed relationships
+                // when the collections are replaced below.
+                var book = await _context.Books
+                    .Include(b => b.Topics)
+                    .Include(b => b.Genres)
+                    .FirstOrDefaultAsync(b => b.Id == id);
                 if (book == null)
                 {
                     throw new InvalidOperationException($"Book with ID {id} not found.");
@@ -172,7 +181,7 @@ namespace MyMediaVerse.Application.Services
                 book.Link = dto.Link;
                 book.Notes = dto.Notes;
                 book.Status = dto.Status;
-                book.DateCompleted = dto.DateCompleted;
+                book.DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted);
                 book.Rating = dto.Rating;
                 book.OwnershipStatus = dto.OwnershipStatus;
                 book.Description = dto.Description;
@@ -184,16 +193,20 @@ namespace MyMediaVerse.Application.Services
                 book.Format = dto.Format;
                 book.PartOfSeries = dto.PartOfSeries;
                 book.GoodreadsRating = dto.GoodreadsRating;
-                
+                book.Publisher = dto.Publisher;
+                book.YearPublished = dto.YearPublished;
+                book.DateRead = DateTimeNormalizer.ToUtc(dto.DateRead);
+                book.MyReview = dto.MyReview;
+
                 // If GoodreadsRating is provided but Rating is not, auto-convert
                 if (dto.GoodreadsRating.HasValue && !dto.Rating.HasValue)
                 {
                     book.Rating = RatingConverter.ConvertGoodreadsRatingToPLBRating(dto.GoodreadsRating);
                 }
 
-                // Clear existing topics and genres
                 book.Topics.Clear();
                 book.Genres.Clear();
+                await _context.SaveChangesAsync();
 
                 // Handle Topics array conversion
                 await HandleTopicsAsync(book, dto.Topics);
@@ -201,9 +214,6 @@ namespace MyMediaVerse.Application.Services
                 // Handle Genres array conversion
                 await HandleGenresAsync(book, dto.Genres);
 
-                // Clear change tracker and explicitly update the entity since it was retrieved with AsNoTracking
-                _context.ClearChangeTracker();
-                _context.Update(book);
                 await _context.SaveChangesAsync();
 
                 _logger.LogInformation("Successfully updated book: {Title} by {Author}", book.Title, book.Author);
@@ -289,7 +299,9 @@ namespace MyMediaVerse.Application.Services
                     }
                     else
                     {
-                        book.Topics.Add(new Topic { Name = normalizedTopicName });
+                        var newTopic = new Topic { Name = normalizedTopicName };
+                        _context.Add(newTopic);
+                        book.Topics.Add(newTopic);
                     }
                 }
             }
@@ -309,7 +321,11 @@ namespace MyMediaVerse.Application.Services
                     }
                     else
                     {
-                        book.Genres.Add(new Genre { Name = normalizedGenreName });
+                        // Register the new genre explicitly (see HandleTopicsAsync) so EF inserts
+                        // it instead of assuming the client-set key already exists.
+                        var newGenre = new Genre { Name = normalizedGenreName };
+                        _context.Add(newGenre);
+                        book.Genres.Add(newGenre);
                     }
                 }
             }

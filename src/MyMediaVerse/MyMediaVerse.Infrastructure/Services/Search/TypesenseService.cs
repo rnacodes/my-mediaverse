@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -22,6 +23,14 @@ namespace MyMediaVerse.Infrastructure.Services.Search
         private readonly string _mixlistCollectionName;
         private readonly string _notesCollectionName;
         private readonly string _highlightsCollectionName;
+
+        // Auto-embedding configuration. When an OpenAI key is present, each collection gains an
+        // `embedding` field that Typesense populates by calling OpenAI on write, and search becomes
+        // hybrid (keyword + vector). With no key, collections and search stay keyword-only.
+        private readonly bool _autoEmbeddingEnabled;
+        private readonly string? _openAiApiKey;
+        private readonly string _embeddingModelName;
+        private readonly int _embeddingDimensions;
 
         public TypesenseService(
             ITypesenseClient typesenseClient,
@@ -50,7 +59,76 @@ namespace MyMediaVerse.Infrastructure.Services.Search
             _logger.LogInformation(
                 "Typesense collections configured with prefix '{Prefix}' (source: {Source}): {MediaCollection}, {MixlistCollection}, {NotesCollection}, {HighlightsCollection}",
                 collectionPrefix, prefixSource, _mediaCollectionName, _mixlistCollectionName, _notesCollectionName, _highlightsCollectionName);
+
+            // Resolve the OpenAI key (env var first, then appsettings) to decide whether Typesense
+            // auto-embedding is available. The model name is sent to Typesense in the provider/model
+            // form it expects (e.g. "openai/text-embedding-3-large").
+            _openAiApiKey = ResolveSetting(configuration, "OpenAI:ApiKey", "OPENAI_API_KEY");
+            var embeddingModel = ResolveSetting(configuration, "OpenAI:EmbeddingModel", "OPENAI_EMBEDDING_MODEL")
+                ?? "text-embedding-3-large";
+            _embeddingModelName = embeddingModel.Contains('/') ? embeddingModel : $"openai/{embeddingModel}";
+            var dimensionsSetting = ResolveSetting(configuration, "Typesense:EmbeddingDimensions", "TYPESENSE_EMBEDDING_DIMENSIONS");
+            _embeddingDimensions = int.TryParse(dimensionsSetting, out var dims) ? dims : 3072;
+            _autoEmbeddingEnabled = !string.IsNullOrEmpty(_openAiApiKey);
+
+            if (_autoEmbeddingEnabled)
+            {
+                _logger.LogInformation(
+                    "Typesense auto-embedding enabled. Model={Model}, Dimensions={Dimensions}",
+                    _embeddingModelName, _embeddingDimensions);
+            }
+            else
+            {
+                _logger.LogWarning("OpenAI API key not configured. Typesense collections and search will be keyword-only.");
+            }
         }
+
+        /// <summary>
+        /// Returns the first non-empty value from the named environment variable, then the configuration key.
+        /// Mirrors the env-var-OR-config pattern used during service registration (that helper lives in the
+        /// Web.API layer, which Infrastructure must not reference).
+        /// </summary>
+        private static string? ResolveSetting(IConfiguration configuration, string configKey, string envVarName)
+        {
+            var fromEnv = Environment.GetEnvironmentVariable(envVarName);
+            if (!string.IsNullOrEmpty(fromEnv))
+                return fromEnv;
+
+            var fromConfig = configuration[configKey];
+            return string.IsNullOrEmpty(fromConfig) ? null : fromConfig;
+        }
+
+        /// <summary>
+        /// Appends the auto-embedding fields to a collection's field list when an OpenAI key is configured.
+        /// <c>embedding_source</c> holds the text composed by the document model; Typesense reads it on
+        /// write, calls OpenAI, and stores the resulting vector in <c>embedding</c>. With no key this is
+        /// a no-op and the collection stays keyword-only. Must be called before constructing the Schema,
+        /// since Schema.Fields is read-only once built.
+        /// </summary>
+        private void AddEmbeddingFields(List<Field> fields)
+        {
+            if (!_autoEmbeddingEnabled)
+                return;
+
+            fields.Add(new Field("embedding_source", FieldType.String, false, optional: true));
+            fields.Add(new Field(
+                "embedding",
+                FieldType.FloatArray,
+                new AutoEmbeddingConfig(
+                    new Collection<string> { "embedding_source" },
+                    new ModelConfig(_embeddingModelName) { ApiKey = _openAiApiKey }))
+            {
+                NumberOfDimensions = _embeddingDimensions
+            });
+        }
+
+        /// <summary>
+        /// Returns the comma-separated <c>query_by</c> field list for a collection's keyword fields,
+        /// appending the <c>embedding</c> field when auto-embedding is enabled so search runs hybrid
+        /// (keyword + vector rank fusion).
+        /// </summary>
+        private string BuildQueryBy(string keywordFields) =>
+            _autoEmbeddingEnabled ? $"{keywordFields},embedding" : keywordFields;
 
         /// <summary>
         /// Ensures the media_items collection exists with proper schema.
@@ -69,7 +147,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 // Collection doesn't exist, create it
                 _logger.LogInformation("Creating Typesense collection '{CollectionName}'...", _mediaCollectionName);
 
-                var schema = new Schema(_mediaCollectionName, new List<Field>
+                var fields = new List<Field>
                 {
                     new Field("id", FieldType.String, false), // Not facet, primary key
                     new Field("title", FieldType.String, false), // Searchable
@@ -88,8 +166,11 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     new Field("release_year", FieldType.Int32, true, optional: true), // Facetable
                     new Field("platform", FieldType.String, true, optional: true), // Facetable
                     new Field("series_id", FieldType.String, false, optional: true, index: false) // For podcast episode routing
-                    // Note: Vector embeddings are stored in PostgreSQL with pgvector for similarity search
-                })
+                };
+
+                AddEmbeddingFields(fields);
+
+                var schema = new Schema(_mediaCollectionName, fields)
                 {
                     DefaultSortingField = "date_added" // Sort by most recently added by default
                 };
@@ -206,8 +287,8 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 // Create search parameters with query and queryBy fields
                 var searchParameters = new SearchParameters(
                     query,
-                    // Search across these fields
-                    "title,description,author,director,creator,publisher"
+                    // Search across these fields (plus the embedding field when hybrid search is enabled)
+                    BuildQueryBy("title,description,author,director,creator,publisher")
                 )
                 {
                     PerPage = perPage,
@@ -215,6 +296,15 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     // Sort by relevance first, then by recency
                     SortBy = "_text_match:desc,date_added:desc"
                 };
+
+                // Never return the raw embedding vector to callers - it's large and not displayable
+                if (_autoEmbeddingEnabled)
+                {
+                    searchParameters.ExcludeFields = "embedding";
+                    // Remote embedders (OpenAI auto-embedding) reject prefix search; it must be
+                    // disabled explicitly or every hybrid query fails with a 400.
+                    searchParameters.Prefix = false;
+                }
 
                 // Add filters if provided (e.g., "media_type:=Book")
                 if (!string.IsNullOrEmpty(filters))
@@ -507,7 +597,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 // Collection doesn't exist, create it
                 _logger.LogInformation("Creating Typesense collection '{CollectionName}'...", _mixlistCollectionName);
 
-                var schema = new Schema(_mixlistCollectionName, new List<Field>
+                var fields = new List<Field>
                 {
                     new Field("id", FieldType.String, false), // Primary key
                     new Field("name", FieldType.String, false), // Searchable
@@ -518,7 +608,11 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     new Field("media_item_titles", FieldType.StringArray, false, optional: true), // Searchable array
                     new Field("topics", FieldType.StringArray, true, optional: true), // Facetable array
                     new Field("genres", FieldType.StringArray, true, optional: true) // Facetable array
-                })
+                };
+
+                AddEmbeddingFields(fields);
+
+                var schema = new Schema(_mixlistCollectionName, fields)
                 {
                     DefaultSortingField = "date_created" // Sort by most recently created by default
                 };
@@ -606,8 +700,8 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 // Create search parameters with query and queryBy fields
                 var searchParameters = new SearchParameters(
                     query,
-                    // Search across these fields
-                    "name,description,media_item_titles"
+                    // Search across these fields (plus the embedding field when hybrid search is enabled)
+                    BuildQueryBy("name,description,media_item_titles")
                 )
                 {
                     PerPage = perPage,
@@ -615,6 +709,15 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     // Sort by relevance first, then by recency
                     SortBy = "_text_match:desc,date_created:desc"
                 };
+
+                // Never return the raw embedding vector to callers - it's large and not displayable
+                if (_autoEmbeddingEnabled)
+                {
+                    searchParameters.ExcludeFields = "embedding";
+                    // Remote embedders (OpenAI auto-embedding) reject prefix search; it must be
+                    // disabled explicitly or every hybrid query fails with a 400.
+                    searchParameters.Prefix = false;
+                }
 
                 // Add filters if provided (e.g., "topics:=productivity")
                 if (!string.IsNullOrEmpty(filters))
@@ -849,7 +952,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
             {
                 _logger.LogInformation("Creating Typesense collection '{CollectionName}'...", _notesCollectionName);
 
-                var schema = new Schema(_notesCollectionName, new List<Field>
+                var fields = new List<Field>
                 {
                     new Field("id", FieldType.String, false),
                     new Field("slug", FieldType.String, false),
@@ -862,8 +965,11 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     new Field("date_imported", FieldType.Int64, false),
                     new Field("note_date", FieldType.Int64, false, optional: true),
                     new Field("linked_media_count", FieldType.Int32, false)
-                    // Note: Vector embeddings are stored in PostgreSQL with pgvector for similarity search
-                })
+                };
+
+                AddEmbeddingFields(fields);
+
+                var schema = new Schema(_notesCollectionName, fields)
                 {
                     DefaultSortingField = "date_imported"
                 };
@@ -951,13 +1057,21 @@ namespace MyMediaVerse.Infrastructure.Services.Search
             {
                 var searchParameters = new SearchParameters(
                     query,
-                    "title,content,description,tags"
+                    BuildQueryBy("title,content,description,tags")
                 )
                 {
                     PerPage = perPage,
                     Page = page,
                     SortBy = "_text_match:desc,date_imported:desc"
                 };
+
+                if (_autoEmbeddingEnabled)
+                {
+                    searchParameters.ExcludeFields = "embedding";
+                    // Remote embedders (OpenAI auto-embedding) reject prefix search; it must be
+                    // disabled explicitly or every hybrid query fails with a 400.
+                    searchParameters.Prefix = false;
+                }
 
                 if (!string.IsNullOrEmpty(filters))
                 {
@@ -1135,15 +1249,15 @@ namespace MyMediaVerse.Infrastructure.Services.Search
 
         // ============================================
         // Hybrid/Semantic Search methods
-        // Note: Vector similarity search is handled by PostgreSQL with pgvector
-        // These methods provide Typesense keyword search with optional embedding-based
-        // result boosting that will be implemented via the RecommendationService
+        // When auto-embedding is enabled, Typesense generates the query vector from the query text
+        // and blends keyword + vector matches via rank fusion. With no OpenAI key these fall back to
+        // keyword-only search. The queryEmbedding parameter is retained for interface compatibility
+        // but is no longer used - Typesense embeds the query itself.
         // ============================================
 
         /// <summary>
-        /// Performs a keyword search across the media_items collection.
-        /// For semantic/vector search, use the RecommendationService which queries PostgreSQL with pgvector.
-        /// The queryEmbedding parameter is reserved for future hybrid search integration.
+        /// Searches the media_items collection. Runs hybrid (keyword + vector rank fusion) when
+        /// auto-embedding is enabled, otherwise keyword-only.
         /// </summary>
         public async Task<object> HybridSearchMediaAsync(
             string query,
@@ -1155,17 +1269,23 @@ namespace MyMediaVerse.Infrastructure.Services.Search
         {
             try
             {
-                // Currently using keyword-only search via Typesense
-                // Vector similarity search is handled separately via PostgreSQL + pgvector
                 var searchParameters = new SearchParameters(
                     query,
-                    "title,description,author,director,creator,publisher"
+                    BuildQueryBy("title,description,author,director,creator,publisher")
                 )
                 {
                     PerPage = perPage,
                     Page = page,
                     SortBy = "_text_match:desc,date_added:desc"
                 };
+
+                if (_autoEmbeddingEnabled)
+                {
+                    searchParameters.ExcludeFields = "embedding";
+                    // Remote embedders (OpenAI auto-embedding) reject prefix search; it must be
+                    // disabled explicitly or every hybrid query fails with a 400.
+                    searchParameters.Prefix = false;
+                }
 
                 if (!string.IsNullOrEmpty(filters))
                 {
@@ -1174,8 +1294,8 @@ namespace MyMediaVerse.Infrastructure.Services.Search
 
                 var searchResult = await _typesenseClient.Search<MediaItemDocument>(_mediaCollectionName, searchParameters);
 
-                _logger.LogDebug("Media search for '{Query}' returned {Count} results (embedding provided: {HasEmbedding}).",
-                    query, searchResult.Found, queryEmbedding != null);
+                _logger.LogDebug("Media hybrid search for '{Query}' returned {Count} results (hybrid: {Hybrid}).",
+                    query, searchResult.Found, _autoEmbeddingEnabled);
 
                 return searchResult;
             }
@@ -1187,8 +1307,8 @@ namespace MyMediaVerse.Infrastructure.Services.Search
         }
 
         /// <summary>
-        /// Performs a keyword search across the obsidian_notes collection.
-        /// For semantic/vector search, use the RecommendationService which queries PostgreSQL with pgvector.
+        /// Searches the obsidian_notes collection. Runs hybrid (keyword + vector rank fusion) when
+        /// auto-embedding is enabled, otherwise keyword-only.
         /// </summary>
         public async Task<object> HybridSearchNotesAsync(
             string query,
@@ -1202,13 +1322,21 @@ namespace MyMediaVerse.Infrastructure.Services.Search
             {
                 var searchParameters = new SearchParameters(
                     query,
-                    "title,content,description,tags"
+                    BuildQueryBy("title,content,description,tags")
                 )
                 {
                     PerPage = perPage,
                     Page = page,
                     SortBy = "_text_match:desc,date_imported:desc"
                 };
+
+                if (_autoEmbeddingEnabled)
+                {
+                    searchParameters.ExcludeFields = "embedding";
+                    // Remote embedders (OpenAI auto-embedding) reject prefix search; it must be
+                    // disabled explicitly or every hybrid query fails with a 400.
+                    searchParameters.Prefix = false;
+                }
 
                 if (!string.IsNullOrEmpty(filters))
                 {
@@ -1217,8 +1345,8 @@ namespace MyMediaVerse.Infrastructure.Services.Search
 
                 var searchResult = await _typesenseClient.Search<ObsidianNoteDocument>(_notesCollectionName, searchParameters);
 
-                _logger.LogDebug("Notes search for '{Query}' returned {Count} results (embedding provided: {HasEmbedding}).",
-                    query, searchResult.Found, queryEmbedding != null);
+                _logger.LogDebug("Notes hybrid search for '{Query}' returned {Count} results (hybrid: {Hybrid}).",
+                    query, searchResult.Found, _autoEmbeddingEnabled);
 
                 return searchResult;
             }
@@ -1316,7 +1444,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
             {
                 _logger.LogInformation("Creating Typesense collection '{CollectionName}'...", _highlightsCollectionName);
 
-                var schema = new Schema(_highlightsCollectionName, new List<Field>
+                var fields = new List<Field>
                 {
                     new Field("id", FieldType.String, false),
                     new Field("text", FieldType.String, false), // Main highlight content - searchable
@@ -1337,7 +1465,11 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     new Field("linked_media_type", FieldType.String, true, optional: true), // Facetable (article, book, or null)
                     new Field("location", FieldType.Int32, false, optional: true),
                     new Field("image_url", FieldType.String, false, optional: true, index: false) // Not indexed
-                })
+                };
+
+                AddEmbeddingFields(fields);
+
+                var schema = new Schema(_highlightsCollectionName, fields)
                 {
                     DefaultSortingField = "created_at"
                 };
@@ -1453,13 +1585,21 @@ namespace MyMediaVerse.Infrastructure.Services.Search
             {
                 var searchParameters = new SearchParameters(
                     query,
-                    "text,note,title,author,tags"
+                    BuildQueryBy("text,note,title,author,tags")
                 )
                 {
                     PerPage = perPage,
                     Page = page,
                     SortBy = "_text_match:desc,created_at:desc"
                 };
+
+                if (_autoEmbeddingEnabled)
+                {
+                    searchParameters.ExcludeFields = "embedding";
+                    // Remote embedders (OpenAI auto-embedding) reject prefix search; it must be
+                    // disabled explicitly or every hybrid query fails with a 400.
+                    searchParameters.Prefix = false;
+                }
 
                 if (!string.IsNullOrEmpty(filters))
                 {

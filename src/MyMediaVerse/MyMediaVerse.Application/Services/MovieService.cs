@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Application.Interfaces;
+using MyMediaVerse.Application.Utilities;
 
 namespace MyMediaVerse.Application.Services
 {
@@ -117,7 +118,7 @@ namespace MyMediaVerse.Application.Services
                     Notes = dto.Notes,
                     Status = dto.Status,
                     DateAdded = DateTime.UtcNow,
-                    DateCompleted = dto.DateCompleted,
+                    DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted),
                     Rating = dto.Rating,
                     OwnershipStatus = dto.OwnershipStatus,
                     Description = dto.Description,
@@ -161,7 +162,10 @@ namespace MyMediaVerse.Application.Services
         {
             try
             {
-                var movie = await GetMovieByIdAsync(id);
+                var movie = await _context.Movies
+                    .Include(m => m.Topics)
+                    .Include(m => m.Genres)
+                    .FirstOrDefaultAsync(m => m.Id == id);
                 if (movie == null)
                 {
                     throw new InvalidOperationException($"Movie with ID {id} not found.");
@@ -172,7 +176,7 @@ namespace MyMediaVerse.Application.Services
                 movie.Link = dto.Link;
                 movie.Notes = dto.Notes;
                 movie.Status = dto.Status;
-                movie.DateCompleted = dto.DateCompleted;
+                movie.DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted);
                 movie.Rating = dto.Rating;
                 movie.OwnershipStatus = dto.OwnershipStatus;
                 movie.Description = dto.Description;
@@ -192,12 +196,8 @@ namespace MyMediaVerse.Application.Services
                 movie.OriginalLanguage = dto.OriginalLanguage;
                 movie.OriginalTitle = dto.OriginalTitle;
 
-                // Clear existing topics and genres and save immediately to avoid FK conflicts
                 movie.Topics.Clear();
                 movie.Genres.Clear();
-                // Clear change tracker and explicitly update the entity since it was retrieved with AsNoTracking
-                _context.ClearChangeTracker();
-                _context.Update(movie);
                 await _context.SaveChangesAsync();
 
                 // Handle Topics array conversion
