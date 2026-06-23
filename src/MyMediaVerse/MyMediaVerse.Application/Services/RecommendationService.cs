@@ -2,66 +2,51 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Domain.Entities;
+using MyMediaVerse.Shared.DTOs.Search;
 using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.Application.Services
 {
     /// <summary>
     /// Service for generating media recommendations using vector similarity.
-    /// Uses PostgreSQL pgvector extension for efficient similarity queries.
+    /// Reads embeddings and runs nearest-neighbour queries through Typesense (auto-embedding);
+    /// PostgreSQL is only consulted to identify which items the user has liked.
     /// </summary>
     public class RecommendationService : IRecommendationService
     {
         private readonly IApplicationDbContext _context;
-        private readonly IVectorSearchRepository _vectorSearch;
-        private readonly IGradientAIClient _gradientClient;
+        private readonly ITypesenseService _typesense;
         private readonly ILogger<RecommendationService> _logger;
 
         public RecommendationService(
             IApplicationDbContext context,
-            IVectorSearchRepository vectorSearch,
-            IGradientAIClient gradientClient,
+            ITypesenseService typesense,
             ILogger<RecommendationService> logger)
         {
             _context = context;
-            _vectorSearch = vectorSearch;
-            _gradientClient = gradientClient;
+            _typesense = typesense;
             _logger = logger;
         }
 
         /// <inheritdoc />
-        public async Task<bool> IsAvailableAsync()
+        public Task<bool> IsAvailableAsync()
         {
             try
             {
-                // Check if AI service is available for embedding generation
-                if (!await _gradientClient.IsAvailableAsync())
+                // Recommendations are powered by Typesense vector search, which requires auto-embedding
+                // (an OpenAI key). Without it the embedding field does not exist and queries cannot run.
+                var available = _typesense.IsAutoEmbeddingEnabled;
+                if (!available)
                 {
-                    _logger.LogDebug("Recommendation service unavailable: AI client not configured");
-                    return false;
+                    _logger.LogDebug("Recommendation service unavailable: Typesense auto-embedding is not configured.");
                 }
 
-                // Check if pgvector is available
-                var pgvectorAvailable = await _vectorSearch.IsPgVectorAvailableAsync();
-                if (!pgvectorAvailable)
-                {
-                    _logger.LogWarning("Recommendation service: pgvector extension not available in database");
-                }
-
-                // Check if we have any items with embeddings (use raw SQL via repository)
-                var hasEmbeddings = await _vectorSearch.HasAnyMediaEmbeddingsAsync();
-
-                if (!hasEmbeddings)
-                {
-                    _logger.LogDebug("Recommendation service has limited functionality: no embeddings found in database");
-                }
-
-                return true;
+                return Task.FromResult(available);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error checking recommendation service availability");
-                return false;
+                return Task.FromResult(false);
             }
         }
 
@@ -73,35 +58,14 @@ namespace MyMediaVerse.Application.Services
         {
             try
             {
-                // Get the source item's embedding
-                var embedding = await _vectorSearch.GetMediaItemEmbeddingAsync(mediaItemId);
+                var hits = await _typesense.FindSimilarMediaByIdAsync(
+                    mediaItemId,
+                    limit: count,
+                    filters: BuildMediaTypeFilter(mediaTypeFilter));
 
-                if (embedding == null || embedding.Length == 0)
-                {
-                    _logger.LogWarning("Media item {Id} not found or has no embedding", mediaItemId);
-                    return new List<SimilarItemResult>();
-                }
+                _logger.LogDebug("Found {Count} similar items for media item {Id} via Typesense.", hits.Count, mediaItemId);
 
-                // Use pgvector for similarity search
-                var results = await _vectorSearch.FindSimilarMediaItemsAsync(
-                    embedding,
-                    excludeId: mediaItemId,
-                    mediaTypeFilter: mediaTypeFilter,
-                    limit: count);
-
-                _logger.LogDebug("Found {Count} similar items for media item {Id} using pgvector", results.Count, mediaItemId);
-
-                return results.Select(r => new SimilarItemResult
-                {
-                    Id = r.Id,
-                    Title = r.Title,
-                    MediaType = r.MediaType,
-                    Description = r.Description,
-                    Thumbnail = r.Thumbnail,
-                    Status = r.Status,
-                    Rating = r.Rating,
-                    SimilarityScore = r.SimilarityScore
-                }).ToList();
+                return hits.Select(MapToSimilarItem).ToList();
             }
             catch (Exception ex)
             {
@@ -118,32 +82,14 @@ namespace MyMediaVerse.Application.Services
         {
             try
             {
-                var embedding = await _vectorSearch.GetNoteEmbeddingAsync(noteId);
+                var hits = await _typesense.FindSimilarNotesByIdAsync(
+                    noteId,
+                    limit: count,
+                    filters: BuildVaultFilter(vaultFilter));
 
-                if (embedding == null || embedding.Length == 0)
-                {
-                    _logger.LogWarning("Note {Id} not found or has no embedding", noteId);
-                    return new List<SimilarNoteResult>();
-                }
+                _logger.LogDebug("Found {Count} similar notes for note {Id} via Typesense.", hits.Count, noteId);
 
-                var results = await _vectorSearch.FindSimilarNotesAsync(
-                    embedding,
-                    excludeId: noteId,
-                    vaultFilter: vaultFilter,
-                    limit: count);
-
-                _logger.LogDebug("Found {Count} similar notes for note {Id} using pgvector", results.Count, noteId);
-
-                return results.Select(r => new SimilarNoteResult
-                {
-                    Id = r.Id,
-                    Title = r.Title,
-                    VaultName = r.VaultName,
-                    Description = r.Description,
-                    SourceUrl = r.SourceUrl,
-                    Tags = r.Tags,
-                    SimilarityScore = r.SimilarityScore
-                }).ToList();
+                return hits.Select(MapToSimilarNote).ToList();
             }
             catch (Exception ex)
             {
@@ -165,35 +111,16 @@ namespace MyMediaVerse.Application.Services
                     return new List<SimilarItemResult>();
                 }
 
-                // Generate embedding for the vibe description
-                if (!await _gradientClient.IsAvailableAsync())
-                {
-                    _logger.LogWarning("Cannot perform vibe search: AI service unavailable");
-                    return new List<SimilarItemResult>();
-                }
+                // Typesense embeds the vibe text itself via the collection's remote embedder, so this is
+                // a hybrid (keyword + semantic) search on the description - no in-app embedding step.
+                var hits = await _typesense.SemanticSearchMediaAsync(
+                    vibeDescription,
+                    BuildMediaTypeFilter(mediaTypeFilter),
+                    count);
 
-                var queryEmbedding = await _gradientClient.GenerateEmbeddingAsync(vibeDescription);
+                _logger.LogInformation("Vibe search for '{Vibe}' returned {Count} results via Typesense.", vibeDescription, hits.Count);
 
-                // Use pgvector for similarity search
-                var results = await _vectorSearch.FindSimilarMediaItemsAsync(
-                    queryEmbedding,
-                    excludeId: null,
-                    mediaTypeFilter: mediaTypeFilter,
-                    limit: count);
-
-                _logger.LogInformation("Vibe search for '{Vibe}' returned {Count} results using pgvector", vibeDescription, results.Count);
-
-                return results.Select(r => new SimilarItemResult
-                {
-                    Id = r.Id,
-                    Title = r.Title,
-                    MediaType = r.MediaType,
-                    Description = r.Description,
-                    Thumbnail = r.Thumbnail,
-                    Status = r.Status,
-                    Rating = r.Rating,
-                    SimilarityScore = r.SimilarityScore
-                }).ToList();
+                return hits.Select(MapToSimilarItem).ToList();
             }
             catch (Exception ex)
             {
@@ -209,58 +136,45 @@ namespace MyMediaVerse.Application.Services
         {
             try
             {
-                // Get liked items (SuperLike and Like ratings)
-                var likedItems = await _context.MediaItems
+                // Identify liked items in PostgreSQL, then average their Typesense-stored vectors.
+                var likedIds = await _context.MediaItems
                     .AsNoTracking()
                     .Where(m => m.Rating == Rating.SuperLike || m.Rating == Rating.Like)
-                    .Where(m => m.Embedding != null)
+                    .Select(m => m.Id)
                     .ToListAsync();
 
-                if (!likedItems.Any())
+                if (likedIds.Count == 0)
                 {
-                    _logger.LogDebug("No liked items with embeddings found for personalized recommendations");
+                    _logger.LogDebug("No liked items found for personalized recommendations");
                     return new List<SimilarItemResult>();
                 }
 
-                // Calculate average embedding of liked items (convert Vector to float[])
-                var averageEmbedding = CalculateAverageEmbedding(likedItems.Select(i => i.Embedding!.ToArray()).ToList());
+                var embeddings = await _typesense.GetMediaEmbeddingsAsync(likedIds);
 
-                // Use pgvector to find similar items
-                var results = await _vectorSearch.FindSimilarMediaItemsAsync(
-                    averageEmbedding,
-                    excludeId: null,
-                    mediaTypeFilter: null,
-                    limit: count + likedItems.Count); // Get extra to filter out liked items
-
-                // Filter out liked items and optionally explored items
-                var likedIds = likedItems.Select(i => i.Id).ToHashSet();
-                var filteredResults = results
-                    .Where(r => !likedIds.Contains(r.Id))
-                    .ToList();
-
-                if (excludeExplored)
+                if (embeddings.Count == 0)
                 {
-                    filteredResults = filteredResults
-                        .Where(r => r.Status == Status.Uncharted.ToString())
-                        .ToList();
+                    _logger.LogDebug("No embeddings found in Typesense for {Count} liked items", likedIds.Count);
+                    return new List<SimilarItemResult>();
                 }
 
-                var finalResults = filteredResults.Take(count).ToList();
+                var averageEmbedding = CalculateAverageEmbedding(embeddings);
 
-                _logger.LogInformation("Generated {Count} personalized recommendations based on {LikedCount} liked items using pgvector",
-                    finalResults.Count, likedItems.Count);
-
-                return finalResults.Select(r => new SimilarItemResult
+                // Exclude the liked items themselves and, optionally, anything already explored.
+                var filterClauses = new List<string> { $"id:!=[{string.Join(",", likedIds)}]" };
+                if (excludeExplored)
                 {
-                    Id = r.Id,
-                    Title = r.Title,
-                    MediaType = r.MediaType,
-                    Description = r.Description,
-                    Thumbnail = r.Thumbnail,
-                    Status = r.Status,
-                    Rating = r.Rating,
-                    SimilarityScore = r.SimilarityScore
-                }).ToList();
+                    filterClauses.Add($"status:={Status.Uncharted}");
+                }
+
+                var hits = await _typesense.VectorSearchMediaAsync(
+                    averageEmbedding,
+                    filters: string.Join(" && ", filterClauses),
+                    limit: count);
+
+                _logger.LogInformation("Generated {Count} personalized recommendations from {LikedCount} liked items via Typesense.",
+                    hits.Count, likedIds.Count);
+
+                return hits.Select(MapToSimilarItem).ToList();
             }
             catch (Exception ex)
             {
@@ -276,34 +190,20 @@ namespace MyMediaVerse.Application.Services
         {
             try
             {
-                var embedding = await _vectorSearch.GetNoteEmbeddingAsync(noteId);
+                // Cross-collection: fetch the note's vector, then find nearest media items.
+                var embedding = await _typesense.GetNoteEmbeddingAsync(noteId);
 
                 if (embedding == null)
                 {
-                    _logger.LogDebug("Note {Id} not found or has no embedding", noteId);
+                    _logger.LogDebug("Note {Id} not found in Typesense or has no embedding", noteId);
                     return new List<SimilarItemResult>();
                 }
 
-                // Find media items similar to this note's embedding
-                var results = await _vectorSearch.FindSimilarMediaItemsAsync(
-                    embedding,
-                    excludeId: null,
-                    mediaTypeFilter: null,
-                    limit: count);
+                var hits = await _typesense.VectorSearchMediaAsync(embedding, limit: count);
 
-                _logger.LogDebug("Found {Count} media items related to note {Id} using pgvector", results.Count, noteId);
+                _logger.LogDebug("Found {Count} media items related to note {Id} via Typesense.", hits.Count, noteId);
 
-                return results.Select(r => new SimilarItemResult
-                {
-                    Id = r.Id,
-                    Title = r.Title,
-                    MediaType = r.MediaType,
-                    Description = r.Description,
-                    Thumbnail = r.Thumbnail,
-                    Status = r.Status,
-                    Rating = r.Rating,
-                    SimilarityScore = r.SimilarityScore
-                }).ToList();
+                return hits.Select(MapToSimilarItem).ToList();
             }
             catch (Exception ex)
             {
@@ -319,33 +219,20 @@ namespace MyMediaVerse.Application.Services
         {
             try
             {
-                var embedding = await _vectorSearch.GetMediaItemEmbeddingAsync(mediaItemId);
+                // Cross-collection: fetch the media item's vector, then find nearest notes.
+                var embedding = await _typesense.GetMediaEmbeddingAsync(mediaItemId);
 
                 if (embedding == null)
                 {
-                    _logger.LogDebug("Media item {Id} not found or has no embedding", mediaItemId);
+                    _logger.LogDebug("Media item {Id} not found in Typesense or has no embedding", mediaItemId);
                     return new List<SimilarNoteResult>();
                 }
 
-                // Find notes similar to this media item's embedding
-                var results = await _vectorSearch.FindSimilarNotesAsync(
-                    embedding,
-                    excludeId: null,
-                    vaultFilter: null,
-                    limit: count);
+                var hits = await _typesense.VectorSearchNotesAsync(embedding, limit: count);
 
-                _logger.LogDebug("Found {Count} notes related to media item {Id} using pgvector", results.Count, mediaItemId);
+                _logger.LogDebug("Found {Count} notes related to media item {Id} via Typesense.", hits.Count, mediaItemId);
 
-                return results.Select(r => new SimilarNoteResult
-                {
-                    Id = r.Id,
-                    Title = r.Title,
-                    VaultName = r.VaultName,
-                    Description = r.Description,
-                    SourceUrl = r.SourceUrl,
-                    Tags = r.Tags,
-                    SimilarityScore = r.SimilarityScore
-                }).ToList();
+                return hits.Select(MapToSimilarNote).ToList();
             }
             catch (Exception ex)
             {
@@ -354,11 +241,40 @@ namespace MyMediaVerse.Application.Services
             }
         }
 
+        private static string? BuildMediaTypeFilter(string? mediaType) =>
+            string.IsNullOrWhiteSpace(mediaType) ? null : $"media_type:={mediaType}";
+
+        private static string? BuildVaultFilter(string? vaultName) =>
+            string.IsNullOrWhiteSpace(vaultName) ? null : $"vault_name:={vaultName}";
+
+        private static SimilarItemResult MapToSimilarItem(MediaVectorHit hit) => new()
+        {
+            Id = hit.Id,
+            Title = hit.Title,
+            MediaType = hit.MediaType,
+            Description = hit.Description,
+            Thumbnail = hit.Thumbnail,
+            Status = hit.Status,
+            Rating = hit.Rating,
+            SimilarityScore = hit.SimilarityScore
+        };
+
+        private static SimilarNoteResult MapToSimilarNote(NoteVectorHit hit) => new()
+        {
+            Id = hit.Id,
+            Title = hit.Title,
+            VaultName = hit.VaultName,
+            Description = hit.Description,
+            SourceUrl = hit.SourceUrl,
+            Tags = hit.Tags,
+            SimilarityScore = hit.SimilarityScore
+        };
+
         /// <summary>
         /// Calculates the average embedding from a list of embeddings.
         /// Used for personalized recommendations based on multiple liked items.
         /// </summary>
-        private static float[] CalculateAverageEmbedding(List<float[]> embeddings)
+        private static float[] CalculateAverageEmbedding(IReadOnlyList<float[]> embeddings)
         {
             if (embeddings.Count == 0)
                 return Array.Empty<float>();

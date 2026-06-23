@@ -710,18 +710,15 @@ namespace MyMediaVerse.Web.API.Controllers
 
                 _logger.LogInformation("Vibe search: description='{Description}', limit={Limit}", request.Description, limit);
 
-                if (!await _gradientClient.IsAvailableAsync())
+                if (!_typesenseService.IsAutoEmbeddingEnabled)
                 {
-                    return StatusCode(503, new { error = "Semantic search is not available. AI service is not configured." });
+                    return StatusCode(503, new { error = "Semantic search is not available. Typesense auto-embedding is not configured." });
                 }
 
-                // Generate embedding for the vibe description
-                var embedding = await _gradientClient.GenerateEmbeddingAsync(request.Description);
-
-                var results = await _typesenseService.VectorSearchMediaAsync(
-                    embedding,
+                // Typesense embeds the vibe description itself via the collection's remote embedder.
+                var results = await _typesenseService.SemanticSearchMediaAsync(
+                    request.Description,
                     request.Filter,
-                    null,
                     limit);
 
                 return Ok(new
