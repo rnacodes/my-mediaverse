@@ -1,0 +1,104 @@
+# deploy/mmv-stack/docker-compose.yml — unified droplet stack (source of truth)
+# Lives on the droplet at /opt/mmv-stack/docker-compose.yml.
+# Caddy runs natively (systemd) and reverse-proxies these via localhost host-ports.
+# Secrets live in ./.env (gitignored — see .env.example). Images pinned to digest.
+# Typesense is intentionally NOT here — it has its own stack at deploy/typesense/
+#   (pinned 30.2, mem_limit, healthcheck) deployed to /home/rasante/typesense-stack.
+name: mmv
+
+services:
+  postgres:                 # demo DB
+    image: pgvector/pgvector:pg18@sha256:c8a919765f2ef63681329fa21021b830cd4d79d1165bdca730dd016014e4da84
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      # Superuser is the default `postgres`; the app roles + db are restored from the
+      # pre-cutover dump (globals + mmvdemodb). PGDATA points at a SUBDIRECTORY of the
+      # mounted volume: the pg18 image changed its default data layout, so initdb needs
+      # an empty target dir (matches scripts/database/create-testing-db.ps1).
+      - POSTGRES_PASSWORD=${DEMO_DB_PASSWORD:?set in .env}
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports: ["5432:5432"]    # 0.0.0.0 — consumed directly by the demo backend
+    mem_limit: 768m
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4:latest@sha256:d243a4bcc02d2ee6b447c601692813531d2d0fbca18b583d9f7f9658da835d81
+    container_name: pgadmin
+    restart: unless-stopped
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL:?set in .env}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASSWORD:?set in .env}
+      - PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION=False   # preserved from prior manual run (revisit: enable)
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    ports: ["5050:80"]
+    mem_limit: 512m
+    depends_on: [postgres]
+
+  portainer:
+    image: portainer/portainer-ce:latest@sha256:3267f1869e0fa87b843c55f7fd848f9e3001367d053505f4cb8c664e4a997996
+    container_name: portainer
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    ports: ["8000:8000", "9443:9443"]
+    mem_limit: 256m
+
+  n8n:
+    image: n8nio/n8n:latest@sha256:37d6559a03d8d24a01317148aca3909686e76527bb5f84387ff7cf2ce04bb09d  # v2.3.6
+    container_name: n8n
+    restart: unless-stopped
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_USER:?set in .env}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD:?set in .env}
+      - N8N_HOST=${N8N_HOST:?set in .env}
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - WEBHOOK_URL=https://${N8N_HOST}/
+      - GENERIC_TIMEZONE=America/New_York
+      - TZ=America/New_York
+      - EXECUTIONS_DATA_PRUNE=true
+      - EXECUTIONS_DATA_MAX_AGE=168
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:?set in .env}
+    volumes:
+      - n8n_n8n_data:/home/node/.n8n
+    ports: ["5678:5678"]
+    mem_limit: 512m
+
+  umami:
+    image: ghcr.io/umami-software/umami:postgresql-latest@sha256:28f263fe06f79ebffa5a6a6e9bd33b7a278e9342a88e0bdac812416c9f9e4361
+    container_name: umami
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://${UMAMI_DB_USER}:${UMAMI_DB_PASSWORD}@umami-db:5432/umami
+      - APP_SECRET=${UMAMI_APP_SECRET:?set in .env}
+    ports: ["3000:3000"]
+    mem_limit: 384m
+    depends_on: [umami-db]
+
+  umami-db:                 # data follows the bind path through the service rename
+    image: postgres:15-alpine@sha256:fceb6f86328c36f2438fae3b851b0cc57c4a7e69a58c866d9ce24281f2cf0c9c
+    container_name: umami-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=umami
+      - POSTGRES_USER=${UMAMI_DB_USER:?set in .env}
+      - POSTGRES_PASSWORD=${UMAMI_DB_PASSWORD:?set in .env}
+    volumes:
+      - /umami/sql-data:/var/lib/postgresql/data
+    mem_limit: 256m
+
+volumes:
+  postgres_data:   { external: true }
+  pgadmin_data:    { external: true }
+  portainer_data:  { external: true }
+  n8n_n8n_data:    { external: true }
