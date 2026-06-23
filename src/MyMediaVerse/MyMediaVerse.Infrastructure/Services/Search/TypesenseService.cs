@@ -301,6 +301,9 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 if (_autoEmbeddingEnabled)
                 {
                     searchParameters.ExcludeFields = "embedding";
+                    // Remote embedders (OpenAI auto-embedding) reject prefix search; it must be
+                    // disabled explicitly or every hybrid query fails with a 400.
+                    searchParameters.Prefix = false;
                 }
 
                 // Add filters if provided (e.g., "media_type:=Book")
@@ -711,6 +714,9 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 if (_autoEmbeddingEnabled)
                 {
                     searchParameters.ExcludeFields = "embedding";
+                    // Remote embedders (OpenAI auto-embedding) reject prefix search; it must be
+                    // disabled explicitly or every hybrid query fails with a 400.
+                    searchParameters.Prefix = false;
                 }
 
                 // Add filters if provided (e.g., "topics:=productivity")
@@ -1062,6 +1068,9 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 if (_autoEmbeddingEnabled)
                 {
                     searchParameters.ExcludeFields = "embedding";
+                    // Remote embedders (OpenAI auto-embedding) reject prefix search; it must be
+                    // disabled explicitly or every hybrid query fails with a 400.
+                    searchParameters.Prefix = false;
                 }
 
                 if (!string.IsNullOrEmpty(filters))
@@ -1273,6 +1282,9 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 if (_autoEmbeddingEnabled)
                 {
                     searchParameters.ExcludeFields = "embedding";
+                    // Remote embedders (OpenAI auto-embedding) reject prefix search; it must be
+                    // disabled explicitly or every hybrid query fails with a 400.
+                    searchParameters.Prefix = false;
                 }
 
                 if (!string.IsNullOrEmpty(filters))
@@ -1321,6 +1333,9 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 if (_autoEmbeddingEnabled)
                 {
                     searchParameters.ExcludeFields = "embedding";
+                    // Remote embedders (OpenAI auto-embedding) reject prefix search; it must be
+                    // disabled explicitly or every hybrid query fails with a 400.
+                    searchParameters.Prefix = false;
                 }
 
                 if (!string.IsNullOrEmpty(filters))
@@ -1581,6 +1596,9 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 if (_autoEmbeddingEnabled)
                 {
                     searchParameters.ExcludeFields = "embedding";
+                    // Remote embedders (OpenAI auto-embedding) reject prefix search; it must be
+                    // disabled explicitly or every hybrid query fails with a 400.
+                    searchParameters.Prefix = false;
                 }
 
                 if (!string.IsNullOrEmpty(filters))

@@ -167,7 +167,12 @@ namespace MyMediaVerse.Application.Services
         {
             try
             {
-                var tvShow = await GetTvShowByIdAsync(id);
+                // Load tracked (with topics/genres) so EF can persist removed relationships
+                // when the collections are replaced below.
+                var tvShow = await _context.TvShows
+                    .Include(t => t.Topics)
+                    .Include(t => t.Genres)
+                    .FirstOrDefaultAsync(t => t.Id == id);
                 if (tvShow == null)
                 {
                     throw new InvalidOperationException($"TV show with ID {id} not found.");
@@ -199,12 +204,10 @@ namespace MyMediaVerse.Application.Services
                 tvShow.OriginalLanguage = dto.OriginalLanguage;
                 tvShow.OriginalName = dto.OriginalName;
 
-                // Clear existing topics and genres and save immediately to avoid FK conflicts
+                // Clear existing topics and genres and save immediately so the removed
+                // join rows are persisted before the new ones are added.
                 tvShow.Topics.Clear();
                 tvShow.Genres.Clear();
-                // Clear change tracker and explicitly update the entity since it was retrieved with AsNoTracking
-                _context.ClearChangeTracker();
-                _context.Update(tvShow);
                 await _context.SaveChangesAsync();
 
                 // Handle Topics array conversion

@@ -166,7 +166,12 @@ namespace MyMediaVerse.Application.Services
         {
             try
             {
-                var video = await GetVideoByIdAsync(id);
+                // Load tracked (with topics/genres) so EF can persist removed relationships
+                // when the collections are replaced below.
+                var video = await _context.Videos
+                    .Include(v => v.Topics)
+                    .Include(v => v.Genres)
+                    .FirstOrDefaultAsync(v => v.Id == id);
                 if (video == null)
                 {
                     throw new ArgumentException($"Video with ID {id} not found");
@@ -188,11 +193,10 @@ namespace MyMediaVerse.Application.Services
                 video.LengthInSeconds = dto.LengthInSeconds;
                 video.ExternalId = dto.ExternalId;
 
-                // Clear existing topics and genres and save immediately to avoid FK conflicts
+                // Clear existing topics and genres and save immediately so the removed
+                // join rows are persisted before the new ones are added.
                 video.Topics.Clear();
                 video.Genres.Clear();
-                _context.ClearChangeTracker();
-                _context.Update(video);
                 await _context.SaveChangesAsync();
 
                 // Add new Topics

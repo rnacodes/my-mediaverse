@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   buildVideoPayload, buildEpisodePayload, buildSeriesPayload,
   buildMoviePayload, buildTvShowPayload, buildBookPayload,
+  mapMediaItemToFormValues,
 } from './schema';
 
 describe('buildVideoPayload', () => {
@@ -108,5 +109,103 @@ describe('buildBookPayload', () => {
       mediaType: 'Book', author: 'Au',
       publisher: 'Pub', yearPublished: 2014, dateRead: '2020-01-01', myReview: 'great',
     });
+  });
+});
+
+describe('mapMediaItemToFormValues', () => {
+  it('returns blank defaults for a null item', () => {
+    const values = mapMediaItemToFormValues(null);
+    expect(values.title).toBe('');
+    expect(values.mediaType).toBe('');
+  });
+
+  it('maps the common base fields and formats dates as yyyy-MM-dd', () => {
+    const values = mapMediaItemToFormValues({
+      mediaType: 'Movie',
+      title: 'Inception',
+      status: 'Completed',
+      dateCompleted: '2021-07-04T00:00:00Z',
+      rating: 'Like',
+      ownershipStatus: 'Streamed',
+      topics: ['dreams'],
+      genres: ['sci-fi'],
+    });
+    expect(values).toMatchObject({
+      mediaType: 'Movie',
+      title: 'Inception',
+      status: 'Completed',
+      dateCompleted: '2021-07-04',
+      rating: 'Like',
+      ownershipStatus: 'Streamed',
+      topics: ['dreams'],
+      genres: ['sci-fi'],
+    });
+  });
+
+  it('round-trips Book detail fields, coercing numbers to strings', () => {
+    const values = mapMediaItemToFormValues({
+      mediaType: 'Book',
+      title: 'Dune',
+      author: 'Herbert',
+      publisher: 'Chilton',
+      yearPublished: 1965,
+      dateRead: '2020-01-02T00:00:00Z',
+      myReview: 'classic',
+      format: 'Physical',
+      partOfSeries: true,
+    });
+    expect(values).toMatchObject({
+      author: 'Herbert',
+      publisher: 'Chilton',
+      yearPublished: '1965',
+      dateRead: '2020-01-02',
+      myReview: 'classic',
+      format: 'Physical',
+      partOfSeries: true,
+    });
+  });
+
+  it('maps a podcast episode with its parent series selection', () => {
+    const values = mapMediaItemToFormValues({
+      mediaType: 'Podcast',
+      podcastType: 'Episode',
+      title: 'Ep 1',
+      seriesId: 'series-guid',
+      seriesTitle: 'The Series',
+      durationInSeconds: 1800,
+      episodeNumber: 5,
+      releaseDate: '2021-05-01T00:00:00Z',
+      audioLink: 'https://x.mp3',
+    });
+    expect(values).toMatchObject({
+      podcastType: 'Episode',
+      podcastSeriesId: 'series-guid',
+      durationInSeconds: '1800',
+      episodeNumber: '5',
+      releaseDate: '2021-05-01',
+      audioLink: 'https://x.mp3',
+    });
+    expect(values.selectedPodcastSeries).toMatchObject({ id: 'series-guid', title: 'The Series' });
+  });
+
+  it('maps a podcast series with publisher', () => {
+    const values = mapMediaItemToFormValues({
+      mediaType: 'Podcast',
+      podcastType: 'Series',
+      title: 'My Show',
+      publisher: 'NPR',
+    });
+    expect(values).toMatchObject({ podcastType: 'Series', publisher: 'NPR' });
+  });
+
+  it('maps Video detail fields', () => {
+    const values = mapMediaItemToFormValues({
+      mediaType: 'Video',
+      title: 'Clip',
+      platform: 'Vimeo',
+      lengthInSeconds: 120,
+      externalId: 'abc123',
+    });
+    expect(values).toMatchObject({ platform: 'Vimeo', lengthInSeconds: '120', externalId: 'abc123' });
   });
 });

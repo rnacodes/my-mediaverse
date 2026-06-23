@@ -165,7 +165,12 @@ namespace MyMediaVerse.Application.Services
         {
             try
             {
-                var book = await GetBookByIdAsync(id);
+                // Load tracked (with topics/genres) so EF can persist removed relationships
+                // when the collections are replaced below.
+                var book = await _context.Books
+                    .Include(b => b.Topics)
+                    .Include(b => b.Genres)
+                    .FirstOrDefaultAsync(b => b.Id == id);
                 if (book == null)
                 {
                     throw new InvalidOperationException($"Book with ID {id} not found.");
@@ -199,9 +204,9 @@ namespace MyMediaVerse.Application.Services
                     book.Rating = RatingConverter.ConvertGoodreadsRatingToPLBRating(dto.GoodreadsRating);
                 }
 
-                // Clear existing topics and genres
                 book.Topics.Clear();
                 book.Genres.Clear();
+                await _context.SaveChangesAsync();
 
                 // Handle Topics array conversion
                 await HandleTopicsAsync(book, dto.Topics);
@@ -209,9 +214,6 @@ namespace MyMediaVerse.Application.Services
                 // Handle Genres array conversion
                 await HandleGenresAsync(book, dto.Genres);
 
-                // Clear change tracker and explicitly update the entity since it was retrieved with AsNoTracking
-                _context.ClearChangeTracker();
-                _context.Update(book);
                 await _context.SaveChangesAsync();
 
                 _logger.LogInformation("Successfully updated book: {Title} by {Author}", book.Title, book.Author);
@@ -297,7 +299,9 @@ namespace MyMediaVerse.Application.Services
                     }
                     else
                     {
-                        book.Topics.Add(new Topic { Name = normalizedTopicName });
+                        var newTopic = new Topic { Name = normalizedTopicName };
+                        _context.Add(newTopic);
+                        book.Topics.Add(newTopic);
                     }
                 }
             }
@@ -317,7 +321,11 @@ namespace MyMediaVerse.Application.Services
                     }
                     else
                     {
-                        book.Genres.Add(new Genre { Name = normalizedGenreName });
+                        // Register the new genre explicitly (see HandleTopicsAsync) so EF inserts
+                        // it instead of assuming the client-set key already exists.
+                        var newGenre = new Genre { Name = normalizedGenreName };
+                        _context.Add(newGenre);
+                        book.Genres.Add(newGenre);
                     }
                 }
             }

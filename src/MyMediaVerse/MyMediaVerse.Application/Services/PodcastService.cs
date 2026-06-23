@@ -138,6 +138,41 @@ namespace MyMediaVerse.Application.Services
             return series;
         }
 
+        public async Task<PodcastSeries> UpdatePodcastSeriesAsync(Guid id, CreatePodcastSeriesDto dto)
+        {
+            var series = await _context.PodcastSeries
+                .Include(p => p.Topics)
+                .Include(p => p.Genres)
+                .FirstOrDefaultAsync(p => p.Id == id);
+            if (series == null)
+            {
+                throw new InvalidOperationException($"Podcast series with ID {id} not found.");
+            }
+
+            series.Title = dto.Title;
+            series.Link = dto.Link;
+            series.Notes = dto.Notes;
+            series.Status = dto.Status;
+            series.DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted);
+            series.Rating = dto.Rating;
+            series.OwnershipStatus = dto.OwnershipStatus;
+            series.Description = dto.Description;
+            series.RelatedNotes = dto.RelatedNotes;
+            series.Thumbnail = dto.Thumbnail;
+            series.Publisher = dto.Publisher;
+
+            series.Topics.Clear();
+            series.Genres.Clear();
+            await _context.SaveChangesAsync();
+
+            await ApplyTopicsAsync(series.Topics, dto.Topics);
+            await ApplyGenresAsync(series.Genres, dto.Genres);
+
+            await _context.SaveChangesAsync();
+
+            return await GetPodcastSeriesByIdAsync(id) ?? series;
+        }
+
         public async Task<bool> DeletePodcastSeriesAsync(Guid id)
         {
             var series = await _context.FindAsync<PodcastSeries>(id);
@@ -312,6 +347,55 @@ namespace MyMediaVerse.Application.Services
             return episode;
         }
 
+        public async Task<PodcastEpisode> UpdatePodcastEpisodeAsync(Guid id, CreatePodcastEpisodeDto dto)
+        {
+            // Load tracked (with topics/genres) so EF can detect removed relationships
+            // when we replace the collections below.
+            var episode = await _context.PodcastEpisodes
+                .Include(e => e.Topics)
+                .Include(e => e.Genres)
+                .FirstOrDefaultAsync(e => e.Id == id);
+            if (episode == null)
+            {
+                throw new InvalidOperationException($"Podcast episode with ID {id} not found.");
+            }
+
+            // Update user-editable properties. SeriesId is intentionally not reassigned
+            // (an episode stays with its series) and ExternalId is preserved for sync.
+            episode.Title = dto.Title;
+            episode.Link = dto.Link;
+            episode.Notes = dto.Notes;
+            episode.Status = dto.Status;
+            episode.DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted);
+            episode.Rating = dto.Rating;
+            episode.OwnershipStatus = dto.OwnershipStatus;
+            episode.Description = dto.Description;
+            episode.RelatedNotes = dto.RelatedNotes;
+            episode.Thumbnail = dto.Thumbnail;
+            episode.AudioLink = dto.AudioLink;
+            episode.ReleaseDate = DateTimeNormalizer.ToUtc(dto.ReleaseDate);
+            episode.DurationInSeconds = dto.DurationInSeconds;
+            episode.EpisodeNumber = dto.EpisodeNumber;
+            episode.SeasonNumber = dto.SeasonNumber;
+            episode.Publisher = dto.Publisher;
+
+            // Clear existing topics and genres and save immediately so the removed
+            // join rows are persisted before the new ones are added.
+            episode.Topics.Clear();
+            episode.Genres.Clear();
+            await _context.SaveChangesAsync();
+
+            // Replace topics and genres from the submitted values (an edit is explicit,
+            // so unlike create we do not inherit from the parent series)
+            await ApplyTopicsAsync(episode.Topics, dto.Topics);
+            await ApplyGenresAsync(episode.Genres, dto.Genres);
+
+            await _context.SaveChangesAsync();
+
+            // Reload with clean navigation properties (including Series) for the response
+            return await GetPodcastEpisodeByIdAsync(id) ?? episode;
+        }
+
         public async Task<bool> DeletePodcastEpisodeAsync(Guid id)
         {
             var episode = await _context.FindAsync<PodcastEpisode>(id);
@@ -338,6 +422,53 @@ namespace MyMediaVerse.Application.Services
         {
             return await _context.PodcastEpisodes
                 .FirstOrDefaultAsync(e => e.SeriesId == seriesId && e.Title.ToLower() == episodeTitle.ToLower());
+        }
+
+        // Resolve-or-create normalized (lowercase) topics into the target collection
+        private async Task ApplyTopicsAsync(ICollection<Topic> target, string[]? topics)
+        {
+            foreach (var topicName in (topics ?? Array.Empty<string>()).Where(t => !string.IsNullOrWhiteSpace(t)))
+            {
+                var normalizedTopicName = topicName.ToLower();
+                var existingTopic = await _context.Topics
+                    .FirstOrDefaultAsync(t => t.Name.ToLower() == normalizedTopicName);
+                if (existingTopic != null)
+                {
+                    target.Add(existingTopic);
+                }
+                else
+                {
+                    // Register the new topic explicitly so EF inserts it. A client-set Guid key
+                    // looks "already-set", so reached via a tracked parent EF would assume it
+                    // exists and skip the insert, breaking the join FK.
+                    var newTopic = new Topic { Name = normalizedTopicName };
+                    _context.Add(newTopic);
+                    target.Add(newTopic);
+                }
+            }
+        }
+
+        // Resolve-or-create normalized (lowercase) genres into the target collection
+        private async Task ApplyGenresAsync(ICollection<Genre> target, string[]? genres)
+        {
+            foreach (var genreName in (genres ?? Array.Empty<string>()).Where(g => !string.IsNullOrWhiteSpace(g)))
+            {
+                var normalizedGenreName = genreName.ToLower();
+                var existingGenre = await _context.Genres
+                    .FirstOrDefaultAsync(g => g.Name.ToLower() == normalizedGenreName);
+                if (existingGenre != null)
+                {
+                    target.Add(existingGenre);
+                }
+                else
+                {
+                    // Register the new genre explicitly (see ApplyTopicsAsync) so EF inserts it
+                    // instead of assuming the client-set key already exists.
+                    var newGenre = new Genre { Name = normalizedGenreName };
+                    _context.Add(newGenre);
+                    target.Add(newGenre);
+                }
+            }
         }
 
         // Subscription management methods

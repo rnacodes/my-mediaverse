@@ -55,6 +55,36 @@ namespace MyMediaVerse.Web.API.Controllers
             };
         }
 
+        // Helper method to map PodcastEpisode to PodcastEpisodeResponseDto
+        private PodcastEpisodeResponseDto MapToResponseDto(PodcastEpisode episode)
+        {
+            return new PodcastEpisodeResponseDto
+            {
+                Id = episode.Id,
+                Title = episode.Title,
+                Description = episode.Description,
+                MediaType = episode.MediaType,
+                Status = episode.Status,
+                DateAdded = episode.DateAdded,
+                DateCompleted = episode.DateCompleted,
+                Rating = episode.Rating,
+                Link = episode.Link,
+                Thumbnail = episode.GetEffectiveThumbnail(),
+                SeriesId = episode.SeriesId,
+                SeriesTitle = episode.Series?.Title,
+                AudioLink = episode.AudioLink,
+                ReleaseDate = episode.ReleaseDate,
+                DurationInSeconds = episode.DurationInSeconds,
+                EpisodeNumber = episode.EpisodeNumber,
+                SeasonNumber = episode.SeasonNumber,
+                ExternalId = episode.ExternalId,
+                Publisher = episode.Publisher,
+                Topics = episode.Topics?.Select(t => t.Name).ToList() ?? new List<string>(),
+                Genres = episode.Genres?.Select(g => g.Name).ToList() ?? new List<string>(),
+                PodcastType = "Episode"
+            };
+        }
+
         // ============ PODCAST SERIES ENDPOINTS ============
 
         // GET: api/podcast/series
@@ -143,6 +173,32 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 _logger.LogError(ex, "Error occurred while creating podcast series");
                 return StatusCode(500, new { error = "Failed to create podcast series", details = ex.Message });
+            }
+        }
+
+        // PUT: api/podcast/series/{id}
+        [HttpPut("series/{id}")]
+        public async Task<IActionResult> UpdatePodcastSeries(Guid id, [FromBody] CreatePodcastSeriesDto dto)
+        {
+            try
+            {
+                if (dto == null)
+                {
+                    return BadRequest("Podcast series data is required");
+                }
+
+                var series = await _podcastService.UpdatePodcastSeriesAsync(id, dto);
+                var response = MapToResponseDto(series);
+                return Ok(response);
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
+            {
+                return NotFound($"Podcast series with ID {id} not found.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while updating podcast series with ID {Id}", id);
+                return StatusCode(500, new { error = "Failed to update podcast series", details = ex.Message });
             }
         }
 
@@ -326,28 +382,7 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 var episodes = await _podcastService.GetEpisodesBySeriesIdAsync(seriesId);
 
-                var response = episodes.Select(e => new PodcastEpisodeResponseDto
-                {
-                    Id = e.Id,
-                    Title = e.Title,
-                    Description = e.Description,
-                    MediaType = e.MediaType,
-                    Status = e.Status,
-                    DateAdded = e.DateAdded,
-                    DateCompleted = e.DateCompleted,
-                    Rating = e.Rating,
-                    Link = e.Link,
-                    Thumbnail = e.GetEffectiveThumbnail(),
-                    SeriesId = e.SeriesId,
-                    SeriesTitle = e.Series?.Title,
-                    AudioLink = e.AudioLink,
-                    ReleaseDate = e.ReleaseDate,
-                    DurationInSeconds = e.DurationInSeconds,
-                    EpisodeNumber = e.EpisodeNumber,
-                    SeasonNumber = e.SeasonNumber,
-                    ExternalId = e.ExternalId,
-                    Publisher = e.Publisher
-                }).ToList();
+                var response = episodes.Select(MapToResponseDto).ToList();
 
                 return Ok(response);
             }
@@ -371,28 +406,7 @@ namespace MyMediaVerse.Web.API.Controllers
                     return NotFound($"Podcast episode with ID {id} not found.");
                 }
 
-                var response = new PodcastEpisodeResponseDto
-                {
-                    Id = episode.Id,
-                    Title = episode.Title,
-                    Description = episode.Description,
-                    MediaType = episode.MediaType,
-                    Status = episode.Status,
-                    DateAdded = episode.DateAdded,
-                    DateCompleted = episode.DateCompleted,
-                    Rating = episode.Rating,
-                    Link = episode.Link,
-                    Thumbnail = episode.GetEffectiveThumbnail(),
-                    SeriesId = episode.SeriesId,
-                    SeriesTitle = episode.Series?.Title,
-                    AudioLink = episode.AudioLink,
-                    ReleaseDate = episode.ReleaseDate,
-                    DurationInSeconds = episode.DurationInSeconds,
-                    EpisodeNumber = episode.EpisodeNumber,
-                    SeasonNumber = episode.SeasonNumber,
-                    ExternalId = episode.ExternalId,
-                    Publisher = episode.Publisher
-                };
+                var response = MapToResponseDto(episode);
 
                 return Ok(response);
             }
@@ -416,28 +430,7 @@ namespace MyMediaVerse.Web.API.Controllers
 
                 var episode = await _podcastService.CreatePodcastEpisodeAsync(dto);
 
-                var response = new PodcastEpisodeResponseDto
-                {
-                    Id = episode.Id,
-                    Title = episode.Title,
-                    Description = episode.Description,
-                    MediaType = episode.MediaType,
-                    Status = episode.Status,
-                    DateAdded = episode.DateAdded,
-                    DateCompleted = episode.DateCompleted,
-                    Rating = episode.Rating,
-                    Link = episode.Link,
-                    Thumbnail = episode.GetEffectiveThumbnail(),
-                    SeriesId = episode.SeriesId,
-                    SeriesTitle = episode.Series?.Title,
-                    AudioLink = episode.AudioLink,
-                    ReleaseDate = episode.ReleaseDate,
-                    DurationInSeconds = episode.DurationInSeconds,
-                    EpisodeNumber = episode.EpisodeNumber,
-                    SeasonNumber = episode.SeasonNumber,
-                    ExternalId = episode.ExternalId,
-                    Publisher = episode.Publisher
-                };
+                var response = MapToResponseDto(episode);
 
                 return CreatedAtAction(nameof(GetPodcastEpisode), new { id = episode.Id }, response);
             }
@@ -450,6 +443,34 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 _logger.LogError(ex, "Error occurred while creating podcast episode");
                 return StatusCode(500, new { error = "Failed to create podcast episode", details = ex.Message });
+            }
+        }
+
+        // PUT: api/podcast/episodes/{id}
+        [HttpPut("episodes/{id}")]
+        public async Task<IActionResult> UpdatePodcastEpisode(Guid id, [FromBody] CreatePodcastEpisodeDto dto)
+        {
+            try
+            {
+                if (dto == null)
+                {
+                    return BadRequest("Podcast episode data is required");
+                }
+
+                var episode = await _podcastService.UpdatePodcastEpisodeAsync(id, dto);
+
+                var response = MapToResponseDto(episode);
+
+                return Ok(response);
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
+            {
+                return NotFound($"Podcast episode with ID {id} not found.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while updating podcast episode with ID {Id}", id);
+                return StatusCode(500, new { error = "Failed to update podcast episode", details = ex.Message });
             }
         }
 
@@ -483,28 +504,7 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 var episodes = await _podcastService.GetAllPodcastEpisodesAsync();
 
-                var response = episodes.Select(e => new PodcastEpisodeResponseDto
-                {
-                    Id = e.Id,
-                    Title = e.Title,
-                    Description = e.Description,
-                    MediaType = e.MediaType,
-                    Status = e.Status,
-                    DateAdded = e.DateAdded,
-                    DateCompleted = e.DateCompleted,
-                    Rating = e.Rating,
-                    Link = e.Link,
-                    Thumbnail = e.GetEffectiveThumbnail(),
-                    SeriesId = e.SeriesId,
-                    SeriesTitle = e.Series?.Title,
-                    AudioLink = e.AudioLink,
-                    ReleaseDate = e.ReleaseDate,
-                    DurationInSeconds = e.DurationInSeconds,
-                    EpisodeNumber = e.EpisodeNumber,
-                    SeasonNumber = e.SeasonNumber,
-                    ExternalId = e.ExternalId,
-                    Publisher = e.Publisher
-                }).ToList();
+                var response = episodes.Select(MapToResponseDto).ToList();
 
                 return Ok(response);
             }
@@ -536,28 +536,7 @@ namespace MyMediaVerse.Web.API.Controllers
 
                 var episode = await _listenNotesService.ImportPodcastEpisodeAsync(episodeId, seriesId);
 
-                var response = new PodcastEpisodeResponseDto
-                {
-                    Id = episode.Id,
-                    Title = episode.Title,
-                    Description = episode.Description,
-                    MediaType = episode.MediaType,
-                    Status = episode.Status,
-                    DateAdded = episode.DateAdded,
-                    DateCompleted = episode.DateCompleted,
-                    Rating = episode.Rating,
-                    Link = episode.Link,
-                    Thumbnail = episode.GetEffectiveThumbnail(),
-                    SeriesId = episode.SeriesId,
-                    SeriesTitle = episode.Series?.Title,
-                    AudioLink = episode.AudioLink,
-                    ReleaseDate = episode.ReleaseDate,
-                    DurationInSeconds = episode.DurationInSeconds,
-                    EpisodeNumber = episode.EpisodeNumber,
-                    SeasonNumber = episode.SeasonNumber,
-                    ExternalId = episode.ExternalId,
-                    Publisher = episode.Publisher
-                };
+                var response = MapToResponseDto(episode);
 
                 _logger.LogInformation("Successfully imported podcast episode: {Title} (ID: {Id})", episode.Title, episode.Id);
 

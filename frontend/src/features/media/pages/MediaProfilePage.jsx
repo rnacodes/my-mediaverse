@@ -14,16 +14,12 @@ import RelatedNotesSection from '@/features/notes/RelatedNotesSection';
 import SimilarItemsSection from '../SimilarItemsSection';
 import SavedRelatedMediaSection from '../SavedRelatedMediaSection';
 import { formatMediaType, formatStatus, getMediaTypeColor, getStatusColor, getRatingIcon, getRatingText } from '@/utils/formatters';
-import { useMediaItem } from '@/hooks/useMedia';
 import { useAllMixlists } from '@/hooks/useMixlist';
-import { useBook } from '@/hooks/useBook';
-import { usePodcastSeries, usePodcastEpisode } from '@/hooks/usePodcast';
-import { useMovie } from '@/hooks/useMovie';
-import { useTvShow } from '@/hooks/useTvShow';
-import { useVideo, usePlaylistsForVideo } from '@/hooks/useVideo';
-import { useArticle, useFetchArticleContent } from '@/hooks/useArticle';
+import { usePlaylistsForVideo } from '@/hooks/useVideo';
+import { useFetchArticleContent } from '@/hooks/useArticle';
 import { useHighlightsByArticle, useHighlightsByBook } from '@/hooks/useHighlight';
 import { useReindexMediaItem } from '@/hooks/useTypesense';
+import { useMergedMediaItem } from '@/hooks/useMergedMediaItem';
 
 function MediaProfilePage() {
   const [currentMixlists, setCurrentMixlists] = useState([]);
@@ -37,11 +33,11 @@ function MediaProfilePage() {
   const theme = useTheme();
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
 
-  const basicQuery = useMediaItem(id);
+  // Base + type-specific detail, merged into a single item (shared with EditMediaForm).
+  const { basicQuery, mediaItem, mediaType: basicType, isPodcastSeries, tvShowData } = useMergedMediaItem(id);
   const basicMedia = basicQuery.data ?? null;
-  const basicType = basicMedia?.mediaType;
 
-  // Redirect side-effect for media types that have their own profile page.
+  // Redirect side-effects for media types that have their own profile page.
   useEffect(() => {
     if (!basicMedia) return;
     if (basicType === 'Playlist' || basicType === 7) {
@@ -51,48 +47,17 @@ function MediaProfilePage() {
     }
   }, [basicType, basicMedia, id, navigate]);
 
-  // Conditional secondary fetches, each gated by the basic mediaType.
-  const bookQuery = useBook(id, { enabled: basicType === 'Book' });
-  const movieQuery = useMovie(id, { enabled: basicType === 'Movie' });
-  const videoQuery = useVideo(id, { enabled: basicType === 'Video' });
-  const articleQuery = useArticle(id, { enabled: basicType === 'Article' });
-
-  // Podcast: try series first; if it returns data, redirect. Otherwise try episode.
-  const podcastSeriesProbe = usePodcastSeries(id, { enabled: basicType === 'Podcast', retry: false });
-  const isSeries = basicType === 'Podcast' && !!podcastSeriesProbe.data;
+  // Podcast series and existing TV shows redirect to their dedicated profiles.
   useEffect(() => {
-    if (isSeries) {
+    if (isPodcastSeries) {
       navigate(`/podcast-series/${id}`, { replace: true });
     }
-  }, [isSeries, id, navigate]);
-  const podcastEpisodeQuery = usePodcastEpisode(id, {
-    enabled: basicType === 'Podcast' && podcastSeriesProbe.isError,
-  });
-  const parentSeriesId = podcastEpisodeQuery.data?.seriesId;
-  const parentSeriesQuery = usePodcastSeries(parentSeriesId, { enabled: !!parentSeriesId });
-
-  // TVShow: probe; if a row exists, redirect to dedicated profile. Otherwise treat as episode.
-  const tvShowProbe = useTvShow(id, { enabled: basicType === 'TVShow', retry: false });
+  }, [isPodcastSeries, id, navigate]);
   useEffect(() => {
-    if (basicType === 'TVShow' && tvShowProbe.data) {
+    if (basicType === 'TVShow' && tvShowData) {
       navigate(`/tv-show/${id}`, { replace: true });
     }
-  }, [basicType, tvShowProbe.data, id, navigate]);
-
-  // Derive the merged mediaItem from basic + the active secondary query.
-  const mediaItem = useMemo(() => {
-    if (!basicMedia) return null;
-    if (basicType === 'Book' && bookQuery.data) return { ...basicMedia, ...bookQuery.data };
-    if (basicType === 'Movie' && movieQuery.data) return { ...basicMedia, ...movieQuery.data };
-    if (basicType === 'Video' && videoQuery.data) return { ...basicMedia, ...videoQuery.data };
-    if (basicType === 'Article' && articleQuery.data) return { ...basicMedia, ...articleQuery.data };
-    if (basicType === 'Podcast' && podcastEpisodeQuery.data) {
-      const merged = { ...basicMedia, ...podcastEpisodeQuery.data };
-      if (parentSeriesQuery.data) merged.series = parentSeriesQuery.data;
-      return merged;
-    }
-    return basicMedia;
-  }, [basicMedia, basicType, bookQuery.data, movieQuery.data, videoQuery.data, articleQuery.data, podcastEpisodeQuery.data, parentSeriesQuery.data]);
+  }, [basicType, tvShowData, id, navigate]);
 
   // Highlights (for Article / Book only).
   const articleHighlightsQuery = useHighlightsByArticle(mediaItem?.id, { enabled: mediaItem?.mediaType === 'Article' });

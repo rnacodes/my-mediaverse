@@ -230,9 +230,11 @@ function CommonFields({ lockMediaType = false }) {
               onChange={(_e, newValue) => field.onChange(newValue.map((g) => g.toLowerCase()))}
               onInputChange={(_e, v) => setGenreInput(v)}
               renderTags={(value, getTagProps) =>
-                value.map((option, index) => (
-                  <Chip key={option} variant="outlined" label={option} size="small" sx={{ fontSize: '12px' }} {...getTagProps({ index })} />
-                ))
+                value.map((option, index) => {
+                  // getTagProps returns a `key`; pass it directly rather than via spread.
+                  const { key, ...tagProps } = getTagProps({ index });
+                  return <Chip key={key} variant="outlined" label={option} size="small" sx={{ fontSize: '12px' }} {...tagProps} />;
+                })
               }
               renderInput={(params) => (
                 <TextField {...params} label="Genres" placeholder="Type to search genres or add new..." variant="outlined" sx={fieldSx} />
@@ -256,9 +258,11 @@ function CommonFields({ lockMediaType = false }) {
               onChange={(_e, newValue) => field.onChange(newValue.map((t) => t.toLowerCase()))}
               onInputChange={(_e, v) => setTopicInput(v)}
               renderTags={(value, getTagProps) =>
-                value.map((option, index) => (
-                  <Chip key={option} variant="outlined" label={option} size="small" sx={{ fontSize: '12px' }} {...getTagProps({ index })} />
-                ))
+                value.map((option, index) => {
+                  // getTagProps returns a `key`; pass it directly rather than via spread.
+                  const { key, ...tagProps } = getTagProps({ index });
+                  return <Chip key={key} variant="outlined" label={option} size="small" sx={{ fontSize: '12px' }} {...tagProps} />;
+                })
               }
               renderInput={(params) => (
                 <TextField {...params} label="Topics" placeholder="Type to search topics or add new..." variant="outlined" sx={fieldSx} />

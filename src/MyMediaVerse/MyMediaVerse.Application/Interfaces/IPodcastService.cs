@@ -13,6 +13,7 @@ namespace MyMediaVerse.Application.Interfaces
         Task<PodcastSeries?> GetPodcastSeriesByIdAsync(Guid id);
         Task<IEnumerable<PodcastSeries>> SearchPodcastSeriesAsync(string query);
         Task<PodcastSeries> CreatePodcastSeriesAsync(CreatePodcastSeriesDto dto);
+        Task<PodcastSeries> UpdatePodcastSeriesAsync(Guid id, CreatePodcastSeriesDto dto);
         Task<bool> DeletePodcastSeriesAsync(Guid id);
         Task<bool> PodcastSeriesExistsAsync(string title, string? publisher = null);
         Task<PodcastSeries?> GetPodcastSeriesByTitleAsync(string title, string? publisher = null);
@@ -22,6 +23,7 @@ namespace MyMediaVerse.Application.Interfaces
         Task<PodcastEpisode?> GetPodcastEpisodeByIdAsync(Guid id);
         Task<IEnumerable<PodcastEpisode>> GetAllPodcastEpisodesAsync();
         Task<PodcastEpisode> CreatePodcastEpisodeAsync(CreatePodcastEpisodeDto dto);
+        Task<PodcastEpisode> UpdatePodcastEpisodeAsync(Guid id, CreatePodcastEpisodeDto dto);
         Task<bool> DeletePodcastEpisodeAsync(Guid id);
         Task<bool> PodcastEpisodeExistsAsync(Guid seriesId, string episodeTitle);
         Task<PodcastEpisode?> GetPodcastEpisodeByTitleAsync(Guid seriesId, string episodeTitle);

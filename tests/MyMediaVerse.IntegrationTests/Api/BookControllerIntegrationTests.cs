@@ -145,6 +145,34 @@ namespace MyMediaVerse.IntegrationTests.Api
         }
 
         [Fact]
+        public async Task UpdateBook_ShouldReplaceTopicsAndGenres_RemovingOldOnes()
+        {
+            // Arrange - a book with an initial set of topics/genres
+            var dto = TestDataFactory.CreateBookDto("Topic Book", "Author");
+            dto.Topics = new[] { "alpha", "beta" };
+            dto.Genres = new[] { "old-genre" };
+            var createResponse = await _client.PostAsJsonAsync("/api/book", dto);
+            var createdBook = await createResponse.Content.ReadFromJsonAsync<BookResponseDto>(_jsonOptions);
+
+            // Act - replace the topics/genres (mixed case to verify normalization)
+            var updateDto = TestDataFactory.CreateBookDto("Topic Book", "Author");
+            updateDto.Topics = new[] { "Beta", "Gamma" };
+            updateDto.Genres = new[] { "New-Genre" };
+            var response = await _client.PutAsJsonAsync($"/api/book/{createdBook!.Id}", updateDto);
+
+            // Assert
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            // Re-fetch so we observe persisted state, not just the in-memory PUT response.
+            var refetched = await _client.GetFromJsonAsync<BookResponseDto>($"/api/book/{createdBook.Id}", _jsonOptions);
+            refetched.Should().NotBeNull();
+            refetched!.Topics.Should().BeEquivalentTo(new[] { "beta", "gamma" });
+            refetched.Topics.Should().NotContain("alpha");
+            refetched.Genres.Should().BeEquivalentTo(new[] { "new-genre" });
+            refetched.Genres.Should().NotContain("old-genre");
+        }
+
+        [Fact]
         public async Task UpdateBook_ShouldReturnNotFound_WhenBookDoesNotExist()
         {
             // Arrange

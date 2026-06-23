@@ -7,6 +7,7 @@ import {
   getPodcastSeriesById,
   searchPodcastSeries,
   createPodcastSeries,
+  updatePodcastSeries,
   deletePodcastSeries,
   subscribeToPodcastSeries,
   unsubscribeFromPodcastSeries,
@@ -19,6 +20,7 @@ import {
   getPodcastEpisodeById,
   getAllPodcastEpisodes,
   createPodcastEpisode,
+  updatePodcastEpisode,
   deletePodcastEpisode,
 } from '../api/podcastService';
 import { podcastKeys, mediaKeys } from '../api/queryKeys';
@@ -120,6 +122,18 @@ export function useCreatePodcastSeries() {
   });
 }
 
+export function useUpdatePodcastSeries() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, seriesData }) => updatePodcastSeries(id, seriesData).then((r) => r.data),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: podcastKeys.series.lists() });
+      queryClient.invalidateQueries({ queryKey: podcastKeys.series.detail(variables.id) });
+      queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
+    },
+  });
+}
+
 export function useDeletePodcastSeries() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -206,6 +220,21 @@ export function useCreatePodcastEpisode() {
     mutationFn: (episodeData) => createPodcastEpisode(episodeData).then((r) => r.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: podcastKeys.episodes.lists() });
+    },
+  });
+}
+
+export function useUpdatePodcastEpisode() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, episodeData }) => updatePodcastEpisode(id, episodeData).then((r) => r.data),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: podcastKeys.episodes.lists() });
+      queryClient.invalidateQueries({ queryKey: podcastKeys.episodes.detail(variables.id) });
+      if (variables.seriesId) {
+        queryClient.invalidateQueries({ queryKey: podcastKeys.series.episodes(variables.seriesId) });
+      }
+      queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
     },
   });
 }

@@ -67,6 +67,10 @@ export const createPodcastSeries = (seriesData) => {
     return apiClient.post('/podcast/series', seriesData);
 };
 
+export const updatePodcastSeries = (id, seriesData) => {
+    return apiClient.put(`/podcast/series/${id}`, seriesData);
+};
+
 export const deletePodcastSeries = (id) => {
     return apiClient.delete(`/podcast/series/${id}`);
 };
@@ -123,6 +127,10 @@ export const getAllPodcastEpisodes = () => {
 
 export const createPodcastEpisode = (episodeData) => {
     return apiClient.post('/podcast/episodes', episodeData);
+};
+
+export const updatePodcastEpisode = (id, episodeData) => {
+    return apiClient.put(`/podcast/episodes/${id}`, episodeData);
 };
 
 export const deletePodcastEpisode = (id) => {

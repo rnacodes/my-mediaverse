@@ -1,7 +1,5 @@
 import { z } from 'zod';
 
-// Media types the backend can actually create. Anything else is "Coming Soon"
-// in the dropdown and is blocked at submit time (see AddMediaForm shell).
 export const SUPPORTED_TYPES = ['Podcast', 'Book', 'Movie', 'TVShow', 'Video'];
 
 export const defaultValues = {
@@ -133,13 +131,118 @@ export const mediaSchema = z
 // Parse an optional numeric text input to an integer, or null when blank.
 const toIntOrNull = (v) => (v ? parseInt(v, 10) : null);
 
+const toDateInput = (v) => (v ? new Date(v).toISOString().split('T')[0] : '');
+
+const toFieldStr = (v) => (v === null || v === undefined ? '' : String(v));
+
+export function mapMediaItemToFormValues(mediaItem) {
+  if (!mediaItem) return { ...defaultValues };
+  const m = mediaItem;
+  const mediaType = m.mediaType || '';
+
+  const base = {
+    ...defaultValues,
+    title: m.title ?? '',
+    mediaType,
+    link: m.link ?? '',
+    description: m.description ?? '',
+    notes: m.notes ?? '',
+    status: m.status || 'Uncharted',
+    dateCompleted: toDateInput(m.dateCompleted),
+    rating: m.rating ?? '',
+    ownershipStatus: m.ownershipStatus ?? '',
+    thumbnail: m.thumbnail ?? '',
+    topics: Array.isArray(m.topics) ? m.topics : [],
+    genres: Array.isArray(m.genres) ? m.genres : [],
+  };
+
+  switch (mediaType) {
+    case 'Book':
+      return {
+        ...base,
+        author: m.author ?? '',
+        isbn: m.isbn ?? m.ISBN ?? '',
+        asin: m.asin ?? m.ASIN ?? '',
+        goodreadsRating: toFieldStr(m.goodreadsRating),
+        format: m.format || 'Digital',
+        partOfSeries: !!m.partOfSeries,
+        publisher: m.publisher ?? '',
+        yearPublished: toFieldStr(m.yearPublished),
+        dateRead: toDateInput(m.dateRead),
+        myReview: m.myReview ?? '',
+      };
+    case 'Movie':
+      return {
+        ...base,
+        director: m.director ?? '',
+        cast: m.cast ?? '',
+        releaseYear: toFieldStr(m.releaseYear),
+        runtimeMinutes: toFieldStr(m.runtimeMinutes),
+        mpaaRating: m.mpaaRating ?? '',
+        tagline: m.tagline ?? '',
+        homepage: m.homepage ?? '',
+        originalLanguage: m.originalLanguage ?? '',
+        originalTitle: m.originalTitle ?? '',
+      };
+    case 'TVShow':
+      return {
+        ...base,
+        creator: m.creator ?? '',
+        cast: m.cast ?? '',
+        firstAirYear: toFieldStr(m.firstAirYear),
+        lastAirYear: toFieldStr(m.lastAirYear),
+        numberOfSeasons: toFieldStr(m.numberOfSeasons),
+        numberOfEpisodes: toFieldStr(m.numberOfEpisodes),
+        contentRating: m.contentRating ?? '',
+        tagline: m.tagline ?? '',
+        homepage: m.homepage ?? '',
+        originalLanguage: m.originalLanguage ?? '',
+        originalName: m.originalName ?? '',
+      };
+    case 'Video':
+      return {
+        ...base,
+        platform: m.platform || 'YouTube',
+        lengthInSeconds: toFieldStr(m.lengthInSeconds),
+        externalId: m.externalId ?? '',
+      };
+    case 'Podcast': {
+      const podcastType = m.podcastType || (m.seriesId ? 'Episode' : 'Series');
+      if (podcastType === 'Episode') {
+        const series = m.series || (m.seriesId ? { id: m.seriesId, title: m.seriesTitle } : null);
+        return {
+          ...base,
+          podcastType: 'Episode',
+          podcastSeriesId: m.seriesId ? String(m.seriesId) : '',
+          selectedPodcastSeries: series,
+          durationInSeconds: toFieldStr(m.durationInSeconds),
+          episodeNumber: toFieldStr(m.episodeNumber),
+          seasonNumber: toFieldStr(m.seasonNumber),
+          releaseDate: toDateInput(m.releaseDate),
+          audioLink: m.audioLink ?? '',
+          publisher: m.publisher ?? '',
+        };
+      }
+      return {
+        ...base,
+        podcastType: 'Series',
+        publisher: m.publisher ?? '',
+      };
+    }
+    default:
+      return base;
+  }
+}
+
 function typedBase(d, mediaType) {
   return {
     title: d.title,
     mediaType,
-    link: d.link,
-    notes: d.notes,
-    description: d.description,
+    // Optional URL field: send null (not '') when blank — the backend's [Url]
+    // validator rejects an empty string.
+    link: d.link?.trim() ? d.link : null,
+    notes: d.notes?.trim() ? d.notes : null,
+    description: d.description?.trim() ? d.description : null,
     status: d.status,
     dateCompleted: d.status === 'Completed' && d.dateCompleted ? d.dateCompleted : null,
     rating: d.status === 'Completed' && d.rating ? d.rating : null,

@@ -419,6 +419,18 @@ namespace MyMediaVerse.IntegrationTests.Api
             Assert.Contains("modified", updatedMovie.Topics);
             Assert.Contains("action", updatedMovie.Genres);
             Assert.Contains("thriller", updatedMovie.Genres);
+
+            // Re-fetch to confirm the replaced topics/genres were persisted and the old
+            // ones were actually removed (the PUT response alone reflects the in-memory
+            // graph and would hide a stale join row).
+            var refetchResponse = await _client.GetAsync($"/api/movie/{createdMovie.Id}");
+            var refetchedMovie = JsonSerializer.Deserialize<MovieResponseDto>(
+                await refetchResponse.Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.NotNull(refetchedMovie);
+            Assert.Contains("updated", refetchedMovie.Topics);
+            Assert.Contains("modified", refetchedMovie.Topics);
+            Assert.DoesNotContain("original", refetchedMovie.Topics);
+            Assert.DoesNotContain("drama", refetchedMovie.Genres);
         }
 
         [Fact]

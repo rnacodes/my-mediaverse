@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
-  Container, Typography, TextField, Button, Box, MenuItem, Card, CardContent,
+  Container, Typography, Button, Box, Card, CardContent,
   Snackbar, Alert, CircularProgress, Dialog, DialogTitle, DialogContent,
   DialogContentText, DialogActions, IconButton, Chip, Tooltip,
 } from '@mui/material';
@@ -11,35 +11,39 @@ import {
   Save, Cancel, ArrowBack, Delete, Add as AddIcon, Close,
   Delete as DeleteIcon, OpenInNew as OpenInNewIcon, Article as NoteIcon, PlaylistAdd,
 } from '@mui/icons-material';
-import { useMediaItem, useUpdateMedia, useDeleteMedia } from '@/hooks/useMedia';
-import { useUploadThumbnail } from '@/hooks/useUpload';
+import { useUpdateMedia, useDeleteMedia } from '@/hooks/useMedia';
+import { useUpdateBook } from '@/hooks/useBook';
+import { useUpdateMovie } from '@/hooks/useMovie';
+import { useUpdateTvShow } from '@/hooks/useTvShow';
+import { useUpdateVideo } from '@/hooks/useVideo';
+import { useUpdatePodcastSeries, useUpdatePodcastEpisode } from '@/hooks/usePodcast';
 import { useNotesForMedia, useUnlinkNoteFromMedia } from '@/hooks/useNote';
 import { useAllMixlists, useRemoveMediaFromMixlist } from '@/hooks/useMixlist';
-import { formatStatus } from '@/utils/formatters';
-import TopicsGenresSection from '@/features/media/TopicsGenresSection';
+import { useMergedMediaItem } from '@/hooks/useMergedMediaItem';
+import {
+  mediaSchema, defaultValues, mapMediaItemToFormValues,
+  buildBookPayload, buildEpisodePayload, buildSeriesPayload,
+  buildMoviePayload, buildTvShowPayload, buildVideoPayload, buildMediaPayload,
+} from '@/features/media/form/schema';
+import CommonFields from '@/features/media/form/CommonFields';
+import TypeSpecificFields from '@/features/media/form/TypeSpecificFields';
 import LinkNotesDialog from './LinkNotesDialog';
 import AddToMixlistDialog from './AddToMixlistDialog';
-import { editMediaSchema, defaultValues, mapMediaItemToForm, buildUpdatePayload, getVaultColor } from './schema';
-
-const STATUS_OPTIONS = ['Uncharted', 'ActivelyExploring', 'Completed', 'Abandoned'];
-const RATING_OPTIONS = ['SuperLike', 'Like', 'Neutral', 'Dislike'];
-const OWNERSHIP_OPTIONS = ['Own', 'Rented', 'Streamed'];
+import { getVaultColor } from './schema';
 
 function EditMediaForm() {
   const { id } = useParams();
   const navigate = useNavigate();
 
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  const [thumbnailFile, setThumbnailFile] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [linkNoteDialog, setLinkNoteDialog] = useState(false);
   const [addMixlistDialog, setAddMixlistDialog] = useState(false);
 
   const notify = (message, severity = 'success') => setSnackbar({ open: true, message, severity });
 
-  // Queries
-  const mediaQuery = useMediaItem(id);
-  const mediaItem = mediaQuery.data ?? null;
+  // Base + type-specific detail, merged for prefill.
+  const { basicQuery, mediaItem, isDetailReady, isLoading, error } = useMergedMediaItem(id);
 
   const linkedNotesQuery = useNotesForMedia(id);
   const linkedNotes = linkedNotesQuery.data ?? [];
@@ -56,76 +60,77 @@ function EditMediaForm() {
     };
   }, [mixlistsQuery.data, mediaItem]);
 
-  // Mutations
-  const updateMediaMutation = useUpdateMedia();
+  // Mutations — per-type update where available, generic fallback otherwise.
+  const updateBook = useUpdateBook();
+  const updateMovie = useUpdateMovie();
+  const updateTvShow = useUpdateTvShow();
+  const updateVideo = useUpdateVideo();
+  const updateSeries = useUpdatePodcastSeries();
+  const updateEpisode = useUpdatePodcastEpisode();
+  const updateMedia = useUpdateMedia();
   const deleteMediaMutation = useDeleteMedia();
-  const uploadThumbnailMutation = useUploadThumbnail();
   const unlinkNoteMutation = useUnlinkNoteFromMedia();
   const removeFromMixlistMutation = useRemoveMediaFromMixlist();
 
-  const saving = updateMediaMutation.isPending;
   const savingNote = unlinkNoteMutation.isPending;
   const savingMixlist = removeFromMixlistMutation.isPending;
 
   // Form
-  const { control, handleSubmit, reset, watch, setValue } = useForm({
-    resolver: zodResolver(editMediaSchema),
-    defaultValues,
-  });
-  const thumbnail = watch('thumbnail');
+  const methods = useForm({ resolver: zodResolver(mediaSchema), defaultValues });
+  const { handleSubmit, reset, watch, formState: { isSubmitting } } = methods;
   const titleValue = watch('title');
+  const saving = isSubmitting;
 
-  // Prefill once per media id (so a mid-edit mixlist/notes refetch doesn't
-  // clobber unsaved field edits).
+  // Prefill once per media id, so a mid-edit mixlist/notes refetch doesn't clobber
+  // unsaved field edits. Wait for the type-specific detail (isDetailReady) so the
+  // first snapshot isn't the base-only item (which would drop author/director/etc.).
   const initializedRef = useRef(false);
   useEffect(() => {
     initializedRef.current = false;
   }, [id]);
   useEffect(() => {
-    if (mediaItem && !initializedRef.current) {
+    if (mediaItem && isDetailReady && !initializedRef.current) {
       initializedRef.current = true;
-      reset(mapMediaItemToForm(mediaItem));
+      reset(mapMediaItemToFormValues(mediaItem));
     }
-  }, [mediaItem, reset]);
+  }, [mediaItem, isDetailReady, reset]);
 
   useEffect(() => {
-    if (mediaQuery.error) {
-      console.error('Failed to fetch media:', mediaQuery.error);
+    if (error) {
+      console.error('Failed to fetch media:', error);
       notify('Failed to load media item', 'error');
     }
-  }, [mediaQuery.error]);
+  }, [error]);
 
-  const handleThumbnailUpload = (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-    setThumbnailFile(file);
-    uploadThumbnailMutation.mutate(file, {
-      onSuccess: (data) => {
-        setValue('thumbnail', data.url);
-        notify('Thumbnail uploaded successfully!', 'success');
-      },
-      onError: (error) => {
-        console.error('Error uploading thumbnail:', error);
-        notify('Failed to upload thumbnail. Please try again.', 'error');
-        setThumbnailFile(null);
-      },
-    });
+  // Route the validated form to the right update endpoint by media type.
+  const updateByType = (data) => {
+    switch (data.mediaType) {
+      case 'Book':
+        return updateBook.mutateAsync({ id, bookData: buildBookPayload(data) });
+      case 'Movie':
+        return updateMovie.mutateAsync({ id, movieData: buildMoviePayload(data) });
+      case 'TVShow':
+        return updateTvShow.mutateAsync({ id, tvShowData: buildTvShowPayload(data) });
+      case 'Video':
+        return updateVideo.mutateAsync({ id, videoData: buildVideoPayload(data) });
+      case 'Podcast':
+        return data.podcastType === 'Episode'
+          ? updateEpisode.mutateAsync({ id, episodeData: buildEpisodePayload(data), seriesId: data.podcastSeriesId })
+          : updateSeries.mutateAsync({ id, seriesData: buildSeriesPayload(data) });
+      default:
+        return updateMedia.mutateAsync({ id, mediaData: buildMediaPayload(data) });
+    }
   };
 
-  const onSubmit = (formData) => {
-    updateMediaMutation.mutate(
-      { id, mediaData: buildUpdatePayload(formData, mediaItem) },
-      {
-        onSuccess: () => {
-          notify('Media item updated successfully!', 'success');
-          setTimeout(() => navigate(`/media/${id}`), 1500);
-        },
-        onError: (error) => {
-          console.error('Failed to update media:', error);
-          notify(error.response?.data?.message || 'Failed to update media item', 'error');
-        },
-      }
-    );
+  const onSubmit = async (data) => {
+    try {
+      await updateByType(data);
+      notify('Media item updated successfully!', 'success');
+      setTimeout(() => navigate(`/media/${id}`), 1500);
+    } catch (err) {
+      console.error('Failed to update media:', err);
+      notify(err.response?.data?.message || err.response?.data?.error || 'Failed to update media item', 'error');
+    }
   };
 
   const handleDelete = () => {
@@ -134,9 +139,9 @@ function EditMediaForm() {
         notify('Media item deleted successfully!', 'success');
         setTimeout(() => navigate('/'), 1500);
       },
-      onError: (error) => {
-        console.error('Failed to delete media:', error);
-        notify(error.response?.data?.error || 'Failed to delete media item', 'error');
+      onError: (err) => {
+        console.error('Failed to delete media:', err);
+        notify(err.response?.data?.error || 'Failed to delete media item', 'error');
       },
       onSettled: () => setDeleteDialogOpen(false),
     });
@@ -147,8 +152,8 @@ function EditMediaForm() {
       { noteId, mediaItemId: id },
       {
         onSuccess: () => notify(`Unlinked note "${noteTitle}"`, 'success'),
-        onError: (error) => {
-          console.error('Error unlinking note:', error);
+        onError: (err) => {
+          console.error('Error unlinking note:', err);
           notify('Failed to unlink note', 'error');
         },
       }
@@ -160,11 +165,11 @@ function EditMediaForm() {
       { mixlistId, mediaItemId: id },
       {
         onSuccess: () => {
-          mediaQuery.refetch();
+          basicQuery.refetch();
           notify(`Removed from "${mixlistName}"`, 'success');
         },
-        onError: (error) => {
-          console.error('Error removing from mixlist:', error);
+        onError: (err) => {
+          console.error('Error removing from mixlist:', err);
           notify('Failed to remove from mixlist', 'error');
         },
       }
@@ -177,7 +182,7 @@ function EditMediaForm() {
     '&:hover': { borderColor: 'white', backgroundColor: 'rgba(255, 255, 255, 0.08)' },
   };
 
-  if (mediaQuery.isLoading) {
+  if (isLoading) {
     return (
       <Container maxWidth="md" sx={{ px: { xs: 2, sm: 3 } }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: '50vh', gap: 2 }}>
@@ -192,7 +197,15 @@ function EditMediaForm() {
 
   return (
     <Container maxWidth="md" sx={{ px: { xs: 2, sm: 3 }, py: { xs: 2, sm: 3, md: 4 } }}>
-      <Box sx={{ mt: { xs: 2, sm: 3, md: 4 } }}>
+      <Box
+        sx={{
+          mt: { xs: 2, sm: 3, md: 4 },
+          '& .MuiInputBase-input': { fontSize: '16px !important' },
+          '& .MuiInputLabel-root': { fontSize: '16px !important' },
+          '& .MuiSelect-select': { fontSize: '16px !important' },
+          '& .MuiFormControlLabel-label': { fontSize: '16px !important' },
+        }}
+      >
         {/* Header */}
         <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'flex-start', sm: 'center' }, mb: { xs: 3, sm: 4 }, gap: { xs: 2, sm: 0 } }}>
           <Button
@@ -210,150 +223,14 @@ function EditMediaForm() {
 
         <Card>
           <CardContent sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
-            <form onSubmit={handleSubmit(onSubmit)}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 2, sm: 3 } }}>
-                {/* Title */}
-                <Controller
-                  name="title"
-                  control={control}
-                  render={({ field, fieldState }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="Title *"
-                      required
-                      error={!!fieldState.error}
-                      helperText={fieldState.error?.message}
-                    />
-                  )}
-                />
-
-                {/* Media Type (display only) */}
-                <Controller
-                  name="mediaType"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField {...field} fullWidth label="Media Type" disabled helperText="Media type cannot be changed after creation" />
-                  )}
-                />
-
-                {/* Status */}
-                <Controller
-                  name="status"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField {...field} fullWidth select label="Status">
-                      {STATUS_OPTIONS.map((option) => (
-                        <MenuItem key={option} value={option}>
-                          {formatStatus(option)}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  )}
-                />
-
-                {/* Rating */}
-                <Controller
-                  name="rating"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField {...field} fullWidth select label="Rating">
-                      <MenuItem value="">None</MenuItem>
-                      {RATING_OPTIONS.map((option) => (
-                        <MenuItem key={option} value={option}>
-                          {option}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  )}
-                />
-
-                {/* Ownership Status */}
-                <Controller
-                  name="ownershipStatus"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField {...field} fullWidth select label="Ownership Status">
-                      <MenuItem value="">None</MenuItem>
-                      {OWNERSHIP_OPTIONS.map((option) => (
-                        <MenuItem key={option} value={option}>
-                          {option}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  )}
-                />
-
-                {/* Link */}
-                <Controller
-                  name="link"
-                  control={control}
-                  render={({ field }) => <TextField {...field} fullWidth label="Link/URL" placeholder="https://example.com" />}
-                />
-
-                {/* Topics & Genres */}
-                {mediaItem && (
-                  <TopicsGenresSection mediaItem={mediaItem} setSnackbar={setSnackbar} onUpdate={() => mediaQuery.refetch()} />
-                )}
-
-                {/* Thumbnail URL */}
-                <Controller
-                  name="thumbnail"
-                  control={control}
-                  render={({ field }) => <TextField {...field} fullWidth label="Thumbnail URL" placeholder="https://example.com/image.jpg" />}
-                />
-
-                {/* Thumbnail Upload */}
-                <Box sx={{ mt: 2 }}>
-                  <Typography variant="body1" sx={{ mb: 2, fontSize: { xs: '0.875rem', sm: '1rem' }, fontWeight: 'bold' }}>
-                    Upload New Thumbnail
-                  </Typography>
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    component="label"
-                    sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, fontWeight: 'bold', textTransform: 'none', py: 1.5, px: 3, minHeight: '48px', width: { xs: '100%', sm: 'auto' }, borderRadius: '8px' }}
-                  >
-                    Choose File
-                    <input type="file" accept="image/*" hidden onChange={handleThumbnailUpload} />
-                  </Button>
-                  {thumbnailFile && (
-                    <Typography variant="body2" sx={{ mt: 1, fontSize: { xs: '0.75rem', sm: '0.875rem' }, color: 'text.secondary' }}>
-                      Selected: {thumbnailFile.name}
-                    </Typography>
-                  )}
-                  {!thumbnailFile && thumbnail && (
-                    <Typography variant="body2" sx={{ mt: 1, fontSize: { xs: '0.75rem', sm: '0.875rem' }, color: 'text.secondary' }}>
-                      Current: {thumbnail}
-                    </Typography>
-                  )}
-                </Box>
-
-                {/* Date Completed */}
-                <Controller
-                  name="dateCompleted"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField {...field} fullWidth label="Date Completed" type="date" InputLabelProps={{ shrink: true }} />
-                  )}
-                />
-
-                {/* Description */}
-                <Controller
-                  name="description"
-                  control={control}
-                  render={({ field }) => <TextField {...field} fullWidth label="Description" multiline rows={4} />}
-                />
-
-                {/* Notes */}
-                <Controller
-                  name="notes"
-                  control={control}
-                  render={({ field }) => <TextField {...field} fullWidth label="Notes" multiline rows={4} />}
-                />
+            <FormProvider {...methods}>
+              <Box component="form" onSubmit={handleSubmit(onSubmit)}>
+                {/* Shared common + type-specific fields (media type locked) */}
+                <CommonFields lockMediaType />
+                <TypeSpecificFields editing />
 
                 {/* Mixlists */}
-                <Box sx={{ border: '1px solid rgba(255, 255, 255, 0.23)', borderRadius: 1, p: 2 }}>
+                <Box sx={{ border: '1px solid rgba(255, 255, 255, 0.23)', borderRadius: 1, p: 2, mt: 3 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <PlaylistAdd sx={{ fontSize: 20, color: 'rgba(255, 255, 255, 0.7)' }} />
@@ -395,7 +272,7 @@ function EditMediaForm() {
                 </Box>
 
                 {/* Linked Notes */}
-                <Box sx={{ border: '1px solid rgba(255, 255, 255, 0.23)', borderRadius: 1, p: 2 }}>
+                <Box sx={{ border: '1px solid rgba(255, 255, 255, 0.23)', borderRadius: 1, p: 2, mt: 3 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <NoteIcon sx={{ fontSize: 20, color: 'rgba(255, 255, 255, 0.7)' }} />
@@ -518,7 +395,7 @@ function EditMediaForm() {
                   </Box>
                 </Box>
               </Box>
-            </form>
+            </FormProvider>
           </CardContent>
         </Card>
       </Box>
@@ -562,7 +439,7 @@ function EditMediaForm() {
         mediaTitle={titleValue}
         availableMixlists={availableMixlists}
         onResult={notify}
-        onChanged={() => mediaQuery.refetch()}
+        onChanged={() => basicQuery.refetch()}
       />
     </Container>
   );

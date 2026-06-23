@@ -162,7 +162,10 @@ namespace MyMediaVerse.Application.Services
         {
             try
             {
-                var movie = await GetMovieByIdAsync(id);
+                var movie = await _context.Movies
+                    .Include(m => m.Topics)
+                    .Include(m => m.Genres)
+                    .FirstOrDefaultAsync(m => m.Id == id);
                 if (movie == null)
                 {
                     throw new InvalidOperationException($"Movie with ID {id} not found.");
@@ -193,12 +196,8 @@ namespace MyMediaVerse.Application.Services
                 movie.OriginalLanguage = dto.OriginalLanguage;
                 movie.OriginalTitle = dto.OriginalTitle;
 
-                // Clear existing topics and genres and save immediately to avoid FK conflicts
                 movie.Topics.Clear();
                 movie.Genres.Clear();
-                // Clear change tracker and explicitly update the entity since it was retrieved with AsNoTracking
-                _context.ClearChangeTracker();
-                _context.Update(movie);
                 await _context.SaveChangesAsync();
 
                 // Handle Topics array conversion
