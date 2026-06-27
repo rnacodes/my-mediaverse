@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Pgvector;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Application.Interfaces;
 using System.Collections.Generic;
@@ -69,22 +68,6 @@ namespace MyMediaVerse.Infrastructure.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            // Check if we're using InMemory database (for tests) by checking provider name
-            var isInMemory = Database.ProviderName?.Contains("InMemory", StringComparison.OrdinalIgnoreCase) ?? false;
-
-            if (!isInMemory)
-            {
-                // Enable pgvector extension for vector similarity search (PostgreSQL only)
-                modelBuilder.HasPostgresExtension("vector");
-            }
-
-            // Always ignore Embedding properties in EF Core queries.
-            // The Pgvector NuGet package doesn't properly support reading vector types via EF Core,
-            // so we handle embeddings via raw SQL in AIService and VectorSearchRepository.
-            // This prevents "Reading as 'System.Object' is not supported for fields having DataTypeName 'public.vector'" errors.
-            modelBuilder.Entity<BaseMediaItem>().Ignore(e => e.Embedding);
-            modelBuilder.Entity<Note>().Ignore(e => e.Embedding);
-
             // Configure BaseMediaItem entity
             modelBuilder.Entity<BaseMediaItem>(entity =>
             {
@@ -125,11 +108,6 @@ namespace MyMediaVerse.Infrastructure.Data
                 // Configure required fields
                 entity.Property(e => e.DateAdded)
                     .IsRequired();
-
-                // AI/Embedding fields
-                entity.Property(e => e.EmbeddingModel)
-                    .HasMaxLength(100);
-                // Note: Embedding column type is configured via [Column] attribute on entity
             });
 
             // Configure Mixlist entity
@@ -840,13 +818,8 @@ namespace MyMediaVerse.Infrastructure.Data
                 // Create index on DateImported for sorting
                 entity.HasIndex(e => e.DateImported);
 
-                // AI/Embedding fields
-                entity.Property(e => e.EmbeddingModel)
-                    .HasMaxLength(100);
-
                 entity.Property(e => e.IsDescriptionManual)
                     .HasDefaultValue(false);
-                // Note: Embedding column type is configured via [Column] attribute on entity
 
                 // Create index on IsDescriptionManual for AI processing queries
                 entity.HasIndex(e => e.IsDescriptionManual);

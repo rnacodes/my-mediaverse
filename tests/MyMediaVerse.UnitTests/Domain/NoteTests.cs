@@ -30,9 +30,6 @@ namespace MyMediaVerse.UnitTests.Domain
             note.AiDescription.Should().BeNull();
             note.AiDescriptionGeneratedAt.Should().BeNull();
             note.IsDescriptionManual.Should().BeFalse();
-            note.Embedding.Should().BeNull();
-            note.EmbeddingGeneratedAt.Should().BeNull();
-            note.EmbeddingModel.Should().BeNull();
             note.MediaItemNotes.Should().NotBeNull().And.BeEmpty();
         }
 
@@ -60,8 +57,6 @@ namespace MyMediaVerse.UnitTests.Domain
             note.AiDescription = "A comprehensive exploration of consciousness theories";
             note.AiDescriptionGeneratedAt = testDate;
             note.IsDescriptionManual = false;
-            note.EmbeddingModel = "text-embedding-3-large";
-            note.EmbeddingGeneratedAt = testDate;
 
             // Assert
             note.Slug.Should().Be("philosophy-of-mind");
@@ -76,8 +71,6 @@ namespace MyMediaVerse.UnitTests.Domain
             note.AiDescription.Should().Be("A comprehensive exploration of consciousness theories");
             note.AiDescriptionGeneratedAt.Should().Be(testDate);
             note.IsDescriptionManual.Should().BeFalse();
-            note.EmbeddingModel.Should().Be("text-embedding-3-large");
-            note.EmbeddingGeneratedAt.Should().Be(testDate);
         }
 
         [Theory]

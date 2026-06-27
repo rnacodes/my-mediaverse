@@ -194,17 +194,16 @@ namespace MyMediaVerse.UnitTests.Application
         #region GetStatusAsync
 
         [Fact]
-        public async Task GetStatusAsync_WithInMemoryDb_ThrowsDueToRawSql()
+        public async Task GetStatusAsync_ReturnsStatus_WithGenerationModel()
         {
             _mockGradientClient.IsAvailableAsync().Returns(true);
-            _mockGradientClient.EmbeddingModelName.Returns("text-embedding-3-large");
-            _mockGradientClient.EmbeddingDimensions.Returns(1024);
             _mockGradientClient.GenerationModelName.Returns("gradient-model");
 
-            // GetStatusAsync uses raw SQL for embedding counts, which InMemory provider doesn't support
-            Func<Task> act = async () => await _service.GetStatusAsync();
+            var status = await _service.GetStatusAsync();
 
-            await act.Should().ThrowAsync<InvalidOperationException>();
+            status.IsAvailable.Should().BeTrue();
+            status.GenerationModel.Should().Be("gradient-model");
+            status.PendingNoteDescriptions.Should().Be(0);
         }
 
         #endregion

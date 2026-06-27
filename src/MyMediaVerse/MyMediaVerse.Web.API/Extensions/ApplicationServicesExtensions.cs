@@ -1,6 +1,5 @@
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Services;
-using MyMediaVerse.Infrastructure.Repositories;
 using MyMediaVerse.Infrastructure.Services.Sync;
 using MyMediaVerse.Shared.Interfaces;
 
@@ -58,7 +57,6 @@ public static class ApplicationServicesExtensions
         services.AddScoped<INoteService, NoteService>();
         services.AddScoped<IAIService, AIService>();
 
-        services.AddScoped<IVectorSearchRepository, VectorSearchRepository>();
         services.AddScoped<IRecommendationService, RecommendationService>();
 
         services.AddScoped<ITraktSyncService, TraktSyncService>();

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using Pgvector;
 
 #nullable disable
 
@@ -62,7 +61,7 @@ namespace MyMediaVerse.Infrastructure.Migrations
                     Description = table.Column<string>(type: "text", nullable: true),
                     RelatedNotes = table.Column<string>(type: "text", nullable: true),
                     Thumbnail = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
-                    Embedding = table.Column<Vector>(type: "vector(1024)", nullable: true),
+                    Embedding = table.Column<string>(type: "vector(1024)", nullable: true),
                     EmbeddingGeneratedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     EmbeddingModel = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true)
                 },
@@ -105,7 +104,7 @@ namespace MyMediaVerse.Infrastructure.Migrations
                     AiDescription = table.Column<string>(type: "text", nullable: true),
                     AiDescriptionGeneratedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     IsDescriptionManual = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
-                    Embedding = table.Column<Vector>(type: "vector(1024)", nullable: true),
+                    Embedding = table.Column<string>(type: "vector(1024)", nullable: true),
                     EmbeddingGeneratedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     EmbeddingModel = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true)
                 },

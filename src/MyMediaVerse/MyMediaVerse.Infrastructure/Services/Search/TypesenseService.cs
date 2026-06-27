@@ -1254,8 +1254,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
         // Hybrid/Semantic Search methods
         // When auto-embedding is enabled, Typesense generates the query vector from the query text
         // and blends keyword + vector matches via rank fusion. With no OpenAI key these fall back to
-        // keyword-only search. The queryEmbedding parameter is retained for interface compatibility
-        // but is no longer used - Typesense embeds the query itself.
+        // keyword-only search.
         // ============================================
 
         /// <summary>
@@ -1264,7 +1263,6 @@ namespace MyMediaVerse.Infrastructure.Services.Search
         /// </summary>
         public async Task<object> HybridSearchMediaAsync(
             string query,
-            float[]? queryEmbedding = null,
             string? filters = null,
             float alpha = 0.5f,
             int perPage = 20,
@@ -1315,7 +1313,6 @@ namespace MyMediaVerse.Infrastructure.Services.Search
         /// </summary>
         public async Task<object> HybridSearchNotesAsync(
             string query,
-            float[]? queryEmbedding = null,
             string? filters = null,
             float alpha = 0.5f,
             int perPage = 20,
@@ -1654,30 +1651,6 @@ namespace MyMediaVerse.Infrastructure.Services.Search
 
             [JsonPropertyName("embedding")]
             public float[]? Embedding { get; set; }
-        }
-
-        /// <summary>
-        /// Updates the embedding for a media item.
-        /// Note: Embeddings are stored in PostgreSQL, not Typesense.
-        /// This method is a no-op placeholder for interface compatibility.
-        /// </summary>
-        public Task UpdateMediaItemEmbeddingAsync(Guid id, float[] embedding)
-        {
-            // Embeddings are stored in PostgreSQL with pgvector, not in Typesense
-            _logger.LogDebug("UpdateMediaItemEmbeddingAsync called for {Id} - embeddings are stored in PostgreSQL, not Typesense.", id);
-            return Task.CompletedTask;
-        }
-
-        /// <summary>
-        /// Updates the embedding for a note.
-        /// Note: Embeddings are stored in PostgreSQL, not Typesense.
-        /// This method is a no-op placeholder for interface compatibility.
-        /// </summary>
-        public Task UpdateNoteEmbeddingAsync(Guid id, float[] embedding)
-        {
-            // Embeddings are stored in PostgreSQL with pgvector, not in Typesense
-            _logger.LogDebug("UpdateNoteEmbeddingAsync called for {Id} - embeddings are stored in PostgreSQL, not Typesense.", id);
-            return Task.CompletedTask;
         }
 
         // ============================================

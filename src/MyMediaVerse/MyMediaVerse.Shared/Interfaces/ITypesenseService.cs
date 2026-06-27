@@ -215,7 +215,6 @@ namespace MyMediaVerse.Shared.Interfaces
         /// Uses Typesense's vector search with rank fusion.
         /// </summary>
         /// <param name="query">The search query text</param>
-        /// <param name="queryEmbedding">Optional embedding vector for semantic search</param>
         /// <param name="filters">Optional filter string (e.g., "media_type:=Book")</param>
         /// <param name="alpha">Balance between keyword (0) and vector (1) search. Default 0.5</param>
         /// <param name="perPage">Number of results per page (default 20)</param>
@@ -223,7 +222,6 @@ namespace MyMediaVerse.Shared.Interfaces
         /// <returns>Search results with hybrid ranking</returns>
         Task<object> HybridSearchMediaAsync(
             string query,
-            float[]? queryEmbedding = null,
             string? filters = null,
             float alpha = 0.5f,
             int perPage = 20,
@@ -234,7 +232,6 @@ namespace MyMediaVerse.Shared.Interfaces
         /// Uses Typesense's vector search with rank fusion.
         /// </summary>
         /// <param name="query">The search query text</param>
-        /// <param name="queryEmbedding">Optional embedding vector for semantic search</param>
         /// <param name="filters">Optional filter string (e.g., "vault_name:=general")</param>
         /// <param name="alpha">Balance between keyword (0) and vector (1) search. Default 0.5</param>
         /// <param name="perPage">Number of results per page (default 20)</param>
@@ -242,7 +239,6 @@ namespace MyMediaVerse.Shared.Interfaces
         /// <returns>Search results with hybrid ranking</returns>
         Task<object> HybridSearchNotesAsync(
             string query,
-            float[]? queryEmbedding = null,
             string? filters = null,
             float alpha = 0.5f,
             int perPage = 20,
@@ -318,20 +314,6 @@ namespace MyMediaVerse.Shared.Interfaces
         /// Used to average liked items' vectors for personalized recommendations.
         /// </summary>
         Task<IReadOnlyList<float[]>> GetMediaEmbeddingsAsync(IReadOnlyCollection<Guid> ids);
-
-        /// <summary>
-        /// Updates the embedding for a media item in Typesense.
-        /// </summary>
-        /// <param name="id">The media item ID</param>
-        /// <param name="embedding">The embedding vector</param>
-        Task UpdateMediaItemEmbeddingAsync(Guid id, float[] embedding);
-
-        /// <summary>
-        /// Updates the embedding for a note in Typesense.
-        /// </summary>
-        /// <param name="id">The note ID</param>
-        /// <param name="embedding">The embedding vector</param>
-        Task UpdateNoteEmbeddingAsync(Guid id, float[] embedding);
 
         // ============================================
         // Highlights collection methods
