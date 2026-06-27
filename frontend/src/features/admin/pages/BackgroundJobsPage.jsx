@@ -10,17 +10,12 @@ import {
     Info as InfoIcon,
     Movie as MovieIcon,
     Podcasts as PodcastsIcon,
-    Psychology as PsychologyIcon,
 } from '@mui/icons-material';
 import {
     useBookEnrichmentStatus, useRunBookEnrichment, useRunBookEnrichmentAll,
     useMovieTvEnrichmentStatus, useRunMovieEnrichment, useRunTvShowEnrichment, useRunMovieTvEnrichmentAll,
     usePodcastEnrichmentStatus, useRunPodcastEnrichment, useRunPodcastEnrichmentAll,
 } from '@/hooks/useBackgroundJobs';
-import {
-    usePendingMediaEmbeddings, usePendingNoteEmbeddings,
-    useGenerateMediaEmbeddingsBatch, useGenerateNoteEmbeddingsBatch,
-} from '@/hooks/useAi';
 
 // Pull the API error message out of an axios error the same way across sections.
 const errMsg = (error, fallback) =>
@@ -147,41 +142,6 @@ const BackgroundJobsPage = () => {
     const isPodcastRunning = runningPodcastBatch || runningPodcastAll;
 
     // ==========================================
-    // Embedding Generation
-    // ==========================================
-    const mediaEmbQuery = usePendingMediaEmbeddings();
-    const noteEmbQuery = usePendingNoteEmbeddings();
-    const pendingMediaEmbeddings = mediaEmbQuery.data ?? null;
-    const pendingNoteEmbeddings = noteEmbQuery.data ?? null;
-    const embeddingStatusLoading = mediaEmbQuery.isFetching || noteEmbQuery.isFetching;
-    const embeddingStatusError = errMsg(mediaEmbQuery.error || noteEmbQuery.error, 'Failed to fetch embedding status');
-    const fetchEmbeddingStatus = () => {
-        mediaEmbQuery.refetch();
-        noteEmbQuery.refetch();
-    };
-
-    const mediaEmbeddingMutation = useGenerateMediaEmbeddingsBatch();
-    const noteEmbeddingMutation = useGenerateNoteEmbeddingsBatch();
-    const runningMediaEmbeddings = mediaEmbeddingMutation.isPending;
-    const mediaEmbeddingResult = mediaEmbeddingMutation.data ?? null;
-    const mediaEmbeddingError = errMsg(mediaEmbeddingMutation.error, 'Failed to generate media embeddings');
-    const runningNoteEmbeddings = noteEmbeddingMutation.isPending;
-    const noteEmbeddingResult = noteEmbeddingMutation.data ?? null;
-    const noteEmbeddingError = errMsg(noteEmbeddingMutation.error, 'Failed to generate note embeddings');
-
-    const [embeddingBatchSize, setEmbeddingBatchSize] = useState(50);
-
-    const handleRunMediaEmbeddings = () => {
-        mediaEmbeddingMutation.mutate(embeddingBatchSize);
-    };
-
-    const handleRunNoteEmbeddings = () => {
-        noteEmbeddingMutation.mutate(embeddingBatchSize);
-    };
-
-    const isEmbeddingRunning = runningMediaEmbeddings || runningNoteEmbeddings;
-
-    // ==========================================
     // Shared helper: render error list
     // ==========================================
     const renderErrors = (errors) => {
@@ -216,6 +176,9 @@ const BackgroundJobsPage = () => {
             <Typography variant="h3" gutterBottom sx={{ mb: 4, fontWeight: 'bold' }}>
                 Background Jobs
             </Typography>
+            <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                        Enrichment Services Coming Soon
+                    </Typography>
 
             {/* ==========================================
                 BOOK DESCRIPTION ENRICHMENT
@@ -657,123 +620,6 @@ const BackgroundJobsPage = () => {
                 </Alert>
             </Paper>
 
-            {/* ==========================================
-                EMBEDDING GENERATION
-               ========================================== */}
-            <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                    <PsychologyIcon sx={{ fontSize: 32 }} />
-                    <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
-                        Embedding Generation
-                    </Typography>
-                </Box>
-
-                <Alert severity="info" icon={<InfoIcon />} sx={{ mb: 3 }}>
-                    Generates vector embeddings for media items and notes using OpenAI.
-                    Embeddings power the AI recommendation and similarity features.
-                </Alert>
-
-                <Card variant="outlined" sx={{ mb: 3 }}>
-                    <CardContent>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                            <Typography variant="h6">Current Status</Typography>
-                            <Button variant="contained" color="primary" size="small"
-                                startIcon={embeddingStatusLoading ? <CircularProgress size={16} /> : <RefreshIcon />}
-                                onClick={fetchEmbeddingStatus} disabled={embeddingStatusLoading || isEmbeddingRunning}
-                                sx={{ color: '#fcfafa' }}>
-                                Refresh
-                            </Button>
-                        </Box>
-                        {embeddingStatusError && <Alert severity="error" sx={{ mb: 2 }}>{embeddingStatusError}</Alert>}
-                        {(pendingMediaEmbeddings !== null || pendingNoteEmbeddings !== null) && (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                                <StatBox value={pendingMediaEmbeddings?.pendingCount ?? 0} label="Media Pending Embeddings" />
-                                <StatBox value={pendingNoteEmbeddings?.pendingCount ?? 0} label="Notes Pending Embeddings" />
-                                {(pendingMediaEmbeddings?.pendingCount === 0 && pendingNoteEmbeddings?.pendingCount === 0) ? (
-                                    <Chip icon={<CheckCircleIcon />} label="All embeddings generated!" color="success" sx={{ fontWeight: 'bold' }} />
-                                ) : (
-                                    <Chip icon={<ScheduleIcon />} label="Generation available" color="warning" sx={{ fontWeight: 'bold' }} />
-                                )}
-                            </Box>
-                        )}
-                    </CardContent>
-                </Card>
-
-                <Accordion sx={{ mb: 3 }}>
-                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                        <Typography variant="h6">Configuration</Typography>
-                    </AccordionSummary>
-                    <AccordionDetails>
-                        <Grid container spacing={3}>
-                            <Grid item xs={12} md={6}>
-                                <Typography gutterBottom>Batch Size: <strong>{embeddingBatchSize}</strong> items per batch</Typography>
-                                <Slider value={embeddingBatchSize} onChange={(e, v) => setEmbeddingBatchSize(v)} min={10} max={200} step={10}
-                                    marks={[{ value: 10, label: '10' }, { value: 50, label: '50' }, { value: 100, label: '100' }, { value: 200, label: '200' }]}
-                                    disabled={isEmbeddingRunning} />
-                            </Grid>
-                        </Grid>
-                    </AccordionDetails>
-                </Accordion>
-
-                <Grid container spacing={2} sx={{ mb: 3 }}>
-                    <Grid item xs={12} md={6}>
-                        <Card variant="outlined"><CardContent>
-                            <Typography variant="h6" gutterBottom>Generate Media Embeddings</Typography>
-                            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                                Generate embeddings for {embeddingBatchSize} media items.
-                            </Typography>
-                            <Button variant="contained" color="primary" fullWidth
-                                startIcon={runningMediaEmbeddings ? <CircularProgress size={20} color="inherit" /> : <PlayIcon />}
-                                onClick={handleRunMediaEmbeddings} disabled={isEmbeddingRunning || pendingMediaEmbeddings?.pendingCount === 0}>
-                                {runningMediaEmbeddings ? 'Generating...' : 'Run Media Embeddings'}
-                            </Button>
-                        </CardContent></Card>
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                        <Card variant="outlined"><CardContent>
-                            <Typography variant="h6" gutterBottom>Generate Note Embeddings</Typography>
-                            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                                Generate embeddings for {embeddingBatchSize} notes.
-                            </Typography>
-                            <Button variant="contained" color="primary" fullWidth
-                                startIcon={runningNoteEmbeddings ? <CircularProgress size={20} color="inherit" /> : <PlayIcon />}
-                                onClick={handleRunNoteEmbeddings} disabled={isEmbeddingRunning || pendingNoteEmbeddings?.pendingCount === 0}>
-                                {runningNoteEmbeddings ? 'Generating...' : 'Run Note Embeddings'}
-                            </Button>
-                        </CardContent></Card>
-                    </Grid>
-                </Grid>
-
-                {mediaEmbeddingError && <Alert severity="error" sx={{ mb: 2 }}><strong>Media Embeddings Failed:</strong> {mediaEmbeddingError}</Alert>}
-                {mediaEmbeddingResult && (
-                    <Card variant="outlined" sx={{ mb: 2, bgcolor: 'success.dark' }}><CardContent>
-                        <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold' }}>Media Embeddings Complete</Typography>
-                        <Grid container spacing={2}>
-                            <Grid item xs={6} sm={4}><StatBox value={mediaEmbeddingResult.generated ?? mediaEmbeddingResult.totalProcessed ?? 0} label="Generated" color="success.main" /></Grid>
-                            <Grid item xs={6} sm={4}><StatBox value={mediaEmbeddingResult.failed ?? mediaEmbeddingResult.totalFailed ?? 0} label="Failed" color="error.main" /></Grid>
-                            <Grid item xs={12} sm={4}><StatBox value={mediaEmbeddingResult.skipped ?? 0} label="Skipped" color="text.secondary" /></Grid>
-                        </Grid>
-                    </CardContent></Card>
-                )}
-
-                {noteEmbeddingError && <Alert severity="error" sx={{ mb: 2 }}><strong>Note Embeddings Failed:</strong> {noteEmbeddingError}</Alert>}
-                {noteEmbeddingResult && (
-                    <Card variant="outlined" sx={{ mb: 2, bgcolor: 'success.dark' }}><CardContent>
-                        <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold' }}>Note Embeddings Complete</Typography>
-                        <Grid container spacing={2}>
-                            <Grid item xs={6} sm={4}><StatBox value={noteEmbeddingResult.generated ?? noteEmbeddingResult.totalProcessed ?? 0} label="Generated" color="success.main" /></Grid>
-                            <Grid item xs={6} sm={4}><StatBox value={noteEmbeddingResult.failed ?? noteEmbeddingResult.totalFailed ?? 0} label="Failed" color="error.main" /></Grid>
-                            <Grid item xs={12} sm={4}><StatBox value={noteEmbeddingResult.skipped ?? 0} label="Skipped" color="text.secondary" /></Grid>
-                        </Grid>
-                    </CardContent></Card>
-                )}
-
-                <Alert severity="info" icon={<ScheduleIcon />}>
-                    <Typography variant="body2">
-                        <strong>Note:</strong> Embedding generation uses the OpenAI API. Ensure your API key is configured and has sufficient quota.
-                    </Typography>
-                </Alert>
-            </Paper>
         </Container>
     );
 };
