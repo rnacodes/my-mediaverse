@@ -1,3 +1,5 @@
+using MyMediaVerse.Shared.DTOs.Search;
+
 namespace MyMediaVerse.Shared.Interfaces
 {
     /// <summary>
@@ -6,6 +8,11 @@ namespace MyMediaVerse.Shared.Interfaces
     /// </summary>
     public interface ITypesenseService
     {
+        /// <summary>
+        /// True when Typesense auto-embedding is configured (an OpenAI key is present), meaning
+        /// semantic search and recommendation features are available.
+        /// </summary>
+        bool IsAutoEmbeddingEnabled { get; }
         /// <summary>
         /// Ensures the media_items collection exists in Typesense.
         /// Creates the collection if it doesn't exist, or skips if it does.
@@ -208,7 +215,6 @@ namespace MyMediaVerse.Shared.Interfaces
         /// Uses Typesense's vector search with rank fusion.
         /// </summary>
         /// <param name="query">The search query text</param>
-        /// <param name="queryEmbedding">Optional embedding vector for semantic search</param>
         /// <param name="filters">Optional filter string (e.g., "media_type:=Book")</param>
         /// <param name="alpha">Balance between keyword (0) and vector (1) search. Default 0.5</param>
         /// <param name="perPage">Number of results per page (default 20)</param>
@@ -216,7 +222,6 @@ namespace MyMediaVerse.Shared.Interfaces
         /// <returns>Search results with hybrid ranking</returns>
         Task<object> HybridSearchMediaAsync(
             string query,
-            float[]? queryEmbedding = null,
             string? filters = null,
             float alpha = 0.5f,
             int perPage = 20,
@@ -227,7 +232,6 @@ namespace MyMediaVerse.Shared.Interfaces
         /// Uses Typesense's vector search with rank fusion.
         /// </summary>
         /// <param name="query">The search query text</param>
-        /// <param name="queryEmbedding">Optional embedding vector for semantic search</param>
         /// <param name="filters">Optional filter string (e.g., "vault_name:=general")</param>
         /// <param name="alpha">Balance between keyword (0) and vector (1) search. Default 0.5</param>
         /// <param name="perPage">Number of results per page (default 20)</param>
@@ -235,55 +239,81 @@ namespace MyMediaVerse.Shared.Interfaces
         /// <returns>Search results with hybrid ranking</returns>
         Task<object> HybridSearchNotesAsync(
             string query,
-            float[]? queryEmbedding = null,
             string? filters = null,
             float alpha = 0.5f,
             int perPage = 20,
             int page = 1);
 
         /// <summary>
-        /// Performs a pure vector similarity search for media items.
-        /// Returns items most similar to the provided embedding.
+        /// Finds media items nearest to the given media item's stored vector (same-collection
+        /// nearest-neighbor). Typesense uses the stored embedding by id, so the caller does not
+        /// need to hold the vector, and the source document is automatically excluded.
         /// </summary>
-        /// <param name="embedding">The embedding vector to search with</param>
-        /// <param name="filters">Optional filter string</param>
-        /// <param name="excludeId">Optional ID to exclude from results (e.g., the source item)</param>
+        /// <param name="id">The source media item's ID</param>
         /// <param name="limit">Maximum number of results (default 10)</param>
-        /// <returns>Similar items ranked by vector distance</returns>
-        Task<object> VectorSearchMediaAsync(
+        /// <param name="filters">Optional Typesense filter_by string (e.g., "media_type:=Book")</param>
+        /// <param name="distanceThreshold">Optional maximum vector distance; results beyond it are dropped</param>
+        Task<List<MediaVectorHit>> FindSimilarMediaByIdAsync(
+            Guid id,
+            int limit = 10,
+            string? filters = null,
+            double? distanceThreshold = null);
+
+        /// <summary>
+        /// Finds notes nearest to the given note's stored vector (same-collection nearest-neighbour).
+        /// The source document is automatically excluded.
+        /// </summary>
+        Task<List<NoteVectorHit>> FindSimilarNotesByIdAsync(
+            Guid id,
+            int limit = 10,
+            string? filters = null,
+            double? distanceThreshold = null);
+
+        /// <summary>
+        /// Finds media items nearest to a raw query vector. Used for averaged ("for you")
+        /// recommendations and cross-collection (note -> media) similarity.
+        /// </summary>
+        Task<List<MediaVectorHit>> VectorSearchMediaAsync(
             float[] embedding,
             string? filters = null,
-            Guid? excludeId = null,
-            int limit = 10);
+            int limit = 10,
+            double? distanceThreshold = null);
 
         /// <summary>
-        /// Performs a pure vector similarity search for notes.
-        /// Returns notes most similar to the provided embedding.
+        /// Finds notes nearest to a raw query vector. Used for cross-collection (media -> note) similarity.
         /// </summary>
-        /// <param name="embedding">The embedding vector to search with</param>
-        /// <param name="filters">Optional filter string</param>
-        /// <param name="excludeId">Optional ID to exclude from results</param>
-        /// <param name="limit">Maximum number of results (default 10)</param>
-        /// <returns>Similar notes ranked by vector distance</returns>
-        Task<object> VectorSearchNotesAsync(
+        Task<List<NoteVectorHit>> VectorSearchNotesAsync(
             float[] embedding,
             string? filters = null,
-            Guid? excludeId = null,
-            int limit = 10);
+            int limit = 10,
+            double? distanceThreshold = null);
 
         /// <summary>
-        /// Updates the embedding for a media item in Typesense.
+        /// Runs a semantic/hybrid media search from natural-language text (powers "vibe" search).
+        /// Typesense embeds the query text itself via the collection's remote embedder.
         /// </summary>
-        /// <param name="id">The media item ID</param>
-        /// <param name="embedding">The embedding vector</param>
-        Task UpdateMediaItemEmbeddingAsync(Guid id, float[] embedding);
+        Task<List<MediaVectorHit>> SemanticSearchMediaAsync(
+            string query,
+            string? filters = null,
+            int limit = 20);
 
         /// <summary>
-        /// Updates the embedding for a note in Typesense.
+        /// Reads a media item's stored embedding vector back out of Typesense.
+        /// Returns null if the document or its embedding is not present.
         /// </summary>
-        /// <param name="id">The note ID</param>
-        /// <param name="embedding">The embedding vector</param>
-        Task UpdateNoteEmbeddingAsync(Guid id, float[] embedding);
+        Task<float[]?> GetMediaEmbeddingAsync(Guid id);
+
+        /// <summary>
+        /// Reads a note's stored embedding vector back out of Typesense.
+        /// Returns null if the document or its embedding is not present.
+        /// </summary>
+        Task<float[]?> GetNoteEmbeddingAsync(Guid id);
+
+        /// <summary>
+        /// Reads multiple media-item embeddings in a single filtered fetch.
+        /// Used to average liked items' vectors for personalized recommendations.
+        /// </summary>
+        Task<IReadOnlyList<float[]>> GetMediaEmbeddingsAsync(IReadOnlyCollection<Guid> ids);
 
         // ============================================
         // Highlights collection methods

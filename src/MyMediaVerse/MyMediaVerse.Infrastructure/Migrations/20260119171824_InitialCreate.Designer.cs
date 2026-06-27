@@ -6,7 +6,6 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using Pgvector;
 using MyMediaVerse.Infrastructure.Data;
 
 #nullable disable
@@ -88,7 +87,7 @@ namespace MyMediaVerse.Infrastructure.Migrations
                     b.Property<string>("Description")
                         .HasColumnType("text");
 
-                    b.Property<Vector>("Embedding")
+                    b.Property<string>("Embedding")
                         .HasColumnType("vector(1024)");
 
                     b.Property<DateTime?>("EmbeddingGeneratedAt")
@@ -378,7 +377,7 @@ namespace MyMediaVerse.Infrastructure.Migrations
                     b.Property<string>("Description")
                         .HasColumnType("text");
 
-                    b.Property<Vector>("Embedding")
+                    b.Property<string>("Embedding")
                         .HasColumnType("vector(1024)");
 
                     b.Property<DateTime?>("EmbeddingGeneratedAt")

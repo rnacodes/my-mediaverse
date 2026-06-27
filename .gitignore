@@ -730,3 +730,4 @@ TESTING.md
 .playwright-mcp/page-2026-05-24T20-52-56-937Z.yml
 .playwright-mcp/
 new 181.md
+deploy/mmv-stack/.env.example

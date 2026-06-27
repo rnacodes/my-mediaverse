@@ -37,15 +37,6 @@ namespace MyMediaVerse.DTOs
         [JsonPropertyName("isAvailable")]
         public bool IsAvailable { get; set; }
 
-        [JsonPropertyName("embeddingModel")]
-        public string EmbeddingModel { get; set; } = string.Empty;
-
-        [JsonPropertyName("embeddingProvider")]
-        public string EmbeddingProvider { get; set; } = "OpenAI";
-
-        [JsonPropertyName("embeddingDimensions")]
-        public int EmbeddingDimensions { get; set; }
-
         [JsonPropertyName("generationModel")]
         public string GenerationModel { get; set; } = string.Empty;
 
@@ -55,17 +46,8 @@ namespace MyMediaVerse.DTOs
         [JsonPropertyName("pendingNoteDescriptions")]
         public int PendingNoteDescriptions { get; set; }
 
-        [JsonPropertyName("pendingMediaEmbeddings")]
-        public int PendingMediaEmbeddings { get; set; }
-
-        [JsonPropertyName("pendingNoteEmbeddings")]
-        public int PendingNoteEmbeddings { get; set; }
-
         [JsonPropertyName("lastDescriptionGenerationRun")]
         public DateTime? LastDescriptionGenerationRun { get; set; }
-
-        [JsonPropertyName("lastEmbeddingGenerationRun")]
-        public DateTime? LastEmbeddingGenerationRun { get; set; }
 
         [JsonPropertyName("statusMessage")]
         public string StatusMessage { get; set; } = string.Empty;

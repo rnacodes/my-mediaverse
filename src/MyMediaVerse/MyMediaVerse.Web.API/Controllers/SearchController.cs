@@ -15,16 +15,13 @@ namespace MyMediaVerse.Web.API.Controllers
     public class SearchController : ControllerBase
     {
         private readonly ITypesenseService _typesenseService;
-        private readonly IGradientAIClient _gradientClient;
         private readonly ILogger<SearchController> _logger;
 
         public SearchController(
             ITypesenseService typesenseService,
-            IGradientAIClient gradientClient,
             ILogger<SearchController> logger)
         {
             _typesenseService = typesenseService;
-            _gradientClient = gradientClient;
             _logger = logger;
         }
 
@@ -593,28 +590,10 @@ namespace MyMediaVerse.Web.API.Controllers
                     "Semantic media search: query='{Query}', alpha={Alpha}, page={Page}, per_page={PerPage}",
                     request.Query, alpha, page, perPage);
 
-                // Generate embedding for the query
-                float[]? queryEmbedding = null;
-                if (await _gradientClient.IsAvailableAsync())
-                {
-                    try
-                    {
-                        queryEmbedding = await _gradientClient.GenerateEmbeddingAsync(request.Query);
-                        _logger.LogDebug("Generated embedding with {Dims} dimensions for query", queryEmbedding.Length);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to generate embedding for query, falling back to keyword search");
-                    }
-                }
-                else
-                {
-                    _logger.LogWarning("Gradient AI not available, falling back to keyword search");
-                }
-
+                // Typesense embeds the query text itself via the collection's remote embedder
+                // when auto-embedding is configured; otherwise it falls back to keyword-only search.
                 var results = await _typesenseService.HybridSearchMediaAsync(
                     request.Query,
-                    queryEmbedding,
                     request.Filter,
                     alpha,
                     perPage,
@@ -623,7 +602,7 @@ namespace MyMediaVerse.Web.API.Controllers
                 return Ok(new
                 {
                     results,
-                    semantic_enabled = queryEmbedding != null,
+                    semantic_enabled = _typesenseService.IsAutoEmbeddingEnabled,
                     alpha
                 });
             }
@@ -656,22 +635,10 @@ namespace MyMediaVerse.Web.API.Controllers
                     "Semantic notes search: query='{Query}', alpha={Alpha}, page={Page}, per_page={PerPage}",
                     request.Query, alpha, page, perPage);
 
-                float[]? queryEmbedding = null;
-                if (await _gradientClient.IsAvailableAsync())
-                {
-                    try
-                    {
-                        queryEmbedding = await _gradientClient.GenerateEmbeddingAsync(request.Query);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to generate embedding for query, falling back to keyword search");
-                    }
-                }
-
+                // Typesense embeds the query text itself via the collection's remote embedder
+                // when auto-embedding is configured; otherwise it falls back to keyword-only search.
                 var results = await _typesenseService.HybridSearchNotesAsync(
                     request.Query,
-                    queryEmbedding,
                     request.Filter,
                     alpha,
                     perPage,
@@ -680,7 +647,7 @@ namespace MyMediaVerse.Web.API.Controllers
                 return Ok(new
                 {
                     results,
-                    semantic_enabled = queryEmbedding != null,
+                    semantic_enabled = _typesenseService.IsAutoEmbeddingEnabled,
                     alpha
                 });
             }
@@ -710,18 +677,15 @@ namespace MyMediaVerse.Web.API.Controllers
 
                 _logger.LogInformation("Vibe search: description='{Description}', limit={Limit}", request.Description, limit);
 
-                if (!await _gradientClient.IsAvailableAsync())
+                if (!_typesenseService.IsAutoEmbeddingEnabled)
                 {
-                    return StatusCode(503, new { error = "Semantic search is not available. AI service is not configured." });
+                    return StatusCode(503, new { error = "Semantic search is not available. Typesense auto-embedding is not configured." });
                 }
 
-                // Generate embedding for the vibe description
-                var embedding = await _gradientClient.GenerateEmbeddingAsync(request.Description);
-
-                var results = await _typesenseService.VectorSearchMediaAsync(
-                    embedding,
+                // Typesense embeds the vibe description itself via the collection's remote embedder.
+                var results = await _typesenseService.SemanticSearchMediaAsync(
+                    request.Description,
                     request.Filter,
-                    null,
                     limit);
 
                 return Ok(new

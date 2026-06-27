@@ -30,7 +30,6 @@ public static class ExternalApiClientsExtensions
         services.AddPaperlessApiClient(configuration, logger);
         services.AddGoogleBooksApiClient();
         services.AddQuartzApiClient();
-        services.AddOpenAIEmbeddingsClient(configuration, logger);
         services.AddGradientAIClient(configuration, logger);
         services.AddWebsiteScrapingClients();
         services.AddRssFeedClient();
@@ -184,34 +183,6 @@ public static class ExternalApiClientsExtensions
         {
             client.DefaultRequestHeaders.Add("User-Agent", "MyMediaVerse/1.0");
             client.Timeout = TimeSpan.FromSeconds(60);
-        });
-    }
-
-    private static void AddOpenAIEmbeddingsClient(this IServiceCollection services, IConfiguration configuration, ILogger logger)
-    {
-        var openAIApiKey = configuration.GetEnvOrConfig("OpenAI:ApiKey", "OPENAI_API_KEY");
-
-        if (!string.IsNullOrEmpty(openAIApiKey))
-        {
-            var embeddingModel = configuration.GetEnvOrConfigOrDefault("OpenAI:EmbeddingModel", "text-embedding-3-large", "OPENAI_EMBEDDING_MODEL");
-            var dimensions = configuration.GetEnvOrConfigOrDefault("OpenAI:Dimensions", "1024", "OPENAI_DIMENSIONS");
-            logger.LogInformation("OpenAI embeddings configured. Model={Model}, Dimensions={Dimensions}", embeddingModel, dimensions);
-        }
-        else
-        {
-            logger.LogWarning("OpenAI API key not configured. Embedding generation will be disabled.");
-        }
-
-        services.AddHttpClient("OpenAIEmbeddings", client =>
-        {
-            client.BaseAddress = new Uri("https://api.openai.com/v1/");
-            client.DefaultRequestHeaders.Add("User-Agent", "MyMediaVerse/1.0");
-            client.Timeout = TimeSpan.FromSeconds(60);
-
-            if (!string.IsNullOrEmpty(openAIApiKey))
-            {
-                client.DefaultRequestHeaders.Add("Authorization", $"Bearer {openAIApiKey}");
-            }
         });
     }
 

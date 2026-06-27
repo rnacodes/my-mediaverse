@@ -2,7 +2,6 @@ using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Infrastructure.Data;
-using Pgvector.EntityFrameworkCore;
 
 namespace MyMediaVerse.Web.API.Extensions;
 
@@ -154,7 +153,7 @@ public static class DatabaseExtensions
     }
 
     /// <summary>
-    /// Registers the EF Core DbContext with PostgreSQL + pgvector. Skipped for the Testing environment
+    /// Registers the EF Core DbContext with PostgreSQL. Skipped for the Testing environment
     /// (WebApplicationFactory registers an InMemory DbContext instead).
     /// </summary>
     public static IServiceCollection AddDatabase(
@@ -167,14 +166,13 @@ public static class DatabaseExtensions
             return services;
         }
 
-        // EnableDynamicJson() is required for Npgsql 8.x to serialize List<string> properties as JSONB.
-        // Pgvector 0.3.x lacks the NpgsqlDataSourceBuilder extension, so we rely on EF Core's UseVector().
+        // EnableDynamicJson() is required for Npgsql to serialize List<string> properties as JSONB.
         var dataSourceBuilder = new Npgsql.NpgsqlDataSourceBuilder(connectionString);
         dataSourceBuilder.EnableDynamicJson();
         var dataSource = dataSourceBuilder.Build();
 
         services.AddDbContext<MediaLibraryDbContext>(options =>
-            options.UseNpgsql(dataSource, o => o.UseVector()));
+            options.UseNpgsql(dataSource));
 
         services.AddScoped<IApplicationDbContext>(provider =>
             provider.GetRequiredService<MediaLibraryDbContext>());

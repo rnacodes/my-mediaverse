@@ -1,30 +1,10 @@
 namespace MyMediaVerse.Shared.Interfaces
 {
     /// <summary>
-    /// Client for AI operations using multiple providers:
-    /// - OpenAI for embeddings (text-embedding-3-large with configurable dimensions)
-    /// - DigitalOcean Gradient AI for text generation (chat completions)
+    /// Client for AI text generation using DigitalOcean Gradient AI (chat completions).
     /// </summary>
     public interface IGradientAIClient
     {
-        /// <summary>
-        /// Generates a vector embedding for the given text using OpenAI.
-        /// Uses text-embedding-3-large with configurable dimensions (default: 1024).
-        /// </summary>
-        /// <param name="text">The text to generate an embedding for</param>
-        /// <param name="cancellationToken">Cancellation token</param>
-        /// <returns>A float array representing the embedding vector</returns>
-        Task<float[]> GenerateEmbeddingAsync(string text, CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// Generates vector embeddings for multiple texts in a single batch request using OpenAI.
-        /// More efficient than calling GenerateEmbeddingAsync multiple times.
-        /// </summary>
-        /// <param name="texts">The list of texts to generate embeddings for</param>
-        /// <param name="cancellationToken">Cancellation token</param>
-        /// <returns>A list of float arrays representing the embedding vectors</returns>
-        Task<List<float[]>> GenerateEmbeddingsBatchAsync(List<string> texts, CancellationToken cancellationToken = default);
-
         /// <summary>
         /// Generates text using DigitalOcean Gradient AI (chat completions).
         /// Used for generating note descriptions and other AI-powered content.
@@ -41,20 +21,10 @@ namespace MyMediaVerse.Shared.Interfaces
             CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Checks if AI services are available (either OpenAI embeddings or Gradient text generation).
+        /// Checks if the Gradient text-generation service is available.
         /// </summary>
-        /// <returns>True if at least one service is available, false otherwise</returns>
+        /// <returns>True if the service is configured, false otherwise</returns>
         Task<bool> IsAvailableAsync();
-
-        /// <summary>
-        /// Gets the name of the currently configured embedding model (OpenAI).
-        /// </summary>
-        string EmbeddingModelName { get; }
-
-        /// <summary>
-        /// Gets the configured embedding dimensions (default: 1024).
-        /// </summary>
-        int EmbeddingDimensions { get; }
 
         /// <summary>
         /// Gets the name of the currently configured text generation model (Gradient).

@@ -18,10 +18,6 @@ public static class BackgroundServicesExtensions
             configuration, NoteDescriptionGenerationOptions.SectionName, isTesting, logger,
             "Note description generation");
 
-        services.AddEnrichmentWorker<EmbeddingGenerationHostedService, EmbeddingGenerationOptions>(
-            configuration, EmbeddingGenerationOptions.SectionName, isTesting, logger,
-            "Embedding generation");
-
         services.AddEnrichmentWorker<ObsidianNoteSyncHostedService, ObsidianNoteSyncOptions>(
             configuration, ObsidianNoteSyncOptions.SectionName, isTesting, logger,
             "Obsidian note sync");

@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using MyMediaVerse.Infrastructure.Data;
 using Npgsql;
-using Pgvector.EntityFrameworkCore;
 using Respawn;
 using Testcontainers.PostgreSql;
 
@@ -63,7 +62,7 @@ namespace MyMediaVerse.IntegrationTests.Fixtures
             var dataSource = dataSourceBuilder.Build();
 
             var options = new DbContextOptionsBuilder<MediaLibraryDbContext>()
-                .UseNpgsql(dataSource, o => o.UseVector())
+                .UseNpgsql(dataSource)
                 .Options;
 
             return new MediaLibraryDbContext(options);

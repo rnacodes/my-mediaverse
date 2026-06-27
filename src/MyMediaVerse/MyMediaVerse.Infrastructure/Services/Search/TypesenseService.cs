@@ -1,9 +1,12 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
+using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Infrastructure.Models;
+using MyMediaVerse.Shared.DTOs.Search;
 using MyMediaVerse.Shared.Interfaces;
 using Typesense;
 using Typesense.Setup;
@@ -1251,8 +1254,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
         // Hybrid/Semantic Search methods
         // When auto-embedding is enabled, Typesense generates the query vector from the query text
         // and blends keyword + vector matches via rank fusion. With no OpenAI key these fall back to
-        // keyword-only search. The queryEmbedding parameter is retained for interface compatibility
-        // but is no longer used - Typesense embeds the query itself.
+        // keyword-only search.
         // ============================================
 
         /// <summary>
@@ -1261,7 +1263,6 @@ namespace MyMediaVerse.Infrastructure.Services.Search
         /// </summary>
         public async Task<object> HybridSearchMediaAsync(
             string query,
-            float[]? queryEmbedding = null,
             string? filters = null,
             float alpha = 0.5f,
             int perPage = 20,
@@ -1312,7 +1313,6 @@ namespace MyMediaVerse.Infrastructure.Services.Search
         /// </summary>
         public async Task<object> HybridSearchNotesAsync(
             string query,
-            float[]? queryEmbedding = null,
             string? filters = null,
             float alpha = 0.5f,
             int perPage = 20,
@@ -1357,72 +1357,300 @@ namespace MyMediaVerse.Infrastructure.Services.Search
             }
         }
 
-        /// <summary>
-        /// Vector similarity search for media items.
-        /// Note: This is a placeholder. Actual vector search is handled by PostgreSQL + pgvector
-        /// via the RecommendationService for better performance and consistency.
-        /// </summary>
-        public async Task<object> VectorSearchMediaAsync(
-            float[] embedding,
-            string? filters = null,
-            Guid? excludeId = null,
-            int limit = 10)
-        {
-            // Vector search should be done via PostgreSQL + pgvector through RecommendationService
-            // This method returns empty results as a fallback
-            _logger.LogWarning("VectorSearchMediaAsync called but vector search is handled by PostgreSQL. Use RecommendationService instead.");
+        /// <inheritdoc />
+        public bool IsAutoEmbeddingEnabled => _autoEmbeddingEnabled;
 
-            return await Task.FromResult(new
+        /// <summary>
+        /// Field name of the auto-embedding vector on every collection. Vector queries target this field.
+        /// </summary>
+        private const string EmbeddingFieldName = "embedding";
+
+        /// <summary>
+        /// Builds a Typesense vector query against the <c>embedding</c> field. Pass <paramref name="id"/>
+        /// for same-collection nearest-neighbour by stored vector (Typesense excludes the source), or
+        /// <paramref name="vector"/> for a raw query vector. The distance threshold is passed via
+        /// ExtraParams because the v8 client's strongly-typed property is dropped by ToQuery().
+        /// </summary>
+        private static VectorQuery BuildVectorQuery(float[]? vector, Guid? id, int limit, double? distanceThreshold)
+        {
+            Dictionary<string, string>? extraParams = distanceThreshold.HasValue
+                ? new Dictionary<string, string>
+                {
+                    ["distance_threshold"] = distanceThreshold.Value.ToString(CultureInfo.InvariantCulture)
+                }
+                : null;
+
+            return new VectorQuery(
+                vector ?? Array.Empty<float>(),
+                EmbeddingFieldName,
+                id?.ToString(),
+                limit,
+                flatSearchCutoff: null,
+                extraParams,
+                distanceThreshold: null);
+        }
+
+        /// <summary>Converts a Typesense vector distance (0 = identical) into a 0-1 similarity score.</summary>
+        private static double ToSimilarity(double? vectorDistance) =>
+            vectorDistance.HasValue ? 1.0 - vectorDistance.Value : 0.0;
+
+        private static List<MediaVectorHit> MapMediaHits(IEnumerable<Hit<MediaItemDocument>> hits) =>
+            hits.Select(h => new MediaVectorHit
             {
-                found = 0,
-                hits = Array.Empty<object>(),
-                message = "Vector search is handled by PostgreSQL + pgvector. Use RecommendationService for similarity queries."
-            });
-        }
+                Id = Guid.TryParse(h.Document.Id, out var id) ? id : Guid.Empty,
+                Title = h.Document.Title,
+                MediaType = h.Document.MediaType,
+                Description = h.Document.Description,
+                Thumbnail = h.Document.Thumbnail,
+                Status = h.Document.Status,
+                Rating = h.Document.Rating,
+                SimilarityScore = ToSimilarity(h.VectorDistance)
+            }).ToList();
 
-        /// <summary>
-        /// Vector similarity search for notes.
-        /// Note: This is a placeholder. Actual vector search is handled by PostgreSQL + pgvector
-        /// via the RecommendationService.
-        /// </summary>
-        public async Task<object> VectorSearchNotesAsync(
-            float[] embedding,
-            string? filters = null,
-            Guid? excludeId = null,
-            int limit = 10)
-        {
-            _logger.LogWarning("VectorSearchNotesAsync called but vector search is handled by PostgreSQL. Use RecommendationService instead.");
-
-            return await Task.FromResult(new
+        private static List<NoteVectorHit> MapNoteHits(IEnumerable<Hit<ObsidianNoteDocument>> hits) =>
+            hits.Select(h => new NoteVectorHit
             {
-                found = 0,
-                hits = Array.Empty<object>(),
-                message = "Vector search is handled by PostgreSQL + pgvector. Use RecommendationService for similarity queries."
-            });
+                Id = Guid.TryParse(h.Document.Id, out var id) ? id : Guid.Empty,
+                Title = h.Document.Title,
+                VaultName = h.Document.VaultName,
+                Description = h.Document.Description,
+                SourceUrl = h.Document.SourceUrl,
+                Tags = h.Document.Tags,
+                SimilarityScore = ToSimilarity(h.VectorDistance)
+            }).ToList();
+
+        /// <summary>Runs a vector query against the media collection via multi-search and maps the hits.</summary>
+        private async Task<List<MediaVectorHit>> RunMediaVectorSearchAsync(VectorQuery vectorQuery, string? filters, int limit)
+        {
+            var parameters = new MultiSearchParameters(_mediaCollectionName, "*")
+            {
+                VectorQuery = vectorQuery,
+                PerPage = limit,
+                ExcludeFields = EmbeddingFieldName
+            };
+            if (!string.IsNullOrEmpty(filters))
+                parameters.FilterBy = filters;
+
+            var result = await _typesenseClient.MultiSearch<MediaItemDocument>(parameters);
+            return MapMediaHits(result.Hits);
+        }
+
+        /// <summary>Runs a vector query against the notes collection via multi-search and maps the hits.</summary>
+        private async Task<List<NoteVectorHit>> RunNoteVectorSearchAsync(VectorQuery vectorQuery, string? filters, int limit)
+        {
+            var parameters = new MultiSearchParameters(_notesCollectionName, "*")
+            {
+                VectorQuery = vectorQuery,
+                PerPage = limit,
+                ExcludeFields = EmbeddingFieldName
+            };
+            if (!string.IsNullOrEmpty(filters))
+                parameters.FilterBy = filters;
+
+            var result = await _typesenseClient.MultiSearch<ObsidianNoteDocument>(parameters);
+            return MapNoteHits(result.Hits);
+        }
+
+        /// <inheritdoc />
+        public async Task<List<MediaVectorHit>> FindSimilarMediaByIdAsync(
+            Guid id, int limit = 10, string? filters = null, double? distanceThreshold = null)
+        {
+            if (!_autoEmbeddingEnabled)
+            {
+                _logger.LogWarning("FindSimilarMediaByIdAsync called while auto-embedding is disabled; returning no results.");
+                return new List<MediaVectorHit>();
+            }
+
+            try
+            {
+                var vectorQuery = BuildVectorQuery(vector: null, id: id, limit, distanceThreshold);
+                return await RunMediaVectorSearchAsync(vectorQuery, filters, limit);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error finding media items similar to {Id} in Typesense.", id);
+                throw;
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task<List<NoteVectorHit>> FindSimilarNotesByIdAsync(
+            Guid id, int limit = 10, string? filters = null, double? distanceThreshold = null)
+        {
+            if (!_autoEmbeddingEnabled)
+            {
+                _logger.LogWarning("FindSimilarNotesByIdAsync called while auto-embedding is disabled; returning no results.");
+                return new List<NoteVectorHit>();
+            }
+
+            try
+            {
+                var vectorQuery = BuildVectorQuery(vector: null, id: id, limit, distanceThreshold);
+                return await RunNoteVectorSearchAsync(vectorQuery, filters, limit);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error finding notes similar to {Id} in Typesense.", id);
+                throw;
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task<List<MediaVectorHit>> VectorSearchMediaAsync(
+            float[] embedding, string? filters = null, int limit = 10, double? distanceThreshold = null)
+        {
+            if (!_autoEmbeddingEnabled)
+            {
+                _logger.LogWarning("VectorSearchMediaAsync called while auto-embedding is disabled; returning no results.");
+                return new List<MediaVectorHit>();
+            }
+            if (embedding == null || embedding.Length == 0)
+                return new List<MediaVectorHit>();
+
+            try
+            {
+                var vectorQuery = BuildVectorQuery(embedding, id: null, limit, distanceThreshold);
+                return await RunMediaVectorSearchAsync(vectorQuery, filters, limit);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error performing media vector search in Typesense.");
+                throw;
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task<List<NoteVectorHit>> VectorSearchNotesAsync(
+            float[] embedding, string? filters = null, int limit = 10, double? distanceThreshold = null)
+        {
+            if (!_autoEmbeddingEnabled)
+            {
+                _logger.LogWarning("VectorSearchNotesAsync called while auto-embedding is disabled; returning no results.");
+                return new List<NoteVectorHit>();
+            }
+            if (embedding == null || embedding.Length == 0)
+                return new List<NoteVectorHit>();
+
+            try
+            {
+                var vectorQuery = BuildVectorQuery(embedding, id: null, limit, distanceThreshold);
+                return await RunNoteVectorSearchAsync(vectorQuery, filters, limit);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error performing notes vector search in Typesense.");
+                throw;
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task<List<MediaVectorHit>> SemanticSearchMediaAsync(string query, string? filters = null, int limit = 20)
+        {
+            if (string.IsNullOrWhiteSpace(query))
+                return new List<MediaVectorHit>();
+
+            try
+            {
+                var searchParameters = new SearchParameters(
+                    query,
+                    BuildQueryBy("title,description,author,director,creator,publisher"))
+                {
+                    PerPage = limit,
+                    SortBy = "_text_match:desc,date_added:desc"
+                };
+
+                if (_autoEmbeddingEnabled)
+                {
+                    searchParameters.ExcludeFields = EmbeddingFieldName;
+                    // Remote embedders (OpenAI auto-embedding) reject prefix search.
+                    searchParameters.Prefix = false;
+                }
+
+                if (!string.IsNullOrEmpty(filters))
+                    searchParameters.FilterBy = filters;
+
+                var result = await _typesenseClient.Search<MediaItemDocument>(_mediaCollectionName, searchParameters);
+                return MapMediaHits(result.Hits);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error performing semantic media search for '{Query}'.", query);
+                throw;
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task<float[]?> GetMediaEmbeddingAsync(Guid id)
+        {
+            var embeddings = await GetMediaEmbeddingsAsync(new[] { id });
+            return embeddings.Count > 0 ? embeddings[0] : null;
+        }
+
+        /// <inheritdoc />
+        public async Task<IReadOnlyList<float[]>> GetMediaEmbeddingsAsync(IReadOnlyCollection<Guid> ids)
+        {
+            if (!_autoEmbeddingEnabled || ids == null || ids.Count == 0)
+                return Array.Empty<float[]>();
+
+            try
+            {
+                var searchParameters = new SearchParameters("*", "title")
+                {
+                    FilterBy = $"id:[{string.Join(",", ids)}]",
+                    IncludeFields = $"id,{EmbeddingFieldName}",
+                    PerPage = ids.Count
+                };
+
+                var result = await _typesenseClient.Search<EmbeddingDocument>(_mediaCollectionName, searchParameters);
+                return result.Hits
+                    .Where(h => h.Document.Embedding is { Length: > 0 })
+                    .Select(h => h.Document.Embedding!)
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error reading media embeddings from Typesense.");
+                throw;
+            }
+        }
+
+        /// <inheritdoc />
+        public async Task<float[]?> GetNoteEmbeddingAsync(Guid id)
+        {
+            if (!_autoEmbeddingEnabled)
+                return null;
+
+            try
+            {
+                var searchParameters = new SearchParameters("*", "title")
+                {
+                    FilterBy = $"id:={id}",
+                    IncludeFields = $"id,{EmbeddingFieldName}",
+                    PerPage = 1
+                };
+
+                var result = await _typesenseClient.Search<EmbeddingDocument>(_notesCollectionName, searchParameters);
+                var embedding = result.Hits.FirstOrDefault()?.Document.Embedding;
+                return embedding is { Length: > 0 } ? embedding : null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error reading note embedding for {Id} from Typesense.", id);
+                throw;
+            }
         }
 
         /// <summary>
-        /// Updates the embedding for a media item.
-        /// Note: Embeddings are stored in PostgreSQL, not Typesense.
-        /// This method is a no-op placeholder for interface compatibility.
+        /// Minimal projection used to read stored embedding vectors back out of Typesense via
+        /// include_fields. The document models do not expose the vector (it is write-only / excluded).
         /// </summary>
-        public Task UpdateMediaItemEmbeddingAsync(Guid id, float[] embedding)
+        private sealed class EmbeddingDocument
         {
-            // Embeddings are stored in PostgreSQL with pgvector, not in Typesense
-            _logger.LogDebug("UpdateMediaItemEmbeddingAsync called for {Id} - embeddings are stored in PostgreSQL, not Typesense.", id);
-            return Task.CompletedTask;
-        }
+            [JsonPropertyName("id")]
+            public string Id { get; set; } = string.Empty;
 
-        /// <summary>
-        /// Updates the embedding for a note.
-        /// Note: Embeddings are stored in PostgreSQL, not Typesense.
-        /// This method is a no-op placeholder for interface compatibility.
-        /// </summary>
-        public Task UpdateNoteEmbeddingAsync(Guid id, float[] embedding)
-        {
-            // Embeddings are stored in PostgreSQL with pgvector, not in Typesense
-            _logger.LogDebug("UpdateNoteEmbeddingAsync called for {Id} - embeddings are stored in PostgreSQL, not Typesense.", id);
-            return Task.CompletedTask;
+            [JsonPropertyName("embedding")]
+            public float[]? Embedding { get; set; }
         }
 
         // ============================================

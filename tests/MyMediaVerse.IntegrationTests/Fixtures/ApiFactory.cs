@@ -10,7 +10,6 @@ using MyMediaVerse.Infrastructure.Data;
 using MyMediaVerse.Shared.Interfaces;
 using NSubstitute;
 using Npgsql;
-using Pgvector.EntityFrameworkCore;
 using Respawn;
 using Testcontainers.PostgreSql;
 
@@ -134,7 +133,7 @@ namespace MyMediaVerse.IntegrationTests.Fixtures
                 var dataSource = dataSourceBuilder.Build();
 
                 services.AddDbContext<MediaLibraryDbContext>(options =>
-                    options.UseNpgsql(dataSource, o => o.UseVector()));
+                    options.UseNpgsql(dataSource));
 
                 services.AddScoped<IApplicationDbContext>(provider =>
                     provider.GetRequiredService<MediaLibraryDbContext>());

@@ -14,7 +14,6 @@ namespace MyMediaVerse.UnitTests.TestHelpers
     ///   <item><description><c>EF.Functions.ILike</c> — InMemory has no case-insensitive LIKE translator and throws at runtime.</description></item>
     ///   <item><description>Full-text search (<c>tsvector</c>, <c>to_tsquery</c>, <c>plainto_tsquery</c>) — Postgres-only.</description></item>
     ///   <item><description>JSONB operators (<c>-&gt;&gt;</c>, <c>@&gt;</c>, etc.) and dynamic JSON serialization — InMemory stores POCOs, no JSONB query path.</description></item>
-    ///   <item><description>pgvector (<c>vector</c> column type, <c>&lt;-&gt;</c> / <c>&lt;=&gt;</c> operators, <c>VectorSearchRepository</c>) — extension only exists on Postgres.</description></item>
     ///   <item><description>Database-generated SQL (sequences, raw SQL via <c>FromSqlRaw</c> using Postgres syntax, computed columns).</description></item>
     /// </list>
     /// <para>
