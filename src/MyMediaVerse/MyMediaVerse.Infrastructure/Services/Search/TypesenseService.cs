@@ -447,9 +447,11 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     documents.Add(document);
                 }
 
-                // Reset collection to remove any orphaned/stale documents
-                _logger.LogInformation("Resetting collection '{CollectionName}' before re-indexing to remove stale data...", _mediaCollectionName);
-                await ResetMediaItemsCollectionAsync();
+                // Ensure the collection exists without dropping it. Upsert-in-place keeps the live
+                // index searchable throughout and lets Typesense skip re-embedding unchanged docs
+                // (the embedding_source text is stable). Deleted rows are reconciled separately by
+                // an ID-diff pass; use the explicit reset endpoint for a destructive full rebuild.
+                await EnsureCollectionExistsAsync();
 
                 if (documents.Count == 0)
                 {
@@ -457,12 +459,12 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     return 0;
                 }
 
-                // Import documents in batch (collection is fresh, so use Create)
+                // Upsert so existing docs are updated in place; unchanged docs avoid a needless re-embed.
                 var importResults = await _typesenseClient.ImportDocuments<MediaItemDocument>(
                     _mediaCollectionName,
                     documents,
                     40, // Batch size
-                    ImportType.Create
+                    ImportType.Upsert
                 );
 
                 var successCount = importResults.Count(r => r.Success);
@@ -790,9 +792,11 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     documents.Add(document);
                 }
 
-                // Reset collection to remove any orphaned/stale documents
-                _logger.LogInformation("Resetting collection '{CollectionName}' before re-indexing to remove stale data...", _mixlistCollectionName);
-                await ResetMixlistsCollectionAsync();
+                // Ensure the collection exists without dropping it. Upsert-in-place keeps the live
+                // index searchable throughout and lets Typesense skip re-embedding unchanged docs
+                // (the embedding_source text is stable). Deleted rows are reconciled separately by
+                // an ID-diff pass; use the explicit reset endpoint for a destructive full rebuild.
+                await EnsureMixlistCollectionExistsAsync();
 
                 if (documents.Count == 0)
                 {
@@ -800,12 +804,12 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     return 0;
                 }
 
-                // Import documents in batch (collection is fresh, so use Create)
+                // Upsert so existing docs are updated in place; unchanged docs avoid a needless re-embed.
                 var importResults = await _typesenseClient.ImportDocuments<MixlistDocument>(
                     _mixlistCollectionName,
                     documents,
                     40, // Batch size
-                    ImportType.Create
+                    ImportType.Upsert
                 );
 
                 var successCount = importResults.Count(r => r.Success);
@@ -1121,9 +1125,11 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     LinkedMediaCount = note.MediaItemNotes.Count
                 }).ToList();
 
-                // Reset collection to remove any orphaned/stale documents
-                _logger.LogInformation("Resetting collection '{CollectionName}' before re-indexing to remove stale data...", _notesCollectionName);
-                await ResetNotesCollectionAsync();
+                // Ensure the collection exists without dropping it. Upsert-in-place keeps the live
+                // index searchable throughout and lets Typesense skip re-embedding unchanged docs
+                // (the embedding_source text is stable). Deleted rows are reconciled separately by
+                // an ID-diff pass; use the explicit reset endpoint for a destructive full rebuild.
+                await EnsureNotesCollectionExistsAsync();
 
                 if (documents.Count == 0)
                 {
@@ -1131,12 +1137,12 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     return 0;
                 }
 
-                // Import documents in batch (collection is fresh, so use Create)
+                // Upsert so existing docs are updated in place; unchanged docs avoid a needless re-embed.
                 var importResults = await _typesenseClient.ImportDocuments<ObsidianNoteDocument>(
                     _notesCollectionName,
                     documents,
                     40,
-                    ImportType.Create
+                    ImportType.Upsert
                 );
 
                 var successCount = importResults.Count(r => r.Success);
@@ -1915,9 +1921,11 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     };
                 }).ToList();
 
-                // Reset collection to remove any orphaned/stale documents
-                _logger.LogInformation("Resetting collection '{CollectionName}' before re-indexing to remove stale data...", _highlightsCollectionName);
-                await ResetHighlightsCollectionAsync();
+                // Ensure the collection exists without dropping it. Upsert-in-place keeps the live
+                // index searchable throughout and lets Typesense skip re-embedding unchanged docs
+                // (the embedding_source text is stable). Deleted rows are reconciled separately by
+                // an ID-diff pass; use the explicit reset endpoint for a destructive full rebuild.
+                await EnsureHighlightsCollectionExistsAsync();
 
                 if (documents.Count == 0)
                 {
@@ -1925,12 +1933,12 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     return 0;
                 }
 
-                // Import documents in batch (collection is fresh, so use Create)
+                // Upsert so existing docs are updated in place; unchanged docs avoid a needless re-embed.
                 var importResults = await _typesenseClient.ImportDocuments<HighlightDocument>(
                     _highlightsCollectionName,
                     documents,
                     40,
-                    ImportType.Create
+                    ImportType.Upsert
                 );
 
                 var successCount = importResults.Count(r => r.Success);

@@ -71,15 +71,18 @@ namespace MyMediaVerse.Infrastructure.Models
         /// Text composed for semantic embedding. Typesense auto-embeds this via the collection's
         /// embedding field, so keyword and vector search stay sourced from one place. Serialized
         /// on write; ignored when search hits are deserialized back (no setter).
+        /// The aggregated lists (topics/genres/titles) come from unordered set operations, so they
+        /// are sorted here to produce a byte-identical string for an unchanged mixlist; that lets
+        /// Typesense skip re-embedding (and the paid embedding call) when nothing changed.
         /// </summary>
         [JsonPropertyName("embedding_source")]
         public string EmbeddingSource => string.Join("\n", new[]
         {
             Name,
             Description,
-            Topics.Count > 0 ? string.Join(", ", Topics) : null,
-            Genres.Count > 0 ? string.Join(", ", Genres) : null,
-            MediaItemTitles.Count > 0 ? string.Join(", ", MediaItemTitles) : null,
+            Topics.Count > 0 ? string.Join(", ", Topics.OrderBy(t => t, StringComparer.Ordinal)) : null,
+            Genres.Count > 0 ? string.Join(", ", Genres.OrderBy(g => g, StringComparer.Ordinal)) : null,
+            MediaItemTitles.Count > 0 ? string.Join(", ", MediaItemTitles.OrderBy(t => t, StringComparer.Ordinal)) : null,
         }.Where(s => !string.IsNullOrWhiteSpace(s)));
     }
 }

@@ -81,6 +81,8 @@ namespace MyMediaVerse.Infrastructure.Models
         /// Text composed for semantic embedding. Typesense auto-embeds this via the collection's
         /// embedding field, so keyword and vector search stay sourced from one place. Serialized
         /// on write; ignored when search hits are deserialized back (no setter).
+        /// Tags are sorted so an unchanged note always produces a byte-identical string; that lets
+        /// Typesense skip re-embedding (and the paid embedding call) when nothing changed.
         /// </summary>
         [JsonPropertyName("embedding_source")]
         public string EmbeddingSource => string.Join("\n", new[]
@@ -88,7 +90,7 @@ namespace MyMediaVerse.Infrastructure.Models
             Title,
             Description,
             Content,
-            Tags.Count > 0 ? string.Join(", ", Tags) : null,
+            Tags.Count > 0 ? string.Join(", ", Tags.OrderBy(t => t, StringComparer.Ordinal)) : null,
             VaultName,
         }.Where(s => !string.IsNullOrWhiteSpace(s)));
     }

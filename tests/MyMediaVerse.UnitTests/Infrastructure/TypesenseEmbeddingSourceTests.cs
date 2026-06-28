@@ -94,7 +94,8 @@ namespace MyMediaVerse.UnitTests.Infrastructure
                 Tags = new List<string> { "pkm", "notes" }
             };
 
-            doc.EmbeddingSource.Should().Be("Zettelkasten\nNote-taking method\nAtomic notes linked together\npkm, notes\ngeneral");
+            // Tags are emitted in sorted order (notes < pkm) for deterministic embedding text.
+            doc.EmbeddingSource.Should().Be("Zettelkasten\nNote-taking method\nAtomic notes linked together\nnotes, pkm\ngeneral");
         }
 
         [Fact]
@@ -145,6 +146,84 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             };
 
             doc.EmbeddingSource.Should().Be("Just the text");
+        }
+
+        // ---------- Determinism ----------
+        // The list fields (topics/genres/tags/titles) arrive in unstable order from EF navigation
+        // collections and SelectMany().Distinct(). EmbeddingSource must sort them so an unchanged
+        // item always yields a byte-identical string — that is what lets Typesense skip the paid
+        // re-embedding call on an upsert when nothing actually changed.
+
+        [Fact]
+        public void MediaItem_EmbeddingSource_IsIndependentOfTopicAndGenreOrder()
+        {
+            var a = new MediaItemDocument
+            {
+                Id = "1", Title = "Dune", MediaType = "Book", Status = "Completed", Description = "epic",
+                Topics = new List<string> { "ecology", "politics", "religion" },
+                Genres = new List<string> { "sci-fi", "adventure" }
+            };
+            var b = new MediaItemDocument
+            {
+                Id = "1", Title = "Dune", MediaType = "Book", Status = "Completed", Description = "epic",
+                Topics = new List<string> { "religion", "ecology", "politics" },
+                Genres = new List<string> { "adventure", "sci-fi" }
+            };
+
+            a.EmbeddingSource.Should().Be(b.EmbeddingSource);
+        }
+
+        [Fact]
+        public void Mixlist_EmbeddingSource_IsIndependentOfAggregatedListOrder()
+        {
+            var a = new MixlistDocument
+            {
+                Id = "1", Name = "Mix", Description = "d",
+                Topics = new List<string> { "focus", "calm" },
+                Genres = new List<string> { "ambient", "lofi" },
+                MediaItemTitles = new List<string> { "Track B", "Track A" }
+            };
+            var b = new MixlistDocument
+            {
+                Id = "1", Name = "Mix", Description = "d",
+                Topics = new List<string> { "calm", "focus" },
+                Genres = new List<string> { "lofi", "ambient" },
+                MediaItemTitles = new List<string> { "Track A", "Track B" }
+            };
+
+            a.EmbeddingSource.Should().Be(b.EmbeddingSource);
+        }
+
+        [Fact]
+        public void Note_EmbeddingSource_IsIndependentOfTagOrder()
+        {
+            var a = new ObsidianNoteDocument
+            {
+                Id = "1", Slug = "s", Title = "T", VaultName = "general",
+                Tags = new List<string> { "pkm", "notes", "zettel" }
+            };
+            var b = new ObsidianNoteDocument
+            {
+                Id = "1", Slug = "s", Title = "T", VaultName = "general",
+                Tags = new List<string> { "zettel", "pkm", "notes" }
+            };
+
+            a.EmbeddingSource.Should().Be(b.EmbeddingSource);
+        }
+
+        [Fact]
+        public void Highlight_EmbeddingSource_IsIndependentOfTagOrder()
+        {
+            var a = new HighlightDocument
+            {
+                Id = "1", Text = "t", Tags = new List<string> { "philosophy", "ethics" }
+            };
+            var b = new HighlightDocument
+            {
+                Id = "1", Text = "t", Tags = new List<string> { "ethics", "philosophy" }
+            };
+
+            a.EmbeddingSource.Should().Be(b.EmbeddingSource);
         }
     }
 }
