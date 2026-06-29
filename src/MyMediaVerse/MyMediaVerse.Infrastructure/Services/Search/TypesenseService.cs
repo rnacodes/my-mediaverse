@@ -134,6 +134,83 @@ namespace MyMediaVerse.Infrastructure.Services.Search
             _autoEmbeddingEnabled ? $"{keywordFields},embedding" : keywordFields;
 
         /// <summary>
+        /// Minimal projection used to list the IDs currently in a collection without pulling whole
+        /// documents (or their large embedding vectors) over the wire. <c>Id</c> is intentionally
+        /// not <c>required</c> so an id-only export still deserializes.
+        /// </summary>
+        internal sealed class IdProjection
+        {
+            [JsonPropertyName("id")]
+            public string Id { get; set; } = string.Empty;
+        }
+
+        /// <summary>
+        /// Computes the "orphan" IDs to remove from a collection: documents present in the index
+        /// (<paramref name="indexedIds"/>) whose source row no longer exists in PostgreSQL
+        /// (<paramref name="liveIds"/>). Pure set difference, exposed for unit testing.
+        /// </summary>
+        internal static List<string> ComputeOrphanDocumentIds(IEnumerable<string> indexedIds, IEnumerable<string> liveIds)
+        {
+            var liveSet = new HashSet<string>(liveIds, StringComparer.Ordinal);
+            return indexedIds
+                .Where(id => !string.IsNullOrEmpty(id) && !liveSet.Contains(id))
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+        }
+
+        /// <summary>
+        /// Reconciles deletes for a collection: lists the IDs currently indexed, removes any whose
+        /// source row is gone from PostgreSQL (<paramref name="liveIds"/>), and returns how many were
+        /// removed. Because the bulk reindex upserts in place (it no longer drops the collection),
+        /// rows deleted in Postgres would otherwise linger as ghost search hits; this clears them on
+        /// every reindex. Fail-safe: if listing the current IDs fails, the delete step is skipped
+        /// entirely so a partial read can never trigger a mass delete.
+        /// </summary>
+        internal async Task<int> ReconcileDeletedDocumentsAsync(string collectionName, IEnumerable<string> liveIds)
+        {
+            List<IdProjection> indexed;
+            try
+            {
+                indexed = await _typesenseClient.ExportDocuments<IdProjection>(
+                    collectionName,
+                    new ExportParameters { IncludeFields = "id" });
+            }
+            catch (Exception ex)
+            {
+                // Never delete on a partial/failed read of the current index.
+                _logger.LogWarning(ex,
+                    "Orphan reconciliation skipped for '{Collection}': could not list current document IDs.",
+                    collectionName);
+                return 0;
+            }
+
+            var orphanIds = ComputeOrphanDocumentIds(indexed.Select(d => d.Id), liveIds);
+            if (orphanIds.Count == 0)
+                return 0;
+
+            var removed = 0;
+            foreach (var orphanId in orphanIds)
+            {
+                try
+                {
+                    await _typesenseClient.DeleteDocument<IdProjection>(collectionName, orphanId);
+                    removed++;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex,
+                        "Failed to delete orphan document {Id} from '{Collection}' during reconciliation.",
+                        orphanId, collectionName);
+                }
+            }
+
+            _logger.LogInformation(
+                "Orphan reconciliation removed {Removed} stale document(s) from '{Collection}'.",
+                removed, collectionName);
+            return removed;
+        }
+
+        /// <summary>
         /// Ensures the media_items collection exists with proper schema.
         /// Called once during application startup.
         /// </summary>
@@ -449,37 +526,43 @@ namespace MyMediaVerse.Infrastructure.Services.Search
 
                 // Ensure the collection exists without dropping it. Upsert-in-place keeps the live
                 // index searchable throughout and lets Typesense skip re-embedding unchanged docs
-                // (the embedding_source text is stable). Deleted rows are reconciled separately by
-                // an ID-diff pass; use the explicit reset endpoint for a destructive full rebuild.
+                // (the embedding_source text is stable). Rows deleted in Postgres are reconciled
+                // away below; use the explicit reset endpoint for a destructive full rebuild.
                 await EnsureCollectionExistsAsync();
 
+                var successCount = 0;
                 if (documents.Count == 0)
                 {
                     _logger.LogInformation("No media items found to index.");
-                    return 0;
                 }
-
-                // Upsert so existing docs are updated in place; unchanged docs avoid a needless re-embed.
-                var importResults = await _typesenseClient.ImportDocuments<MediaItemDocument>(
-                    _mediaCollectionName,
-                    documents,
-                    40, // Batch size
-                    ImportType.Upsert
-                );
-
-                var successCount = importResults.Count(r => r.Success);
-                var failureCount = importResults.Count(r => !r.Success);
-
-                _logger.LogInformation(
-                    "Bulk re-index complete. Success: {SuccessCount}, Failures: {FailureCount}",
-                    successCount,
-                    failureCount
-                );
-
-                if (failureCount > 0)
+                else
                 {
-                    _logger.LogWarning("Some documents failed to index. Check Typesense logs for details.");
+                    // Upsert so existing docs are updated in place; unchanged docs avoid a needless re-embed.
+                    var importResults = await _typesenseClient.ImportDocuments<MediaItemDocument>(
+                        _mediaCollectionName,
+                        documents,
+                        40, // Batch size
+                        ImportType.Upsert
+                    );
+
+                    successCount = importResults.Count(r => r.Success);
+                    var failureCount = importResults.Count(r => !r.Success);
+
+                    _logger.LogInformation(
+                        "Bulk re-index complete. Success: {SuccessCount}, Failures: {FailureCount}",
+                        successCount,
+                        failureCount
+                    );
+
+                    if (failureCount > 0)
+                    {
+                        _logger.LogWarning("Some documents failed to index. Check Typesense logs for details.");
+                    }
                 }
+
+                // Remove any indexed documents whose source rows no longer exist in Postgres so
+                // deleted items stop appearing as ghost search hits.
+                await ReconcileDeletedDocumentsAsync(_mediaCollectionName, documents.Select(d => d.Id));
 
                 return successCount;
             }
@@ -794,37 +877,43 @@ namespace MyMediaVerse.Infrastructure.Services.Search
 
                 // Ensure the collection exists without dropping it. Upsert-in-place keeps the live
                 // index searchable throughout and lets Typesense skip re-embedding unchanged docs
-                // (the embedding_source text is stable). Deleted rows are reconciled separately by
-                // an ID-diff pass; use the explicit reset endpoint for a destructive full rebuild.
+                // (the embedding_source text is stable). Rows deleted in Postgres are reconciled
+                // away below; use the explicit reset endpoint for a destructive full rebuild.
                 await EnsureMixlistCollectionExistsAsync();
 
+                var successCount = 0;
                 if (documents.Count == 0)
                 {
                     _logger.LogInformation("No mixlists found to index.");
-                    return 0;
                 }
-
-                // Upsert so existing docs are updated in place; unchanged docs avoid a needless re-embed.
-                var importResults = await _typesenseClient.ImportDocuments<MixlistDocument>(
-                    _mixlistCollectionName,
-                    documents,
-                    40, // Batch size
-                    ImportType.Upsert
-                );
-
-                var successCount = importResults.Count(r => r.Success);
-                var failureCount = importResults.Count(r => !r.Success);
-
-                _logger.LogInformation(
-                    "Bulk re-index of mixlists complete. Success: {SuccessCount}, Failures: {FailureCount}",
-                    successCount,
-                    failureCount
-                );
-
-                if (failureCount > 0)
+                else
                 {
-                    _logger.LogWarning("Some mixlist documents failed to index. Check Typesense logs for details.");
+                    // Upsert so existing docs are updated in place; unchanged docs avoid a needless re-embed.
+                    var importResults = await _typesenseClient.ImportDocuments<MixlistDocument>(
+                        _mixlistCollectionName,
+                        documents,
+                        40, // Batch size
+                        ImportType.Upsert
+                    );
+
+                    successCount = importResults.Count(r => r.Success);
+                    var failureCount = importResults.Count(r => !r.Success);
+
+                    _logger.LogInformation(
+                        "Bulk re-index of mixlists complete. Success: {SuccessCount}, Failures: {FailureCount}",
+                        successCount,
+                        failureCount
+                    );
+
+                    if (failureCount > 0)
+                    {
+                        _logger.LogWarning("Some mixlist documents failed to index. Check Typesense logs for details.");
+                    }
                 }
+
+                // Remove any indexed documents whose source rows no longer exist in Postgres so
+                // deleted mixlists stop appearing as ghost search hits.
+                await ReconcileDeletedDocumentsAsync(_mixlistCollectionName, documents.Select(d => d.Id));
 
                 return successCount;
             }
@@ -1127,32 +1216,38 @@ namespace MyMediaVerse.Infrastructure.Services.Search
 
                 // Ensure the collection exists without dropping it. Upsert-in-place keeps the live
                 // index searchable throughout and lets Typesense skip re-embedding unchanged docs
-                // (the embedding_source text is stable). Deleted rows are reconciled separately by
-                // an ID-diff pass; use the explicit reset endpoint for a destructive full rebuild.
+                // (the embedding_source text is stable). Rows deleted in Postgres are reconciled
+                // away below; use the explicit reset endpoint for a destructive full rebuild.
                 await EnsureNotesCollectionExistsAsync();
 
+                var successCount = 0;
                 if (documents.Count == 0)
                 {
                     _logger.LogInformation("No notes found to index.");
-                    return 0;
+                }
+                else
+                {
+                    // Upsert so existing docs are updated in place; unchanged docs avoid a needless re-embed.
+                    var importResults = await _typesenseClient.ImportDocuments<ObsidianNoteDocument>(
+                        _notesCollectionName,
+                        documents,
+                        40,
+                        ImportType.Upsert
+                    );
+
+                    successCount = importResults.Count(r => r.Success);
+                    var failureCount = importResults.Count(r => !r.Success);
+
+                    _logger.LogInformation(
+                        "Bulk re-index of notes complete. Success: {SuccessCount}, Failures: {FailureCount}",
+                        successCount,
+                        failureCount
+                    );
                 }
 
-                // Upsert so existing docs are updated in place; unchanged docs avoid a needless re-embed.
-                var importResults = await _typesenseClient.ImportDocuments<ObsidianNoteDocument>(
-                    _notesCollectionName,
-                    documents,
-                    40,
-                    ImportType.Upsert
-                );
-
-                var successCount = importResults.Count(r => r.Success);
-                var failureCount = importResults.Count(r => !r.Success);
-
-                _logger.LogInformation(
-                    "Bulk re-index of notes complete. Success: {SuccessCount}, Failures: {FailureCount}",
-                    successCount,
-                    failureCount
-                );
+                // Remove any indexed documents whose source rows no longer exist in Postgres so
+                // deleted notes stop appearing as ghost search hits.
+                await ReconcileDeletedDocumentsAsync(_notesCollectionName, documents.Select(d => d.Id));
 
                 return successCount;
             }
@@ -1923,32 +2018,38 @@ namespace MyMediaVerse.Infrastructure.Services.Search
 
                 // Ensure the collection exists without dropping it. Upsert-in-place keeps the live
                 // index searchable throughout and lets Typesense skip re-embedding unchanged docs
-                // (the embedding_source text is stable). Deleted rows are reconciled separately by
-                // an ID-diff pass; use the explicit reset endpoint for a destructive full rebuild.
+                // (the embedding_source text is stable). Rows deleted in Postgres are reconciled
+                // away below; use the explicit reset endpoint for a destructive full rebuild.
                 await EnsureHighlightsCollectionExistsAsync();
 
+                var successCount = 0;
                 if (documents.Count == 0)
                 {
                     _logger.LogInformation("No highlights found to index.");
-                    return 0;
+                }
+                else
+                {
+                    // Upsert so existing docs are updated in place; unchanged docs avoid a needless re-embed.
+                    var importResults = await _typesenseClient.ImportDocuments<HighlightDocument>(
+                        _highlightsCollectionName,
+                        documents,
+                        40,
+                        ImportType.Upsert
+                    );
+
+                    successCount = importResults.Count(r => r.Success);
+                    var failureCount = importResults.Count(r => !r.Success);
+
+                    _logger.LogInformation(
+                        "Bulk re-index of highlights complete. Success: {SuccessCount}, Failures: {FailureCount}",
+                        successCount,
+                        failureCount
+                    );
                 }
 
-                // Upsert so existing docs are updated in place; unchanged docs avoid a needless re-embed.
-                var importResults = await _typesenseClient.ImportDocuments<HighlightDocument>(
-                    _highlightsCollectionName,
-                    documents,
-                    40,
-                    ImportType.Upsert
-                );
-
-                var successCount = importResults.Count(r => r.Success);
-                var failureCount = importResults.Count(r => !r.Success);
-
-                _logger.LogInformation(
-                    "Bulk re-index of highlights complete. Success: {SuccessCount}, Failures: {FailureCount}",
-                    successCount,
-                    failureCount
-                );
+                // Remove any indexed documents whose source rows no longer exist in Postgres so
+                // deleted highlights stop appearing as ghost search hits.
+                await ReconcileDeletedDocumentsAsync(_highlightsCollectionName, documents.Select(d => d.Id));
 
                 return successCount;
             }
