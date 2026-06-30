@@ -258,6 +258,71 @@ namespace MyMediaVerse.UnitTests.Application
             result.UpdatedCount.Should().Be(0);
         }
 
+        [Fact]
+        public async Task ImportFromCsvAsync_DuplicateRowInSameFile_CreatesOnlyOne()
+        {
+            // The same book appearing twice in one CSV must not produce two rows: the second
+            // occurrence should dedup against the one created earlier in the same run.
+            var csv = CsvStream(
+                Row("Dune", "Frank Herbert") + "\n" +
+                Row("Dune", "Frank Herbert"));
+
+            var result = await _service.ImportFromCsvAsync(csv);
+
+            result.CreatedCount.Should().Be(1);
+            result.UpdatedCount.Should().Be(1);
+            Context.Books.Count(b => b.Title == "Dune").Should().Be(1);
+        }
+
+        [Fact]
+        public async Task ImportFromCsvAsync_MoreThanOneBatch_ImportsEveryRecord()
+        {
+            // 120 distinct books spans multiple 50-record save batches; nothing should be dropped
+            // or duplicated across batch boundaries.
+            const int count = 120;
+            var body = string.Join("\n",
+                Enumerable.Range(0, count).Select(i => Row($"Book {i}", "Batch Author")));
+
+            var result = await _service.ImportFromCsvAsync(CsvStream(body));
+
+            result.TotalProcessed.Should().Be(count);
+            result.CreatedCount.Should().Be(count);
+            result.ErrorCount.Should().Be(0);
+            Context.Books.Count().Should().Be(count);
+        }
+
+        [Fact]
+        public async Task ImportFromCsvAsync_ReimportSameCsv_UpdatesNotDuplicates()
+        {
+            // Idempotency: re-running the same export updates the existing rows and creates nothing,
+            // so a retried/partial import is safe.
+            const int count = 60;
+            var body = string.Join("\n",
+                Enumerable.Range(0, count).Select(i => Row($"Book {i}", "Idem Author")));
+
+            var first = await _service.ImportFromCsvAsync(CsvStream(body));
+            first.CreatedCount.Should().Be(count);
+
+            var second = await _service.ImportFromCsvAsync(CsvStream(body));
+
+            second.CreatedCount.Should().Be(0);
+            second.UpdatedCount.Should().Be(count);
+            Context.Books.Count().Should().Be(count);
+        }
+
+        #endregion
+
+        #region CSV helpers
+
+        private const string GoodreadsHeader =
+            "Title,Author,ISBN,ISBN13,My Rating,Average Rating,Publisher,Year Published,Original Publication Year,Date Read,Date Added,Bookshelves,Exclusive Shelf,My Review,Binding";
+
+        private static MemoryStream CsvStream(string body) =>
+            new(System.Text.Encoding.UTF8.GetBytes(GoodreadsHeader + "\n" + body));
+
+        private static string Row(string title, string author, string isbn = "", string isbn13 = "") =>
+            $"\"{title}\",\"{author}\",\"{isbn}\",\"{isbn13}\",0,3.50,\"Pub\",2000,2000,,,\"shelf\",\"read\",\"\",\"Paperback\"";
+
         #endregion
     }
 }
