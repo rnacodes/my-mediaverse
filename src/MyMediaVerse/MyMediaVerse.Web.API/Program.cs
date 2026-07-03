@@ -3,6 +3,18 @@ using MyMediaVerse.Web.API.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// --- Sentry error monitoring ---
+// Reads the DSN from the SENTRY_DSN env var. When unset (local dev, Testing),
+// the SDK is disabled and this is a no-op. Environment name mirrors ASPNETCORE_ENVIRONMENT
+// (Production / Demo / Development) so issues stay separable per host in Sentry.
+builder.WebHost.UseSentry(o =>
+{
+    o.Dsn = Environment.GetEnvironmentVariable("SENTRY_DSN") ?? string.Empty;
+    o.Environment = builder.Environment.EnvironmentName;
+    // Performance/tracing is handled in a later milestone; keep it off for now.
+    o.TracesSampleRate = 0.0;
+});
+
 // Bootstrap logger for startup code (registration runs before app.Services is built).
 // Uses the same Logging config as the final app, and is disposed at shutdown.
 using var startupLoggerFactory = LoggerFactory.Create(logging =>

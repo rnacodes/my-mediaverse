@@ -253,6 +253,26 @@
   color: #666;
 }
 
+/* Failed Chunks (recoverable — distinct amber from hard errors) */
+.errors-list.failed-chunks {
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+}
+
+.errors-list.failed-chunks h3 {
+  color: #e65100;
+}
+
+.errors-list.failed-chunks ul {
+  color: #8d5b00;
+}
+
+.failed-chunks-help {
+  margin: 0.75rem 0 0;
+  font-size: 0.875rem;
+  color: #8d5b00;
+}
+
 /* Imported Books */
 .imported-books h3 {
   margin: 0 0 1rem;
