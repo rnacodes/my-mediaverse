@@ -7,7 +7,6 @@ namespace MyMediaVerse.DTOs
 {
     public class CreatePodcastSeriesDto
     {
-        // Base media item properties
         [Required]
         [JsonPropertyName("title")]
         public required string Title { get; set; }
@@ -54,13 +53,18 @@ namespace MyMediaVerse.DTOs
         [JsonPropertyName("genres")]
         public string[] Genres { get; set; } = Array.Empty<string>();
 
-        // Podcast Series specific properties
         [JsonPropertyName("publisher")]
         public string? Publisher { get; set; }
         
         [JsonPropertyName("externalId")]
         public string? ExternalId { get; set; }
-        
+
+        [JsonPropertyName("rssFeedUrl")]
+        public string? RssFeedUrl { get; set; }
+
+        [JsonPropertyName("applePodcastsId")]
+        public string? ApplePodcastsId { get; set; }
+
         [JsonPropertyName("isSubscribed")]
         public bool IsSubscribed { get; set; } = false;
         
