@@ -14,7 +14,13 @@ namespace MyMediaVerse.Domain.Entities
         // External API identifier (for imported podcasts from ListenNotes)
         [StringLength(200)]
         public string? ExternalId { get; set; }
-        
+
+        [StringLength(2000)]
+        public string? RssFeedUrl { get; set; }
+
+        [StringLength(50)]
+        public string? ApplePodcastsId { get; set; }
+
         // Subscription tracking
         public bool IsSubscribed { get; set; } = false;
         

@@ -40,7 +40,13 @@ namespace MyMediaVerse.DTOs
         
         [JsonPropertyName("externalId")]
         public string? ExternalId { get; set; }
-        
+
+        [JsonPropertyName("rssFeedUrl")]
+        public string? RssFeedUrl { get; set; }
+
+        [JsonPropertyName("applePodcastsId")]
+        public string? ApplePodcastsId { get; set; }
+
         [JsonPropertyName("isSubscribed")]
         public bool IsSubscribed { get; set; }
         

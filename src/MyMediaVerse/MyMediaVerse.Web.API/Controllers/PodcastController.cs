@@ -44,6 +44,8 @@ namespace MyMediaVerse.Web.API.Controllers
                 Thumbnail = series.Thumbnail,
                 Publisher = series.Publisher,
                 ExternalId = series.ExternalId,
+                RssFeedUrl = series.RssFeedUrl,
+                ApplePodcastsId = series.ApplePodcastsId,
                 IsSubscribed = series.IsSubscribed,
                 LastSyncDate = series.LastSyncDate,
                 TotalEpisodes = series.TotalEpisodes,

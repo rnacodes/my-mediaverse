@@ -87,6 +87,8 @@ namespace MyMediaVerse.Application.Services
                 Thumbnail = dto.Thumbnail,
                 Publisher = dto.Publisher,
                 ExternalId = dto.ExternalId,
+                RssFeedUrl = dto.RssFeedUrl,
+                ApplePodcastsId = dto.ApplePodcastsId,
                 IsSubscribed = dto.IsSubscribed,
                 LastSyncDate = dto.LastSyncDate,
                 TotalEpisodes = dto.TotalEpisodes
@@ -160,6 +162,8 @@ namespace MyMediaVerse.Application.Services
             series.RelatedNotes = dto.RelatedNotes;
             series.Thumbnail = dto.Thumbnail;
             series.Publisher = dto.Publisher;
+            series.RssFeedUrl = dto.RssFeedUrl;
+            series.ApplePodcastsId = dto.ApplePodcastsId;
 
             series.Topics.Clear();
             series.Genres.Clear();
