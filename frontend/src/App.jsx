@@ -61,10 +61,6 @@ const ImportMixlistPage = lazy(() => import('./features/imports/pages/ImportMixl
 const TypesenseAdminPage = lazy(() => import('./features/admin/pages/TypesenseAdminPage'));
 const BackgroundJobsPage = lazy(() => import('./features/admin/pages/BackgroundJobsPage'));
 
-function SentryTestTrigger() {
-  throw new Error('RAS-128 frontend test error — safe to ignore.');
-}
-
 function RouteErrorFallback({ error, resetErrorBoundary }) {
   return (
     <Box role="alert" sx={{ p: 4, maxWidth: 600, mx: 'auto', textAlign: 'center' }}>
@@ -96,8 +92,6 @@ function RoutedContent() {
             {/* Public routes - always accessible */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/demo" element={<DemoPage />} />
-            {/* TEMP (RAS-128 verification): public so it can be hit without auth. Remove after verifying. */}
-            <Route path="/sentry-test" element={<SentryTestTrigger />} />
 
             {/* Protected routes - require login in production, open in demo */}
             <Route path="/" element={
