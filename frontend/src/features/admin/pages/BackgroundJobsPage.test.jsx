@@ -5,7 +5,7 @@ import { server } from '@/test/mocks/server';
 import { API_BASE } from '@/test/mocks/handlers';
 import BackgroundJobsPage from './BackgroundJobsPage';
 
-// Five status queries fire on mount and must all be mocked (onUnhandledRequest:'error').
+// Three status queries fire on mount and must all be mocked (onUnhandledRequest:'error').
 
 describe('BackgroundJobsPage', () => {
   it('mounts and renders its primary heading', async () => {
@@ -15,8 +15,6 @@ describe('BackgroundJobsPage', () => {
         HttpResponse.json({ moviesNeedingEnrichment: 0, tvShowsNeedingEnrichment: 0 }),
       ),
       http.get(`${API_BASE}/podcastenrichment/status`, () => HttpResponse.json({ podcastsNeedingEnrichment: 0 })),
-      http.get(`${API_BASE}/ai/media/pending-embeddings`, () => HttpResponse.json({ pendingCount: 0 })),
-      http.get(`${API_BASE}/ai/notes/pending-embeddings`, () => HttpResponse.json({ pendingCount: 0 })),
     );
 
     renderWithProviders(<BackgroundJobsPage />, { route: '/admin/background-jobs' });

@@ -1,4 +1,5 @@
 using MyMediaVerse.Infrastructure.Services.Enrichment;
+using MyMediaVerse.Infrastructure.Services.Search;
 using MyMediaVerse.Infrastructure.Services.Sync;
 using MyMediaVerse.Shared.Interfaces;
 
@@ -21,6 +22,10 @@ public static class BackgroundServicesExtensions
         services.AddEnrichmentWorker<ObsidianNoteSyncHostedService, ObsidianNoteSyncOptions>(
             configuration, ObsidianNoteSyncOptions.SectionName, isTesting, logger,
             "Obsidian note sync");
+
+        services.AddEnrichmentWorker<SearchIndexSyncHostedService, SearchIndexSyncOptions>(
+            configuration, SearchIndexSyncOptions.SectionName, isTesting, logger,
+            "Search index sync");
 
         services.AddScoped<IBookDescriptionEnrichmentService, BookDescriptionEnrichmentService>();
         services.AddEnrichmentWorker<BookDescriptionEnrichmentHostedService, BookDescriptionEnrichmentOptions>(

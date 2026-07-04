@@ -38,6 +38,12 @@ namespace MyMediaVerse.Web.API.Controllers
             return null;
         }
 
+        [HttpGet("sentry-test")]
+        public IActionResult SentryTest()
+        {
+            throw new Exception("RAS-128 Sentry test exception — safe to ignore.");
+        }
+
         // POST: api/dev/reset-database
         [HttpPost("reset-database")]
         public async Task<IActionResult> ResetDatabase()

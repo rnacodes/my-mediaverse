@@ -15,6 +15,10 @@ namespace MyMediaVerse.Application.Services
         private readonly IApplicationDbContext _context;
         private readonly ILogger<GoodreadsImportService> _logger;
 
+        // Persist in batches so the unit of work (and the DB round-trips) stay bounded on a large
+        // import instead of one giant SaveChanges at the very end.
+        private const int BatchSize = 50;
+
         public GoodreadsImportService(
             IApplicationDbContext context,
             ILogger<GoodreadsImportService> logger)
@@ -43,11 +47,25 @@ namespace MyMediaVerse.Application.Services
 
                 _logger.LogInformation("Processing {Count} books from Goodreads CSV", records.Count);
 
+                // Preload existing books once into in-memory dedup dictionaries. The previous
+                // implementation ran an ISBN and/or title+author query per record, which is an N+1
+                // that times out on a 4000-book export. The books are tracked so a matched row can be
+                // updated in place without another round-trip.
+                var dedup = await BuildDedupIndexAsync();
+
+                var processedSinceSave = 0;
                 foreach (var record in records)
                 {
                     try
                     {
-                        await ProcessBookRecordAsync(record, result, updateExisting);
+                        ProcessBookRecord(record, result, updateExisting, dedup);
+
+                        // Flush every BatchSize records so neither the change tracker nor a single
+                        // SaveChanges grows unbounded over a large import.
+                        if (++processedSinceSave % BatchSize == 0)
+                        {
+                            await _context.SaveChangesAsync();
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -57,6 +75,7 @@ namespace MyMediaVerse.Application.Services
                     }
                 }
 
+                // Persist the final partial batch.
                 await _context.SaveChangesAsync();
                 _logger.LogInformation("Goodreads import complete: {Created} created, {Updated} updated, {Errors} errors",
                     result.CreatedCount, result.UpdatedCount, result.ErrorCount);
@@ -72,7 +91,23 @@ namespace MyMediaVerse.Application.Services
             return result;
         }
 
-        private async Task ProcessBookRecordAsync(GoodreadsCsvImportDto record, GoodreadsImportResultDto result, bool updateExisting)
+        /// <summary>
+        /// Loads existing books once and indexes them by cleaned ISBN and normalized title+author so
+        /// each CSV record can be deduplicated against an in-memory lookup rather than a DB query.
+        /// Books are tracked so matched rows update in place.
+        /// </summary>
+        private async Task<DedupIndex> BuildDedupIndexAsync()
+        {
+            var index = new DedupIndex();
+            var existing = await _context.Books.ToListAsync();
+            foreach (var book in existing)
+            {
+                index.Add(book);
+            }
+            return index;
+        }
+
+        private void ProcessBookRecord(GoodreadsCsvImportDto record, GoodreadsImportResultDto result, bool updateExisting, DedupIndex dedup)
         {
             if (string.IsNullOrWhiteSpace(record.Title) || string.IsNullOrWhiteSpace(record.Author))
             {
@@ -81,8 +116,9 @@ namespace MyMediaVerse.Application.Services
                 return;
             }
 
-            var cleanIsbn = CleanIsbn(record.ISBN);
-            var existingBook = await FindExistingBookAsync(cleanIsbn, record.Title, record.Author);
+            // Dedup on ISBN or ISBN13 (a book often carries only the latter), falling back to title+author.
+            var cleanIsbn = CleanIsbn(record.ISBN) ?? CleanIsbn(record.ISBN13);
+            var existingBook = dedup.Find(cleanIsbn, record.Title, record.Author);
 
             if (existingBook != null)
             {
@@ -117,6 +153,9 @@ namespace MyMediaVerse.Application.Services
                     WasUpdated = false,
                     Thumbnail = newBook.Thumbnail
                 });
+                // Index the new book so a later duplicate in the same file updates it instead of
+                // inserting a second copy.
+                dedup.Add(newBook);
             }
         }
 
@@ -281,6 +320,47 @@ namespace MyMediaVerse.Application.Services
             }
 
             return isbn.Replace("-", "").Replace(" ", "").Trim();
+        }
+
+        private static string BuildTitleAuthorKey(string title, string author) =>
+            $"{title.Trim().ToLowerInvariant()}|{author.Trim().ToLowerInvariant()}";
+
+        /// <summary>
+        /// In-memory dedup lookup for a single import run: existing (and newly created) books keyed
+        /// by cleaned ISBN and by normalized title+author, so each record is matched without a query.
+        /// </summary>
+        private sealed class DedupIndex
+        {
+            private readonly Dictionary<string, Book> _byIsbn = new(StringComparer.OrdinalIgnoreCase);
+            private readonly Dictionary<string, Book> _byTitleAuthor = new(StringComparer.OrdinalIgnoreCase);
+
+            /// <summary>ISBN match first (most reliable), then title+author. Returns null when neither matches.</summary>
+            public Book? Find(string? cleanIsbn, string title, string author)
+            {
+                if (!string.IsNullOrWhiteSpace(cleanIsbn) && _byIsbn.TryGetValue(cleanIsbn, out var byIsbn))
+                {
+                    return byIsbn;
+                }
+
+                return _byTitleAuthor.TryGetValue(BuildTitleAuthorKey(title, author), out var byTitleAuthor)
+                    ? byTitleAuthor
+                    : null;
+            }
+
+            /// <summary>
+            /// Registers a book under both keys. First write wins (mirrors the prior FirstOrDefault
+            /// behavior) so duplicate keys already present are left pointing at the original.
+            /// </summary>
+            public void Add(Book book)
+            {
+                var isbn = CleanIsbn(book.ISBN);
+                if (!string.IsNullOrWhiteSpace(isbn))
+                {
+                    _byIsbn.TryAdd(isbn, book);
+                }
+
+                _byTitleAuthor.TryAdd(BuildTitleAuthorKey(book.Title, book.Author), book);
+            }
         }
 
         private static DateTime? ParseDate(string? dateString)

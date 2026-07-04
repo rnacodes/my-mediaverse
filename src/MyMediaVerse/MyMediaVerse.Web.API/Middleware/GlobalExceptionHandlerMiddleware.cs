@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using Sentry;
 
 namespace MyMediaVerse.Web.API.Middleware
 {
@@ -27,6 +28,8 @@ namespace MyMediaVerse.Web.API.Middleware
             }
             catch (Exception ex)
             {
+                SentrySdk.CaptureException(ex);
+
                 _logger.LogError(ex, "An unhandled exception occurred: {Message}", ex.Message);
                 await HandleExceptionAsync(context, ex);
             }

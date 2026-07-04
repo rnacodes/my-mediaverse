@@ -7,6 +7,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="MyMediaVerse.UnitTests" />
+    <!-- Lets NSubstitute/Castle proxy generic client calls bound to internal projection types. -->
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="AWSSDK.S3" Version="4.0.6.4" />
     <PackageReference Include="HtmlAgilityPack" Version="1.12.4" />
     <PackageReference Include="System.ServiceModel.Syndication" Version="10.0.7" />

@@ -102,4 +102,40 @@ public class TypesenseClientCompatTests : IAsyncLifetime
         var deleted = await client.DeleteCollection(collection);
         Assert.Equal(collection, deleted.Name);
     }
+
+    [Fact]
+    public async Task ExportDocuments_with_include_fields_returns_ids_only()
+    {
+        // Pins the wire behavior the delete-reconciliation relies on: exporting with
+        // include_fields=id lists every document's id without dragging full docs (or their
+        // embedding vectors) back. See TypesenseService.ReconcileDeletedDocumentsAsync.
+        var client = CreateClient();
+        const string collection = "export_ids_check";
+
+        var schema = new Schema(collection, new List<Field>
+        {
+            new Field("id", FieldType.String, false),
+            new Field("title", FieldType.String, false),
+            new Field("media_type", FieldType.String, true),
+        });
+        await client.CreateCollection(schema);
+
+        var docs = new List<SmokeDoc>
+        {
+            new() { Id = "1", Title = "first", MediaType = "Book" },
+            new() { Id = "2", Title = "second", MediaType = "Movie" },
+            new() { Id = "3", Title = "third", MediaType = "Article" },
+        };
+        var importResults = await client.ImportDocuments(collection, docs, 40, ImportType.Create);
+        Assert.All(importResults, r => Assert.True(r.Success, r.Error));
+
+        var exported = await client.ExportDocuments<SmokeDoc>(
+            collection, new ExportParameters { IncludeFields = "id" });
+
+        Assert.Equal(new[] { "1", "2", "3" }, exported.Select(d => d.Id).OrderBy(id => id));
+        // include_fields=id means non-id fields are omitted and stay at their defaults.
+        Assert.All(exported, d => Assert.Equal(string.Empty, d.Title));
+
+        await client.DeleteCollection(collection);
+    }
 }

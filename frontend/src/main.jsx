@@ -3,9 +3,20 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ErrorBoundary } from 'react-error-boundary'
 import { QueryClientProvider } from '@tanstack/react-query'
+import * as Sentry from '@sentry/react'
 import './index.css'
 import App from './App.jsx'
 import { queryClient } from './api/queryClient'
+
+// Initialize Sentry before rendering. No-op unless VITE_SENTRY_DSN is set,
+// so local dev stays silent unless you opt in. Environment mirrors the backend
+// naming (Production / Demo / Development) for cross-referencing issues.
+if (import.meta.env.VITE_SENTRY_DSN) {
+  Sentry.init({
+    dsn: import.meta.env.VITE_SENTRY_DSN,
+    environment: import.meta.env.VITE_ENVIRONMENT || import.meta.env.MODE,
+  })
+}
 
 function RootErrorFallback({ error }) {
   return (
@@ -28,7 +39,13 @@ function RootErrorFallback({ error }) {
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <ErrorBoundary FallbackComponent={RootErrorFallback} onError={(error, info) => console.error('Top-level error:', error, info)}>
+    <ErrorBoundary
+      FallbackComponent={RootErrorFallback}
+      onError={(error, info) => {
+        console.error('Top-level error:', error, info)
+        Sentry.captureException(error)
+      }}
+    >
       <QueryClientProvider client={queryClient}>
         <App />
       </QueryClientProvider>

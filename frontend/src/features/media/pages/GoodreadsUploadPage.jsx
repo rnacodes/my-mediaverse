@@ -1,16 +1,35 @@
 import React, { useState, useRef } from 'react';
 import { useUploadGoodreadsCsv } from '@/hooks/useUpload';
+import { splitCsvIntoChunks } from '@/utils/csvChunking';
 import './GoodreadsUploadPage.css';
+
+// Books are imported in sequential chunks so large Goodreads exports don't
+// overwhelm a single request. The backend is idempotent (books are matched by
+// ISBN or Title+Author), so a chunk that fails can be safely re-uploaded.
+const ROWS_PER_CHUNK = 200;
+
+const emptySummary = () => ({
+  totalProcessed: 0,
+  successCount: 0,
+  createdCount: 0,
+  updatedCount: 0,
+  skippedCount: 0,
+  errorCount: 0,
+  errors: [],
+  importedBooks: [],
+});
 
 const GoodreadsUploadPage = () => {
   const [file, setFile] = useState(null);
   const [updateExisting, setUpdateExisting] = useState(true);
   const [error, setError] = useState(null);
+  const [importing, setImporting] = useState(false);
+  const [progress, setProgress] = useState(null); // { rowsProcessed, totalRows, chunksDone, totalChunks }
+  const [summary, setSummary] = useState(null); // aggregated GoodreadsImportResult shape
+  const [failedChunks, setFailedChunks] = useState([]);
   const fileInputRef = useRef(null);
 
   const uploadMutation = useUploadGoodreadsCsv();
-  const loading = uploadMutation.isPending;
-  const result = uploadMutation.data;
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -22,35 +41,118 @@ const GoodreadsUploadPage = () => {
       }
       setFile(selectedFile);
       setError(null);
+      setSummary(null);
+      setProgress(null);
+      setFailedChunks([]);
       uploadMutation.reset();
     }
   };
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (!file) {
       setError('Please select a file first');
       return;
     }
+
     setError(null);
-    uploadMutation.mutate(
-      { file, updateExisting },
-      {
-        onError: (err) => {
-          const errorMsg = err.response?.data?.error || err.response?.data?.details || err.message;
-          setError(`Upload failed: ${errorMsg}`);
-        },
+    setSummary(null);
+    setProgress(null);
+    setFailedChunks([]);
+    uploadMutation.reset();
+
+    let chunks;
+    try {
+      const text = await file.text();
+      chunks = splitCsvIntoChunks(text, ROWS_PER_CHUNK);
+    } catch (readErr) {
+      setError(`Could not read the CSV file: ${readErr.message}`);
+      return;
+    }
+
+    if (chunks.length === 0) {
+      setError('The CSV file has no book rows to import.');
+      return;
+    }
+
+    const totalRows = chunks.reduce((sum, chunk) => sum + chunk.rowCount, 0);
+    const agg = emptySummary();
+    const failed = [];
+    let rowsProcessed = 0;
+
+    setImporting(true);
+    setProgress({ rowsProcessed: 0, totalRows, chunksDone: 0, totalChunks: chunks.length });
+
+    for (let i = 0; i < chunks.length; i += 1) {
+      const chunk = chunks[i];
+      const chunkFile = new File([chunk.csv], file.name, { type: 'text/csv' });
+
+      try {
+        // Chunks must upload sequentially, so awaiting inside the loop is intentional.
+        const data = await uploadMutation.mutateAsync({
+          file: chunkFile,
+          updateExisting,
+          chunkIndex: i,
+          totalChunks: chunks.length,
+        });
+
+        // Chunked responses are wrapped as { chunkIndex, totalChunks, result };
+        // fall back to the bare result for safety.
+        const result = data?.result ?? data;
+        agg.totalProcessed += result.totalProcessed ?? 0;
+        agg.successCount += result.successCount ?? 0;
+        agg.createdCount += result.createdCount ?? 0;
+        agg.updatedCount += result.updatedCount ?? 0;
+        agg.skippedCount += result.skippedCount ?? 0;
+        agg.errorCount += result.errorCount ?? 0;
+        if (Array.isArray(result.errors)) {
+          agg.errors.push(...result.errors);
+        }
+        if (Array.isArray(result.importedBooks)) {
+          agg.importedBooks.push(...result.importedBooks);
+        }
+      } catch (chunkErr) {
+        const reason =
+          chunkErr.response?.data?.error ||
+          chunkErr.response?.data?.details ||
+          chunkErr.message;
+        failed.push({
+          chunkIndex: i,
+          startRow: chunk.startRow,
+          endRow: chunk.endRow,
+          reason,
+        });
       }
-    );
+
+      rowsProcessed += chunk.rowCount;
+      setSummary({ ...agg });
+      setFailedChunks([...failed]);
+      setProgress({
+        rowsProcessed,
+        totalRows,
+        chunksDone: i + 1,
+        totalChunks: chunks.length,
+      });
+    }
+
+    setImporting(false);
   };
 
   const handleClear = () => {
     setFile(null);
     setError(null);
+    setSummary(null);
+    setProgress(null);
+    setFailedChunks([]);
     uploadMutation.reset();
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
+
+  const progressPercent =
+    progress && progress.totalRows > 0
+      ? Math.round((progress.rowsProcessed / progress.totalRows) * 100)
+      : 0;
 
   return (
     <div className="goodreads-upload-page">
@@ -91,6 +193,7 @@ const GoodreadsUploadPage = () => {
             ref={fileInputRef}
             className="file-input"
             id="goodreads-file"
+            disabled={importing}
           />
           <label htmlFor="goodreads-file" className="file-input-label">
             {file ? file.name : 'Choose a CSV file...'}
@@ -103,6 +206,7 @@ const GoodreadsUploadPage = () => {
               type="checkbox"
               checked={updateExisting}
               onChange={(e) => setUpdateExisting(e.target.checked)}
+              disabled={importing}
             />
             <span>Update existing books on match</span>
           </label>
@@ -114,85 +218,106 @@ const GoodreadsUploadPage = () => {
         <div className="button-group">
           <button
             onClick={handleUpload}
-            disabled={loading || !file}
+            disabled={importing || !file}
             className="btn btn-primary"
           >
-            {loading ? 'Uploading...' : 'Upload & Import'}
+            {importing ? 'Importing...' : 'Upload & Import'}
           </button>
           <button
             onClick={handleClear}
-            disabled={loading}
+            disabled={importing}
             className="btn btn-secondary"
           >
             Clear
           </button>
         </div>
 
-        {loading && (
+        {progress && (
           <div className="progress-container">
             <div className="progress-bar">
-              <div className="progress-fill" style={{ width: '0%' }} />
+              <div className="progress-fill" style={{ width: `${progressPercent}%` }} />
             </div>
-            <p className="progress-text">Uploading...</p>
+            <p className="progress-text">
+              {importing ? 'Importing' : 'Imported'} {progress.rowsProcessed} of {progress.totalRows} rows
+              {' '}(chunk {progress.chunksDone} of {progress.totalChunks})
+            </p>
           </div>
         )}
       </section>
 
       {/* Results Section */}
-      {result && (
+      {summary && (
         <section className="upload-section results-section">
           <h2>Import Results</h2>
 
           <div className="stats-grid">
             <div className="stat-card">
-              <span className="stat-value">{result.totalProcessed}</span>
+              <span className="stat-value">{summary.totalProcessed}</span>
               <span className="stat-label">Total Processed</span>
             </div>
             <div className="stat-card success">
-              <span className="stat-value">{result.successCount}</span>
+              <span className="stat-value">{summary.successCount}</span>
               <span className="stat-label">Successful</span>
             </div>
             <div className="stat-card created">
-              <span className="stat-value">{result.createdCount}</span>
+              <span className="stat-value">{summary.createdCount}</span>
               <span className="stat-label">Created</span>
             </div>
             <div className="stat-card updated">
-              <span className="stat-value">{result.updatedCount}</span>
+              <span className="stat-value">{summary.updatedCount}</span>
               <span className="stat-label">Updated</span>
             </div>
-            {result.skippedCount > 0 && (
+            {summary.skippedCount > 0 && (
               <div className="stat-card skipped">
-                <span className="stat-value">{result.skippedCount}</span>
+                <span className="stat-value">{summary.skippedCount}</span>
                 <span className="stat-label">Skipped</span>
               </div>
             )}
-            {result.errorCount > 0 && (
+            {summary.errorCount > 0 && (
               <div className="stat-card error">
-                <span className="stat-value">{result.errorCount}</span>
+                <span className="stat-value">{summary.errorCount}</span>
                 <span className="stat-label">Errors</span>
               </div>
             )}
           </div>
 
-          {result.errors && result.errors.length > 0 && (
+          {failedChunks.length > 0 && (
+            <div className="errors-list failed-chunks">
+              <h3>Failed Chunks ({failedChunks.length})</h3>
+              <ul>
+                {failedChunks.map((fc) => (
+                  <li key={`chunk-${fc.chunkIndex}`}>
+                    Rows {fc.startRow}&ndash;{fc.endRow}: {fc.reason}
+                  </li>
+                ))}
+              </ul>
+              <p className="failed-chunks-help">
+                These chunks were skipped. The rest of your library still imported.
+                You can safely re-upload the same file &mdash; existing books are matched
+                and updated, not duplicated.
+              </p>
+            </div>
+          )}
+
+          {summary.errors && summary.errors.length > 0 && (
             <div className="errors-list">
               <h3>Errors</h3>
               <ul>
-                {result.errors.slice(0, 10).map((err) => (
+                {summary.errors.slice(0, 10).map((err) => (
                   <li key={`err-${err}`}>{err}</li>
                 ))}
-                {result.errors.length > 10 && (
-                  <li className="more-errors">...and {result.errors.length - 10} more errors</li>
+                {summary.errors.length > 10 && (
+                  <li className="more-errors">...and {summary.errors.length - 10} more errors</li>
                 )}
               </ul>
             </div>
           )}
 
-          {result.importedBooks && result.importedBooks.length > 0 && (
+          {summary.importedBooks && summary.importedBooks.length > 0 && (
             <div className="imported-books">
-              <h3>Imported Books ({result.importedBooks.length})</h3>
+              <h3>Imported Books ({summary.importedBooks.length})</h3>
               <div className="books-list">
-                {result.importedBooks.slice(0, 20).map((book) => (
+                {summary.importedBooks.slice(0, 20).map((book) => (
                   <div key={book.id} className={`book-item ${book.wasUpdated ? 'updated' : 'created'}`}>
                     {book.thumbnail && (
                       <img src={book.thumbnail} alt={book.title} className="book-thumbnail" />
@@ -206,8 +331,8 @@ const GoodreadsUploadPage = () => {
                     </div>
                   </div>
                 ))}
-                {result.importedBooks.length > 20 && (
-                  <p className="more-books">...and {result.importedBooks.length - 20} more books</p>
+                {summary.importedBooks.length > 20 && (
+                  <p className="more-books">...and {summary.importedBooks.length - 20} more books</p>
                 )}
               </div>
             </div>
@@ -239,8 +364,9 @@ const GoodreadsUploadPage = () => {
 
           <h3>Large Libraries</h3>
           <p>
-            For very large libraries (thousands of books), consider splitting your CSV into smaller chunks
-            or using the PowerShell batch import script available in the scripts folder.
+            Large exports are uploaded in batches of {ROWS_PER_CHUNK} books at a time,
+            with progress shown above. If a batch fails, the rest still import and the
+            failed rows are reported so you can re-upload.
           </p>
 
           <h3>Book Descriptions</h3>
