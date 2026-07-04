@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Route, Routes, Link, useLocation } from 'react-router-dom';
 import { ErrorBoundary } from 'react-error-boundary';
+import * as Sentry from '@sentry/react';
 import { ThemeProvider, CssBaseline, Typography, Button, Box } from '@mui/material';
 
 // --- Eager imports: providers, route guards, chrome (always rendered) ---
@@ -55,12 +56,14 @@ import SearchByVibePage from './features/search/pages/SearchByVibePage';
 import DemoUnlockPage from './features/demo/pages/DemoUnlockPage';
 import DemoDataUploadPage from './features/demo/pages/DemoDataUploadPage';
 
-// --- Lazy: heavy + infrequently-visited routes. Kept out of the main chunk.
-// DemoPage (113 kB, separate user path) + admin/import maintenance pages. ---
 const DemoPage = lazy(() => import('./features/demo/pages/DemoPage'));
 const ImportMixlistPage = lazy(() => import('./features/imports/pages/ImportMixlistPage'));
 const TypesenseAdminPage = lazy(() => import('./features/admin/pages/TypesenseAdminPage'));
 const BackgroundJobsPage = lazy(() => import('./features/admin/pages/BackgroundJobsPage'));
+
+function SentryTestTrigger() {
+  throw new Error('RAS-128 frontend test error — safe to ignore.');
+}
 
 function RouteErrorFallback({ error, resetErrorBoundary }) {
   return (
@@ -83,13 +86,18 @@ function RoutedContent() {
     <ErrorBoundary
       FallbackComponent={RouteErrorFallback}
       resetKeys={[location.pathname]}
-      onError={(error) => console.error('Route error:', error)}
+      onError={(error) => {
+        console.error('Route error:', error);
+        Sentry.captureException(error);
+      }}
     >
       <Suspense fallback={<LoadingSpinner fullScreen message="Loading page..." />}>
         <Routes>
             {/* Public routes - always accessible */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/demo" element={<DemoPage />} />
+            {/* TEMP (RAS-128 verification): public so it can be hit without auth. Remove after verifying. */}
+            <Route path="/sentry-test" element={<SentryTestTrigger />} />
 
             {/* Protected routes - require login in production, open in demo */}
             <Route path="/" element={
