@@ -19,7 +19,6 @@ import LoadingSpinner from '@/shared/LoadingSpinner';
 import HomePage from './features/homepage';
 import LoginPage from './features/auth/pages/LoginPage';
 import AddMediaForm from './features/media/pages/AddMediaForm';
-import AllMedia from './features/media/pages/AllMedia';
 import MixlistsPage from './features/mixlists/pages/MixlistsPage';
 import CreateMixlistForm from './features/mixlists/pages/CreateMixlistForm';
 import MixlistProfilePage from './features/mixlists/pages/MixlistProfilePage';
@@ -101,7 +100,7 @@ function RoutedContent() {
               <ConditionalProtectedRoute><AddMediaForm /></ConditionalProtectedRoute>
             } />
             <Route path="/all-media" element={
-              <ConditionalProtectedRoute><AllMedia /></ConditionalProtectedRoute>
+              <ConditionalProtectedRoute><Search defaultMediaTypes={['all']} /></ConditionalProtectedRoute>
             } />
             <Route path="/mixlists" element={
               <ConditionalProtectedRoute><MixlistsPage /></ConditionalProtectedRoute>

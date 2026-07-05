@@ -13,17 +13,20 @@ namespace MyMediaVerse.Web.API.Controllers
         private readonly IPodcastService _podcastService;
         private readonly IPodcastMappingService _podcastMappingService;
         private readonly IListenNotesService _listenNotesService;
+        private readonly IPodcastOpmlImportService _opmlImportService;
         private readonly ILogger<PodcastController> _logger;
 
         public PodcastController(
             IPodcastService podcastService,
             IPodcastMappingService podcastMappingService,
             IListenNotesService listenNotesService,
+            IPodcastOpmlImportService opmlImportService,
             ILogger<PodcastController> logger)
         {
             _podcastService = podcastService;
             _podcastMappingService = podcastMappingService;
             _listenNotesService = listenNotesService;
+            _opmlImportService = opmlImportService;
             _logger = logger;
         }
 
@@ -371,6 +374,37 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 _logger.LogError(ex, "Error importing podcast series by name: {PodcastName}", dto?.PodcastName);
                 return StatusCode(500, new { error = "Failed to import podcast series by name", details = ex.Message });
+            }
+        }
+
+        // POST: api/podcast/import-opml
+        [HttpPost("import-opml")]
+        public async Task<IActionResult> ImportPodcastsFromOpml(IFormFile file)
+        {
+            try
+            {
+                if (file == null || file.Length == 0)
+                {
+                    return BadRequest(new { error = "No file uploaded" });
+                }
+
+                if (!file.FileName.EndsWith(".opml", StringComparison.OrdinalIgnoreCase) &&
+                    !file.FileName.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
+                {
+                    return BadRequest(new { error = "File must be an OPML export (.opml or .xml)" });
+                }
+
+                _logger.LogInformation("Processing podcast OPML import: {FileName}", file.FileName);
+
+                using var stream = file.OpenReadStream();
+                var result = await _opmlImportService.ImportFromOpmlAsync(stream);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing podcast OPML import");
+                return StatusCode(500, new { error = "Failed to process podcast OPML import", details = ex.Message });
             }
         }
 

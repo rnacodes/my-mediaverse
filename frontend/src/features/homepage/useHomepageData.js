@@ -1,8 +1,8 @@
-import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useAllMixlists, useSeedMixlists } from '@/hooks/useMixlist';
-import { useAllMedia } from '@/hooks/useMedia';
 import { getAllMixlists } from '@/api/mixlistService';
-import { getAllMedia } from '@/api/mediaService';
+import { fetchActivelyExploringMedia } from '@/api/typesenseService';
+import { mediaKeys } from '@/api/queryKeys';
 
 const REQUEST_TIMEOUT_MS = 30000;
 const MAX_RETRIES = 2;
@@ -35,10 +35,6 @@ const getErrorMessage = (error, context) => {
     return `Failed to load ${context}. Please check your connection.`;
 };
 
-// Composes the homepage's data needs: recent mixlists, the full media list (used to
-// derive "actively exploring"), cold-start handling, and the dev-only seed mutation.
-// The query keys still match the shared useAllMixlists/useAllMedia caches; we only
-// override queryFn to wrap each request in a timeout race.
 export default function useHomepageData() {
   const sharedQueryOptions = {
     retry: (failureCount, error) => isRetryableError(error) && failureCount < MAX_RETRIES,
@@ -50,9 +46,10 @@ export default function useHomepageData() {
     queryFn: async () => withTimeout(getAllMixlists().then((r) => r.data)),
   });
 
-  const mediaQuery = useAllMedia({
+  const mediaQuery = useQuery({
+    queryKey: mediaKeys.lists(),
     ...sharedQueryOptions,
-    queryFn: async () => withTimeout(getAllMedia().then((r) => r.data)),
+    queryFn: async () => withTimeout(fetchActivelyExploringMedia()),
   });
 
   const mixlists = mixlistsQuery.data ?? [];
@@ -63,17 +60,7 @@ export default function useHomepageData() {
   const wakingUp = (mixlistsQuery.isFetching && mixlistsQuery.failureCount > 0)
     || (mediaQuery.isFetching && mediaQuery.failureCount > 0);
 
-  const activelyExploringMedia = useMemo(() => {
-    const items = mediaQuery.data ?? [];
-    return items.filter((item) => {
-      const status = item.status || item.Status;
-      return status && (
-        status.toLowerCase() === 'actively exploring' ||
-        status.toLowerCase() === 'activelyexploring' ||
-        status.toLowerCase() === 'inprogress'
-      );
-    });
-  }, [mediaQuery.data]);
+  const activelyExploringMedia = mediaQuery.data ?? [];
   const activelyExploringLoading = mediaQuery.isLoading;
   const activelyExploringError = mediaQuery.error ? getErrorMessage(mediaQuery.error, 'actively exploring media') : null;
 

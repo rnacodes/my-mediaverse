@@ -261,6 +261,52 @@ export const typesenseAdvancedSearch = async (options) => {
     }
 };
 
+export const mapTypesenseMediaDocument = (doc = {}) => ({
+    id: doc.id,
+    title: doc.title,
+    mediaType: doc.media_type,
+    status: doc.status ?? null,
+    rating: doc.rating ?? null,
+    topics: doc.topics || [],
+    genres: doc.genres || [],
+    thumbnail: doc.thumbnail ?? null,
+    dateAdded: doc.date_added ? new Date(doc.date_added * 1000).toISOString() : null,
+    description: doc.description || '',
+    seriesId: doc.series_id ?? null,
+    author: doc.author ?? null,
+    director: doc.director ?? null,
+    creator: doc.creator ?? null,
+    publisher: doc.publisher ?? null,
+    channel: doc.channel_title ?? doc.channel ?? null,
+    platform: doc.platform ?? null,
+    releaseYear: doc.release_year ?? null,
+    runtimeMinutes: doc.runtime_minutes ?? null,
+    lengthInSeconds: doc.length_in_seconds ?? null,
+});
+
+/**
+ * Free-text media search via Typesense, returned as a flat array of camelCase
+ * media items (mirrors the old GET /media/search array response so hook
+ * consumers need no changes).
+ * @param {string} query - Search query
+ * @returns {Promise<Array>} Mapped media items
+ */
+export const searchMediaViaTypesense = async (query) => {
+    const response = await typesenseAdvancedSearch({ query: query || '*', perPage: 20 });
+    return (response.hits || []).map((hit) => mapTypesenseMediaDocument(hit.document));
+};
+
+/**
+ * Fetch media marked "Actively Exploring" via Typesense (a targeted status
+ * query rather than fetching the whole library), as a flat array of camelCase
+ * media items.
+ * @returns {Promise<Array>} Mapped media items
+ */
+export const fetchActivelyExploringMedia = async () => {
+    const response = await typesenseAdvancedSearch({ query: '*', status: 'ActivelyExploring', perPage: 100 });
+    return (response.hits || []).map((hit) => mapTypesenseMediaDocument(hit.document));
+};
+
 /**
  * Search mixlists using Typesense
  * @param {string} query - Search query
