@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using NSubstitute;
 using MyMediaVerse.Infrastructure.Clients.YouTube;
 using MyMediaVerse.Shared.DTOs.YouTube;
+using MyMediaVerse.Shared.Exceptions;
 using MyMediaVerse.UnitTests.TestHelpers;
 
 namespace MyMediaVerse.UnitTests.Infrastructure
@@ -299,6 +300,67 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             result.Snippet.Title.Should().Be("Test Channel");
 
             VerifyHttpRequest("GET", "channels?");
+        }
+
+        #endregion
+
+        #region Quota / 403 Handling Tests
+
+        [Fact]
+        public async Task GetPlaylistItemsAsync_ShouldThrowQuotaException_When403QuotaExceeded()
+        {
+            // Arrange — YouTube signals daily quota exhaustion as 403 with reason "quotaExceeded"
+            var quotaBody = "{\"error\":{\"code\":403,\"errors\":[{\"reason\":\"quotaExceeded\",\"domain\":\"youtube.quota\"}]}}";
+            SetupHttpResponse(HttpStatusCode.Forbidden, quotaBody);
+
+            // Act & Assert
+            (await _youtubeApiClient.Invoking(c => c.GetPlaylistItemsAsync("PL123"))
+                .Should().ThrowAsync<YouTubeQuotaExceededException>())
+                .Which.Reason.Should().Be("quotaExceeded");
+        }
+
+        [Fact]
+        public async Task GetVideoDetailsAsync_ShouldThrowHttpRequestException_When403NotQuota()
+        {
+            // Arrange — a non-quota 403 (e.g. forbidden resource) should NOT be treated as quota exhaustion
+            var forbiddenBody = "{\"error\":{\"code\":403,\"errors\":[{\"reason\":\"forbidden\"}]}}";
+            SetupHttpResponse(HttpStatusCode.Forbidden, forbiddenBody);
+
+            // Act & Assert
+            await _youtubeApiClient.Invoking(c => c.GetVideoDetailsAsync("v1"))
+                .Should().ThrowAsync<HttpRequestException>();
+        }
+
+        #endregion
+
+        #region Pagination Tests
+
+        [Fact]
+        public async Task GetAllPlaylistItemsAsync_ShouldFetchEachPageOnce_AcrossMultiplePages()
+        {
+            // Arrange — two pages; page 1 points to page 2 via nextPageToken, page 2 ends the sequence
+            var page1 = new YouTubePlaylistItemListResponseDto
+            {
+                Items = new List<YouTubePlaylistItemDto> { CreatePlaylistItemDto("item1", "Video 1") },
+                NextPageToken = "PAGE2"
+            };
+            var page2 = new YouTubePlaylistItemListResponseDto
+            {
+                Items = new List<YouTubePlaylistItemDto> { CreatePlaylistItemDto("item2", "Video 2") },
+                NextPageToken = null
+            };
+
+            _mockHttpMessageHandler.RespondInSequence(
+                TestHttpMessageHandler.Json(HttpStatusCode.OK, JsonSerializer.Serialize(page1, _jsonOptions)),
+                TestHttpMessageHandler.Json(HttpStatusCode.OK, JsonSerializer.Serialize(page2, _jsonOptions)));
+
+            // Act
+            var result = await _youtubeApiClient.GetAllPlaylistItemsAsync("PL123");
+
+            // Assert — all items collected, and exactly one HTTP call per page (no double-fetch)
+            result.Should().HaveCount(2);
+            result.Select(i => i.Id).Should().Contain(new[] { "item1", "item2" });
+            _mockHttpMessageHandler.Requests.Should().HaveCount(2);
         }
 
         #endregion

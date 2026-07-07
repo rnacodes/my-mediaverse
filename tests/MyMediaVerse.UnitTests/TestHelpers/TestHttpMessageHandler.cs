@@ -29,5 +29,35 @@ namespace MyMediaVerse.UnitTests.TestHelpers
             {
                 Content = new ByteArrayContent(content) { Headers = { ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(mediaType) } }
             });
+
+        /// <summary>
+        /// Respond with a different message per successive call, in order. Each factory builds
+        /// a fresh response so it can be safely read/disposed on retries. Once the sequence is
+        /// exhausted, further calls return 200 OK. Useful for exercising retry/backoff paths.
+        /// </summary>
+        public void RespondInSequence(params Func<HttpResponseMessage>[] factories)
+        {
+            var queue = new Queue<Func<HttpResponseMessage>>(factories);
+            OnSend = (_, _) =>
+            {
+                var factory = queue.Count > 0 ? queue.Dequeue() : () => new HttpResponseMessage(HttpStatusCode.OK);
+                return Task.FromResult(factory());
+            };
+        }
+
+        /// <summary>
+        /// Convenience factory for a JSON response with an optional Retry-After header (seconds).
+        /// </summary>
+        public static Func<HttpResponseMessage> Json(HttpStatusCode statusCode, string content = "{}", int? retryAfterSeconds = null)
+            => () =>
+            {
+                var response = new HttpResponseMessage(statusCode)
+                {
+                    Content = new StringContent(content, Encoding.UTF8, "application/json")
+                };
+                if (retryAfterSeconds.HasValue)
+                    response.Headers.RetryAfter = new System.Net.Http.Headers.RetryConditionHeaderValue(TimeSpan.FromSeconds(retryAfterSeconds.Value));
+                return response;
+            };
     }
 }

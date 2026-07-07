@@ -1,7 +1,9 @@
+using System.Net;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using MyMediaVerse.Shared.DTOs.YouTube;
+using MyMediaVerse.Shared.Exceptions;
 using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.Infrastructure.Clients.YouTube
@@ -17,8 +19,8 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
         {
             _httpClient = httpClient;
             _logger = logger;
-            _apiKey = Environment.GetEnvironmentVariable("YOUTUBE_API_KEY") ?? 
-                     configuration["ApiKeys:YouTube"] ?? 
+            _apiKey = Environment.GetEnvironmentVariable("YOUTUBE_API_KEY") ??
+                     configuration["ApiKeys:YouTube"] ??
                      "YOUTUBE_API_KEY";
             _jsonOptions = new JsonSerializerOptions
             {
@@ -36,24 +38,21 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
             {
                 var encodedQuery = Uri.EscapeDataString(query);
                 var url = $"search?part=snippet&q={encodedQuery}&type={type}&maxResults={maxResults}&key={_apiKey}";
-                
+
                 if (!string.IsNullOrEmpty(pageToken))
                     url += $"&pageToken={pageToken}";
-                    
+
                 if (!string.IsNullOrEmpty(channelId))
                     url += $"&channelId={channelId}";
-                
+
                 _logger.LogInformation($"Searching YouTube with query: {query}, type: {type}, maxResults: {maxResults}");
-                
-                var response = await _httpClient.GetAsync(url);
-                response.EnsureSuccessStatusCode();
-                
-                var jsonContent = await response.Content.ReadAsStringAsync();
+
+                var jsonContent = await GetJsonAsync(url, $"search for '{query}'");
                 var result = JsonSerializer.Deserialize<YouTubeSearchResultDto>(jsonContent, _jsonOptions);
-                
+
                 return result ?? new YouTubeSearchResultDto();
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not YouTubeQuotaExceededException)
             {
                 _logger.LogError(ex, "Error searching YouTube for query: {Query}", query);
                 throw;
@@ -68,18 +67,15 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
             try
             {
                 var url = $"videos?part=snippet,contentDetails,statistics,status&id={videoId}&key={_apiKey}";
-                
+
                 _logger.LogInformation($"Getting YouTube video details for ID: {videoId}");
-                
-                var response = await _httpClient.GetAsync(url);
-                response.EnsureSuccessStatusCode();
-                
-                var jsonContent = await response.Content.ReadAsStringAsync();
+
+                var jsonContent = await GetJsonAsync(url, $"video details for {videoId}");
                 var result = JsonSerializer.Deserialize<YouTubeVideoListResponseDto>(jsonContent, _jsonOptions);
-                
+
                 return result?.Items?.FirstOrDefault();
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not YouTubeQuotaExceededException)
             {
                 _logger.LogError(ex, "Error getting YouTube video details for ID: {VideoId}", videoId);
                 throw;
@@ -98,18 +94,15 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
 
                 var ids = string.Join(",", videoIds);
                 var url = $"videos?part=snippet,contentDetails,statistics,status&id={ids}&key={_apiKey}";
-                
+
                 _logger.LogInformation($"Getting YouTube videos for IDs: {ids}");
-                
-                var response = await _httpClient.GetAsync(url);
-                response.EnsureSuccessStatusCode();
-                
-                var jsonContent = await response.Content.ReadAsStringAsync();
+
+                var jsonContent = await GetJsonAsync(url, "video details batch");
                 var result = JsonSerializer.Deserialize<YouTubeVideoListResponseDto>(jsonContent, _jsonOptions);
-                
+
                 return result?.Items ?? new List<YouTubeVideoDto>();
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not YouTubeQuotaExceededException)
             {
                 _logger.LogError(ex, "Error getting YouTube videos for IDs: {VideoIds}", string.Join(",", videoIds));
                 throw;
@@ -124,22 +117,38 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
             try
             {
                 var url = $"playlists?part=snippet,status,contentDetails&id={playlistId}&key={_apiKey}";
-                
+
                 _logger.LogInformation($"Getting YouTube playlist details for ID: {playlistId}");
-                
-                var response = await _httpClient.GetAsync(url);
-                response.EnsureSuccessStatusCode();
-                
-                var jsonContent = await response.Content.ReadAsStringAsync();
+
+                var jsonContent = await GetJsonAsync(url, $"playlist details for {playlistId}");
                 var result = JsonSerializer.Deserialize<YouTubePlaylistListResponseDto>(jsonContent, _jsonOptions);
-                
+
                 return result?.Items?.FirstOrDefault();
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not YouTubeQuotaExceededException)
             {
                 _logger.LogError(ex, "Error getting YouTube playlist details for ID: {PlaylistId}", playlistId);
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Get a single page of playlist items along with its pagination token.
+        /// Used by both the public single-page and full-pagination methods so each
+        /// page is fetched exactly once (1 quota unit per page).
+        /// </summary>
+        private async Task<YouTubePlaylistItemListResponseDto> GetPlaylistItemsPageAsync(string playlistId, int maxResults, string? pageToken)
+        {
+            var url = $"playlistItems?part=snippet,contentDetails&playlistId={playlistId}&maxResults={maxResults}&key={_apiKey}";
+
+            if (!string.IsNullOrEmpty(pageToken))
+                url += $"&pageToken={pageToken}";
+
+            _logger.LogInformation($"Getting YouTube playlist items for playlist ID: {playlistId}");
+
+            var jsonContent = await GetJsonAsync(url, $"playlist items for {playlistId}");
+            return JsonSerializer.Deserialize<YouTubePlaylistItemListResponseDto>(jsonContent, _jsonOptions)
+                   ?? new YouTubePlaylistItemListResponseDto();
         }
 
         /// <summary>
@@ -149,22 +158,10 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
         {
             try
             {
-                var url = $"playlistItems?part=snippet,contentDetails&playlistId={playlistId}&maxResults={maxResults}&key={_apiKey}";
-                
-                if (!string.IsNullOrEmpty(pageToken))
-                    url += $"&pageToken={pageToken}";
-                
-                _logger.LogInformation($"Getting YouTube playlist items for playlist ID: {playlistId}");
-                
-                var response = await _httpClient.GetAsync(url);
-                response.EnsureSuccessStatusCode();
-                
-                var jsonContent = await response.Content.ReadAsStringAsync();
-                var result = JsonSerializer.Deserialize<YouTubePlaylistItemListResponseDto>(jsonContent, _jsonOptions);
-                
-                return result?.Items ?? new List<YouTubePlaylistItemDto>();
+                var page = await GetPlaylistItemsPageAsync(playlistId, maxResults, pageToken);
+                return page.Items ?? new List<YouTubePlaylistItemDto>();
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not YouTubeQuotaExceededException)
             {
                 _logger.LogError(ex, "Error getting YouTube playlist items for playlist ID: {PlaylistId}", playlistId);
                 throw;
@@ -183,25 +180,17 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
             {
                 do
                 {
-                    var items = await GetPlaylistItemsAsync(playlistId, 50, nextPageToken);
-                    allItems.AddRange(items);
-                    
-                    // Get next page token from the response
-                    var url = $"playlistItems?part=snippet,contentDetails&playlistId={playlistId}&maxResults=50&key={_apiKey}";
-                    if (!string.IsNullOrEmpty(nextPageToken))
-                        url += $"&pageToken={nextPageToken}";
-                    
-                    var response = await _httpClient.GetAsync(url);
-                    var jsonContent = await response.Content.ReadAsStringAsync();
-                    var result = JsonSerializer.Deserialize<YouTubePlaylistItemListResponseDto>(jsonContent, _jsonOptions);
-                    
-                    nextPageToken = result?.NextPageToken;
-                    
+                    var page = await GetPlaylistItemsPageAsync(playlistId, 50, nextPageToken);
+                    if (page.Items != null)
+                        allItems.AddRange(page.Items);
+
+                    nextPageToken = page.NextPageToken;
+
                 } while (!string.IsNullOrEmpty(nextPageToken));
 
                 return allItems;
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not YouTubeQuotaExceededException)
             {
                 _logger.LogError(ex, "Error getting all YouTube playlist items for playlist ID: {PlaylistId}", playlistId);
                 throw;
@@ -216,18 +205,15 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
             try
             {
                 var url = $"channels?part=snippet,contentDetails,statistics,brandingSettings&id={channelId}&key={_apiKey}";
-                
+
                 _logger.LogInformation($"Getting YouTube channel details for ID: {channelId}");
-                
-                var response = await _httpClient.GetAsync(url);
-                response.EnsureSuccessStatusCode();
-                
-                var jsonContent = await response.Content.ReadAsStringAsync();
+
+                var jsonContent = await GetJsonAsync(url, $"channel details for {channelId}");
                 var result = JsonSerializer.Deserialize<YouTubeChannelListResponseDto>(jsonContent, _jsonOptions);
-                
+
                 return result?.Items?.FirstOrDefault();
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not YouTubeQuotaExceededException)
             {
                 _logger.LogError(ex, "Error getting YouTube channel details for ID: {ChannelId}", channelId);
                 throw;
@@ -242,18 +228,15 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
             try
             {
                 var url = $"channels?part=snippet,contentDetails,statistics,brandingSettings&forUsername={username}&key={_apiKey}";
-                
+
                 _logger.LogInformation($"Getting YouTube channel details for username: {username}");
-                
-                var response = await _httpClient.GetAsync(url);
-                response.EnsureSuccessStatusCode();
-                
-                var jsonContent = await response.Content.ReadAsStringAsync();
+
+                var jsonContent = await GetJsonAsync(url, $"channel details for username {username}");
                 var result = JsonSerializer.Deserialize<YouTubeChannelListResponseDto>(jsonContent, _jsonOptions);
-                
+
                 return result?.Items?.FirstOrDefault();
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not YouTubeQuotaExceededException)
             {
                 _logger.LogError(ex, "Error getting YouTube channel details for username: {Username}", username);
                 throw;
@@ -273,15 +256,12 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
 
                 _logger.LogInformation("Getting YouTube channel details for handle: {Handle}", handleWithPrefix);
 
-                var response = await _httpClient.GetAsync(url);
-                response.EnsureSuccessStatusCode();
-
-                var jsonContent = await response.Content.ReadAsStringAsync();
+                var jsonContent = await GetJsonAsync(url, $"channel details for handle {handleWithPrefix}");
                 var result = JsonSerializer.Deserialize<YouTubeChannelListResponseDto>(jsonContent, _jsonOptions);
 
                 return result?.Items?.FirstOrDefault();
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not YouTubeQuotaExceededException)
             {
                 _logger.LogError(ex, "Error getting YouTube channel details for handle: {Handle}", handle);
                 throw;
@@ -298,20 +278,88 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
                 // First get the channel to find the uploads playlist ID
                 var channel = await GetChannelDetailsAsync(channelId);
                 var uploadsPlaylistId = channel?.ContentDetails?.RelatedPlaylists?.Uploads;
-                
+
                 if (string.IsNullOrEmpty(uploadsPlaylistId))
                 {
                     _logger.LogWarning($"No uploads playlist found for channel ID: {channelId}");
                     return new List<YouTubePlaylistItemDto>();
                 }
-                
+
                 return await GetPlaylistItemsAsync(uploadsPlaylistId, maxResults, pageToken);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not YouTubeQuotaExceededException)
             {
                 _logger.LogError(ex, "Error getting YouTube channel uploads for channel ID: {ChannelId}", channelId);
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Issue a GET and return the response body as a string. Transient failures
+        /// (429 / 5xx) are retried with backoff by the resilience handler on the HttpClient
+        /// (see <see cref="YouTubeResilience"/>); this method adds the one thing a status-code
+        /// policy can't do: distinguishing a fatal daily-quota 403 from other errors by
+        /// inspecting the response body, and surfacing it as a typed exception so a bulk
+        /// import can stop cleanly and resume after the quota resets.
+        /// </summary>
+        private async Task<string> GetJsonAsync(string url, string operationDescription)
+        {
+            var response = await _httpClient.GetAsync(url);
+
+            if (response.StatusCode == HttpStatusCode.Forbidden)
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                var reason = ExtractYouTubeErrorReason(body);
+                if (reason is "quotaExceeded" or "dailyLimitExceeded")
+                {
+                    _logger.LogError(
+                        "YouTube API daily quota exhausted (reason: {Reason}) during {Operation}. " +
+                        "Import should stop and resume after the quota resets.",
+                        reason, operationDescription);
+                    throw new YouTubeQuotaExceededException(
+                        $"YouTube API daily quota exhausted (reason: {reason}) during {operationDescription}. " +
+                        "Resume once the quota resets.",
+                        reason);
+                }
+                // Some other 403 (e.g. forbidden resource) — fall through to the standard throw.
+            }
+
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadAsStringAsync();
+        }
+
+        /// <summary>
+        /// Extract the first error reason from a YouTube API error body
+        /// (<c>error.errors[].reason</c>), or null if it can't be parsed.
+        /// </summary>
+        private static string? ExtractYouTubeErrorReason(string body)
+        {
+            if (string.IsNullOrWhiteSpace(body))
+                return null;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(body);
+                if (doc.RootElement.TryGetProperty("error", out var error) &&
+                    error.TryGetProperty("errors", out var errors) &&
+                    errors.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var e in errors.EnumerateArray())
+                    {
+                        if (e.TryGetProperty("reason", out var reason) &&
+                            reason.ValueKind == JsonValueKind.String)
+                        {
+                            return reason.GetString();
+                        }
+                    }
+                }
+            }
+            catch (JsonException)
+            {
+                // Non-JSON or unexpected shape — treat as "reason unknown".
+            }
+
+            return null;
         }
 
         /// <summary>
