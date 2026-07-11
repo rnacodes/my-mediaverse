@@ -100,6 +100,27 @@ export const importPodcastSeriesByName = (podcastName) => {
 };
 
 // ============================================
+// Podcast OPML Import
+// ============================================
+
+/**
+ * Import podcast subscriptions from an OPML export file.
+ * Single multipart request — feeds land as lightweight stubs (no chunking).
+ * @param {File} file - The .opml/.xml file to upload
+ * @returns {Promise} API response with an OpmlImportResultDto payload
+ */
+export const importPodcastsFromOpml = (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    return apiClient.post('/podcast/import-opml', formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data',
+        },
+    });
+};
+
+// ============================================
 // Podcast Episode API calls
 // ============================================
 

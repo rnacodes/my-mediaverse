@@ -7,6 +7,7 @@ import {
 import { CloudUpload, FileUpload, CheckCircle, Error, ExpandMore, MenuBook } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useUploadCsv } from '@/hooks/useUpload';
+import PodcastOpmlImportSection from './PodcastOpmlImportSection';
 
 function UploadMediaPage() {
     const navigate = useNavigate();
@@ -208,6 +209,9 @@ function UploadMediaPage() {
                     eBook Management Coming Soon
                 </Alert>
             </Paper>
+
+            {/* Podcast OPML Import Section */}
+            <PodcastOpmlImportSection />
 
             {error && (
                 <Alert severity="error" sx={{ mb: 3 }}>
