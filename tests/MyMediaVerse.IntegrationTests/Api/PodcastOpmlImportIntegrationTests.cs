@@ -6,6 +6,8 @@ using System.Text.Json.Serialization;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.IntegrationTests.Fixtures;
+using MyMediaVerse.Shared.Interfaces;
+using NSubstitute;
 
 namespace MyMediaVerse.IntegrationTests.Api
 {
@@ -94,6 +96,26 @@ namespace MyMediaVerse.IntegrationTests.Api
                 await seriesResponse.Content.ReadAsStringAsync(), _jsonOptions);
             Assert.NotNull(series);
             Assert.Single(series);
+        }
+
+        [Fact]
+        public async Task ImportOpml_ReindexesMediaOnCompletion_OnlyWhenNewSeriesImported()
+        {
+            // Swap ITypesenseService for a mock so we can assert the best-effort reindex the import
+            // fires on completion (via IImportReindexService). No real Typesense is touched.
+            var (client, typesense) = _factory.CreateClientWithSubstitute<ITypesenseService>();
+
+            var opml = Opml(Feed("Reply All", "https://feeds.megaphone.fm/replyall", "941907967"));
+
+            // First import creates a new series → exactly one media reindex fires.
+            var first = await client.PostAsync("/api/podcast/import-opml", OpmlForm(opml));
+            Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+            await typesense.Received(1).BulkReindexAllMediaItemsAsync();
+
+            // Re-importing the same feed imports nothing new → the reindex is skipped (still 1 total).
+            var second = await client.PostAsync("/api/podcast/import-opml", OpmlForm(opml));
+            Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+            await typesense.Received(1).BulkReindexAllMediaItemsAsync();
         }
 
         [Fact]

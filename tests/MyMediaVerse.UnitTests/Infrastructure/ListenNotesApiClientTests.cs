@@ -30,7 +30,6 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             _httpClient = new HttpClient(_mockHttpMessageHandler)
             {
                 // Using ListenNotes MOCK server for testing (no API key required)
-                // See: https://www.listennotes.com/api/docs/?test=1
                 BaseAddress = new Uri("https://listen-api-test.listennotes.com/api/v2/")
             };
 
@@ -135,6 +134,50 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             result.Title.Should().Be(expectedResult.Title);
             result.Publisher.Should().Be(expectedResult.Publisher);
             VerifyHttpRequest("GET", $"podcasts/{podcastId}");
+        }
+
+        [Fact]
+        public async Task GetPodcastByItunesIdAsync_ShouldPostToPodcastsWithItunesIds_AndReturnFirstMatch()
+        {
+            // Arrange
+            var itunesId = "1200361736";
+            var batchResponse = new ListenNotesBatchPodcastsDto
+            {
+                Podcasts = new List<PodcastSeriesDto>
+                {
+                    new PodcastSeriesDto { Id = "ln_abc", Title = "The Daily", Publisher = "The New York Times" }
+                }
+            };
+            var jsonResponse = JsonSerializer.Serialize(batchResponse, _jsonOptions);
+
+            SetupHttpResponse(HttpStatusCode.OK, jsonResponse);
+
+            // Act
+            var result = await _listenNotesApiClient.GetPodcastByItunesIdAsync(itunesId);
+
+            // Assert
+            result.Should().NotBeNull();
+            result!.Id.Should().Be("ln_abc");
+
+            var request = _mockHttpMessageHandler.Requests.Should().ContainSingle().Subject;
+            request.Method.Should().Be(HttpMethod.Post);
+            request.RequestUri!.ToString().Should().EndWith("podcasts");
+            var body = await request.Content!.ReadAsStringAsync();
+            body.Should().Contain($"itunes_ids={itunesId}");
+        }
+
+        [Fact]
+        public async Task GetPodcastByItunesIdAsync_ShouldReturnNull_WhenNoPodcastsInResponse()
+        {
+            // Arrange
+            var jsonResponse = JsonSerializer.Serialize(new ListenNotesBatchPodcastsDto(), _jsonOptions);
+            SetupHttpResponse(HttpStatusCode.OK, jsonResponse);
+
+            // Act
+            var result = await _listenNotesApiClient.GetPodcastByItunesIdAsync("0000000000");
+
+            // Assert
+            result.Should().BeNull();
         }
 
         [Fact]

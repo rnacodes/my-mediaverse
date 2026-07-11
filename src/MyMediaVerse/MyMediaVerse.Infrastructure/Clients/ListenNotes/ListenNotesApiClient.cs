@@ -53,6 +53,34 @@ namespace MyMediaVerse.Infrastructure.Clients.ListenNotes
             }
         }
 
+        public async Task<PodcastSeriesDto?> GetPodcastByItunesIdAsync(string itunesId)
+        {
+            try
+            {
+                _logger.LogInformation("Looking up podcast by Apple Podcasts (iTunes) id: {ItunesId}", itunesId);
+
+                // POST /podcasts is the batch endpoint; passing a single itunes_ids value
+                // yields an exact match (or an empty podcasts array when unindexed).
+                var content = new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    ["itunes_ids"] = itunesId
+                });
+
+                var response = await _httpClient.PostAsync("podcasts", content);
+                response.EnsureSuccessStatusCode();
+
+                var jsonContent = await response.Content.ReadAsStringAsync();
+                var result = JsonSerializer.Deserialize<ListenNotesBatchPodcastsDto>(jsonContent, _jsonOptions);
+
+                return result?.Podcasts.FirstOrDefault();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error looking up podcast by iTunes id: {ItunesId}", itunesId);
+                throw;
+            }
+        }
+
         public async Task<ListenNotesPlaylistsDto> GetPlaylistsAsync()
         {
             try

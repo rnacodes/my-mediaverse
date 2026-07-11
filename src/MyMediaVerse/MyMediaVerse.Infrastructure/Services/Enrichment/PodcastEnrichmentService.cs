@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Application.Interfaces;
+using MyMediaVerse.Shared.DTOs.Itunes;
 using MyMediaVerse.Shared.DTOs.ListenNotes;
 using MyMediaVerse.Shared.Interfaces;
 
@@ -15,15 +16,18 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
     {
         private readonly IApplicationDbContext _context;
         private readonly IListenNotesApiClient _listenNotesClient;
+        private readonly IItunesLookupClient _itunesLookupClient;
         private readonly ILogger<PodcastEnrichmentService> _logger;
 
         public PodcastEnrichmentService(
             IApplicationDbContext context,
             IListenNotesApiClient listenNotesClient,
+            IItunesLookupClient itunesLookupClient,
             ILogger<PodcastEnrichmentService> logger)
         {
             _context = context;
             _listenNotesClient = listenNotesClient;
+            _itunesLookupClient = itunesLookupClient;
             _logger = logger;
         }
 
@@ -73,42 +77,62 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
 
                     try
                     {
+                        PodcastSeriesDto? podcastDetails = null;
+                        PodcastSearchDto? searchMatch = null;
+
+                        if (!string.IsNullOrWhiteSpace(podcast.ApplePodcastsId))
+                        {
+                            try
+                            {
+                                _logger.LogDebug("Looking up Apple Podcasts id {AppleId} for podcast: {Title}",
+                                    podcast.ApplePodcastsId, podcast.Title);
+
+                                var itunes = await _itunesLookupClient.GetPodcastByCollectionIdAsync(
+                                    podcast.ApplePodcastsId, cancellationToken);
+
+                                if (itunes != null)
+                                {
+                                    ApplyItunesMetadata(podcast, itunes);
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning(ex,
+                                    "Apple iTunes lookup unavailable for {Title}; proceeding with title/RSS search",
+                                    podcast.Title);
+                            }
+                        }
+
+                        // 2 & 3. Search ListenNotes by title, then disambiguate the results by RSS
+                        //        feed url (backfilled from Apple above when available) before the
+                        //        title/publisher heuristic.
                         _logger.LogDebug("Searching ListenNotes for podcast: {Title}", podcast.Title);
 
-                        // Search ListenNotes by title, specifying type as "podcast" to filter results
                         var searchResult = await _listenNotesClient.SearchAsync(
                             query: podcast.Title,
                             type: "podcast");
 
-                        if (searchResult == null || searchResult.Results == null || searchResult.Results.Count == 0)
+                        if (searchResult?.Results != null && searchResult.Results.Count > 0)
                         {
-                            result.NotFoundCount++;
-                            _logger.LogDebug("No ListenNotes match found for podcast: {Title}", podcast.Title);
-                            continue;
+                            searchMatch = FindBestPodcastMatch(
+                                searchResult.Results, podcast.Title, podcast.Publisher, podcast.RssFeedUrl);
+
+                            if (searchMatch != null)
+                            {
+                                // Fetch full podcast details for the chosen search result
+                                podcastDetails = await _listenNotesClient.GetPodcastByIdAsync(searchMatch.Id);
+                            }
                         }
 
-                        // Find best match - prefer exact title match, otherwise use first result
-                        var match = FindBestPodcastMatch(searchResult.Results, podcast.Title, podcast.Publisher);
-
-                        if (match == null)
+                        if (podcastDetails == null || string.IsNullOrEmpty(podcastDetails.Id))
                         {
                             result.NotFoundCount++;
                             _logger.LogDebug("No suitable ListenNotes match found for podcast: {Title}", podcast.Title);
                             continue;
                         }
 
-                        // Fetch full podcast details
-                        var podcastDetails = await _listenNotesClient.GetPodcastByIdAsync(match.Id);
-
-                        if (podcastDetails == null)
-                        {
-                            result.NotFoundCount++;
-                            _logger.LogDebug("Failed to fetch podcast details for: {Title}", podcast.Title);
-                            continue;
-                        }
-
                         // Map ListenNotes data to entity
-                        MapListenNotesToEntity(podcast, podcastDetails, match);
+                        MapListenNotesToEntity(podcast, podcastDetails, searchMatch);
                         _context.Update(podcast);
                         result.EnrichedCount++;
 
@@ -129,7 +153,6 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                     }
                 }
 
-                // Save all changes
                 await _context.SaveChangesAsync(cancellationToken);
 
                 _logger.LogInformation(
@@ -152,15 +175,26 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
 
         /// <summary>
         /// Finds the best matching podcast from search results.
-        /// Prefers exact title matches, then considers publisher matches.
+        /// Prefers an exact RSS feed url match (the strongest signal in a search result),
+        /// then exact/partial title matches with an optional publisher tie-break.
         /// </summary>
         private PodcastSearchDto? FindBestPodcastMatch(
             List<PodcastSearchDto> results,
             string title,
-            string? publisher)
+            string? publisher,
+            string? rssFeedUrl = null)
         {
             if (results.Count == 0)
                 return null;
+
+            if (!string.IsNullOrWhiteSpace(rssFeedUrl))
+            {
+                var feedMatch = results.FirstOrDefault(r =>
+                    !string.IsNullOrWhiteSpace(r.Rss) && RssUrlsMatch(r.Rss!, rssFeedUrl));
+
+                if (feedMatch != null)
+                    return feedMatch;
+            }
 
             var normalizedTitle = NormalizeForComparison(title);
             var normalizedPublisher = publisher != null ? NormalizeForComparison(publisher) : null;
@@ -195,6 +229,49 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
         }
 
         /// <summary>
+        /// Backfills a stub from Apple iTunes Lookup data, only filling fields that are null/empty.
+        /// The RSS feed url is the most valuable field.
+        /// </summary>
+        private static void ApplyItunesMetadata(PodcastSeries podcast, ItunesPodcastDto itunes)
+        {
+            if (string.IsNullOrWhiteSpace(podcast.RssFeedUrl) && !string.IsNullOrWhiteSpace(itunes.FeedUrl))
+            {
+                podcast.RssFeedUrl = itunes.FeedUrl;
+            }
+
+            if (string.IsNullOrEmpty(podcast.Publisher) && !string.IsNullOrEmpty(itunes.ArtistName))
+            {
+                podcast.Publisher = itunes.ArtistName;
+            }
+
+            if (string.IsNullOrEmpty(podcast.Thumbnail) && !string.IsNullOrEmpty(itunes.ArtworkUrl600))
+            {
+                podcast.Thumbnail = itunes.ArtworkUrl600;
+            }
+
+            if (podcast.TotalEpisodes == 0 && itunes.TrackCount is int trackCount && trackCount > 0)
+            {
+                podcast.TotalEpisodes = trackCount;
+            }
+
+            if (string.IsNullOrEmpty(podcast.Link) && !string.IsNullOrEmpty(itunes.CollectionViewUrl))
+            {
+                podcast.Link = itunes.CollectionViewUrl;
+            }
+        }
+
+        /// <summary>
+        /// Compares two RSS feed urls for equality, tolerating trailing-slash and case differences.
+        /// </summary>
+        private static bool RssUrlsMatch(string a, string b)
+        {
+            return string.Equals(
+                a.Trim().TrimEnd('/'),
+                b.Trim().TrimEnd('/'),
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
         /// Normalizes a string for comparison by converting to lowercase and removing special characters.
         /// </summary>
         private string NormalizeForComparison(string input)
@@ -210,11 +287,13 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
 
         /// <summary>
         /// Maps ListenNotes podcast details to the PodcastSeries entity, only updating fields that are null/empty.
+        /// <paramref name="searchResult"/> is optional supplemental data from a title search; it is null
+        /// when the match was resolved directly by Apple Podcasts id.
         /// </summary>
         private void MapListenNotesToEntity(
             PodcastSeries podcast,
             PodcastSeriesDto details,
-            PodcastSearchDto searchResult)
+            PodcastSearchDto? searchResult)
         {
             // Always set ExternalId as this is the primary enrichment identifier
             podcast.ExternalId = details.Id;
@@ -237,7 +316,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                 // Prefer the thumbnail from details, fall back to search result
                 var thumbnailUrl = !string.IsNullOrEmpty(details.Thumbnail)
                     ? details.Thumbnail
-                    : searchResult.Thumbnail;
+                    : searchResult?.Thumbnail;
 
                 if (!string.IsNullOrEmpty(thumbnailUrl))
                 {
@@ -245,16 +324,23 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                 }
             }
 
-            // Set total episodes from search result (more accurate than details.Episodes.Count)
-            if (podcast.TotalEpisodes == 0 && searchResult.TotalEpisodes.HasValue)
+            // Set total episodes, preferring the details count and falling back to the search result
+            if (podcast.TotalEpisodes == 0)
             {
-                podcast.TotalEpisodes = searchResult.TotalEpisodes.Value;
+                if (details.TotalEpisodes > 0)
+                {
+                    podcast.TotalEpisodes = details.TotalEpisodes;
+                }
+                else if (searchResult?.TotalEpisodes is int totalEpisodes)
+                {
+                    podcast.TotalEpisodes = totalEpisodes;
+                }
             }
 
             // Set website link if not already set
             if (string.IsNullOrEmpty(podcast.Link))
             {
-                var website = details.Website ?? searchResult.Website;
+                var website = details.Website ?? searchResult?.Website;
                 if (!string.IsNullOrEmpty(website))
                 {
                     podcast.Link = website;
