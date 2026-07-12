@@ -310,6 +310,112 @@ namespace MyMediaVerse.UnitTests.Application
             Context.Books.Count().Should().Be(count);
         }
 
+        [Fact]
+        public async Task ImportFromCsvAsync_Reimport_ChangedShelf_UpdatesStatus()
+        {
+            // Goodreads is the primary tracker for status: moving a book to "read" in Goodreads and
+            // re-importing must update MMV's status.
+            var book = TestDataFactory.CreateBook("Project Hail Mary", "Andy Weir");
+            book.Status = Status.ActivelyExploring;
+            Context.Books.Add(book);
+            await Context.SaveChangesAsync();
+
+            await _service.ImportFromCsvAsync(
+                CsvStream(DetailedRow("Project Hail Mary", "Andy Weir", exclusiveShelf: "read")));
+
+            book.Status.Should().Be(Status.Completed);
+        }
+
+        [Fact]
+        public async Task ImportFromCsvAsync_Reimport_ChangedRating_UpdatesRating()
+        {
+            // Goodreads is the primary tracker for rating: a new star rating flows through on re-import.
+            var book = TestDataFactory.CreateBook("Dune", "Frank Herbert");
+            book.GoodreadsRating = 3m;
+            book.Rating = Rating.Neutral;
+            Context.Books.Add(book);
+            await Context.SaveChangesAsync();
+
+            await _service.ImportFromCsvAsync(
+                CsvStream(DetailedRow("Dune", "Frank Herbert", myRating: 5)));
+
+            book.GoodreadsRating.Should().Be(5m);
+            book.Rating.Should().Be(Rating.SuperLike);
+        }
+
+        [Fact]
+        public async Task ImportFromCsvAsync_Reimport_UnratedExport_PreservesExistingRating()
+        {
+            // A "My Rating" of 0 means unrated in Goodreads and must not clear an existing rating.
+            var book = TestDataFactory.CreateBook("Neuromancer", "William Gibson");
+            book.GoodreadsRating = 4m;
+            book.Rating = Rating.Like;
+            Context.Books.Add(book);
+            await Context.SaveChangesAsync();
+
+            await _service.ImportFromCsvAsync(
+                CsvStream(DetailedRow("Neuromancer", "William Gibson", myRating: 0)));
+
+            book.GoodreadsRating.Should().Be(4m);
+            book.Rating.Should().Be(Rating.Like);
+        }
+
+        [Fact]
+        public async Task ImportFromCsvAsync_Reimport_PreservesAppEditedFields()
+        {
+            // Everything except status/rating is fill-only: a re-import must not overwrite values the
+            // user edited in the app after the first import (Format, Publisher, review).
+            var book = TestDataFactory.CreateBook("The Hobbit", "J.R.R. Tolkien");
+            book.Format = BookFormat.Physical;
+            book.Publisher = "Hand-Edited Publisher";
+            book.MyReview = "Hand-edited review";
+            Context.Books.Add(book);
+            await Context.SaveChangesAsync();
+
+            await _service.ImportFromCsvAsync(
+                CsvStream(DetailedRow("The Hobbit", "J.R.R. Tolkien",
+                    publisher: "Goodreads Publisher", myReview: "Goodreads review",
+                    binding: "Kindle Edition")));
+
+            book.Format.Should().Be(BookFormat.Physical);
+            book.Publisher.Should().Be("Hand-Edited Publisher");
+            book.MyReview.Should().Be("Hand-edited review");
+        }
+
+        [Fact]
+        public async Task ImportFromCsvAsync_Reimport_BackfillsEmptyFields()
+        {
+            // Fill-only still backfills a genuinely empty field from Goodreads.
+            var book = TestDataFactory.CreateBook("Snow Crash", "Neal Stephenson");
+            book.Publisher = null;
+            book.ISBN = null;
+            Context.Books.Add(book);
+            await Context.SaveChangesAsync();
+
+            await _service.ImportFromCsvAsync(
+                CsvStream(DetailedRow("Snow Crash", "Neal Stephenson",
+                    isbn13: "9780553380958", publisher: "Bantam")));
+
+            book.Publisher.Should().Be("Bantam");
+            book.ISBN.Should().Be("9780553380958");
+        }
+
+        [Fact]
+        public async Task ImportFromCsvAsync_NewBook_SeedsStatusFormatAndRating()
+        {
+            // Create-path is unchanged: a brand-new book still seeds status, format and rating.
+            var result = await _service.ImportFromCsvAsync(
+                CsvStream(DetailedRow("A Brand New Book", "New Author",
+                    myRating: 4, exclusiveShelf: "read", binding: "Paperback")));
+
+            result.CreatedCount.Should().Be(1);
+            var book = Context.Books.Single(b => b.Title == "A Brand New Book");
+            book.Status.Should().Be(Status.Completed);
+            book.Format.Should().Be(BookFormat.Physical);
+            book.Rating.Should().Be(Rating.Like);
+            book.GoodreadsRating.Should().Be(4m);
+        }
+
         #endregion
 
         #region CSV helpers
@@ -322,6 +428,13 @@ namespace MyMediaVerse.UnitTests.Application
 
         private static string Row(string title, string author, string isbn = "", string isbn13 = "") =>
             $"\"{title}\",\"{author}\",\"{isbn}\",\"{isbn13}\",0,3.50,\"Pub\",2000,2000,,,\"shelf\",\"read\",\"\",\"Paperback\"";
+
+        // Row with per-field control for the re-import policy tests. Column order matches GoodreadsHeader.
+        private static string DetailedRow(
+            string title, string author, string isbn = "", string isbn13 = "",
+            int myRating = 0, string publisher = "Pub", string dateRead = "",
+            string exclusiveShelf = "read", string myReview = "", string binding = "Paperback") =>
+            $"\"{title}\",\"{author}\",\"{isbn}\",\"{isbn13}\",{myRating},3.50,\"{publisher}\",2000,2000,\"{dateRead}\",,\"shelf\",\"{exclusiveShelf}\",\"{myReview}\",\"{binding}\"";
 
         #endregion
     }

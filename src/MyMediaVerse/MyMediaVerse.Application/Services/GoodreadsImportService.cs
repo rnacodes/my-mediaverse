@@ -218,31 +218,46 @@ namespace MyMediaVerse.Application.Services
 
         private void UpdateBookFromRecord(Book book, GoodreadsCsvImportDto record)
         {
-            // Update fields from Goodreads (preserve local-only fields)
-            book.ISBN = CleanIsbn(record.ISBN) ?? CleanIsbn(record.ISBN13) ?? book.ISBN;
+            // Re-import policy: Goodreads is the primary tracker for reading STATUS and RATING, so
+            // those always take the export's current value (reflecting any change made in Goodreads).
+            // Every other field is fill-only — a re-import backfills a gap but never overwrites a
+            // populated value, so anything edited in the app after the first import is preserved.
+
+            // Status + rating: Goodreads always wins. A "My Rating" of 0 means unrated in Goodreads,
+            // so only a real 1-5 rating overwrites — an unrated export never clears an existing rating.
             book.Status = MapShelfToStatus(record.Shelves);
-            book.Format = MapBindingToFormat(record.Binding);
-            book.GoodreadsRating = record.MyRating ?? book.GoodreadsRating;
-            book.AverageRating = record.AverageRating ?? book.AverageRating;
-            book.Publisher = record.Publisher?.Trim() ?? book.Publisher;
-            book.YearPublished = record.YearPublished ?? book.YearPublished;
-            book.OriginalPublicationYear = record.OriginalPublicationYear ?? book.OriginalPublicationYear;
-            book.DateRead = ParseDate(record.DateRead) ?? book.DateRead;
-            book.MyReview = !string.IsNullOrWhiteSpace(record.MyReview) ? record.MyReview.Trim() : book.MyReview;
-
-            // Merge GoodreadsTags (combine existing with new, dedupe)
-            var existingTags = book.GoodreadsTags ?? new List<string>();
-            var newTags = ParseBookshelves(record.Bookshelves);
-            book.GoodreadsTags = existingTags.Union(newTags, StringComparer.OrdinalIgnoreCase).ToList();
-
-            // Update Rating if GoodreadsRating changed
-            if (record.MyRating.HasValue)
+            if (record.MyRating is > 0)
             {
+                book.GoodreadsRating = record.MyRating;
                 book.Rating = MapMyRatingToPlbRating(record.MyRating);
             }
 
-            // Set DateCompleted if status is Completed and DateRead is available
-            if (book.Status == Status.Completed && book.DateRead.HasValue)
+            // Everything else: fill-only (set only when the existing value is null/empty). Format is
+            // a non-nullable enum with no gap sentinel, so it is intentionally left untouched here.
+            if (string.IsNullOrWhiteSpace(book.ISBN))
+            {
+                book.ISBN = CleanIsbn(record.ISBN) ?? CleanIsbn(record.ISBN13);
+            }
+            book.AverageRating ??= record.AverageRating;
+            if (string.IsNullOrWhiteSpace(book.Publisher))
+            {
+                book.Publisher = record.Publisher?.Trim();
+            }
+            book.YearPublished ??= record.YearPublished;
+            book.OriginalPublicationYear ??= record.OriginalPublicationYear;
+            book.DateRead ??= ParseDate(record.DateRead);
+            if (string.IsNullOrWhiteSpace(book.MyReview))
+            {
+                book.MyReview = record.MyReview?.Trim();
+            }
+            if (book.GoodreadsTags == null || book.GoodreadsTags.Count == 0)
+            {
+                book.GoodreadsTags = ParseBookshelves(record.Bookshelves);
+            }
+
+            // Derive DateCompleted only when it is still unset (fill-only), from the status Goodreads
+            // just supplied and whatever DateRead we now hold.
+            if (book.DateCompleted == null && book.Status == Status.Completed && book.DateRead.HasValue)
             {
                 book.DateCompleted = book.DateRead;
             }
@@ -260,7 +275,7 @@ namespace MyMediaVerse.Application.Services
                 "to-read" => Status.Uncharted,
                 "currently-reading" => Status.ActivelyExploring,
                 "read" => Status.Completed,
-                "to be continued" => Status.Abandoned,
+                "to-be-continued" => Status.Abandoned,
                 _ => Status.Uncharted
             };
         }
