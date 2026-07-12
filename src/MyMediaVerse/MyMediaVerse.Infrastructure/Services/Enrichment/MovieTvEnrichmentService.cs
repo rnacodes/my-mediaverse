@@ -99,8 +99,10 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                         // Fetch full movie details
                         var movieDetails = await _tmdbClient.GetMovieDetailsAsync(tmdbMatch.Id);
 
-                        // Map TMDB data to entity
+                        // Map TMDB data to entity (fill-gaps-only; MapTmdbMovieToEntity
+                        // guards every field and never overwrites a populated value).
                         MapTmdbMovieToEntity(movie, movieDetails);
+                        movie.EnrichedAt = DateTime.UtcNow;
                         _context.Update(movie);
                         result.EnrichedCount++;
 
@@ -198,8 +200,10 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                         // Fetch full TV show details
                         var tvShowDetails = await _tmdbClient.GetTvShowDetailsAsync(tmdbMatch.Id);
 
-                        // Map TMDB data to entity
+                        // Map TMDB data to entity (fill-gaps-only; MapTmdbTvShowToEntity
+                        // guards every field and never overwrites a populated value).
                         MapTmdbTvShowToEntity(tvShow, tvShowDetails);
+                        tvShow.EnrichedAt = DateTime.UtcNow;
                         _context.Update(tvShow);
                         result.EnrichedCount++;
 

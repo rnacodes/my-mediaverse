@@ -32,6 +32,10 @@ public static class BackgroundServicesExtensions
             configuration, BookDescriptionEnrichmentOptions.SectionName, isTesting, logger,
             "Book description enrichment");
 
+        // Derives the MMV Rating enum from the raw GoodreadsRating stored at import time (pure local
+        // op, no external API — no background worker needed; triggered via the enrichment controller).
+        services.AddScoped<IBookRatingEnrichmentService, BookRatingEnrichmentService>();
+
         services.AddScoped<IMovieTvEnrichmentService, MovieTvEnrichmentService>();
         services.AddEnrichmentWorker<MovieTvEnrichmentHostedService, MovieTvEnrichmentOptions>(
             configuration, MovieTvEnrichmentOptions.SectionName, isTesting, logger,

@@ -38,14 +38,14 @@ const mediaTypeOptions = [
 
 
 // MAIN COMPONENT
-export default function Search() {
+export default function Search({ defaultMediaTypes = [] }) {
     const [searchParams] = useSearchParams();
     const [searchQuery, setSearchQuery] = useState('');
     const [viewMode, setViewMode] = useState('card');
     const [sortBy, setSortBy] = useState('relevance');
     const [searchMode, setSearchMode] = useState('media'); // 'media' or 'mixlists'
     const [selectedItems, setSelectedItems] = useState(new Set());
-    const [selectedMediaTypes, setSelectedMediaTypes] = useState([]); // Empty = show "please select" message
+    const [selectedMediaTypes, setSelectedMediaTypes] = useState(defaultMediaTypes); // Empty = show "please select" message
     const [selectedTopics, setSelectedTopics] = useState([]);
     const [selectedGenres, setSelectedGenres] = useState([]);
     const [selectedStatus, setSelectedStatus] = useState('all');

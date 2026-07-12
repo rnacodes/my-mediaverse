@@ -686,6 +686,9 @@ namespace MyMediaVerse.Infrastructure.Migrations
                     b.Property<DateTime?>("DateRead")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("EnrichedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Format")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -824,6 +827,9 @@ namespace MyMediaVerse.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<DateTime?>("EnrichedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Homepage")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
@@ -944,6 +950,9 @@ namespace MyMediaVerse.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<DateTime?>("EnrichedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("ExternalId")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
@@ -993,6 +1002,9 @@ namespace MyMediaVerse.Infrastructure.Migrations
                     b.Property<string>("Creator")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime?>("EnrichedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<int?>("FirstAirYear")
                         .HasColumnType("integer");

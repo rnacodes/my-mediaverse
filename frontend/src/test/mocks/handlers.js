@@ -77,4 +77,36 @@ export const handlers = [
   // --- Topics / Genres ---
   http.get(`${API_BASE}/topics`, () => HttpResponse.json([])),
   http.get(`${API_BASE}/genres`, () => HttpResponse.json([])),
+
+  http.get(`${API_BASE}/search`, ({ request }) => {
+    const filter = new URL(request.url).searchParams.get('filter') || '';
+    const doc = (id, title, mediaType) => ({
+      document: {
+        id,
+        title,
+        media_type: mediaType,
+        status: 'Completed',
+        rating: 'Like',
+        topics: [],
+        genres: [],
+        date_added: 1700000000,
+        description: '',
+      },
+    });
+    const book = doc('ts-book', 'Test Book', 'Book');
+    const movie = doc('ts-movie', 'Test Movie', 'Movie');
+    let hits = [book, movie];
+    if (filter.includes('media_type:=Book')) hits = [book];
+    else if (filter.includes('media_type:=Movie')) hits = [movie];
+    return HttpResponse.json({ found: hits.length, out_of: 2, page: 1, hits });
+  }),
+  http.get(`${API_BASE}/search/mixlists`, () =>
+    HttpResponse.json({ found: 0, out_of: 0, page: 1, hits: [] }),
+  ),
+  http.get(`${API_BASE}/search/highlights`, () =>
+    HttpResponse.json({ found: 0, out_of: 0, page: 1, hits: [] }),
+  ),
+  http.get(`${API_BASE}/search/notes`, () =>
+    HttpResponse.json({ found: 0, out_of: 0, page: 1, hits: [] }),
+  ),
 ];

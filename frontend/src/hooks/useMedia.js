@@ -1,62 +1,24 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  getAllMedia,
   getMediaById,
-  getMediaByType,
-  getMediaByTopic,
-  getMediaByGenre,
-  searchMedia,
   addMedia,
   updateMedia,
   deleteMedia,
   bulkDeleteMedia,
   updateMediaTopicsGenres,
 } from '../api/mediaService';
+import { searchMediaViaTypesense } from '../api/typesenseService';
 import { mediaKeys, relatedMediaKeys, recommendationKeys } from '../api/queryKeys';
 
 // Hook convention: queryFn unwraps axios `response.data` so consumers receive
 // the payload directly via `data` from useQuery. All hooks in this layer follow
 // the same shape.
 
-export function useAllMedia(options = {}) {
-  return useQuery({
-    queryKey: mediaKeys.lists(),
-    queryFn: async () => (await getAllMedia()).data,
-    ...options,
-  });
-}
-
-export function useMediaByType(mediaType, options = {}) {
-  return useQuery({
-    queryKey: mediaKeys.byType(mediaType),
-    queryFn: async () => (await getMediaByType(mediaType)).data,
-    enabled: !!mediaType,
-    ...options,
-  });
-}
-
-export function useMediaByTopic(topicId, options = {}) {
-  return useQuery({
-    queryKey: mediaKeys.byTopic(topicId),
-    queryFn: async () => (await getMediaByTopic(topicId)).data,
-    enabled: !!topicId,
-    ...options,
-  });
-}
-
-export function useMediaByGenre(genreId, options = {}) {
-  return useQuery({
-    queryKey: mediaKeys.byGenre(genreId),
-    queryFn: async () => (await getMediaByGenre(genreId)).data,
-    enabled: !!genreId,
-    ...options,
-  });
-}
 
 export function useMediaSearch(query, options = {}) {
   return useQuery({
     queryKey: mediaKeys.search(query),
-    queryFn: async () => (await searchMedia(query)).data,
+    queryFn: async () => searchMediaViaTypesense(query),
     enabled: !!query && query.length > 0,
     ...options,
   });

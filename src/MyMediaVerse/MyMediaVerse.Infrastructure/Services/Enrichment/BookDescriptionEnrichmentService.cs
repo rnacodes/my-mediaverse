@@ -86,7 +86,10 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
 
                         if (!string.IsNullOrWhiteSpace(description))
                         {
+                            // Fill-gaps-only: Description was null (query filter guarantees it),
+                            // so this never overwrites a user-edited value.
                             book.Description = description;
+                            book.EnrichedAt = DateTime.UtcNow;
                             _context.Update(book);
                             result.EnrichedCount++;
                             _logger.LogDebug("Successfully enriched description for: {Title}", book.Title);
@@ -176,7 +179,9 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
 
                 if (!string.IsNullOrWhiteSpace(description))
                 {
+                    // Fill-gaps-only: guarded above by the AlreadyHasDescription early-return.
                     book.Description = description;
+                    book.EnrichedAt = DateTime.UtcNow;
                     _context.Update(book);
                     await _context.SaveChangesAsync(cancellationToken);
 

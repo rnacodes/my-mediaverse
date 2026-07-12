@@ -1,5 +1,6 @@
 using MyMediaVerse.Infrastructure.Clients.AI;
 using MyMediaVerse.Infrastructure.Clients.Google;
+using MyMediaVerse.Infrastructure.Clients.Itunes;
 using MyMediaVerse.Infrastructure.Clients.ListenNotes;
 using MyMediaVerse.Infrastructure.Clients.Obsidian;
 using MyMediaVerse.Infrastructure.Clients.OpenLibrary;
@@ -10,6 +11,7 @@ using MyMediaVerse.Infrastructure.Clients.Trakt;
 using MyMediaVerse.Infrastructure.Clients.YouTube;
 using MyMediaVerse.Infrastructure.Services.Web;
 using MyMediaVerse.Shared.Interfaces;
+using Polly;
 
 namespace MyMediaVerse.Web.API.Extensions;
 
@@ -25,6 +27,7 @@ public static class ExternalApiClientsExtensions
         services.AddScriptRunnerClient(configuration, logger);
         services.AddYouTubeApiClient();
         services.AddListenNotesApiClient(configuration, logger);
+        services.AddItunesLookupClient();
         services.AddReadwiseClients(configuration, logger);
         services.AddOpenLibraryApiClient();
         services.AddPaperlessApiClient(configuration, logger);
@@ -72,6 +75,12 @@ public static class ExternalApiClientsExtensions
         {
             client.BaseAddress = new Uri("https://www.googleapis.com/youtube/v3/");
             client.DefaultRequestHeaders.Add("User-Agent", "MyMediaVerse/1.0");
+        })
+        // Retry transient rate limiting (429) and 5xx with exponential backoff + Retry-After.
+        // Daily-quota 403s are handled in YouTubeApiClient (they must not be retried).
+        .AddResilienceHandler("youtube-retry", builder =>
+        {
+            builder.AddRetry(YouTubeResilience.CreateRetryOptions());
         });
     }
 
@@ -94,6 +103,18 @@ public static class ExternalApiClientsExtensions
             {
                 client.DefaultRequestHeaders.Add("X-ListenAPI-Key", apiKey);
             }
+        });
+    }
+
+    private static void AddItunesLookupClient(this IServiceCollection services)
+    {
+        // Apple's iTunes Lookup API is free and requires no key. Used to resolve an Apple
+        // Podcasts collection id to its RSS feed url + basic metadata during enrichment.
+        services.AddHttpClient<IItunesLookupClient, ItunesLookupClient>(client =>
+        {
+            client.BaseAddress = new Uri("https://itunes.apple.com/");
+            client.DefaultRequestHeaders.Add("User-Agent", "MyMediaVerse/1.0");
+            client.Timeout = TimeSpan.FromSeconds(30);
         });
     }
 

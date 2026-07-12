@@ -43,7 +43,9 @@ namespace MyMediaVerse.DTOs
         [Name("Date Added")]
         public string? DateAdded { get; set; }
 
-        [Name("Shelves")]
+        // Goodreads exports the current shelf as "Exclusive Shelf"; "Shelves" is kept as a fallback
+        // for older/renamed exports. Matching only "Shelves" left Status null on every real import.
+        [Name("Exclusive Shelf", "Shelves")]
         public string? Shelves { get; set; }
 
         [Name("Bookshelves")]

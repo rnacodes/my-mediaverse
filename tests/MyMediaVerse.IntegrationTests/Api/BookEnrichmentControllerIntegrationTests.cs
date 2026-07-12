@@ -105,5 +105,32 @@ namespace MyMediaVerse.IntegrationTests.Api
         }
 
         #endregion
+
+        #region ConvertGoodreadsRatings
+
+        [Fact]
+        public async Task ConvertRatings_ShouldReturnUnauthorized_WithoutToken()
+        {
+            _client.DefaultRequestHeaders.Authorization = null;
+
+            var response = await _client.PostAsync("/api/bookenrichment/convert-ratings", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        }
+
+        [Fact]
+        public async Task ConvertRatings_ShouldReturnOk_WithEmptyDb()
+        {
+            await _client.AuthenticateAsync();
+
+            var response = await _client.PostAsync("/api/bookenrichment/convert-ratings", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var result = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+            result.TryGetProperty("totalCandidates", out var candidates).Should().BeTrue();
+            candidates.GetInt32().Should().Be(0);
+        }
+
+        #endregion
     }
 }

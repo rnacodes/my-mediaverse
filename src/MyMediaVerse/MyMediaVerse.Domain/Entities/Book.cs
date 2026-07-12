@@ -76,6 +76,13 @@ namespace MyMediaVerse.Domain.Entities
         public DateTime? LastReadwiseSync { get; set; }
 
         /// <summary>
+        /// UTC timestamp of the last successful metadata enrichment (Google Books).
+        /// Set only when enrichment actually populated a previously-empty field; enrichment
+        /// is fill-gaps-only and never overwrites user-edited/populated values.
+        /// </summary>
+        public DateTime? EnrichedAt { get; set; }
+
+        /// <summary>
         /// Navigation property: Highlights associated with this book
         /// </summary>
         public ICollection<Highlight> Highlights { get; set; } = new List<Highlight>();

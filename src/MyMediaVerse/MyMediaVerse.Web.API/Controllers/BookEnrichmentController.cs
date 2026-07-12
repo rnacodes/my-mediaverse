@@ -10,13 +10,16 @@ namespace MyMediaVerse.Web.API.Controllers
     public class BookEnrichmentController : ControllerBase
     {
         private readonly IBookDescriptionEnrichmentService _enrichmentService;
+        private readonly IBookRatingEnrichmentService _ratingEnrichmentService;
         private readonly ILogger<BookEnrichmentController> _logger;
 
         public BookEnrichmentController(
             IBookDescriptionEnrichmentService enrichmentService,
+            IBookRatingEnrichmentService ratingEnrichmentService,
             ILogger<BookEnrichmentController> logger)
         {
             _enrichmentService = enrichmentService;
+            _ratingEnrichmentService = ratingEnrichmentService;
             _logger = logger;
         }
 
@@ -202,6 +205,33 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 _logger.LogError(ex, "Error running full book enrichment");
                 return StatusCode(500, new { error = "Full enrichment run failed", details = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Derives the MMV Rating enum from the raw GoodreadsRating stored at import time, for every
+        /// book with a real 1-5 Goodreads rating. Goodreads CSV import stores only the raw rating, so
+        /// this is the step that populates the app Rating.
+        /// </summary>
+        [HttpPost("convert-ratings")]
+        public async Task<ActionResult<BookRatingConversionResult>> ConvertGoodreadsRatings()
+        {
+            try
+            {
+                _logger.LogInformation("Starting Goodreads rating conversion run");
+
+                var result = await _ratingEnrichmentService.ConvertGoodreadsRatingsAsync();
+
+                _logger.LogInformation(
+                    "Goodreads rating conversion completed. Candidates: {Candidates}, Converted: {Converted}",
+                    result.TotalCandidates, result.Converted);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error running Goodreads rating conversion");
+                return StatusCode(500, new { error = "Rating conversion failed", details = ex.Message });
             }
         }
     }

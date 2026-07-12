@@ -19,7 +19,6 @@ import LoadingSpinner from '@/shared/LoadingSpinner';
 import HomePage from './features/homepage';
 import LoginPage from './features/auth/pages/LoginPage';
 import AddMediaForm from './features/media/pages/AddMediaForm';
-import AllMedia from './features/media/pages/AllMedia';
 import MixlistsPage from './features/mixlists/pages/MixlistsPage';
 import CreateMixlistForm from './features/mixlists/pages/CreateMixlistForm';
 import MixlistProfilePage from './features/mixlists/pages/MixlistProfilePage';
@@ -61,10 +60,6 @@ const ImportMixlistPage = lazy(() => import('./features/imports/pages/ImportMixl
 const TypesenseAdminPage = lazy(() => import('./features/admin/pages/TypesenseAdminPage'));
 const BackgroundJobsPage = lazy(() => import('./features/admin/pages/BackgroundJobsPage'));
 
-function SentryTestTrigger() {
-  throw new Error('RAS-128 frontend test error — safe to ignore.');
-}
-
 function RouteErrorFallback({ error, resetErrorBoundary }) {
   return (
     <Box role="alert" sx={{ p: 4, maxWidth: 600, mx: 'auto', textAlign: 'center' }}>
@@ -96,8 +91,6 @@ function RoutedContent() {
             {/* Public routes - always accessible */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/demo" element={<DemoPage />} />
-            {/* TEMP (RAS-128 verification): public so it can be hit without auth. Remove after verifying. */}
-            <Route path="/sentry-test" element={<SentryTestTrigger />} />
 
             {/* Protected routes - require login in production, open in demo */}
             <Route path="/" element={
@@ -107,7 +100,7 @@ function RoutedContent() {
               <ConditionalProtectedRoute><AddMediaForm /></ConditionalProtectedRoute>
             } />
             <Route path="/all-media" element={
-              <ConditionalProtectedRoute><AllMedia /></ConditionalProtectedRoute>
+              <ConditionalProtectedRoute><Search defaultMediaTypes={['all']} /></ConditionalProtectedRoute>
             } />
             <Route path="/mixlists" element={
               <ConditionalProtectedRoute><MixlistsPage /></ConditionalProtectedRoute>

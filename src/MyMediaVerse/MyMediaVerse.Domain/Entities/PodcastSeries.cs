@@ -26,7 +26,14 @@ namespace MyMediaVerse.Domain.Entities
         
         // Last sync date for checking new episodes
         public DateTime? LastSyncDate { get; set; }
-        
+
+        /// <summary>
+        /// UTC timestamp of the last successful metadata enrichment (ListenNotes).
+        /// Set only when enrichment actually populated a previously-empty field; enrichment
+        /// is fill-gaps-only and never overwrites user-edited/populated values.
+        /// </summary>
+        public DateTime? EnrichedAt { get; set; }
+
         // Total episodes count (from API or calculated)
         public int TotalEpisodes { get; set; } = 0;
         

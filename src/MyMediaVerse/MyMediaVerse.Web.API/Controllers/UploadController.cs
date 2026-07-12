@@ -30,6 +30,8 @@ namespace MyMediaVerse.Web.API.Controllers
         private readonly IAmazonS3? _s3Client;
         private readonly IConfiguration _configuration;
         private readonly IGoodreadsImportService _goodreadsImportService;
+        private readonly IImportReindexService _importReindexService;
+        private readonly IBookRatingEnrichmentService _ratingEnrichmentService;
 
         public UploadController(
             MediaLibraryDbContext context,
@@ -37,7 +39,9 @@ namespace MyMediaVerse.Web.API.Controllers
             IThumbnailStorageService thumbnailStorage,
             IAmazonS3? s3Client,
             IConfiguration configuration,
-            IGoodreadsImportService goodreadsImportService)
+            IGoodreadsImportService goodreadsImportService,
+            IImportReindexService importReindexService,
+            IBookRatingEnrichmentService ratingEnrichmentService)
         {
             _context = context;
             _logger = logger;
@@ -45,6 +49,8 @@ namespace MyMediaVerse.Web.API.Controllers
             _s3Client = s3Client;
             _configuration = configuration;
             _goodreadsImportService = goodreadsImportService;
+            _importReindexService = importReindexService;
+            _ratingEnrichmentService = ratingEnrichmentService;
         }
 
         // POST: api/upload/thumbnail-from-url
@@ -477,6 +483,9 @@ namespace MyMediaVerse.Web.API.Controllers
                 // Save all changes
                 await _context.SaveChangesAsync();
 
+                // Make the imported items searchable immediately (best-effort; never fails the import).
+                await _importReindexService.ReindexAfterImportAsync(successCount, "CSV upload");
+
                 var result = new
                 {
                     Success = true,
@@ -531,6 +540,26 @@ namespace MyMediaVerse.Web.API.Controllers
 
                 using var stream = file.OpenReadStream();
                 var result = await _goodreadsImportService.ImportFromCsvAsync(stream, updateExisting);
+
+                // import -> enrich -> embed for the interactive path: derive the MMV Rating enum from
+                // the raw Goodreads rating that import just stored (import itself does no conversion),
+                // then reindex. Best-effort: a conversion hiccup must not fail an otherwise-good import.
+                if (result.SuccessCount > 0)
+                {
+                    try
+                    {
+                        await _ratingEnrichmentService.ConvertGoodreadsRatingsAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Goodreads rating conversion after import failed (non-fatal)");
+                    }
+                }
+
+                // Make the imported books searchable immediately (best-effort; never fails the import).
+                // Fires per chunk that actually imported books — the bulk reindex skips unchanged items,
+                // so earlier chunks' books aren't re-embedded.
+                await _importReindexService.ReindexAfterImportAsync(result.SuccessCount, "Goodreads CSV");
 
                 // Include chunk info in response for frontend progress tracking
                 if (chunkIndex.HasValue && totalChunks.HasValue)

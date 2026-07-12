@@ -13,6 +13,8 @@ namespace MyMediaVerse.Shared.Interfaces
 
         // Podcast operations
         Task<PodcastSeriesDto> GetPodcastByIdAsync(string id, string? nextEpisodePubDate = null);
+
+        Task<PodcastSeriesDto?> GetPodcastByItunesIdAsync(string itunesId);
         Task<ListenNotesBestPodcastsDto> GetBestPodcastsAsync(int? genreId = null, int? page = null, 
             string? region = null, string? sortByDate = null, bool? safeMode = null);
         Task<ListenNotesRecommendationsDto> GetPodcastRecommendationsAsync(string id, bool? safeMode = null);

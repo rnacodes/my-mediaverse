@@ -69,6 +69,9 @@ public static class SearchExtensions
 
         services.AddScoped<ITypesenseService, TypesenseService>();
 
+        // Best-effort "reindex after import" helper for interactive imports (see IImportReindexService).
+        services.AddScoped<IImportReindexService, ImportReindexService>();
+
         return services;
     }
 

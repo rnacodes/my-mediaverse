@@ -65,6 +65,13 @@ namespace MyMediaVerse.Domain.Entities
         /// </summary>
         public int? TraktRating { get; set; }
 
+        /// <summary>
+        /// UTC timestamp of the last successful metadata enrichment (TMDB).
+        /// Set only when enrichment actually populated a previously-empty field; enrichment
+        /// is fill-gaps-only and never overwrites user-edited/populated values.
+        /// </summary>
+        public DateTime? EnrichedAt { get; set; }
+
         // Navigation property to episodes
         public ICollection<TvShowEpisode> Episodes { get; set; } = new List<TvShowEpisode>();
 
