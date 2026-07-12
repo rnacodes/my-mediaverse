@@ -286,5 +286,78 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         }
 
         #endregion
+
+        #region EnrichedAt stamping
+
+        [Fact]
+        public async Task EnrichMoviesWithoutTmdbDataAsync_OnSuccess_StampsEnrichedAt()
+        {
+            var movie = TestDataFactory.CreateMovie("The Matrix");
+            movie.TmdbId = null;
+            movie.Description = null;
+            movie.EnrichedAt = null;
+            Context.Movies.Add(movie);
+            await Context.SaveChangesAsync();
+
+            _mockTmdbClient.SearchMoviesAsync("The Matrix", Arg.Any<int>(), Arg.Any<string>())
+                .Returns(new TmdbMovieSearchResultDto
+                {
+                    Results = new[] { new TmdbMovieDto { Id = 603, Title = "The Matrix", Overview = "Overview" } },
+                    TotalResults = 1
+                });
+            _mockTmdbClient.GetMovieDetailsAsync(603, Arg.Any<string>())
+                .Returns(new TmdbMovieDto { Id = 603, Title = "The Matrix", Overview = "Overview" });
+
+            await _service.EnrichMoviesWithoutTmdbDataAsync(batchSize: 10, delayBetweenCallsMs: 0);
+
+            var updated = Context.Movies.First(m => m.Id == movie.Id);
+            updated.EnrichedAt.Should().NotBeNull();
+        }
+
+        [Fact]
+        public async Task EnrichMoviesWithoutTmdbDataAsync_NoMatch_DoesNotStampEnrichedAt()
+        {
+            var movie = TestDataFactory.CreateMovie("Obscure Film XYZ");
+            movie.TmdbId = null;
+            movie.Description = null;
+            movie.EnrichedAt = null;
+            Context.Movies.Add(movie);
+            await Context.SaveChangesAsync();
+
+            _mockTmdbClient.SearchMoviesAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<string>())
+                .Returns(new TmdbMovieSearchResultDto { Results = Array.Empty<TmdbMovieDto>(), TotalResults = 0 });
+
+            await _service.EnrichMoviesWithoutTmdbDataAsync(batchSize: 10, delayBetweenCallsMs: 0);
+
+            var updated = Context.Movies.First(m => m.Id == movie.Id);
+            updated.EnrichedAt.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task EnrichTvShowsWithoutTmdbDataAsync_OnSuccess_StampsEnrichedAt()
+        {
+            var tvShow = TestDataFactory.CreateTvShow("Breaking Bad");
+            tvShow.TmdbId = null;
+            tvShow.Description = null;
+            tvShow.EnrichedAt = null;
+            Context.TvShows.Add(tvShow);
+            await Context.SaveChangesAsync();
+
+            _mockTmdbClient.SearchTvShowsAsync("Breaking Bad", Arg.Any<int>(), Arg.Any<string>())
+                .Returns(new TmdbTvSearchResultDto
+                {
+                    Results = new[] { new TmdbTvShowDto { Id = 1396, Name = "Breaking Bad", Overview = "Overview" } },
+                    TotalResults = 1
+                });
+            _mockTmdbClient.GetTvShowDetailsAsync(1396, Arg.Any<string>())
+                .Returns(new TmdbTvShowDto { Id = 1396, Name = "Breaking Bad", Overview = "Overview" });
+
+            await _service.EnrichTvShowsWithoutTmdbDataAsync(batchSize: 10, delayBetweenCallsMs: 0);
+
+            var updated = Context.TvShows.First(t => t.Id == tvShow.Id);
+            updated.EnrichedAt.Should().NotBeNull();
+        }
+
+        #endregion
     }
 }

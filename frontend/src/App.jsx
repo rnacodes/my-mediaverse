@@ -48,7 +48,6 @@ import WebsitesPage from './features/imports/pages/WebsitesPage';
 import GoodreadsUploadPage from './features/media/pages/GoodreadsUploadPage';
 import NoteProfilePage from './features/notes/pages/NoteProfilePage';
 import HighlightProfilePage from './features/notes/pages/HighlightProfilePage';
-import ScriptExecutionPage from './features/admin/pages/ScriptExecutionPage';
 import NotesListingPage from './features/notes/pages/NotesListingPage';
 import AiAdminPage from './features/admin/pages/AiAdminPage';
 import SearchByVibePage from './features/search/pages/SearchByVibePage';
@@ -194,9 +193,6 @@ function RoutedContent() {
             } />
             <Route path="/background-jobs" element={
               <ConditionalProtectedRoute><BackgroundJobsPage /></ConditionalProtectedRoute>
-            } />
-            <Route path="/script-execution" element={
-              <ConditionalProtectedRoute><ScriptExecutionPage /></ConditionalProtectedRoute>
             } />
             <Route path="/note/:id" element={
               <ConditionalProtectedRoute><NoteProfilePage /></ConditionalProtectedRoute>

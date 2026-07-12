@@ -30,7 +30,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
         {
             if (!_options.Enabled)
             {
-                _logger.LogInformation("Podcast ListenNotes enrichment background service is disabled");
+                _logger.LogInformation("Podcast ListenNotes enrichment background service is disabled (ongoing cadence handled by N8N)");
                 return;
             }
 

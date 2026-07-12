@@ -408,5 +408,73 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         }
 
         #endregion
+
+        #region EnrichedAt stamping
+
+        [Fact]
+        public async Task EnrichPodcastsWithoutListenNotesDataAsync_ListenNotesMatch_StampsEnrichedAt()
+        {
+            var series = CreateTestPodcastSeries("The Daily");
+            Context.PodcastSeries.Add(series);
+            await Context.SaveChangesAsync();
+
+            MockSearch(new SearchResultDto
+            {
+                Count = 1,
+                Total = 1,
+                Results = new List<PodcastSearchDto>
+                {
+                    new PodcastSearchDto { Id = "ln_daily_123", TitleOriginal = "The Daily" }
+                }
+            });
+            _mockListenNotesClient.GetPodcastByIdAsync("ln_daily_123", Arg.Any<string?>())
+                .Returns(new PodcastSeriesDto { Id = "ln_daily_123", Title = "The Daily" });
+
+            await _service.EnrichPodcastsWithoutListenNotesDataAsync(batchSize: 10, delayBetweenCallsMs: 0);
+
+            var updated = Context.PodcastSeries.First(s => s.Id == series.Id);
+            updated.EnrichedAt.Should().NotBeNull();
+        }
+
+        [Fact]
+        public async Task EnrichPodcastsWithoutListenNotesDataAsync_ItunesOnlyBackfill_StampsEnrichedAt()
+        {
+            // Apple iTunes resolves the RSS feed (a partial enrichment) but ListenNotes has no match —
+            // the iTunes-only path still counts as enriched and must stamp EnrichedAt.
+            var series = CreateTestPodcastSeries("The Daily", applePodcastsId: "1200361736");
+            Context.PodcastSeries.Add(series);
+            await Context.SaveChangesAsync();
+
+            MockItunesLookup("1200361736", new ItunesPodcastDto
+            {
+                CollectionName = "The Daily",
+                FeedUrl = "https://feeds.simplecast.com/thedaily"
+            });
+            MockSearch(new SearchResultDto { Count = 0, Total = 0, Results = new List<PodcastSearchDto>() });
+
+            var result = await _service.EnrichPodcastsWithoutListenNotesDataAsync(batchSize: 10, delayBetweenCallsMs: 0);
+
+            result.EnrichedCount.Should().Be(1);
+            var updated = Context.PodcastSeries.First(s => s.Id == series.Id);
+            updated.EnrichedAt.Should().NotBeNull();
+        }
+
+        [Fact]
+        public async Task EnrichPodcastsWithoutListenNotesDataAsync_NoMatch_DoesNotStampEnrichedAt()
+        {
+            var series = CreateTestPodcastSeries("Totally Unknown Show", applePodcastsId: "9999999999");
+            Context.PodcastSeries.Add(series);
+            await Context.SaveChangesAsync();
+
+            MockItunesLookup("9999999999", null);
+            MockSearch(new SearchResultDto { Count = 0, Total = 0, Results = new List<PodcastSearchDto>() });
+
+            await _service.EnrichPodcastsWithoutListenNotesDataAsync(batchSize: 10, delayBetweenCallsMs: 0);
+
+            var updated = Context.PodcastSeries.First(s => s.Id == series.Id);
+            updated.EnrichedAt.Should().BeNull();
+        }
+
+        #endregion
     }
 }

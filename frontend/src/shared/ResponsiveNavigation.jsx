@@ -19,7 +19,7 @@ import {
   MenuItem,
   Collapse
 } from '@mui/material';
-import { Menu as MenuIcon, Close as CloseIcon, Home, Movie, QueueMusic, Add, Upload, Download, Search, Apps, CleaningServices, Login as LoginIcon, Logout as LogoutIcon, Person as PersonIcon, Storage as StorageIcon, Article, Language, Category, AdminPanelSettings, Sync, ExpandMore, Work, ExpandLess, Book, Tv, Podcasts, VideoLibrary, YouTube, Note as NoteIcon, Psychology, Terminal, FormatQuote, AddLink, LockOpen, PlaylistAdd, Phonelink } from '@mui/icons-material';
+import { Menu as MenuIcon, Close as CloseIcon, Home, Movie, QueueMusic, Add, Upload, Download, Search, Apps, CleaningServices, Login as LoginIcon, Logout as LogoutIcon, Person as PersonIcon, Storage as StorageIcon, Article, Language, Category, AdminPanelSettings, Sync, ExpandMore, Work, ExpandLess, Book, Tv, Podcasts, VideoLibrary, YouTube, Note as NoteIcon, Psychology, FormatQuote, AddLink, LockOpen, PlaylistAdd, Phonelink } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 
 const ResponsiveNavigation = () => {
@@ -102,7 +102,6 @@ const ResponsiveNavigation = () => {
     { text: 'Background Jobs', path: '/background-jobs', icon: <Work />, requiresAuth: true },
     { text: 'Cleanup', path: '/cleanup', icon: <CleaningServices />, requiresAuth: true },
     { text: 'Demo Admin', path: '/demo-unlock', icon: <LockOpen />, requiresAuth: true },
-    { text: 'Local Scripts', path: '/script-execution', icon: <Terminal />, requiresAuth: true },
     { text: 'Readwise Sync', path: '/readwise-sync', icon: <Sync />, requiresAuth: true },
     { text: 'Link Highlights', path: '/highlight-linking', icon: <AddLink />, requiresAuth: true },
     { text: 'Sources', path: '/sources', icon: <Apps />, requiresAuth: true },

@@ -23,7 +23,6 @@ import {
   relatedMediaKeys,
   tmdbKeys,
   backgroundJobsKeys,
-  scriptExecutionKeys,
 } from './queryKeys';
 
 // Structural assertions over every query-key factory.
@@ -268,14 +267,5 @@ describe('backgroundJobsKeys', () => {
     expect(backgroundJobsKeys.bookEnrichmentStatus()).toEqual(['backgroundJobs', 'bookEnrichment', 'status']);
     expect(backgroundJobsKeys.movieTvEnrichmentStatus()).toEqual(['backgroundJobs', 'movieTvEnrichment', 'status']);
     expect(backgroundJobsKeys.podcastEnrichmentStatus()).toEqual(['backgroundJobs', 'podcastEnrichment', 'status']);
-  });
-});
-
-describe('scriptExecutionKeys', () => {
-  it('builds health and job keys under ["scriptExecution"]', () => {
-    expect(scriptExecutionKeys.all).toEqual(['scriptExecution']);
-    expect(scriptExecutionKeys.health()).toEqual(['scriptExecution', 'health']);
-    expect(scriptExecutionKeys.jobs(10)).toEqual(['scriptExecution', 'jobs', { limit: 10 }]);
-    expect(scriptExecutionKeys.job('j-1')).toEqual(['scriptExecution', 'job', 'j-1']);
   });
 });
