@@ -26,7 +26,7 @@ namespace MyMediaVerse.UnitTests.Application
         [InlineData("to-read", Status.Uncharted)]
         [InlineData("currently-reading", Status.ActivelyExploring)]
         [InlineData("read", Status.Completed)]
-        [InlineData("to be continued", Status.Abandoned)]
+        [InlineData("to-be-continued", Status.Abandoned)]
         [InlineData("TO-READ", Status.Uncharted)]
         [InlineData("Read", Status.Completed)]
         [InlineData("unknown-shelf", Status.Uncharted)]
@@ -327,9 +327,11 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         [Fact]
-        public async Task ImportFromCsvAsync_Reimport_ChangedRating_UpdatesRating()
+        public async Task ImportFromCsvAsync_Reimport_ChangedRating_UpdatesRawGoodreadsRatingOnly()
         {
-            // Goodreads is the primary tracker for rating: a new star rating flows through on re-import.
+            // Goodreads is the primary tracker for rating: a new star rating flows into the raw
+            // GoodreadsRating on re-import. Deriving the MMV Rating enum is deferred to the rating
+            // enrichment stage, so import itself leaves Rating untouched.
             var book = TestDataFactory.CreateBook("Dune", "Frank Herbert");
             book.GoodreadsRating = 3m;
             book.Rating = Rating.Neutral;
@@ -340,7 +342,7 @@ namespace MyMediaVerse.UnitTests.Application
                 CsvStream(DetailedRow("Dune", "Frank Herbert", myRating: 5)));
 
             book.GoodreadsRating.Should().Be(5m);
-            book.Rating.Should().Be(Rating.SuperLike);
+            book.Rating.Should().Be(Rating.Neutral); // unchanged by import; enrichment does the conversion
         }
 
         [Fact]
@@ -401,9 +403,10 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         [Fact]
-        public async Task ImportFromCsvAsync_NewBook_SeedsStatusFormatAndRating()
+        public async Task ImportFromCsvAsync_NewBook_SeedsStatusFormatAndRawRating()
         {
-            // Create-path is unchanged: a brand-new book still seeds status, format and rating.
+            // Create-path seeds status, format and the RAW Goodreads rating. The MMV Rating enum is
+            // derived later in the rating enrichment stage, so import leaves it null.
             var result = await _service.ImportFromCsvAsync(
                 CsvStream(DetailedRow("A Brand New Book", "New Author",
                     myRating: 4, exclusiveShelf: "read", binding: "Paperback")));
@@ -412,8 +415,8 @@ namespace MyMediaVerse.UnitTests.Application
             var book = Context.Books.Single(b => b.Title == "A Brand New Book");
             book.Status.Should().Be(Status.Completed);
             book.Format.Should().Be(BookFormat.Physical);
-            book.Rating.Should().Be(Rating.Like);
             book.GoodreadsRating.Should().Be(4m);
+            book.Rating.Should().BeNull();
         }
 
         #endregion

@@ -79,6 +79,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                     {
                         PodcastSeriesDto? podcastDetails = null;
                         PodcastSearchDto? searchMatch = null;
+                        var itunesApplied = false;
 
                         if (!string.IsNullOrWhiteSpace(podcast.ApplePodcastsId))
                         {
@@ -92,7 +93,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
 
                                 if (itunes != null)
                                 {
-                                    ApplyItunesMetadata(podcast, itunes);
+                                    itunesApplied = ApplyItunesMetadata(podcast, itunes);
                                 }
                             }
                             catch (Exception ex)
@@ -126,13 +127,26 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
 
                         if (podcastDetails == null || string.IsNullOrEmpty(podcastDetails.Id))
                         {
-                            result.NotFoundCount++;
-                            _logger.LogDebug("No suitable ListenNotes match found for podcast: {Title}", podcast.Title);
+                            if (itunesApplied)
+                            {
+                                podcast.EnrichedAt = DateTime.UtcNow;
+                                _context.Update(podcast);
+                                result.EnrichedCount++;
+                                _logger.LogDebug(
+                                    "No ListenNotes match for {Title}; enriched via Apple iTunes only", podcast.Title);
+                            }
+                            else
+                            {
+                                result.NotFoundCount++;
+                                _logger.LogDebug("No suitable ListenNotes match found for podcast: {Title}", podcast.Title);
+                            }
                             continue;
                         }
 
-                        // Map ListenNotes data to entity
+                        // Map ListenNotes data to entity (fill-gaps-only; MapListenNotesToEntity
+                        // guards every field and never overwrites a populated value).
                         MapListenNotesToEntity(podcast, podcastDetails, searchMatch);
+                        podcast.EnrichedAt = DateTime.UtcNow;
                         _context.Update(podcast);
                         result.EnrichedCount++;
 
@@ -231,33 +245,43 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
         /// <summary>
         /// Backfills a stub from Apple iTunes Lookup data, only filling fields that are null/empty.
         /// The RSS feed url is the most valuable field.
+        /// Returns true if at least one previously-empty field was filled.
         /// </summary>
-        private static void ApplyItunesMetadata(PodcastSeries podcast, ItunesPodcastDto itunes)
+        private static bool ApplyItunesMetadata(PodcastSeries podcast, ItunesPodcastDto itunes)
         {
+            var applied = false;
+
             if (string.IsNullOrWhiteSpace(podcast.RssFeedUrl) && !string.IsNullOrWhiteSpace(itunes.FeedUrl))
             {
                 podcast.RssFeedUrl = itunes.FeedUrl;
+                applied = true;
             }
 
             if (string.IsNullOrEmpty(podcast.Publisher) && !string.IsNullOrEmpty(itunes.ArtistName))
             {
                 podcast.Publisher = itunes.ArtistName;
+                applied = true;
             }
 
             if (string.IsNullOrEmpty(podcast.Thumbnail) && !string.IsNullOrEmpty(itunes.ArtworkUrl600))
             {
                 podcast.Thumbnail = itunes.ArtworkUrl600;
+                applied = true;
             }
 
             if (podcast.TotalEpisodes == 0 && itunes.TrackCount is int trackCount && trackCount > 0)
             {
                 podcast.TotalEpisodes = trackCount;
+                applied = true;
             }
 
             if (string.IsNullOrEmpty(podcast.Link) && !string.IsNullOrEmpty(itunes.CollectionViewUrl))
             {
                 podcast.Link = itunes.CollectionViewUrl;
+                applied = true;
             }
+
+            return applied;
         }
 
         /// <summary>

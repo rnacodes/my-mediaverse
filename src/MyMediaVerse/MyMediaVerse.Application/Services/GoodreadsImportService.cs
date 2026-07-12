@@ -195,9 +195,10 @@ namespace MyMediaVerse.Application.Services
                 ISBN = CleanIsbn(record.ISBN) ?? CleanIsbn(record.ISBN13),
                 Status = MapShelfToStatus(record.Shelves),
                 Format = MapBindingToFormat(record.Binding),
+                // Store the raw Goodreads rating only; deriving the MMV Rating enum from it is deferred
+                // to the book rating enrichment stage so import stays a dumb/fast raw capture.
                 GoodreadsRating = record.MyRating,
                 AverageRating = record.AverageRating,
-                Rating = MapMyRatingToPlbRating(record.MyRating),
                 Publisher = record.Publisher?.Trim(),
                 YearPublished = record.YearPublished,
                 OriginalPublicationYear = record.OriginalPublicationYear,
@@ -223,13 +224,14 @@ namespace MyMediaVerse.Application.Services
             // Every other field is fill-only — a re-import backfills a gap but never overwrites a
             // populated value, so anything edited in the app after the first import is preserved.
 
-            // Status + rating: Goodreads always wins. A "My Rating" of 0 means unrated in Goodreads,
-            // so only a real 1-5 rating overwrites — an unrated export never clears an existing rating.
+            // Status + rating: Goodreads always wins. Status maps inline; the raw Goodreads rating is
+            // stored as-is and the MMV Rating enum is derived later in the rating enrichment stage. A
+            // "My Rating" of 0 means unrated, so only a real 1-5 rating overwrites the stored value —
+            // an unrated export never clears an existing rating.
             book.Status = MapShelfToStatus(record.Shelves);
             if (record.MyRating is > 0)
             {
                 book.GoodreadsRating = record.MyRating;
-                book.Rating = MapMyRatingToPlbRating(record.MyRating);
             }
 
             // Everything else: fill-only (set only when the existing value is null/empty). Format is
