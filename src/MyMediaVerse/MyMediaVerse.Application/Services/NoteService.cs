@@ -282,7 +282,7 @@ namespace MyMediaVerse.Application.Services
                                 Description = noteDto.Description,
                                 VaultName = vaultName.ToLower(),
                                 SourceUrl = $"{vaultUrl.TrimEnd('/')}/{slug}",
-                                Tags = noteDto.Tags ?? new List<string>(),
+                                Tags = NormalizeTags(noteDto.Tags),
                                 NoteDate = ParseDate(noteDto.Date),
                                 DateImported = DateTime.UtcNow,
                                 LastSyncedAt = DateTime.UtcNow,
@@ -299,11 +299,20 @@ namespace MyMediaVerse.Application.Services
                             // Update existing note
                             existingNote.Title = noteDto.Title;
                             existingNote.Content = noteDto.Content;
-                            existingNote.Description = noteDto.Description;
-                            existingNote.Tags = noteDto.Tags ?? new List<string>();
+                            existingNote.Tags = NormalizeTags(noteDto.Tags);
                             existingNote.NoteDate = ParseDate(noteDto.Date);
                             existingNote.LastSyncedAt = DateTime.UtcNow;
                             existingNote.ContentHash = contentHash;
+
+                            // Content changed, so any AI summary is now stale. Clear it (and reset the
+                            // synced Description unless the user hand-edited it) so the batch regen,
+                            // which selects notes where AiDescription == null, picks this note up again.
+                            existingNote.AiDescription = null;
+                            existingNote.AiDescriptionGeneratedAt = null;
+                            if (!existingNote.IsDescriptionManual)
+                            {
+                                existingNote.Description = noteDto.Description;
+                            }
 
                             _context.Update(existingNote);
                             await _context.SaveChangesAsync();
@@ -313,14 +322,15 @@ namespace MyMediaVerse.Application.Services
                         else
                         {
                             // Content unchanged, but still update tags in case they were missed in a previous sync
-                            var tagsChanged = !TagsAreEqual(existingNote.Tags, noteDto.Tags);
+                            var normalizedTags = NormalizeTags(noteDto.Tags);
+                            var tagsChanged = !TagsAreEqual(existingNote.Tags, normalizedTags);
                             if (tagsChanged)
                             {
                                 _logger.LogDebug("Updating tags for unchanged note {Slug}: [{OldTags}] -> [{NewTags}]",
                                     slug,
                                     string.Join(", ", existingNote.Tags ?? new List<string>()),
-                                    string.Join(", ", noteDto.Tags ?? new List<string>()));
-                                existingNote.Tags = noteDto.Tags ?? new List<string>();
+                                    string.Join(", ", normalizedTags));
+                                existingNote.Tags = normalizedTags;
                             }
                             existingNote.LastSyncedAt = DateTime.UtcNow;
                             _context.Update(existingNote);
@@ -451,6 +461,21 @@ namespace MyMediaVerse.Application.Services
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Normalizes frontmatter tags to MMV's lowercase-tags invariant: trims, lowercases,
+        /// drops blanks, and de-duplicates. Owned here rather than inherited from Quartz's slugTag.
+        /// </summary>
+        private static List<string> NormalizeTags(IEnumerable<string>? tags)
+        {
+            if (tags == null) return new List<string>();
+
+            return tags
+                .Where(t => !string.IsNullOrWhiteSpace(t))
+                .Select(t => t.Trim().ToLower())
+                .Distinct()
+                .ToList();
         }
 
         private static bool TagsAreEqual(List<string>? tags1, List<string>? tags2)
