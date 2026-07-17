@@ -30,7 +30,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
         {
             if (!_options.Enabled)
             {
-                _logger.LogInformation("Note description generation background service is disabled");
+                _logger.LogInformation("Note description generation background service is disabled (ongoing cadence handled by N8N)");
                 return;
             }
 

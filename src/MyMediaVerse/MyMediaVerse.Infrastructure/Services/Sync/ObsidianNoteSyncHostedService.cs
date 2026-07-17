@@ -30,7 +30,7 @@ namespace MyMediaVerse.Infrastructure.Services.Sync
         {
             if (!_options.Enabled)
             {
-                _logger.LogInformation("Obsidian note sync background service is disabled");
+                _logger.LogInformation("Obsidian note sync background service is disabled (ongoing cadence handled by N8N)");
                 return;
             }
 

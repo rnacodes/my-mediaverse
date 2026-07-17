@@ -33,7 +33,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
         {
             if (!_options.Enabled)
             {
-                _logger.LogInformation("Search index sync background service is disabled");
+                _logger.LogInformation("Search index sync background service is disabled (ongoing cadence handled by N8N)");
                 return;
             }
 

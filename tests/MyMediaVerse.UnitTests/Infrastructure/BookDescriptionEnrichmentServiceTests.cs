@@ -251,5 +251,91 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         }
 
         #endregion
+
+        #region EnrichedAt stamping
+
+        [Fact]
+        public async Task EnrichBookByIdAsync_OnSuccess_StampsEnrichedAt()
+        {
+            var book = TestDataFactory.CreateBook("Test Book");
+            book.ISBN = "9780123456789";
+            book.Description = null;
+            book.EnrichedAt = null;
+            Context.Books.Add(book);
+            await Context.SaveChangesAsync();
+
+            _mockGoogleBooksClient.GetBookDescriptionByISBNAsync("9780123456789")
+                .Returns("A fascinating book about technology.");
+
+            await _service.EnrichBookByIdAsync(book.Id);
+
+            var updated = Context.Books.First(b => b.Id == book.Id);
+            updated.EnrichedAt.Should().NotBeNull();
+        }
+
+        [Fact]
+        public async Task EnrichBookByIdAsync_ApiReturnsNull_DoesNotStampEnrichedAt()
+        {
+            var book = TestDataFactory.CreateBook("Test Book");
+            book.ISBN = "9780123456789";
+            book.Description = null;
+            book.EnrichedAt = null;
+            Context.Books.Add(book);
+            await Context.SaveChangesAsync();
+
+            _mockGoogleBooksClient.GetBookDescriptionByISBNAsync("9780123456789")
+                .Returns((string?)null);
+
+            await _service.EnrichBookByIdAsync(book.Id);
+
+            var updated = Context.Books.First(b => b.Id == book.Id);
+            updated.EnrichedAt.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task EnrichBooksWithoutDescriptionsAsync_OnSuccess_StampsEnrichedAt()
+        {
+            var book = TestDataFactory.CreateBook("Test Book");
+            book.ISBN = "9780123456789";
+            book.Description = null;
+            book.EnrichedAt = null;
+            Context.Books.Add(book);
+            await Context.SaveChangesAsync();
+
+            _mockGoogleBooksClient.GetBookDescriptionByISBNAsync(Arg.Any<string>())
+                .Returns("Enriched description");
+
+            await _service.EnrichBooksWithoutDescriptionsAsync(batchSize: 10, delayBetweenCallsMs: 0);
+
+            var updated = Context.Books.First(b => b.Id == book.Id);
+            updated.EnrichedAt.Should().NotBeNull();
+        }
+
+        [Fact]
+        public async Task EnrichBooksWithoutDescriptionsAsync_SecondRun_DoesNotRetouchAlreadyEnriched()
+        {
+            var book = TestDataFactory.CreateBook("Test Book");
+            book.ISBN = "9780123456789";
+            book.Description = null;
+            book.EnrichedAt = null;
+            Context.Books.Add(book);
+            await Context.SaveChangesAsync();
+
+            _mockGoogleBooksClient.GetBookDescriptionByISBNAsync(Arg.Any<string>())
+                .Returns("Enriched description");
+
+            await _service.EnrichBooksWithoutDescriptionsAsync(batchSize: 10, delayBetweenCallsMs: 0);
+            var firstStamp = Context.Books.First(b => b.Id == book.Id).EnrichedAt;
+
+            // The book now has a description, so it's no longer a candidate — a second run must leave
+            // both the description and the original EnrichedAt stamp untouched (fill-gaps-only).
+            var secondResult = await _service.EnrichBooksWithoutDescriptionsAsync(batchSize: 10, delayBetweenCallsMs: 0);
+
+            secondResult.TotalProcessed.Should().Be(0);
+            var updated = Context.Books.First(b => b.Id == book.Id);
+            updated.EnrichedAt.Should().Be(firstStamp);
+        }
+
+        #endregion
     }
 }

@@ -24,7 +24,6 @@ public static class ExternalApiClientsExtensions
     {
         services.AddHttpClient();
 
-        services.AddScriptRunnerClient(configuration, logger);
         services.AddYouTubeApiClient();
         services.AddListenNotesApiClient(configuration, logger);
         services.AddItunesLookupClient();
@@ -40,33 +39,6 @@ public static class ExternalApiClientsExtensions
         services.AddTraktClient();
 
         return services;
-    }
-
-    private static void AddScriptRunnerClient(this IServiceCollection services, IConfiguration configuration, ILogger logger)
-    {
-        var baseUrl = configuration.GetEnvOrConfigOrDefault("ScriptRunner:BaseUrl", "http://localhost:8001", "SCRIPT_RUNNER_URL");
-        var apiKey = configuration.GetEnvOrConfig("ScriptRunner:ApiKey", "SCRIPT_RUNNER_API_KEY");
-
-        if (!string.IsNullOrEmpty(apiKey))
-        {
-            logger.LogInformation("Script Runner HTTP client configured with API key.");
-        }
-        else
-        {
-            logger.LogInformation("Script Runner HTTP client configured (no API key).");
-        }
-
-        services.AddHttpClient("ScriptRunner", client =>
-        {
-            client.BaseAddress = new Uri(baseUrl);
-            client.Timeout = TimeSpan.FromMinutes(10);
-            client.DefaultRequestHeaders.Add("User-Agent", "MyMediaVerse/1.0");
-
-            if (!string.IsNullOrEmpty(apiKey))
-            {
-                client.DefaultRequestHeaders.Add("X-API-Key", apiKey);
-            }
-        });
     }
 
     private static void AddYouTubeApiClient(this IServiceCollection services)

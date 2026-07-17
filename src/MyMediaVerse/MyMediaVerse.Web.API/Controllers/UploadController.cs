@@ -544,7 +544,14 @@ namespace MyMediaVerse.Web.API.Controllers
                 // import -> enrich -> embed for the interactive path: derive the MMV Rating enum from
                 // the raw Goodreads rating that import just stored (import itself does no conversion),
                 // then reindex. Best-effort: a conversion hiccup must not fail an otherwise-good import.
-                if (result.SuccessCount > 0)
+                //
+                // ConvertGoodreadsRatingsAsync scans the whole rated library, so run it once per upload
+                // rather than per chunk: on the final chunk of a chunked upload (earlier chunks' books
+                // are covered by the same full-library pass), or on a non-chunked upload that imported
+                // something.
+                var isChunked = chunkIndex.HasValue && totalChunks.HasValue;
+                var isFinalChunk = isChunked && chunkIndex!.Value == totalChunks!.Value - 1;
+                if (isFinalChunk || (!isChunked && result.SuccessCount > 0))
                 {
                     try
                     {

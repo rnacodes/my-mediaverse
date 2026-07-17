@@ -52,7 +52,7 @@ builder.Services.AddDatabase(connectionString, builder.Environment);
 builder.Services.AddMemoryCache();
 builder.Services.AddApplicationServices();
 builder.Services.AddExternalApiClients(builder.Configuration, startupLogger);
-builder.Services.AddBackgroundServices(builder.Configuration, builder.Environment, startupLogger);
+builder.Services.AddBackgroundServices(builder.Configuration, builder.Environment);
 
 // --- Storage + Search ---
 builder.Services.AddS3Storage();

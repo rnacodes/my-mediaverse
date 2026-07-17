@@ -176,10 +176,3 @@ export const backgroundJobsKeys = {
   movieTvEnrichmentStatus: () => [...backgroundJobsKeys.all, 'movieTvEnrichment', 'status'],
   podcastEnrichmentStatus: () => [...backgroundJobsKeys.all, 'podcastEnrichment', 'status'],
 };
-
-export const scriptExecutionKeys = {
-  all: ['scriptExecution'],
-  health: () => [...scriptExecutionKeys.all, 'health'],
-  jobs: (limit) => [...scriptExecutionKeys.all, 'jobs', { limit }],
-  job: (jobId) => [...scriptExecutionKeys.all, 'job', jobId],
-};
