@@ -403,14 +403,6 @@ Populate the library via the **Initial Data Sync**, complete the **Search Refact
 
 ---
 
-## Documentation
-
-For detailed documentation, including architecture deep-dives and code examples, see:
-
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/rnacodes/my-mediaverse)
-
----
-
 ## Contributing
 
 This is a personal project, but feedback and suggestions are welcome. Please open an issue on GitHub to:
