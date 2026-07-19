@@ -8,7 +8,7 @@ const HomePageHeader = ({ onSearch }) => (
     <BrandLogo
       imgSx={{
         width: '100%',
-        maxWidth: { xs: 260, sm: 380, md: 480 },
+        maxWidth: { xs: 300, sm: 460, md: 600 },
         mx: 'auto',
         mb: { xs: 2, sm: 3 }
       }}

@@ -15,8 +15,9 @@ import { Box } from '@mui/material';
 //
 // Use the horizontal wordmark for the nav bar + homepage hero, and the compact
 // icon-only mark for tight spots (mobile drawer header).
-export const LOGO_SRC = null;      // e.g. '/logo-horizontal.svg'
-export const LOGO_ICON_SRC = null; // e.g. '/logo-icon.svg' (falls back to LOGO_SRC if unset)
+// The "outlined" wordmark has its text converted to paths.
+export const LOGO_SRC = '/exports/outlined/logo-horizontal-tight.svg';
+export const LOGO_ICON_SRC = '/exports/logo-icon.svg'; // falls back to LOGO_SRC if unset
 
 // Renders the logo <img> when configured, otherwise renders `children` (the
 // original text markup) so each call site keeps its exact current styling.

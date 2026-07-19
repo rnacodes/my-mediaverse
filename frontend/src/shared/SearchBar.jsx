@@ -415,14 +415,6 @@ const SearchBar = ({
                     Try different keywords or check your spelling
                   </Typography>
                 )}
-                {/* Debug info - remove in production */}
-                {import.meta.env.DEV && query && (
-                  <Box sx={{ mt: 2, p: 1, backgroundColor: COLORS.background.elevated, borderRadius: 1 }}>
-                    <Typography variant="caption" color={COLORS.text.hint}>
-                      Debug: Searched for &quot;{query}&quot; in titles, descriptions, genres, topics, and media types
-                    </Typography>
-                  </Box>
-                )}
               </Box>
             )}
           </Paper>

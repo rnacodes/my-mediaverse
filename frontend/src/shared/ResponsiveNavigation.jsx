@@ -390,7 +390,7 @@ const ResponsiveNavigation = () => {
         <Toolbar>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             <Button color="inherit" component={Link} to="/" sx={{ textTransform: 'none', fontSize: '1.25rem', py: 0.5 }}>
-              <BrandLogo imgSx={{ height: 36 }}>
+              <BrandLogo imgSx={{ height: 44 }}>
                 My MediaVerse
               </BrandLogo>
             </Button>

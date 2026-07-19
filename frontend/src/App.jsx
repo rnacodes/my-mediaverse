@@ -12,6 +12,7 @@ import ConditionalProtectedRoute from './features/auth/ConditionalProtectedRoute
 import DemoReadOnlyDialog from '@/shared/DemoReadOnlyDialog';
 import { theme } from '@/shared/DesignSystem';
 import ResponsiveNavigation from '@/shared/ResponsiveNavigation';
+import DemoBanner from '@/shared/DemoBanner';
 import Footer from '@/shared/Footer';
 import LoadingSpinner from '@/shared/LoadingSpinner';
 
@@ -248,6 +249,9 @@ function App() {
               minHeight: '100vh'
             }}
           >
+            {/* Demo-only read-only / write-mode banner (renders null outside demo mode) */}
+            <DemoBanner />
+
             {/* Responsive Navigation Component */}
             <ResponsiveNavigation />
 
