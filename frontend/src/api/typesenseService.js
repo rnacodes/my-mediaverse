@@ -298,6 +298,28 @@ export const mapTypesenseMediaDocument = (doc = {}) => ({
     lengthInSeconds: doc.length_in_seconds ?? null,
 });
 
+export const mapTypesenseMixlistDocument = (doc = {}) => ({
+    id: doc.id,
+    name: doc.name,
+    description: doc.description || '',
+    thumbnail: doc.thumbnail ?? null,
+    topics: doc.topics || [],
+    genres: doc.genres || [],
+    itemCount: doc.media_item_count ?? 0,
+    isMixlist: true,
+});
+
+/**
+ * Free-text mixlist search via Typesense, returned as a flat array of camelCase
+ * mixlists (parallels searchMediaViaTypesense for the quick-search dropdown).
+ * @param {string} query - Search query
+ * @returns {Promise<Array>} Mapped mixlists
+ */
+export const searchMixlistsViaTypesense = async (query) => {
+    const response = await typesenseAdvancedSearchMixlists({ query: query || '*', perPage: 20 });
+    return (response.hits || []).map((hit) => mapTypesenseMixlistDocument(hit.document));
+};
+
 /**
  * Free-text media search via Typesense, returned as a flat array of camelCase
  * media items (mirrors the old GET /media/search array response so hook

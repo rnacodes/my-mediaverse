@@ -61,26 +61,25 @@ const SearchBar = ({
     website: <Language />
   };
 
-  const handleSearch = async (searchQuery = query) => {
-    if (searchQuery.trim()) {
-      setSearching(true);
-      try {
-        console.log('🔍 SearchBar: Searching for:', searchQuery.trim());
-        const results = await searchAll(searchQuery.trim());
-        console.log('🔍 SearchBar: Raw results:', results);
-        console.log('🔍 SearchBar: Media count:', results.media?.length || 0);
-        console.log('🔍 SearchBar: Mixlists count:', results.mixlists?.length || 0);
-        
-        setSearchResults(results);
-        setShowSuggestionsPanel(true);
+  // Runs the search against the API. `commit` distinguishes an explicit submit (Enter
+  // or clicking the search icon) from live search-as-you-type: both populate the
+  // suggestions panel, but only a submit notifies the parent via onSearch, which may
+  // navigate to a full results page. This keeps typing from navigating away.
+  const handleSearch = async (searchQuery = query, { commit = true } = {}) => {
+    if (!searchQuery.trim()) return;
+    setSearching(true);
+    try {
+      const results = await searchAll(searchQuery.trim());
+      setSearchResults(results);
+      setShowSuggestionsPanel(true);
+      if (commit) {
         onSearch?.(searchQuery.trim(), results);
-      } catch (error) {
-        console.error('❌ SearchBar: Search error:', error);
-        console.error('❌ SearchBar: Error details:', error.response?.data || error.message);
-        setSearchResults({ media: [], mixlists: [] });
-      } finally {
-        setSearching(false);
       }
+    } catch (error) {
+      console.error('SearchBar search failed:', error.response?.data || error.message);
+      setSearchResults({ media: [], mixlists: [] });
+    } finally {
+      setSearching(false);
     }
   };
 
@@ -92,10 +91,11 @@ const SearchBar = ({
       clearTimeout(searchTimeoutRef.current);
     }
     
-    // Debounced search after 300ms of no typing
+    // Debounced live search after 300ms of no typing. Populates the suggestions panel
+    // only — it does not submit, so the parent's onSearch (navigation) is not called.
     if (newQuery.trim()) {
       searchTimeoutRef.current = setTimeout(() => {
-        handleSearch(newQuery);
+        handleSearch(newQuery, { commit: false });
       }, 300);
     } else {
       setSearchResults({ media: [], mixlists: [] });
@@ -111,8 +111,9 @@ const SearchBar = ({
 
   const handleClear = () => {
     setQuery('');
+    setSearchResults({ media: [], mixlists: [] });
     setShowSuggestionsPanel(false);
-    onSearch?.('');
+    // Clearing the input is not a submit, so it must not trigger onSearch (navigation).
   };
 
 
@@ -133,8 +134,8 @@ const SearchBar = ({
   // Handle navigation to media or mixlist
   const handleSuggestionClick = (item) => {
     if (item.id || item.Id) {
-      // Check if it's a mixlist (has mediaItems property) or media item
-      if (item.mediaItems || item.MediaItems) {
+      // Check if it's a mixlist or media item
+      if (item.isMixlist) {
         // It's a mixlist
         window.location.href = `/mixlist/${item.id || item.Id}`;
       } else if (item.mediaType === 'Podcast' && !item.seriesId && !item.SeriesId) {
@@ -310,7 +311,7 @@ const SearchBar = ({
                       </ListItemIcon>
                       <ListItemText
                         primary={mixlist.name || mixlist.Name}
-                        secondary={`${(mixlist.mediaItems || mixlist.MediaItems || []).length} items`}
+                        secondary={`${mixlist.itemCount ?? 0} items`}
                         primaryTypographyProps={{
                           variant: 'body2',
                           color: COLORS.text.primary
