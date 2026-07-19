@@ -21,6 +21,7 @@ import {
 } from '@mui/material';
 import { Menu as MenuIcon, Close as CloseIcon, Home, Movie, QueueMusic, Add, Upload, Download, Search, Apps, CleaningServices, Login as LoginIcon, Logout as LogoutIcon, Person as PersonIcon, Storage as StorageIcon, Article, Language, Category, AdminPanelSettings, Sync, ExpandMore, Work, ExpandLess, Book, Tv, Podcasts, VideoLibrary, YouTube, Note as NoteIcon, Psychology, FormatQuote, AddLink, LockOpen, PlaylistAdd, Phonelink } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
+import BrandLogo from '@/shared/BrandLogo';
 
 const ResponsiveNavigation = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -118,9 +119,11 @@ const ResponsiveNavigation = () => {
         borderBottom: 1,
         borderColor: 'divider'
       }}>
-        <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-          My MediaVerse
-        </Typography>
+        <BrandLogo logoVariant="icon" imgSx={{ height: 32 }}>
+          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+            My MediaVerse
+          </Typography>
+        </BrandLogo>
         <IconButton onClick={handleDrawerToggle}>
           <CloseIcon />
         </IconButton>
@@ -386,8 +389,10 @@ const ResponsiveNavigation = () => {
       <AppBar position="static" sx={{ backgroundColor: 'background.paper' }}>
         <Toolbar>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            <Button color="inherit" component={Link} to="/" sx={{ textTransform: 'none', fontSize: '1.25rem' }}>
-              My MediaVerse
+            <Button color="inherit" component={Link} to="/" sx={{ textTransform: 'none', fontSize: '1.25rem', py: 0.5 }}>
+              <BrandLogo imgSx={{ height: 36 }}>
+                My MediaVerse
+              </BrandLogo>
             </Button>
           </Typography>
           

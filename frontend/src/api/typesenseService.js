@@ -33,6 +33,14 @@ export const setRealTimeIndexingStatus = async (enabled) => {
     }
 };
 
+const MEDIA_SORT_BY = {
+    dateAdded: 'date_added:desc',
+};
+
+const MIXLIST_SORT_BY = {
+    dateAdded: 'date_created:desc',
+};
+
 // ============================================
 // Typesense Admin API calls
 // ============================================
@@ -208,7 +216,8 @@ export const typesenseAdvancedSearch = async (options) => {
             status = null,
             ratings = [],
             page = 1,
-            perPage = 20
+            perPage = 20,
+            sortBy = 'relevance'
         } = options;
 
         // Build filter string
@@ -251,6 +260,11 @@ export const typesenseAdvancedSearch = async (options) => {
 
         if (filters.length > 0) {
             params.filter = filters.join(' && ');
+        }
+
+        const sortExpr = MEDIA_SORT_BY[sortBy];
+        if (sortExpr) {
+            params.sort_by = sortExpr;
         }
 
         const response = await apiClient.get('/search', { params });
@@ -353,7 +367,8 @@ export const typesenseAdvancedSearchMixlists = async (options) => {
             topics = [],
             genres = [],
             page = 1,
-            perPage = 20
+            perPage = 20,
+            sortBy = 'relevance'
         } = options;
 
         // Build filter string
@@ -379,6 +394,11 @@ export const typesenseAdvancedSearchMixlists = async (options) => {
 
         if (filters.length > 0) {
             params.filter = filters.join(' && ');
+        }
+
+        const sortExpr = MIXLIST_SORT_BY[sortBy];
+        if (sortExpr) {
+            params.sort_by = sortExpr;
         }
 
         const response = await apiClient.get('/search/mixlists', { params });

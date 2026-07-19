@@ -357,13 +357,73 @@ namespace MyMediaVerse.Infrastructure.Services.Search
             }
         }
 
+        // Fields the frontend sort dropdown is allowed to sort by, per collection.
+        internal static readonly HashSet<string> MediaSortableFields = new(StringComparer.Ordinal)
+        {
+            "date_added"
+        };
+
+        internal static readonly HashSet<string> MixlistSortableFields = new(StringComparer.Ordinal)
+        {
+            "date_created",
+            "media_item_count"
+        };
+
+        /// <summary>
+        /// Pure check that a requested "field:direction" sort expression targets an allowlisted
+        /// sortable field with a valid direction. Guards against sending Typesense an unsupported
+        /// or malformed sort_by (which would 400) or an injection attempt.
+        /// </summary>
+        internal static bool IsAllowedSortExpression(string? requested, HashSet<string> allowedFields)
+        {
+            if (string.IsNullOrWhiteSpace(requested))
+            {
+                return false;
+            }
+
+            var parts = requested.Split(':', StringSplitOptions.TrimEntries);
+            if (parts.Length != 2)
+            {
+                return false;
+            }
+
+            var fieldOk = allowedFields.Contains(parts[0]);
+            var directionOk =
+                string.Equals(parts[1], "asc", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(parts[1], "desc", StringComparison.OrdinalIgnoreCase);
+
+            return fieldOk && directionOk;
+        }
+
+        /// <summary>
+        /// Returns the requested sort expression when it is allowlisted, otherwise the default.
+        /// </summary>
+        private string ResolveSortBy(string? requested, string defaultSort, HashSet<string> allowedFields)
+        {
+            if (string.IsNullOrWhiteSpace(requested))
+            {
+                return defaultSort;
+            }
+
+            if (IsAllowedSortExpression(requested, allowedFields))
+            {
+                return requested;
+            }
+
+            _logger.LogWarning("Ignoring unsupported sort_by '{SortBy}'; falling back to default sort.", requested);
+            return defaultSort;
+        }
+
         /// <summary>
         /// Searches the media_items collection in Typesense.
         /// </summary>
-        public async Task<object> SearchAsync(string query, string? filters = null, int perPage = 20, int page = 1)
+        public async Task<object> SearchAsync(string query, string? filters = null, int perPage = 20, int page = 1, string? sortBy = null)
         {
             try
             {
+                // Default: relevance first, then recency. An explicit, allowlisted sortBy overrides it.
+                var resolvedSort = ResolveSortBy(sortBy, "_text_match:desc,date_added:desc", MediaSortableFields);
+
                 // Create search parameters with query and queryBy fields
                 var searchParameters = new SearchParameters(
                     query,
@@ -373,8 +433,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 {
                     PerPage = perPage,
                     Page = page,
-                    // Sort by relevance first, then by recency
-                    SortBy = "_text_match:desc,date_added:desc"
+                    SortBy = resolvedSort
                 };
 
                 // Never return the raw embedding vector to callers - it's large and not displayable
@@ -781,10 +840,13 @@ namespace MyMediaVerse.Infrastructure.Services.Search
         /// <summary>
         /// Searches the mixlists collection in Typesense.
         /// </summary>
-        public async Task<object> SearchMixlistsAsync(string query, string? filters = null, int perPage = 20, int page = 1)
+        public async Task<object> SearchMixlistsAsync(string query, string? filters = null, int perPage = 20, int page = 1, string? sortBy = null)
         {
             try
             {
+                // Default: relevance first, then recency. An explicit, allowlisted sortBy overrides it.
+                var resolvedSort = ResolveSortBy(sortBy, "_text_match:desc,date_created:desc", MixlistSortableFields);
+
                 // Create search parameters with query and queryBy fields
                 var searchParameters = new SearchParameters(
                     query,
@@ -794,8 +856,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 {
                     PerPage = perPage,
                     Page = page,
-                    // Sort by relevance first, then by recency
-                    SortBy = "_text_match:desc,date_created:desc"
+                    SortBy = resolvedSort
                 };
 
                 // Never return the raw embedding vector to callers - it's large and not displayable

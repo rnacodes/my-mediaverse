@@ -39,7 +39,8 @@ namespace MyMediaVerse.Web.API.Controllers
             [FromQuery] string q,
             [FromQuery] string? filter = null,
             [FromQuery] int page = 1,
-            [FromQuery] int per_page = 20)
+            [FromQuery] int per_page = 20,
+            [FromQuery] string? sort_by = null)
         {
             try
             {
@@ -65,10 +66,10 @@ namespace MyMediaVerse.Web.API.Controllers
                     page = 1;
                 }
 
-                _logger.LogInformation("Search request: query='{Query}', filter='{Filter}', page={Page}, per_page={PerPage}", 
-                    q, filter, page, per_page);
+                _logger.LogInformation("Search request: query='{Query}', filter='{Filter}', page={Page}, per_page={PerPage}, sort_by='{SortBy}'",
+                    q, filter, page, per_page, sort_by);
 
-                var results = await _typesenseService.SearchAsync(q, filter, per_page, page);
+                var results = await _typesenseService.SearchAsync(q, filter, per_page, page, sort_by);
 
                 return Ok(results);
             }
@@ -136,7 +137,8 @@ namespace MyMediaVerse.Web.API.Controllers
             [FromQuery] string q,
             [FromQuery] string? filter = null,
             [FromQuery] int page = 1,
-            [FromQuery] int per_page = 20)
+            [FromQuery] int per_page = 20,
+            [FromQuery] string? sort_by = null)
         {
             try
             {
@@ -162,10 +164,10 @@ namespace MyMediaVerse.Web.API.Controllers
                     page = 1;
                 }
 
-                _logger.LogInformation("Mixlist search request: query='{Query}', filter='{Filter}', page={Page}, per_page={PerPage}", 
-                    q, filter, page, per_page);
+                _logger.LogInformation("Mixlist search request: query='{Query}', filter='{Filter}', page={Page}, per_page={PerPage}, sort_by='{SortBy}'",
+                    q, filter, page, per_page, sort_by);
 
-                var results = await _typesenseService.SearchMixlistsAsync(q, filter, per_page, page);
+                var results = await _typesenseService.SearchMixlistsAsync(q, filter, per_page, page, sort_by);
 
                 return Ok(results);
             }

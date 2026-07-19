@@ -48,6 +48,7 @@ const ActivelyExploringCarousel = ({ items, loading, error, navigate, onAddMedia
         cardWidth={250}
         cardHeight={350}
         showCardContent={false}
+        arrowThreshold={4}
       />
     ) : (
       <Box sx={{ textAlign: 'center', py: { xs: 4, sm: 6 }, px: 2 }}>
