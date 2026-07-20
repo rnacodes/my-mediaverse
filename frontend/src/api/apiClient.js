@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { isDemoMode } from '@/utils/demoMode';
 
 // Use environment variable or fall back to localhost for development
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5033/api';
@@ -73,13 +74,10 @@ apiClient.interceptors.response.use(
     async (error) => {
         const originalRequest = error.config;
 
-        // Check if we're in demo mode - skip authentication logic in demo
-        const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
-
         // If the error is 401 and we haven't already tried to refresh
         if (error.response?.status === 401 && !originalRequest._retry) {
             // In demo mode, don't try to refresh or redirect - just reject the error
-            if (isDemoMode) {
+            if (isDemoMode()) {
                 console.log('Demo mode: Skipping authentication for 401 error');
                 return Promise.reject(error);
             }

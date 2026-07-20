@@ -18,6 +18,7 @@ import {
 } from '@mui/icons-material';
 import { commonStyles, COLORS } from './DesignSystem';
 import { searchAll } from '@/services/searchService';
+import { SEARCH_DEBOUNCE_MS } from '@/hooks/useDebouncedValue';
 
 const SearchBar = ({
   onSearch,
@@ -62,9 +63,7 @@ const SearchBar = ({
   };
 
   // Runs the search against the API. `commit` distinguishes an explicit submit (Enter
-  // or clicking the search icon) from live search-as-you-type: both populate the
-  // suggestions panel, but only a submit notifies the parent via onSearch, which may
-  // navigate to a full results page. This keeps typing from navigating away.
+  // or clicking the search icon) from live search-as-you-type.
   const handleSearch = async (searchQuery = query, { commit = true } = {}) => {
     if (!searchQuery.trim()) return;
     setSearching(true);
@@ -91,12 +90,12 @@ const SearchBar = ({
       clearTimeout(searchTimeoutRef.current);
     }
     
-    // Debounced live search after 300ms of no typing. Populates the suggestions panel
+    // Debounced live search on the shared interval. Populates the suggestions panel
     // only — it does not submit, so the parent's onSearch (navigation) is not called.
     if (newQuery.trim()) {
       searchTimeoutRef.current = setTimeout(() => {
         handleSearch(newQuery, { commit: false });
-      }, 300);
+      }, SEARCH_DEBOUNCE_MS);
     } else {
       setSearchResults({ media: [], mixlists: [] });
       setShowSuggestionsPanel(false);

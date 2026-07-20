@@ -2,6 +2,7 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Box, CircularProgress } from '@mui/material';
+import { isDemoMode } from '@/utils/demoMode';
 
 /**
  * ConditionalProtectedRoute Component
@@ -30,11 +31,9 @@ const ConditionalProtectedRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
   const location = useLocation();
 
-  // Check if we're in demo mode via environment variable
-  const isDemoMode = import.meta.env.VITE_DEMO_MODE === 'true';
-
-  // If demo mode, don't require auth - just render children directly
-  if (isDemoMode) {
+  // If demo mode, don't require auth - just render children directly.
+  // Uses the raw flag, not isPublicDemo, so local dev keeps its auth bypass.
+  if (isDemoMode()) {
     return children;
   }
 

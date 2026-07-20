@@ -1,13 +1,12 @@
 import { Box, Typography } from '@mui/material';
 import { LockOutlined, EditOutlined } from '@mui/icons-material';
 import { useDemoAdmin } from '@/contexts/DemoAdminContext';
-
-const isDemoMode = () => import.meta.env.VITE_DEMO_MODE === 'true';
+import { isPublicDemo } from '@/utils/demoMode';
 
 const DemoBanner = () => {
     const { isAdminMode } = useDemoAdmin();
 
-    if (!isDemoMode()) {
+    if (!isPublicDemo()) {
         return null;
     }
 

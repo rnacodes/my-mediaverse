@@ -9,6 +9,7 @@ import { AuthProvider } from './contexts/AuthProvider';
 import { DemoAdminProvider } from './contexts/DemoAdminProvider';
 import { DemoReadOnlyProvider } from './contexts/DemoReadOnlyProvider';
 import ConditionalProtectedRoute from './features/auth/ConditionalProtectedRoute';
+import DemoRestrictedRoute from './features/demo/DemoRestrictedRoute';
 import DemoReadOnlyDialog from '@/shared/DemoReadOnlyDialog';
 import { theme } from '@/shared/DesignSystem';
 import ResponsiveNavigation from '@/shared/ResponsiveNavigation';
@@ -115,19 +116,19 @@ function RoutedContent() {
               <ConditionalProtectedRoute><CreateMixlistForm /></ConditionalProtectedRoute>
             } />
             <Route path="/import-media" element={
-              <ConditionalProtectedRoute><ImportMediaPage /></ConditionalProtectedRoute>
+              <ConditionalProtectedRoute><DemoRestrictedRoute><ImportMediaPage /></DemoRestrictedRoute></ConditionalProtectedRoute>
             } />
             <Route path="/import-mixlist" element={
-              <ConditionalProtectedRoute><ImportMixlistPage /></ConditionalProtectedRoute>
+              <ConditionalProtectedRoute><DemoRestrictedRoute><ImportMixlistPage /></DemoRestrictedRoute></ConditionalProtectedRoute>
             } />
             <Route path="/import-genres-topics" element={
-              <ConditionalProtectedRoute><ImportGenresTopicsPage /></ConditionalProtectedRoute>
+              <ConditionalProtectedRoute><DemoRestrictedRoute><ImportGenresTopicsPage /></DemoRestrictedRoute></ConditionalProtectedRoute>
             } />
             <Route path="/upload-media" element={
-              <ConditionalProtectedRoute><UploadMediaPage /></ConditionalProtectedRoute>
+              <ConditionalProtectedRoute><DemoRestrictedRoute><UploadMediaPage /></DemoRestrictedRoute></ConditionalProtectedRoute>
             } />
             <Route path="/upload-goodreads" element={
-              <ConditionalProtectedRoute><GoodreadsUploadPage /></ConditionalProtectedRoute>
+              <ConditionalProtectedRoute><DemoRestrictedRoute><GoodreadsUploadPage /></DemoRestrictedRoute></ConditionalProtectedRoute>
             } />
             <Route path="/search-by-topic-genre" element={
               <ConditionalProtectedRoute><SearchByTopicOrGenre /></ConditionalProtectedRoute>
@@ -145,13 +146,13 @@ function RoutedContent() {
               <ConditionalProtectedRoute><YouTubeCallback /></ConditionalProtectedRoute>
             } />
             <Route path="/readwise-sync" element={
-              <ConditionalProtectedRoute><ReadwiseSyncPage /></ConditionalProtectedRoute>
+              <ConditionalProtectedRoute><DemoRestrictedRoute><ReadwiseSyncPage /></DemoRestrictedRoute></ConditionalProtectedRoute>
             } />
             <Route path="/trakt-sync" element={
-              <ConditionalProtectedRoute><TraktSyncPage /></ConditionalProtectedRoute>
+              <ConditionalProtectedRoute><DemoRestrictedRoute><TraktSyncPage /></DemoRestrictedRoute></ConditionalProtectedRoute>
             } />
             <Route path="/highlight-linking" element={
-              <ConditionalProtectedRoute><HighlightLinkingPage /></ConditionalProtectedRoute>
+              <ConditionalProtectedRoute><DemoRestrictedRoute><HighlightLinkingPage /></DemoRestrictedRoute></ConditionalProtectedRoute>
             } />
             <Route path="/articles" element={
               <ConditionalProtectedRoute><ArticlesPage /></ConditionalProtectedRoute>
@@ -160,7 +161,7 @@ function RoutedContent() {
               <ConditionalProtectedRoute><DocumentsPage /></ConditionalProtectedRoute>
             } />
             <Route path="/sources" element={
-              <ConditionalProtectedRoute><SourceDirectoryPage /></ConditionalProtectedRoute>
+              <ConditionalProtectedRoute><DemoRestrictedRoute><SourceDirectoryPage /></DemoRestrictedRoute></ConditionalProtectedRoute>
             } />
             <Route path="/youtube-channels" element={
               <ConditionalProtectedRoute><YouTubeChannelList /></ConditionalProtectedRoute>
@@ -181,19 +182,19 @@ function RoutedContent() {
               <ConditionalProtectedRoute><MediaProfilePage /></ConditionalProtectedRoute>
             } />
             <Route path="/cleanup" element={
-              <ConditionalProtectedRoute><CleanupManagementPage /></ConditionalProtectedRoute>
+              <ConditionalProtectedRoute><DemoRestrictedRoute><CleanupManagementPage /></DemoRestrictedRoute></ConditionalProtectedRoute>
             } />
             <Route path="/import-website" element={
-              <ConditionalProtectedRoute><WebsiteImportPage /></ConditionalProtectedRoute>
+              <ConditionalProtectedRoute><DemoRestrictedRoute><WebsiteImportPage /></DemoRestrictedRoute></ConditionalProtectedRoute>
             } />
             <Route path="/websites" element={
               <ConditionalProtectedRoute><WebsitesPage /></ConditionalProtectedRoute>
             } />
             <Route path="/typesense-admin" element={
-              <ConditionalProtectedRoute><TypesenseAdminPage /></ConditionalProtectedRoute>
+              <ConditionalProtectedRoute><DemoRestrictedRoute><TypesenseAdminPage /></DemoRestrictedRoute></ConditionalProtectedRoute>
             } />
             <Route path="/background-jobs" element={
-              <ConditionalProtectedRoute><BackgroundJobsPage /></ConditionalProtectedRoute>
+              <ConditionalProtectedRoute><DemoRestrictedRoute><BackgroundJobsPage /></DemoRestrictedRoute></ConditionalProtectedRoute>
             } />
             <Route path="/note/:id" element={
               <ConditionalProtectedRoute><NoteProfilePage /></ConditionalProtectedRoute>
@@ -205,7 +206,7 @@ function RoutedContent() {
               <ConditionalProtectedRoute><HighlightProfilePage /></ConditionalProtectedRoute>
             } />
             <Route path="/ai-admin" element={
-              <ConditionalProtectedRoute><AiAdminPage /></ConditionalProtectedRoute>
+              <ConditionalProtectedRoute><DemoRestrictedRoute><AiAdminPage /></DemoRestrictedRoute></ConditionalProtectedRoute>
             } />
             <Route path="/search-by-vibe" element={
               <ConditionalProtectedRoute><SearchByVibePage /></ConditionalProtectedRoute>

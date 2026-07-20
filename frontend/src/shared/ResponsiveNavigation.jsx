@@ -93,9 +93,7 @@ const ResponsiveNavigation = () => {
     { text: 'API Import', path: '/import-media', icon: <Download /> },
     { text: 'Import Website', path: '/import-website', icon: <Language /> },
     { text: 'Bulk Upload', path: '/upload-media', icon: <Upload /> },
-    { text: 'Create Mixlist', path: '/create-mixlist', icon: <PlaylistAdd /> },
-    { text: 'Readwise Sync', path: '/readwise-sync', icon: <Sync />, requiresAuth: true },
-    { text: 'Trakt Sync', path: '/trakt-sync', icon: <Phonelink />, requiresAuth: true }
+    { text: 'Create Mixlist', path: '/create-mixlist', icon: <PlaylistAdd /> }
   ];
 
   const adminMenuItems = [
@@ -103,9 +101,10 @@ const ResponsiveNavigation = () => {
     { text: 'Background Jobs', path: '/background-jobs', icon: <Work />, requiresAuth: true },
     { text: 'Cleanup', path: '/cleanup', icon: <CleaningServices />, requiresAuth: true },
     { text: 'Demo Admin', path: '/demo-unlock', icon: <LockOpen />, requiresAuth: true },
-    { text: 'Readwise Sync', path: '/readwise-sync', icon: <Sync />, requiresAuth: true },
     { text: 'Link Highlights', path: '/highlight-linking', icon: <AddLink />, requiresAuth: true },
+    { text: 'Readwise Sync', path: '/readwise-sync', icon: <Sync />, requiresAuth: true },
     { text: 'Sources', path: '/sources', icon: <Apps />, requiresAuth: true },
+    { text: 'Trakt Sync', path: '/trakt-sync', icon: <Phonelink />, requiresAuth: true },
     { text: 'Typesense Admin', path: '/typesense-admin', icon: <StorageIcon />, requiresAuth: true }
   ];
 
