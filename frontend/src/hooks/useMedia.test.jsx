@@ -31,9 +31,11 @@ const makeClient = () =>
   });
 
 function createWrapper(client) {
-  return ({ children }) => (
+  const Wrapper = ({ children }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
   );
+  Wrapper.displayName = 'TestQueryClientWrapper';
+  return Wrapper;
 }
 
 // undefined when the query no longer exists in the cache.

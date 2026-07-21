@@ -57,10 +57,10 @@ namespace MyMediaVerse.Application.Services
             return MapToResponseDto(mediaItem);
         }
 
-        public async Task<IEnumerable<BaseMediaItem>> SearchMediaAsync(string query)
+        public async Task<IEnumerable<MediaItemResponseDto>> SearchMediaAsync(string query)
         {
             var lowerQuery = query.ToLowerInvariant();
-            var results = await _context.MediaItems
+            var mediaItems = await _context.MediaItems
                 .AsNoTracking()
                 .AsSplitQuery()
                 .Where(m => m.Title.ToLower().Contains(lowerQuery) ||
@@ -74,7 +74,7 @@ namespace MyMediaVerse.Application.Services
                 .Take(100)
                 .ToListAsync();
 
-            return results;
+            return mediaItems.Select(MapToResponseDto).ToList();
         }
 
         public async Task<IEnumerable<MediaItemResponseDto>> GetMediaByTopicAsync(Guid topicId)

@@ -5,10 +5,26 @@ import { server } from '@/test/mocks/server';
 import { API_BASE } from '@/test/mocks/handlers';
 import SearchBar from './SearchBar';
 
+// The dropdown searches via Typesense: GET /search (media) and GET /search/mixlists.
+// Both return Typesense-shaped { found, hits: [{ document }] } payloads.
 const mockSearch = ({ media = [], mixlists = [] } = {}) =>
   server.use(
-    http.get(`${API_BASE}/media/search`, () => HttpResponse.json(media)),
-    http.get(`${API_BASE}/mixlist/search`, () => HttpResponse.json(mixlists)),
+    http.get(`${API_BASE}/search`, () =>
+      HttpResponse.json({
+        found: media.length,
+        hits: media.map((m) => ({
+          document: { id: m.id, title: m.title, media_type: m.mediaType },
+        })),
+      }),
+    ),
+    http.get(`${API_BASE}/search/mixlists`, () =>
+      HttpResponse.json({
+        found: mixlists.length,
+        hits: mixlists.map((m) => ({
+          document: { id: m.id, name: m.name, media_item_count: m.itemCount ?? 0 },
+        })),
+      }),
+    ),
   );
 
 describe('SearchBar', () => {
@@ -23,7 +39,7 @@ describe('SearchBar', () => {
     expect(screen.queryByText(/no results found/i)).not.toBeInTheDocument();
   });
 
-  it('runs a debounced search on typed input and surfaces results via panel and onSearch', async () => {
+  it('runs a debounced search on typed input and surfaces results in the panel without submitting', async () => {
     mockSearch({ media: [{ id: 'm1', title: 'The Matrix', mediaType: 'Movie' }] });
     const onSearch = vi.fn();
 
@@ -34,11 +50,10 @@ describe('SearchBar', () => {
 
     await user.type(screen.getByRole('textbox'), 'matrix');
 
-    // The debounced search resolves, opens the suggestions panel, and reports back.
+    // The debounced search resolves and opens the suggestions panel...
     expect(await screen.findByText('The Matrix')).toBeInTheDocument();
-    await waitFor(() =>
-      expect(onSearch).toHaveBeenCalledWith('matrix', expect.anything()),
-    );
+    // ...but typing must not submit — onSearch (navigation) fires only on Enter/icon click.
+    expect(onSearch).not.toHaveBeenCalled();
   });
 
   it('shows the no-results message when a typed search returns nothing', async () => {
@@ -68,7 +83,7 @@ describe('SearchBar', () => {
     expect(await screen.findByText('Submitted Result')).toBeInTheDocument();
   });
 
-  it('clears the input and notifies onSearch with an empty query', async () => {
+  it('clears the input without submitting a search', async () => {
     mockSearch({ media: [{ id: 'm3', title: 'Anything', mediaType: 'Movie' }] });
     const onSearch = vi.fn();
 
@@ -85,6 +100,7 @@ describe('SearchBar', () => {
     await user.click(screen.getByTestId('ClearIcon'));
 
     expect(input).toHaveValue('');
-    expect(onSearch).toHaveBeenCalledWith('');
+    // Clearing is not a submit, so it must not trigger onSearch (navigation).
+    expect(onSearch).not.toHaveBeenCalled();
   });
 });

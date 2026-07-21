@@ -92,6 +92,57 @@ namespace MyMediaVerse.IntegrationTests.Api
 
         #endregion
 
+        #region Unlock Rate Limiting Tests
+
+        // The rate limiter runs as middleware ahead of the action, so it applies even in the
+        // "Testing" environment (where the action itself returns NotFound). Each test uses a
+        // unique X-Forwarded-For IP so the shared-host limiter state does not bleed across tests.
+
+        private async Task<HttpResponseMessage> SendUnlockAsync(string clientIp)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, "/api/demo/unlock?code=123456");
+            request.Headers.Add("X-Forwarded-For", clientIp);
+            return await _client.SendAsync(request);
+        }
+
+        [Fact]
+        public async Task UnlockDemoWriteAccess_ExceedingRateLimit_Returns429()
+        {
+            const string clientIp = "203.0.113.10";
+
+            // The policy permits 10 requests per minute per IP.
+            for (var i = 0; i < 10; i++)
+            {
+                var allowed = await SendUnlockAsync(clientIp);
+                Assert.NotEqual(HttpStatusCode.TooManyRequests, allowed.StatusCode);
+            }
+
+            // The 11th request in the window is rejected by the limiter before reaching the action.
+            var throttled = await SendUnlockAsync(clientIp);
+            Assert.Equal(HttpStatusCode.TooManyRequests, throttled.StatusCode);
+        }
+
+        [Fact]
+        public async Task UnlockDemoWriteAccess_RateLimit_IsPartitionedByClientIp()
+        {
+            const string exhaustedIp = "203.0.113.20";
+            const string freshIp = "203.0.113.21";
+
+            // Exhaust the window for the first IP.
+            for (var i = 0; i < 10; i++)
+            {
+                await SendUnlockAsync(exhaustedIp);
+            }
+            var throttled = await SendUnlockAsync(exhaustedIp);
+            Assert.Equal(HttpStatusCode.TooManyRequests, throttled.StatusCode);
+
+            // A different IP has its own bucket and is unaffected.
+            var otherIp = await SendUnlockAsync(freshIp);
+            Assert.NotEqual(HttpStatusCode.TooManyRequests, otherIp.StatusCode);
+        }
+
+        #endregion
+
         #region Lock Endpoint Tests
 
         [Fact]

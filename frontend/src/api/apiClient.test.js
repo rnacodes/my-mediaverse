@@ -30,7 +30,9 @@ vi.mock('axios', () => {
     };
 });
 
-import { apiClient } from './apiClient';
+// Side-effect import: evaluating the module registers its interceptors on the
+// mocked axios instance, which the tests below read via globalThis.__testInterceptors.
+import './apiClient';
 
 describe('apiClient - Demo Mode Features', () => {
     let originalSessionStorage;

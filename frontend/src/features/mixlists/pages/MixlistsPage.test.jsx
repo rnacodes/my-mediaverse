@@ -3,7 +3,6 @@ import { http, HttpResponse } from 'msw';
 import { renderWithProviders, screen, waitFor } from '@/test/test-utils';
 import { server } from '@/test/mocks/server';
 import { API_BASE } from '@/test/mocks/handlers';
-import { makeMixlist } from '@/test/factories/mixlist';
 import MixlistsPage from './MixlistsPage';
 
 // MixlistsPage reads the whole list from useAllMixlists -> GET /mixlist (singular;

@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using MyMediaVerse.Web.API.Extensions;
 using OtpNet;
 
 namespace MyMediaVerse.Web.API.Controllers
@@ -35,8 +37,11 @@ namespace MyMediaVerse.Web.API.Controllers
         /// <param name="code">6-digit TOTP code from authenticator app</param>
         /// <returns>Success message or 401 Unauthorized</returns>
         [HttpGet("unlock")]
+        [EnableRateLimiting(RateLimitingExtensions.DemoUnlockPolicy)]
         public IActionResult Unlock([FromQuery] string code)
         {
+            var clientIp = RateLimitingExtensions.ResolveClientIp(HttpContext);
+
             // Only allow this endpoint in Demo environment
             if (!_environment.EnvironmentName.Equals("Demo", StringComparison.OrdinalIgnoreCase))
             {
@@ -82,7 +87,9 @@ namespace MyMediaVerse.Web.API.Controllers
                     Response.Cookies.Append(CookieName, "true", cookieOptions);
 
                     _logger.LogInformation(
-                        "Demo write access unlocked via TOTP. Access expires at {ExpiryTime}",
+                        "Demo write access unlocked via TOTP. IP: {ClientIp}, Time: {Timestamp}, Access expires at {ExpiryTime}",
+                        clientIp,
+                        DateTimeOffset.UtcNow,
                         DateTimeOffset.UtcNow.AddMinutes(WriteAccessMinutes));
 
                     return Ok(new
@@ -94,13 +101,16 @@ namespace MyMediaVerse.Web.API.Controllers
                 }
                 else
                 {
-                    _logger.LogWarning("Invalid TOTP code attempt for demo write access");
+                    _logger.LogWarning(
+                        "Invalid TOTP code attempt for demo write access. IP: {ClientIp}, Time: {Timestamp}",
+                        clientIp,
+                        DateTimeOffset.UtcNow);
                     return Unauthorized(new { error = "Invalid TOTP code" });
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error verifying TOTP code");
+                _logger.LogError(ex, "Error verifying TOTP code. IP: {ClientIp}, Time: {Timestamp}", clientIp, DateTimeOffset.UtcNow);
                 return StatusCode(500, new { error = "Error verifying TOTP code" });
             }
         }

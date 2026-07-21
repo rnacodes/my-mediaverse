@@ -61,8 +61,13 @@ namespace MyMediaVerse.Shared.Interfaces
         /// <param name="filters">Optional filter by string (e.g., "mediaType:=Book")</param>
         /// <param name="perPage">Number of results per page (default 20)</param>
         /// <param name="page">Page number (default 1)</param>
+        /// <param name="sortBy">
+        /// Optional Typesense sort_by expression (e.g. "date_added:desc"). Only expressions
+        /// against sortable fields are honored; unrecognized values fall back to the default
+        /// relevance-then-recency sort.
+        /// </param>
         /// <returns>Search results as dynamic objects</returns>
-        Task<object> SearchAsync(string query, string? filters = null, int perPage = 20, int page = 1);
+        Task<object> SearchAsync(string query, string? filters = null, int perPage = 20, int page = 1, string? sortBy = null);
 
         /// <summary>
         /// Performs a bulk re-index of all media items from the database.
@@ -119,8 +124,13 @@ namespace MyMediaVerse.Shared.Interfaces
         /// <param name="filters">Optional filter string (e.g., "topics:=productivity")</param>
         /// <param name="perPage">Number of results per page (default 20)</param>
         /// <param name="page">Page number (default 1)</param>
+        /// <param name="sortBy">
+        /// Optional Typesense sort_by expression (e.g. "date_created:desc"). Only expressions
+        /// against sortable fields are honored; unrecognized values fall back to the default
+        /// relevance-then-recency sort.
+        /// </param>
         /// <returns>Search results as dynamic objects</returns>
-        Task<object> SearchMixlistsAsync(string query, string? filters = null, int perPage = 20, int page = 1);
+        Task<object> SearchMixlistsAsync(string query, string? filters = null, int perPage = 20, int page = 1, string? sortBy = null);
 
         /// <summary>
         /// Performs a bulk re-index of all mixlists from the database.

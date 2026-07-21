@@ -4,7 +4,7 @@ import Section from '@/shared/Section';
 import MixlistCard from '@/shared/MixlistCard';
 
 // "Recent Mixlists" — shows up to 6 mixlists, an empty state with create/seed actions,
-// and a "View More Mixlists" button that routes to the full listing.
+// and a "View More Mixlists" button that routes to the search page in mixlists mode.
 const RecentMixlistsSection = ({ mixlists, loading, navigate, onCreateMixlist, onSeedMixlists }) => {
   const theme = useTheme();
 
@@ -68,7 +68,7 @@ const RecentMixlistsSection = ({ mixlists, loading, navigate, onCreateMixlist, o
               color="secondary"
               size="large"
               endIcon={<ArrowForwardIos />}
-              onClick={() => navigate('/mixlists')}
+              onClick={() => navigate('/search?searchMode=mixlists')}
               sx={{
                   fontSize: { xs: '1rem', sm: '1.1rem', md: '1.2rem' },
                   padding: { xs: '10px 20px', sm: '12px 30px' },

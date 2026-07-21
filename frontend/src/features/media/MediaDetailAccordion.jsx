@@ -224,13 +224,13 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
                   href={mediaItem.audioLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  startIcon={<OpenInNew />}
-                  sx={{ 
+                  startIcon={<Download />}
+                  sx={{
                     textTransform: 'none',
                     fontSize: '0.875rem'
                   }}
                 >
-                  Play Audio
+                  Click to Download Audio
                 </Button>
               </Box>
             )}

@@ -16,10 +16,6 @@ export const getAllMedia = () => {
     return apiClient.get('/media');
 };
 
-export const searchMedia = (query) => {
-    return apiClient.get(`/media/search?query=${encodeURIComponent(query)}`);
-};
-
 export const getMediaByType = (mediaType) => {
     return apiClient.get(`/media/by-type/${encodeURIComponent(mediaType)}`);
 };

@@ -8,10 +8,6 @@ export const getAllMixlists = () => {
     return apiClient.get('/mixlist');
 };
 
-export const searchMixlists = (query) => {
-    return apiClient.get(`/mixlist/search?query=${encodeURIComponent(query)}`);
-};
-
 export const createMixlist = (mixlistData) => {
     return apiClient.post('/mixlist', mixlistData);
 };
