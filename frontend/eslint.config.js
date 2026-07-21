@@ -53,9 +53,14 @@ export default defineConfig([
         vi: 'readonly',
       },
     },
+    rules: {
+      // Test helpers re-export testing-library wholesale; the rule can't verify
+      // `export *` and there is no fast-refresh boundary to protect here.
+      'react-refresh/only-export-components': 'off',
+    },
   },
   {
-    files: ['vite.config.js', 'vitest.config.js', 'src/test-setup.js'],
+    files: ['vite.config.js', 'vitest.config.js', 'src/test/setup.js'],
     languageOptions: {
       globals: globals.node,
     },

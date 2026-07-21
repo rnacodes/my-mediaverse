@@ -3,15 +3,9 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { vi } from 'vitest';
 import AddMediaForm from '../AddMediaForm';
-import * as mediaService from '../../api/mediaService';
 import * as mixlistService from '../../api/mixlistService';
 import * as podcastService from '../../api/podcastService';
 import * as topicGenreService from '../../api/topicGenreService';
-import * as bookService from '../../api/bookService';
-import * as movieService from '../../api/movieService';
-import * as tvShowService from '../../api/tvShowService';
-import * as videoService from '../../api/videoService';
-import * as uploadService from '../../api/uploadService';
 
 const mockNavigate = vi.fn();
 

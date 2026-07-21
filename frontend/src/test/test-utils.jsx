@@ -36,9 +36,11 @@ export const makeTestQueryClient = () =>
  *   - queryClient:  supply your own; defaults to makeTestQueryClient()
  *   - user:         a pre-configured userEvent instance (e.g. for fake timers);
  *                   defaults to userEvent.setup()
- *   - demoReadOnly: reserved flag for demo read-only tests (D.8). The provider
- *                   is always mounted; behavior is driven by MSW 403 responses /
- *                   the demoWriteBlocked event, so this is a forward-looking hook.
+ *   - demoReadOnly: reserved flag for demo read-only tests. The provider is
+ *                   always mounted; behavior is driven by MSW 403 responses /
+ *                   the demoWriteBlocked event, so this is a forward-looking
+ *                   hook. Destructured (as _demoReadOnly) rather than dropped so
+ *                   it stays out of renderOptions and never reaches RTL render().
  *
  * Auth state is seeded at the HTTP boundary (default /auth/refresh handler
  * returns a valid session); override with server.use(...) for the logged-out path.
@@ -47,7 +49,7 @@ export const makeTestQueryClient = () =>
  */
 export function renderWithProviders(
   ui,
-  { route = '/', path, queryClient, user, demoReadOnly = false, ...renderOptions } = {},
+  { route = '/', path, queryClient, user, demoReadOnly: _demoReadOnly = false, ...renderOptions } = {},
 ) {
   const client = queryClient ?? makeTestQueryClient();
   const userInstance = user ?? userEvent.setup();

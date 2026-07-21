@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { renderWithProviders, screen, waitFor } from '@/test/test-utils';
+import { renderWithProviders, screen } from '@/test/test-utils';
 import { server } from '@/test/mocks/server';
 import { API_BASE } from '@/test/mocks/handlers';
 import WebsiteImportPage from './WebsiteImportPage';
