@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Container, Box, Typography, Grid, Button, ButtonGroup, Collapse, CircularProgress, Paper, Alert, Toolbar, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Snackbar, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import { SearchBarSection } from '../SearchBarSection';
@@ -12,6 +12,7 @@ import { searchNotes } from '@/api/noteService';
 import { useAllTopics, useAllGenres } from '@/hooks/useTopicGenre';
 import { useAllMixlists, useAddMediaToMixlist } from '@/hooks/useMixlist';
 import { useBulkDeleteMedia } from '@/hooks/useMedia';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 
 
 
@@ -57,6 +58,8 @@ export default function Search({ defaultMediaTypes = [] }) {
     const [showAllTopics, setShowAllTopics] = useState(false);
     const [showAllGenres, setShowAllGenres] = useState(false);
     const [urlParamsLoaded, setUrlParamsLoaded] = useState(false);
+
+    const debouncedSearchQuery = useDebouncedValue(searchQuery);
 
     // Bulk selection handlers
     const handleToggleSelect = (itemId) => {
@@ -199,19 +202,35 @@ export default function Search({ defaultMediaTypes = [] }) {
         loadUrlParams();
     }, [searchParams]);
 
-    // Perform search when filters change (but wait for URL params to load first).
-    // performSearch is intentionally omitted from deps: it's recreated every render and
-    // including it would loop. The imperative search orchestration is deferred to T-21.
+    const searchCriteriaKey = JSON.stringify([
+        debouncedSearchQuery,
+        searchMode,
+        selectedMediaTypes,
+        selectedTopics,
+        selectedGenres,
+        selectedStatus,
+        selectedRatings,
+        sortBy,
+    ]);
+    const lastSearchCriteriaKey = useRef(searchCriteriaKey);
+
     useEffect(() => {
-        if (urlParamsLoaded) {
-            performSearch();
+        if (!urlParamsLoaded) return;
+
+        if (lastSearchCriteriaKey.current !== searchCriteriaKey && currentPage !== 1) {
+            lastSearchCriteriaKey.current = searchCriteriaKey;
+            setCurrentPage(1);
+            return;
         }
+
+        lastSearchCriteriaKey.current = searchCriteriaKey;
+        performSearch();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [searchQuery, searchMode, selectedMediaTypes, selectedTopics, selectedGenres, selectedStatus, selectedRatings, sortBy, currentPage, urlParamsLoaded]);
+    }, [searchCriteriaKey, currentPage, urlParamsLoaded]);
 
     // Check if we have any selection criteria for media search
     const hasMediaFilters = searchMode === 'media' && (
-        searchQuery.trim() !== '' ||
+        debouncedSearchQuery.trim() !== '' ||
         selectedMediaTypes.length > 0 ||
         selectedTopics.length > 0 ||
         selectedGenres.length > 0 ||
@@ -238,7 +257,7 @@ export default function Search({ defaultMediaTypes = [] }) {
             if (searchMode === 'mixlists') {
                 // Search mixlists
                 const searchOptions = {
-                    query: searchQuery || '*',
+                    query: debouncedSearchQuery || '*',
                     topics: selectedTopics,
                     genres: selectedGenres,
                     page: currentPage,
@@ -373,7 +392,7 @@ export default function Search({ defaultMediaTypes = [] }) {
                 if (onlyNotes) {
                     // Only searching notes
                     const noteFilter = selectedTopics.length > 0 ? `tags:=[${selectedTopics.map(t => `"${t}"`).join(',')}]` : null;
-                    response = await searchNotes(searchQuery || '*', noteFilter, currentPage, perPage);
+                    response = await searchNotes(debouncedSearchQuery || '*', noteFilter, currentPage, perPage);
                     const transformedResults = transformNoteHits(response.hits || []);
                     setSearchResults(transformedResults);
                     setTotalResults(response.found || 0);
@@ -381,7 +400,7 @@ export default function Search({ defaultMediaTypes = [] }) {
                 } else if (onlyHighlights) {
                     // Only searching highlights
                     const highlightFilter = selectedTopics.length > 0 ? `tags:=[${selectedTopics.map(t => `"${t}"`).join(',')}]` : null;
-                    response = await searchHighlights(searchQuery || '*', highlightFilter, currentPage, perPage);
+                    response = await searchHighlights(debouncedSearchQuery || '*', highlightFilter, currentPage, perPage);
                     const transformedResults = transformHighlightHits(response.hits || []);
                     setSearchResults(transformedResults);
                     setTotalResults(response.found || 0);
@@ -397,7 +416,7 @@ export default function Search({ defaultMediaTypes = [] }) {
 
                     // Always search media
                     const mediaSearchOptions = {
-                        query: searchQuery || '*',
+                        query: debouncedSearchQuery || '*',
                         mediaTypes: selectedMediaTypes.includes('all') ? [] : mediaTypesFiltered,
                         topics: selectedTopics,
                         genres: selectedGenres,
@@ -413,14 +432,14 @@ export default function Search({ defaultMediaTypes = [] }) {
                     // Optionally search notes
                     if (includeNotes) {
                         const noteFilter = selectedTopics.length > 0 ? `tags:=[${selectedTopics.map(t => `"${t}"`).join(',')}]` : null;
-                        searchPromises.push(searchNotes(searchQuery || '*', noteFilter, currentPage, perPagePerType));
+                        searchPromises.push(searchNotes(debouncedSearchQuery || '*', noteFilter, currentPage, perPagePerType));
                         resultTypes.push('notes');
                     }
 
                     // Optionally search highlights
                     if (includeHighlights) {
                         const highlightFilter = selectedTopics.length > 0 ? `tags:=[${selectedTopics.map(t => `"${t}"`).join(',')}]` : null;
-                        searchPromises.push(searchHighlights(searchQuery || '*', highlightFilter, currentPage, perPagePerType));
+                        searchPromises.push(searchHighlights(debouncedSearchQuery || '*', highlightFilter, currentPage, perPagePerType));
                         resultTypes.push('highlights');
                     }
 
@@ -462,7 +481,7 @@ export default function Search({ defaultMediaTypes = [] }) {
                 } else {
                     // Only searching media items (no notes or highlights)
                     const searchOptions = {
-                        query: searchQuery || '*',
+                        query: debouncedSearchQuery || '*',
                         mediaTypes: selectedMediaTypes.includes('all') ? [] : mediaTypesFiltered,
                         topics: selectedTopics,
                         genres: selectedGenres,
@@ -601,7 +620,7 @@ export default function Search({ defaultMediaTypes = [] }) {
                         {/* Results Header */}
                         <ResultHeader
                             totalResults={totalResults}
-                            searchQuery={searchQuery}
+                            searchQuery={debouncedSearchQuery}
                             searchMode={searchMode}
                             viewMode={viewMode}
                             setViewMode={setViewMode}

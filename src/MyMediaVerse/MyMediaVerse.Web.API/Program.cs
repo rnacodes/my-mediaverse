@@ -41,6 +41,9 @@ builder.Services.AddControllers(options =>
         options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
     });
 
+// --- Rate limiting (demo unlock brute-force protection) ---
+builder.Services.AddDemoRateLimiting();
+
 // --- Authentication (JWT + API Key) ---
 builder.Services.AddJwtAndApiKeyAuthentication(builder.Configuration, startupLogger);
 
@@ -88,6 +91,8 @@ app.UseSwaggerUI(options =>
 app.UseRouting();
 
 app.UseCors(CorsExtensions.PolicyName);
+
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();

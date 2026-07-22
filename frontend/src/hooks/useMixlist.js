@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getAllMixlists,
-  searchMixlists,
   getMixlistById,
   createMixlist,
   updateMixlist,
@@ -19,15 +18,6 @@ export function useAllMixlists(options = {}) {
   return useQuery({
     queryKey: mixlistKeys.lists(),
     queryFn: async () => (await getAllMixlists()).data,
-    ...options,
-  });
-}
-
-export function useMixlistSearch(query, options = {}) {
-  return useQuery({
-    queryKey: [...mixlistKeys.all, 'search', query],
-    queryFn: async () => (await searchMixlists(query)).data,
-    enabled: !!query && query.length > 0,
     ...options,
   });
 }

@@ -99,7 +99,7 @@ describe('HomePage', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText('My MediaVerse')).toBeInTheDocument();
+        expect(screen.getByRole('img', { name: 'My MediaVerse' })).toBeInTheDocument();
       });
 
       expect(screen.getByText('Loading your active explorations...')).toBeInTheDocument();
@@ -112,7 +112,7 @@ describe('HomePage', () => {
       mediaService.getAllMedia.mockResolvedValue({ data: mockActiveMedia });
     });
 
-    it('should display My MediaVerse title', async () => {
+    it('should display the My MediaVerse logo', async () => {
       render(
         <BrowserRouter>
           <HomePage />
@@ -120,7 +120,7 @@ describe('HomePage', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText('My MediaVerse')).toBeInTheDocument();
+        expect(screen.getByRole('img', { name: 'My MediaVerse' })).toBeInTheDocument();
       });
     });
 
@@ -146,7 +146,7 @@ describe('HomePage', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText('My MediaVerse')).toBeInTheDocument();
+        expect(screen.getByRole('img', { name: 'My MediaVerse' })).toBeInTheDocument();
       });
 
       // Check for main media types
@@ -166,7 +166,7 @@ describe('HomePage', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText('My MediaVerse')).toBeInTheDocument();
+        expect(screen.getByRole('img', { name: 'My MediaVerse' })).toBeInTheDocument();
       });
 
       expect(screen.getByText('Source Directory')).toBeInTheDocument();
@@ -312,7 +312,7 @@ describe('HomePage', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText('My MediaVerse')).toBeInTheDocument();
+        expect(screen.getByRole('img', { name: 'My MediaVerse' })).toBeInTheDocument();
       });
 
       await waitFor(() => {
@@ -328,7 +328,7 @@ describe('HomePage', () => {
     });
 
     it('should navigate to mixlist when clicking a mixlist card', async () => {
-      const { container } = render(
+      render(
         <BrowserRouter>
           <HomePage />
         </BrowserRouter>
@@ -407,7 +407,7 @@ describe('HomePage', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText('My MediaVerse')).toBeInTheDocument();
+        expect(screen.getByRole('img', { name: 'My MediaVerse' })).toBeInTheDocument();
       });
 
       expect(container).toBeInTheDocument();
@@ -421,7 +421,7 @@ describe('HomePage', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText('My MediaVerse')).toBeInTheDocument();
+        expect(screen.getByRole('img', { name: 'My MediaVerse' })).toBeInTheDocument();
       });
 
       expect(screen.getByText('Jump back in')).toBeInTheDocument();

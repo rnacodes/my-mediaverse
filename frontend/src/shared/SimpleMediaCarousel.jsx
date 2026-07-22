@@ -18,6 +18,10 @@ const SimpleMediaCarousel = ({
   cardHeight = 380,
   imageHeight,
   showCardContent = true,
+  // Nav arrows appear only when item count exceeds this threshold. Defaults to 1
+  // (arrows whenever there's more than one item); callers can raise it to hide the
+  // arrows for small sets that already fit on screen.
+  arrowThreshold = 1,
   sx = {},
   ...props
 }) => {
@@ -103,7 +107,7 @@ const SimpleMediaCarousel = ({
       {/* Carousel */}
       <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
         {/* Previous Button */}
-        {mediaItems.length > 1 && (
+        {mediaItems.length > arrowThreshold && (
           <IconButton
             onClick={handlePrevious}
             sx={{
@@ -197,7 +201,7 @@ const SimpleMediaCarousel = ({
         </Box>
 
         {/* Next Button */}
-        {mediaItems.length > 1 && (
+        {mediaItems.length > arrowThreshold && (
           <IconButton
             onClick={handleNext}
             sx={{

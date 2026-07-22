@@ -4,6 +4,8 @@ using System.Text.Json.Serialization;
 using AwesomeAssertions;
 using MyMediaVerse.IntegrationTests.Fixtures;
 using MyMediaVerse.IntegrationTests.Helpers;
+using MyMediaVerse.Shared.Interfaces;
+using NSubstitute;
 
 namespace MyMediaVerse.IntegrationTests.Api
 {
@@ -85,6 +87,42 @@ namespace MyMediaVerse.IntegrationTests.Api
             var response = await _client.GetAsync("/api/search/highlights?q=test");
 
             response.IsSuccessStatusCode.Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task Search_ForwardsSortByToTypesense_WhenProvided()
+        {
+            var (client, typesense) = _factory.CreateClientWithSubstitute<ITypesenseService>();
+
+            var response = await client.GetAsync("/api/search?q=test&sort_by=date_added:desc");
+
+            response.IsSuccessStatusCode.Should().BeTrue();
+            await typesense.Received(1).SearchAsync(
+                Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<int>(), Arg.Any<int>(), "date_added:desc");
+        }
+
+        [Fact]
+        public async Task Search_ForwardsNullSortBy_WhenOmitted()
+        {
+            var (client, typesense) = _factory.CreateClientWithSubstitute<ITypesenseService>();
+
+            var response = await client.GetAsync("/api/search?q=test");
+
+            response.IsSuccessStatusCode.Should().BeTrue();
+            await typesense.Received(1).SearchAsync(
+                Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<int>(), Arg.Any<int>(), null);
+        }
+
+        [Fact]
+        public async Task SearchMixlists_ForwardsSortByToTypesense_WhenProvided()
+        {
+            var (client, typesense) = _factory.CreateClientWithSubstitute<ITypesenseService>();
+
+            var response = await client.GetAsync("/api/search/mixlists?q=test&sort_by=date_created:desc");
+
+            response.IsSuccessStatusCode.Should().BeTrue();
+            await typesense.Received(1).SearchMixlistsAsync(
+                Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<int>(), Arg.Any<int>(), "date_created:desc");
         }
 
         #endregion

@@ -14,6 +14,9 @@ export const MediaListItem = React.memo(({ item, isSelected = false, onToggleSel
         } else if (item.isNote) {
             // Navigate notes to their dedicated profile page
             navigate(`/note/${item.id}`);
+        } else if (item.isHighlight) {
+            // Navigate highlights to their dedicated profile page
+            navigate(`/highlight/${item.id}`);
         } else if (item.mediaType === 'Podcast' && !item.seriesId) {
             // Navigate podcast series to their dedicated profile page
             // Podcast episodes have seriesId, series don't

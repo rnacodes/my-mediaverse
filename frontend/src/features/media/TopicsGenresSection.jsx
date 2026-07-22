@@ -209,11 +209,11 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
 
     // Navigate to search with filter
     const handleTopicClick = (topic) => {
-        navigate(`/search?topics=${encodeURIComponent(topic)}`);
+        navigate(`/search?topics=${encodeURIComponent(topic)}&mediaType=all`);
     };
 
     const handleGenreClick = (genre) => {
-        navigate(`/search?genres=${encodeURIComponent(genre)}`);
+        navigate(`/search?genres=${encodeURIComponent(genre)}&mediaType=all`);
     };
 
     // Filter available topics/genres (exclude already assigned ones)

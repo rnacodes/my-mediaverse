@@ -8,7 +8,7 @@ namespace MyMediaVerse.Application.Interfaces
         // Queries
         Task<IEnumerable<MediaItemResponseDto>> GetAllMediaAsync();
         Task<MediaItemResponseDto?> GetMediaItemAsync(Guid id);
-        Task<IEnumerable<BaseMediaItem>> SearchMediaAsync(string query);
+        Task<IEnumerable<MediaItemResponseDto>> SearchMediaAsync(string query);
         Task<IEnumerable<MediaItemResponseDto>> GetMediaByTopicAsync(Guid topicId);
         Task<IEnumerable<MediaItemResponseDto>> GetMediaByGenreAsync(Guid genreId);
         Task<IEnumerable<MediaItemResponseDto>> GetMediaByTypeAsync(string mediaType);

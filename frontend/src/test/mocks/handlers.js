@@ -42,7 +42,6 @@ export const handlers = [
   http.get(`${API_BASE}/media/:id`, ({ params }) =>
     HttpResponse.json(makeMedia({ id: params.id })),
   ),
-  http.get(`${API_BASE}/media/search`, () => HttpResponse.json([makeBook()])),
   http.get(`${API_BASE}/media/by-topic/:topicId`, () => HttpResponse.json([makeBook()])),
   http.get(`${API_BASE}/media/by-genre/:genreId`, () => HttpResponse.json([makeBook()])),
 

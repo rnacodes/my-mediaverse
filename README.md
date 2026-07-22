@@ -2,7 +2,9 @@
 
 **One home for everything you read, watch, and listen to — track it, organize it, and rediscover it.**
 
-<!-- Add project logo here -->
+<p align="center">
+  <img src="frontend/public/mmv-open-graph-card.png" alt="My MediaVerse — your entertainment universe, organized" width="700">
+</p>
 
 > **Version 1.5** — "The Great Refactor" is complete: the backend and frontend have been re-architected, both test suites rebuilt from scratch, and several new integrations added on top of the v1 demo. **Version 2** (new media types, web archival, automation) is now in active development.
 
@@ -400,14 +402,6 @@ Version 2 expands the feature set on top of the v1.5 foundation:
 ### Next
 
 Populate the library via the **Initial Data Sync**, complete the **Search Refactor**, then begin **v2** feature expansion.
-
----
-
-## Documentation
-
-For detailed documentation, including architecture deep-dives and code examples, see:
-
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/rnacodes/my-mediaverse)
 
 ---
 

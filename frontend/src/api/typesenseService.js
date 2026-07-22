@@ -33,6 +33,14 @@ export const setRealTimeIndexingStatus = async (enabled) => {
     }
 };
 
+const MEDIA_SORT_BY = {
+    dateAdded: 'date_added:desc',
+};
+
+const MIXLIST_SORT_BY = {
+    dateAdded: 'date_created:desc',
+};
+
 // ============================================
 // Typesense Admin API calls
 // ============================================
@@ -208,7 +216,8 @@ export const typesenseAdvancedSearch = async (options) => {
             status = null,
             ratings = [],
             page = 1,
-            perPage = 20
+            perPage = 20,
+            sortBy = 'relevance'
         } = options;
 
         // Build filter string
@@ -253,6 +262,11 @@ export const typesenseAdvancedSearch = async (options) => {
             params.filter = filters.join(' && ');
         }
 
+        const sortExpr = MEDIA_SORT_BY[sortBy];
+        if (sortExpr) {
+            params.sort_by = sortExpr;
+        }
+
         const response = await apiClient.get('/search', { params });
         return response.data;
     } catch (error) {
@@ -283,6 +297,28 @@ export const mapTypesenseMediaDocument = (doc = {}) => ({
     runtimeMinutes: doc.runtime_minutes ?? null,
     lengthInSeconds: doc.length_in_seconds ?? null,
 });
+
+export const mapTypesenseMixlistDocument = (doc = {}) => ({
+    id: doc.id,
+    name: doc.name,
+    description: doc.description || '',
+    thumbnail: doc.thumbnail ?? null,
+    topics: doc.topics || [],
+    genres: doc.genres || [],
+    itemCount: doc.media_item_count ?? 0,
+    isMixlist: true,
+});
+
+/**
+ * Free-text mixlist search via Typesense, returned as a flat array of camelCase
+ * mixlists (parallels searchMediaViaTypesense for the quick-search dropdown).
+ * @param {string} query - Search query
+ * @returns {Promise<Array>} Mapped mixlists
+ */
+export const searchMixlistsViaTypesense = async (query) => {
+    const response = await typesenseAdvancedSearchMixlists({ query: query || '*', perPage: 20 });
+    return (response.hits || []).map((hit) => mapTypesenseMixlistDocument(hit.document));
+};
 
 /**
  * Free-text media search via Typesense, returned as a flat array of camelCase
@@ -353,7 +389,8 @@ export const typesenseAdvancedSearchMixlists = async (options) => {
             topics = [],
             genres = [],
             page = 1,
-            perPage = 20
+            perPage = 20,
+            sortBy = 'relevance'
         } = options;
 
         // Build filter string
@@ -379,6 +416,11 @@ export const typesenseAdvancedSearchMixlists = async (options) => {
 
         if (filters.length > 0) {
             params.filter = filters.join(' && ');
+        }
+
+        const sortExpr = MIXLIST_SORT_BY[sortBy];
+        if (sortExpr) {
+            params.sort_by = sortExpr;
         }
 
         const response = await apiClient.get('/search/mixlists', { params });

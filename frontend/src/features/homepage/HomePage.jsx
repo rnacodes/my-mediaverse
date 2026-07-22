@@ -80,7 +80,7 @@ export default function HomePage() {
         <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 3, md: 4 }, mx: 'auto', px: { xs: 2, sm: 3 } }}>
 
           <HomePageHeader
-            onSearch={(query) => navigate(`/search?q=${encodeURIComponent(query)}`)}
+            onSearch={(query) => navigate(`/search?q=${encodeURIComponent(query)}&mediaType=all`)}
           />
 
           {/* Media Icons and Actions Section */}

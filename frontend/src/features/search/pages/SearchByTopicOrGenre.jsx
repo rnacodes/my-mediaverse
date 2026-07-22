@@ -60,11 +60,11 @@ function SearchByTopicOrGenre() {
     };
 
     const handleTopicClick = (topic) => {
-        navigate(`/search?topics=${encodeURIComponent(topic.name || topic.Name)}`);
+        navigate(`/search?topics=${encodeURIComponent(topic.name || topic.Name)}&mediaType=all`);
     };
 
     const handleGenreClick = (genre) => {
-        navigate(`/search?genres=${encodeURIComponent(genre.name || genre.Name)}`);
+        navigate(`/search?genres=${encodeURIComponent(genre.name || genre.Name)}&mediaType=all`);
     };
 
     const handleCreateTopic = () => {
