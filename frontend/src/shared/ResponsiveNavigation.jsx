@@ -21,6 +21,7 @@ import {
 } from '@mui/material';
 import { Menu as MenuIcon, Close as CloseIcon, Home, Movie, QueueMusic, Add, Upload, Download, Search, Apps, CleaningServices, Login as LoginIcon, Logout as LogoutIcon, Person as PersonIcon, Storage as StorageIcon, Article, Language, Category, AdminPanelSettings, Sync, ExpandMore, Work, ExpandLess, Book, Tv, Podcasts, VideoLibrary, YouTube, Note as NoteIcon, Psychology, FormatQuote, AddLink, LockOpen, PlaylistAdd, Phonelink } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
+import { isDemoMode } from '@/utils/demoMode';
 import BrandLogo from '@/shared/BrandLogo';
 
 const ResponsiveNavigation = () => {
@@ -41,7 +42,9 @@ const ResponsiveNavigation = () => {
   };
 
   const handleNavigation = (path, requiresAuth = false) => {
-    if (requiresAuth && !isAuthenticated) {
+    // Demo visitors are never authenticated; let the route-level demo guard
+    // decide what renders instead of bouncing them to the login page.
+    if (requiresAuth && !isAuthenticated && !isDemoMode()) {
       navigate('/login');
     } else {
       navigate(path);

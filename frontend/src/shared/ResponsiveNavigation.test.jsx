@@ -39,7 +39,10 @@ const renderNav = (opts) =>
     opts,
   );
 
-afterEach(() => setMatchMedia(false));
+afterEach(() => {
+  setMatchMedia(false);
+  vi.unstubAllEnvs();
+});
 
 describe('ResponsiveNavigation', () => {
   describe('desktop', () => {
@@ -82,6 +85,32 @@ describe('ResponsiveNavigation', () => {
       await user.click(await screen.findByRole('menuitem', { name: 'Books' }));
 
       expect(screen.getByTestId('location')).toHaveTextContent('/search?mediaType=Book');
+    });
+
+    it('redirects logged-out users to login for auth-required menu items', async () => {
+      vi.stubEnv('VITE_DEMO_MODE', 'false');
+      setMatchMedia(false);
+      loggedOut();
+      const { user } = renderNav();
+
+      const banner = screen.getByRole('banner');
+      await user.click(within(banner).getByRole('button', { name: 'Admin' }));
+      await user.click(await screen.findByRole('menuitem', { name: 'AI Admin' }));
+
+      expect(screen.getByTestId('location')).toHaveTextContent('/login');
+    });
+
+    it('navigates to admin routes in demo mode so the demo guard renders instead of login', async () => {
+      vi.stubEnv('VITE_DEMO_MODE', 'true');
+      setMatchMedia(false);
+      loggedOut();
+      const { user } = renderNav();
+
+      const banner = screen.getByRole('banner');
+      await user.click(within(banner).getByRole('button', { name: 'Admin' }));
+      await user.click(await screen.findByRole('menuitem', { name: 'AI Admin' }));
+
+      expect(screen.getByTestId('location')).toHaveTextContent('/ai-admin');
     });
 
     it('shows Login when logged out and Logout when authenticated', async () => {
