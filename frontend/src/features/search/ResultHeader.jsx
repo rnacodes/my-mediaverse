@@ -4,7 +4,8 @@ import { ViewModule, ViewList, FilterList, Search as SearchIcon } from '@mui/ico
 
 const sortOptions = [
     { value: 'relevance', label: 'Most Relevant' },
-    { value: 'dateAdded', label: 'Recently Added' }
+    { value: 'dateAdded', label: 'Recently Added' },
+    { value: 'title', label: 'Title (A–Z)' }
 ];
 
 export const ResultHeader = React.memo(({
