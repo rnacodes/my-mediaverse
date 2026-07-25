@@ -230,7 +230,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 var fields = new List<Field>
                 {
                     new Field("id", FieldType.String, false), // Not facet, primary key
-                    new Field("title", FieldType.String, false), // Searchable
+                    new Field("title", FieldType.String, false) { Sort = true }, // Searchable, sortable for Title (A-Z)
                     new Field("media_type", FieldType.String, true), // Facetable for filtering
                     new Field("description", FieldType.String, false, optional: true), // Searchable, optional
                     new Field("topics", FieldType.StringArray, true), // Facetable array
@@ -360,13 +360,15 @@ namespace MyMediaVerse.Infrastructure.Services.Search
         // Fields the frontend sort dropdown is allowed to sort by, per collection.
         internal static readonly HashSet<string> MediaSortableFields = new(StringComparer.Ordinal)
         {
-            "date_added"
+            "date_added",
+            "title"
         };
 
         internal static readonly HashSet<string> MixlistSortableFields = new(StringComparer.Ordinal)
         {
             "date_created",
-            "media_item_count"
+            "media_item_count",
+            "name"
         };
 
         /// <summary>
@@ -747,7 +749,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 var fields = new List<Field>
                 {
                     new Field("id", FieldType.String, false), // Primary key
-                    new Field("name", FieldType.String, false), // Searchable
+                    new Field("name", FieldType.String, false) { Sort = true }, // Searchable, sortable for Title (A-Z)
                     new Field("description", FieldType.String, false, optional: true), // Searchable, optional
                     new Field("thumbnail", FieldType.String, false, optional: true, index: false), // Not searchable
                     new Field("date_created", FieldType.Int64, false), // Sortable timestamp

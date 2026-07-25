@@ -1,0 +1,28 @@
+Copyright (c) 2026 Rashida Asante-Eccleston
+All Rights Reserved
+
+This repository and its contents (including but not limited to source code,
+documentation, and design assets) are made publicly visible for portfolio,
+reference, and demonstration purposes only.
+
+No license, express or implied, is granted to any person to use, copy,
+modify, merge, publish, distribute, sublicense, host, deploy, or sell
+copies of this software, in whole or in part, without the prior written
+permission of the copyright holder.
+
+Viewing and reading the source is permitted. Any other use requires
+explicit written consent.
+
+The canonical source for this software is:
+https://github.com/rnacodes/my-mediaverse
+
+Copies or forks found elsewhere are not authorized distributions.
+
+For permissions or licensing inquiries, contact:
+Rashida Asante-Eccleston <rashida@raeccleston.com>
+
+This software is provided "as is", without warranty of any kind, express
+or implied, including but not limited to the warranties of merchantability,
+fitness for a particular purpose, and noninfringement. In no event shall
+the author be liable for any claim, damages, or other liability arising
+from the software or its use.

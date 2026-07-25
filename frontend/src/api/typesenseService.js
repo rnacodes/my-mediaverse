@@ -35,10 +35,12 @@ export const setRealTimeIndexingStatus = async (enabled) => {
 
 const MEDIA_SORT_BY = {
     dateAdded: 'date_added:desc',
+    title: 'title:asc',
 };
 
 const MIXLIST_SORT_BY = {
     dateAdded: 'date_created:desc',
+    title: 'name:asc',
 };
 
 // ============================================
