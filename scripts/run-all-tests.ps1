@@ -32,7 +32,6 @@ Write-MasterResult "=========================================" "Green"
 $overallSuccess = $true
 $backendSuccess = $true
 $frontendSuccess = $true
-$scriptsSuccess = $true
 
 # Run Backend Tests
 Write-MasterResult "`n=== Running Backend Tests ===" "Yellow"
@@ -78,28 +77,6 @@ try {
 $frontendDuration = (Get-Date) - $frontendStartTime
 Write-MasterResult "Frontend tests completed in: $($frontendDuration.TotalSeconds.ToString('F2')) seconds" "Cyan"
 
-# Run Scripts Tests (Python)
-Write-MasterResult "`n=== Running Scripts Tests ===" "Yellow"
-$scriptsStartTime = Get-Date
-
-try {
-    & .\run-scripts-tests.ps1
-    if ($LASTEXITCODE -ne 0) {
-        $scriptsSuccess = $false
-        $overallSuccess = $false
-        Write-MasterResult "Scripts tests failed!" "Red"
-    } else {
-        Write-MasterResult "Scripts tests passed!" "Green"
-    }
-} catch {
-    $scriptsSuccess = $false
-    $overallSuccess = $false
-    Write-MasterResult "Scripts tests encountered an error: $($_.Exception.Message)" "Red"
-}
-
-$scriptsDuration = (Get-Date) - $scriptsStartTime
-Write-MasterResult "Scripts tests completed in: $($scriptsDuration.TotalSeconds.ToString('F2')) seconds" "Cyan"
-
 # Overall Summary
 $totalDuration = (Get-Date) - $backendStartTime
 Write-MasterResult "`n=========================================" "Green"
@@ -108,21 +85,18 @@ Write-MasterResult "=========================================" "Green"
 Write-MasterResult "Total execution time: $($totalDuration.TotalMinutes.ToString('F2')) minutes" "Cyan"
 Write-MasterResult "Backend tests: $(if($backendSuccess) {'PASSED'} else {'FAILED'})" $(if($backendSuccess) {"Green"} else {"Red"})
 Write-MasterResult "Frontend tests: $(if($frontendSuccess) {'PASSED'} else {'FAILED'})" $(if($frontendSuccess) {"Green"} else {"Red"})
-Write-MasterResult "Scripts tests: $(if($scriptsSuccess) {'PASSED'} else {'FAILED'})" $(if($scriptsSuccess) {"Green"} else {"Red"})
 
 if ($overallSuccess) {
     Write-MasterResult "`nALL TESTS COMPLETED SUCCESSFULLY!" "Green"
     Write-MasterResult "Check individual log files for detailed results:" "Cyan"
     Write-MasterResult "   - Backend: test-results-backend-*.log" "Cyan"
     Write-MasterResult "   - Frontend: test-results-frontend-*.log" "Cyan"
-    Write-MasterResult "   - Scripts: test-results-scripts-*.log" "Cyan"
 } else {
     Write-MasterResult "`nSOME TESTS FAILED!" "Red"
     Write-MasterResult "Check the following for details:" "Yellow"
     Write-MasterResult "   - Master log: $masterLogFile" "Yellow"
     Write-MasterResult "   - Backend log: test-results-backend-*.log" "Yellow"
     Write-MasterResult "   - Frontend log: test-results-frontend-*.log" "Yellow"
-    Write-MasterResult "   - Scripts log: test-results-scripts-*.log" "Yellow"
     Write-MasterResult "   - Test result files (.trx) in tests/ directory" "Yellow"
     Write-MasterResult "   - Coverage reports in tests/TestResults/ and frontend/coverage/" "Yellow"
 }

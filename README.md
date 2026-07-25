@@ -265,9 +265,9 @@ The API starts at `http://localhost:5033`.
 | `OPENAI_API_KEY`                | OpenAI embeddings        |
 | `GRADIENT_API_KEY`              | DigitalOcean Gradient AI |
 
-#### Local-only (migration script)
+#### Local-only (manual migrations)
 
-These are read **only** by `scripts/run-migrations.ps1` from your local shell. They are never read by deployed app code and should not be set on Render or the demo Droplet.
+These are read from your local shell when running `dotnet ef database update` against each environment.
 
 | Variable                   | Description                                                                        |
 | -------------------------- | --------------------------------------------------------------------------------- |

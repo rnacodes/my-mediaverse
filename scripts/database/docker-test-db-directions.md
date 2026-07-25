@@ -122,7 +122,9 @@ cd ..\..\src\MyMediaVerse\MyMediaVerse.Web.API
 dotnet ef database update --project ..\MyMediaVerse.Infrastructure
 # 3. Run the app, click around, confirm nothing broke.
 # 4. If it goes wrong: .\delete-testing-db.ps1 -RemoveVolume, then recreate + reseed. Zero risk to demo.
-# 5. Only once clean, run the real .\run-migrations.ps1 against demo + production.
+# 5. Only once clean, apply the migration manually to demo + production:
+#    dotnet ef database update --project ..\MyMediaVerse.Infrastructure --connection "$env:DEMO_DB_CONNECTION"
+#    dotnet ef database update --project ..\MyMediaVerse.Infrastructure --connection "$env:PRODUCTION_DB_CONNECTION"
 ```
 
 Because the seed restores the dump's `__EFMigrationsHistory`, `dotnet ef database update` correctly
