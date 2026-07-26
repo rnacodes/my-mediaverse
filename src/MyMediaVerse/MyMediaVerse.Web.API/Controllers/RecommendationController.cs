@@ -119,6 +119,7 @@ namespace MyMediaVerse.Web.API.Controllers
         /// POST /api/recommendation/by-vibe
         /// </summary>
         /// <param name="request">The vibe search request</param>
+        [Authorize] // Runs LLM/embedding inference; anonymous access is a billing risk.
         [HttpPost("by-vibe")]
         public async Task<IActionResult> SearchByVibe([FromBody] RecommendationVibeSearchRequest request)
         {

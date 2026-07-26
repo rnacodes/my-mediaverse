@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MyMediaVerse.Infrastructure;
@@ -5,6 +6,9 @@ using MyMediaVerse.Domain.Entities;
 
 namespace MyMediaVerse.Web.API.Controllers
 {
+    // These endpoints reset and delete data wholesale. The per-action environment
+    // check is kept as a second layer, but authentication is the primary gate.
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class DevController : ControllerBase
@@ -118,6 +122,9 @@ namespace MyMediaVerse.Web.API.Controllers
         }
 
         // POST: api/dev/seed-demo-data
+        // Left anonymous so the demo environment can be seeded before any account
+        // exists there; DemoReadOnlyFilter whitelists this same path.
+        [AllowAnonymous]
         [HttpPost("seed-demo-data")]
         public async Task<IActionResult> SeedDemoData()
         {
