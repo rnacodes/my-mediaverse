@@ -192,7 +192,7 @@ namespace MyMediaVerse.Shared.Interfaces
         /// <summary>
         /// Performs a search across the obsidian_notes collection.
         /// </summary>
-        Task<object> SearchNotesAsync(string query, string? filters = null, int perPage = 20, int page = 1);
+        Task<object> SearchNotesAsync(string query, string? filters = null, int perPage = 20, int page = 1, string? sortBy = null);
 
         /// <summary>
         /// Performs a bulk re-index of all notes from the database.
@@ -389,8 +389,9 @@ namespace MyMediaVerse.Shared.Interfaces
         /// <param name="filters">Optional filter string (e.g., "category:=books", "is_favorite:=true")</param>
         /// <param name="perPage">Number of results per page (default 20)</param>
         /// <param name="page">Page number (default 1)</param>
+        /// <param name="sortBy">Optional allowlisted sort expression (e.g., "title:asc")</param>
         /// <returns>Search results as dynamic objects</returns>
-        Task<object> SearchHighlightsAsync(string query, string? filters = null, int perPage = 20, int page = 1);
+        Task<object> SearchHighlightsAsync(string query, string? filters = null, int perPage = 20, int page = 1, string? sortBy = null);
 
         /// <summary>
         /// Performs a bulk re-index of all highlights from the database.

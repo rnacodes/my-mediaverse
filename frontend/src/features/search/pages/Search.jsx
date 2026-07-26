@@ -392,7 +392,7 @@ export default function Search({ defaultMediaTypes = [] }) {
                 if (onlyNotes) {
                     // Only searching notes
                     const noteFilter = selectedTopics.length > 0 ? `tags:=[${selectedTopics.map(t => `"${t}"`).join(',')}]` : null;
-                    response = await searchNotes(debouncedSearchQuery || '*', noteFilter, currentPage, perPage);
+                    response = await searchNotes(debouncedSearchQuery || '*', noteFilter, currentPage, perPage, sortBy);
                     const transformedResults = transformNoteHits(response.hits || []);
                     setSearchResults(transformedResults);
                     setTotalResults(response.found || 0);
@@ -400,7 +400,7 @@ export default function Search({ defaultMediaTypes = [] }) {
                 } else if (onlyHighlights) {
                     // Only searching highlights
                     const highlightFilter = selectedTopics.length > 0 ? `tags:=[${selectedTopics.map(t => `"${t}"`).join(',')}]` : null;
-                    response = await searchHighlights(debouncedSearchQuery || '*', highlightFilter, currentPage, perPage);
+                    response = await searchHighlights(debouncedSearchQuery || '*', highlightFilter, currentPage, perPage, sortBy);
                     const transformedResults = transformHighlightHits(response.hits || []);
                     setSearchResults(transformedResults);
                     setTotalResults(response.found || 0);
@@ -432,14 +432,14 @@ export default function Search({ defaultMediaTypes = [] }) {
                     // Optionally search notes
                     if (includeNotes) {
                         const noteFilter = selectedTopics.length > 0 ? `tags:=[${selectedTopics.map(t => `"${t}"`).join(',')}]` : null;
-                        searchPromises.push(searchNotes(debouncedSearchQuery || '*', noteFilter, currentPage, perPagePerType));
+                        searchPromises.push(searchNotes(debouncedSearchQuery || '*', noteFilter, currentPage, perPagePerType, sortBy));
                         resultTypes.push('notes');
                     }
 
                     // Optionally search highlights
                     if (includeHighlights) {
                         const highlightFilter = selectedTopics.length > 0 ? `tags:=[${selectedTopics.map(t => `"${t}"`).join(',')}]` : null;
-                        searchPromises.push(searchHighlights(debouncedSearchQuery || '*', highlightFilter, currentPage, perPagePerType));
+                        searchPromises.push(searchHighlights(debouncedSearchQuery || '*', highlightFilter, currentPage, perPagePerType, sortBy));
                         resultTypes.push('highlights');
                     }
 
@@ -462,17 +462,25 @@ export default function Search({ defaultMediaTypes = [] }) {
                         totalFound += resp.found || 0;
                     });
 
-                    // Interleave results by type for variety
-                    const mediaResults = allResults.filter(r => !r.isNote && !r.isHighlight);
-                    const noteResults = allResults.filter(r => r.isNote);
-                    const highlightResults = allResults.filter(r => r.isHighlight);
+                    let combinedResults;
+                    if (sortBy === 'title') {
+                        // A single alphabetical list reads better than interleaving when titles drive the order
+                        combinedResults = [...allResults].sort((a, b) =>
+                            (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' })
+                        );
+                    } else {
+                        // Interleave results by type for variety
+                        const mediaResults = allResults.filter(r => !r.isNote && !r.isHighlight);
+                        const noteResults = allResults.filter(r => r.isNote);
+                        const highlightResults = allResults.filter(r => r.isHighlight);
 
-                    const combinedResults = [];
-                    const maxLen = Math.max(mediaResults.length, noteResults.length, highlightResults.length);
-                    for (let i = 0; i < maxLen; i++) {
-                        if (i < mediaResults.length) combinedResults.push(mediaResults[i]);
-                        if (i < noteResults.length) combinedResults.push(noteResults[i]);
-                        if (i < highlightResults.length) combinedResults.push(highlightResults[i]);
+                        combinedResults = [];
+                        const maxLen = Math.max(mediaResults.length, noteResults.length, highlightResults.length);
+                        for (let i = 0; i < maxLen; i++) {
+                            if (i < mediaResults.length) combinedResults.push(mediaResults[i]);
+                            if (i < noteResults.length) combinedResults.push(noteResults[i]);
+                            if (i < highlightResults.length) combinedResults.push(highlightResults[i]);
+                        }
                     }
 
                     setSearchResults(combinedResults);

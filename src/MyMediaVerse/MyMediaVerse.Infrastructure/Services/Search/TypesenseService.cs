@@ -371,6 +371,16 @@ namespace MyMediaVerse.Infrastructure.Services.Search
             "name"
         };
 
+        internal static readonly HashSet<string> NotesSortableFields = new(StringComparer.Ordinal)
+        {
+            "title"
+        };
+
+        internal static readonly HashSet<string> HighlightsSortableFields = new(StringComparer.Ordinal)
+        {
+            "title"
+        };
+
         /// <summary>
         /// Pure check that a requested "field:direction" sort expression targets an allowlisted
         /// sortable field with a valid direction. Guards against sending Typesense an unsupported
@@ -1115,7 +1125,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 {
                     new Field("id", FieldType.String, false),
                     new Field("slug", FieldType.String, false),
-                    new Field("title", FieldType.String, false),
+                    new Field("title", FieldType.String, false) { Sort = true }, // Searchable, sortable for Title (A-Z)
                     new Field("content", FieldType.String, false, optional: true),
                     new Field("description", FieldType.String, false, optional: true),
                     new Field("vault_name", FieldType.String, true), // Facetable
@@ -1210,10 +1220,13 @@ namespace MyMediaVerse.Infrastructure.Services.Search
         /// <summary>
         /// Searches the obsidian_notes collection in Typesense.
         /// </summary>
-        public async Task<object> SearchNotesAsync(string query, string? filters = null, int perPage = 20, int page = 1)
+        public async Task<object> SearchNotesAsync(string query, string? filters = null, int perPage = 20, int page = 1, string? sortBy = null)
         {
             try
             {
+                // Default: relevance first, then recency. An explicit, allowlisted sortBy overrides it.
+                var resolvedSort = ResolveSortBy(sortBy, "_text_match:desc,date_imported:desc", NotesSortableFields);
+
                 var searchParameters = new SearchParameters(
                     query,
                     BuildQueryBy("title,content,description,tags")
@@ -1221,7 +1234,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 {
                     PerPage = perPage,
                     Page = page,
-                    SortBy = "_text_match:desc,date_imported:desc"
+                    SortBy = resolvedSort
                 };
 
                 if (_autoEmbeddingEnabled)
@@ -1841,7 +1854,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     new Field("id", FieldType.String, false),
                     new Field("text", FieldType.String, false), // Main highlight content - searchable
                     new Field("note", FieldType.String, false, optional: true), // User annotation - searchable
-                    new Field("title", FieldType.String, false, optional: true), // Source title - searchable
+                    new Field("title", FieldType.String, false, optional: true) { Sort = true }, // Source title - searchable, sortable for Title (A-Z)
                     new Field("author", FieldType.String, true, optional: true), // Facetable
                     new Field("category", FieldType.String, true, optional: true), // Facetable (books, articles, etc.)
                     new Field("tags", FieldType.StringArray, true), // Facetable array
@@ -1971,10 +1984,19 @@ namespace MyMediaVerse.Infrastructure.Services.Search
         /// <summary>
         /// Searches the highlights collection in Typesense.
         /// </summary>
-        public async Task<object> SearchHighlightsAsync(string query, string? filters = null, int perPage = 20, int page = 1)
+        public async Task<object> SearchHighlightsAsync(string query, string? filters = null, int perPage = 20, int page = 1, string? sortBy = null)
         {
             try
             {
+                // Default: relevance first, then recency. An explicit, allowlisted sortBy overrides it.
+                var resolvedSort = ResolveSortBy(sortBy, "_text_match:desc,created_at:desc", HighlightsSortableFields);
+
+                // Many highlights share one source title; keep reading order within a source.
+                if (resolvedSort.StartsWith("title:", StringComparison.Ordinal))
+                {
+                    resolvedSort += ",created_at:asc";
+                }
+
                 var searchParameters = new SearchParameters(
                     query,
                     BuildQueryBy("text,note,title,author,tags")
@@ -1982,7 +2004,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 {
                     PerPage = perPage,
                     Page = page,
-                    SortBy = "_text_match:desc,created_at:desc"
+                    SortBy = resolvedSort
                 };
 
                 if (_autoEmbeddingEnabled)

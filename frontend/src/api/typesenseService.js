@@ -484,18 +484,28 @@ export const resetNotesCollection = async () => {
 // Highlights Search
 // ============================================
 
+const HIGHLIGHT_SORT_BY = {
+    title: 'title:asc',
+};
+
 /**
  * Search highlights using Typesense
  * @param {string} query - The search query (searches text, note, title, author, tags)
  * @param {string} filter - Optional filter string (e.g., "category:=books", "is_favorite:=true")
  * @param {number} page - Page number (default 1)
  * @param {number} perPage - Results per page (default 20)
+ * @param {string} sortBy - Optional sort key (unmapped keys fall back to relevance)
  * @returns {Promise<Object>} Typesense search response with hits
  */
-export const searchHighlights = async (query = '*', filter = null, page = 1, perPage = 20) => {
+export const searchHighlights = async (query = '*', filter = null, page = 1, perPage = 20, sortBy = null) => {
     try {
         const params = { q: query, page, per_page: perPage };
         if (filter) params.filter = filter;
+
+        const sortExpr = HIGHLIGHT_SORT_BY[sortBy];
+        if (sortExpr) {
+            params.sort_by = sortExpr;
+        }
 
         const response = await apiClient.get('/search/highlights', { params });
         return response.data;
