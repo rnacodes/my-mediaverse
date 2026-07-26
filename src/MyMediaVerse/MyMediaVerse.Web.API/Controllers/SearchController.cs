@@ -386,7 +386,8 @@ namespace MyMediaVerse.Web.API.Controllers
             [FromQuery] string q,
             [FromQuery] string? filter = null,
             [FromQuery] int page = 1,
-            [FromQuery] int per_page = 20)
+            [FromQuery] int per_page = 20,
+            [FromQuery] string? sort_by = null)
         {
             try
             {
@@ -399,10 +400,10 @@ namespace MyMediaVerse.Web.API.Controllers
                 if (per_page < 1) per_page = 20;
                 if (page < 1) page = 1;
 
-                _logger.LogInformation("Notes search request: query='{Query}', filter='{Filter}', page={Page}, per_page={PerPage}",
-                    q, filter, page, per_page);
+                _logger.LogInformation("Notes search request: query='{Query}', filter='{Filter}', page={Page}, per_page={PerPage}, sort_by='{SortBy}'",
+                    q, filter, page, per_page, sort_by);
 
-                var results = await _typesenseService.SearchNotesAsync(q, filter, per_page, page);
+                var results = await _typesenseService.SearchNotesAsync(q, filter, per_page, page, sort_by);
 
                 return Ok(results);
             }
@@ -718,16 +719,17 @@ namespace MyMediaVerse.Web.API.Controllers
             [FromQuery] string q = "*",
             [FromQuery] string? filter = null,
             [FromQuery] int page = 1,
-            [FromQuery] int per_page = 20)
+            [FromQuery] int per_page = 20,
+            [FromQuery] string? sort_by = null)
         {
             try
             {
                 var perPage = Math.Clamp(per_page, 1, 100);
                 var pageNum = Math.Max(page, 1);
 
-                _logger.LogInformation("Searching highlights: query='{Query}', filter='{Filter}', page={Page}", q, filter, pageNum);
+                _logger.LogInformation("Searching highlights: query='{Query}', filter='{Filter}', page={Page}, sort_by='{SortBy}'", q, filter, pageNum, sort_by);
 
-                var results = await _typesenseService.SearchHighlightsAsync(q, filter, perPage, pageNum);
+                var results = await _typesenseService.SearchHighlightsAsync(q, filter, perPage, pageNum, sort_by);
 
                 return Ok(results);
             }

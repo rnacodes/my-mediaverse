@@ -16,6 +16,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         [InlineData("date_added:asc")]
         [InlineData("date_added:DESC")] // direction is case-insensitive
         [InlineData("date_added : desc")] // whitespace around the separator is trimmed
+        [InlineData("title:asc")]
         public void IsAllowedSortExpression_AllowsSortableMediaField(string expression)
         {
             TypesenseService.IsAllowedSortExpression(expression, TypesenseService.MediaSortableFields)
@@ -23,12 +24,12 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         }
 
         [Theory]
-        [InlineData("title:asc")]      // string field, not declared sortable in the schema
         [InlineData("rating:desc")]    // string enum, not sortable / meaningless order
         [InlineData("date_created:desc")] // a mixlist field, not valid for the media collection
         [InlineData("date_added:sideways")] // invalid direction
         [InlineData("date_added")]     // missing direction
         [InlineData("date_added:desc:extra")] // malformed
+        [InlineData("title:asc,date_added:desc")] // compound expressions are not accepted from callers
         [InlineData("")]
         [InlineData(null)]
         public void IsAllowedSortExpression_RejectsUnsupportedOrMalformed(string? expression)
@@ -44,6 +45,38 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         {
             TypesenseService.IsAllowedSortExpression(expression, TypesenseService.MixlistSortableFields)
                 .Should().BeTrue();
+        }
+
+        [Fact]
+        public void IsAllowedSortExpression_AllowsTitleForNotes()
+        {
+            TypesenseService.IsAllowedSortExpression("title:asc", TypesenseService.NotesSortableFields)
+                .Should().BeTrue();
+        }
+
+        [Theory]
+        [InlineData("date_imported:desc")] // only title is exposed to the sort dropdown for notes
+        [InlineData("vault_name:asc")]
+        public void IsAllowedSortExpression_RejectsUnsupportedNoteFields(string expression)
+        {
+            TypesenseService.IsAllowedSortExpression(expression, TypesenseService.NotesSortableFields)
+                .Should().BeFalse();
+        }
+
+        [Fact]
+        public void IsAllowedSortExpression_AllowsTitleForHighlights()
+        {
+            TypesenseService.IsAllowedSortExpression("title:asc", TypesenseService.HighlightsSortableFields)
+                .Should().BeTrue();
+        }
+
+        [Theory]
+        [InlineData("created_at:desc")] // only title is exposed to the sort dropdown for highlights
+        [InlineData("text:asc")]
+        public void IsAllowedSortExpression_RejectsUnsupportedHighlightFields(string expression)
+        {
+            TypesenseService.IsAllowedSortExpression(expression, TypesenseService.HighlightsSortableFields)
+                .Should().BeFalse();
         }
     }
 }

@@ -211,17 +211,27 @@ export const getSyncStatus = async () => {
 // Note Search Operations
 // ============================================
 
+const NOTE_SORT_BY = {
+    title: 'title:asc',
+};
+
 /**
  * Searches notes using Typesense
  * @param {string} query - The search query
  * @param {string} filter - Optional filter string
  * @param {number} page - Page number (default 1)
  * @param {number} perPage - Results per page (default 20)
+ * @param {string} sortBy - Optional sort key (unmapped keys fall back to relevance)
  */
-export const searchNotes = async (query, filter = null, page = 1, perPage = 20) => {
+export const searchNotes = async (query, filter = null, page = 1, perPage = 20, sortBy = null) => {
     try {
         const params = { q: query, page, per_page: perPage };
         if (filter) params.filter = filter;
+
+        const sortExpr = NOTE_SORT_BY[sortBy];
+        if (sortExpr) {
+            params.sort_by = sortExpr;
+        }
 
         const response = await apiClient.get('/search/notes', { params });
         return response.data;
