@@ -11,48 +11,11 @@ namespace MyMediaVerse.Web.API.Controllers
     {
         private readonly IListenNotesService _listenNotesService;
         private readonly ILogger<ListenNotesController> _logger;
-        private readonly HttpClient _httpClient;
 
-        public ListenNotesController(IListenNotesService listenNotesService, ILogger<ListenNotesController> logger, HttpClient httpClient)
+        public ListenNotesController(IListenNotesService listenNotesService, ILogger<ListenNotesController> logger)
         {
             _listenNotesService = listenNotesService;
             _logger = logger;
-            _httpClient = httpClient;
-        }
-
-        /// <summary>
-        /// Proxies image requests from ListenNotes to avoid CORS issues.
-        /// </summary>
-        /// <param name="imageUrl">The URL of the image to proxy</param>
-        /// <returns>The image file</returns>
-        [HttpGet("image-proxy")]
-        public async Task<IActionResult> ImageProxy([FromQuery] string imageUrl)
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(imageUrl))
-                {
-                    return BadRequest("Image URL is required.");
-                }
-
-                var response = await _httpClient.GetAsync(imageUrl);
-                response.EnsureSuccessStatusCode(); // Throws an exception if the HTTP response status is an error code
-
-                var imageBytes = await response.Content.ReadAsByteArrayAsync();
-                var contentType = response.Content.Headers.ContentType?.ToString() ?? "application/octet-stream";
-
-                return File(imageBytes, contentType);
-            }
-            catch (HttpRequestException ex)
-            {
-                _logger.LogError(ex, "Error proxying image from {ImageUrl}. HTTP request failed.", imageUrl);
-                return StatusCode(502, "Failed to fetch image from external source.");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An unexpected error occurred while proxying image from {ImageUrl}.", imageUrl);
-                return StatusCode(500, "An internal server error occurred.");
-            }
         }
 
         /// <summary>

@@ -575,6 +575,7 @@ namespace MyMediaVerse.Web.API.Controllers
         /// Uses AI-generated embeddings for semantic understanding.
         /// </summary>
         /// <param name="request">Search request with query and optional parameters</param>
+        [Authorize] // Generates embeddings on every call; anonymous access is a billing risk.
         [HttpPost("semantic")]
         public async Task<IActionResult> SemanticSearchMedia([FromBody] SemanticSearchRequest request)
         {
@@ -620,6 +621,7 @@ namespace MyMediaVerse.Web.API.Controllers
         /// Performs a semantic/hybrid search across notes.
         /// POST /api/search/semantic/notes
         /// </summary>
+        [Authorize] // Generates embeddings on every call; anonymous access is a billing risk.
         [HttpPost("semantic/notes")]
         public async Task<IActionResult> SemanticSearchNotes([FromBody] SemanticSearchRequest request)
         {
@@ -666,6 +668,7 @@ namespace MyMediaVerse.Web.API.Controllers
         /// POST /api/search/by-vibe
         /// Useful for queries like "dark atmospheric sci-fi movies" or "uplifting productivity podcasts".
         /// </summary>
+        [Authorize] // Generates embeddings on every call; anonymous access is a billing risk.
         [HttpPost("by-vibe")]
         public async Task<IActionResult> SearchByVibe([FromBody] VibeSearchRequest request)
         {
