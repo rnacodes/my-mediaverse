@@ -54,7 +54,9 @@ export const searchBooksFromOpenLibrary = async (searchParams) => {
 
 export const importBookFromOpenLibrary = async (importData) => {
     try {
-        const response = await apiClient.post('/book/import-from-openlibrary', importData);
+        // Open Library imports chain several slow upstream API calls and can
+        // exceed the client's default 30s timeout, so allow extra time here.
+        const response = await apiClient.post('/book/import-from-openlibrary', importData, { timeout: 90000 });
         return response.data;
     } catch (error) {
         console.error('Error importing book from Open Library:', error);

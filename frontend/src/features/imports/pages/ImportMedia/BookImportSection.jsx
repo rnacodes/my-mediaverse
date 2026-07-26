@@ -7,12 +7,30 @@ import {
     Accordion, AccordionSummary, AccordionDetails
 } from '@mui/material';
 import { Search, Download, MenuBook, ExpandMore, OpenInNew } from '@mui/icons-material';
-import { searchBooksFromGoogleBooks, importBookFromGoogleBooks } from '@/api/bookService';
+import {
+    searchBooksFromGoogleBooks, importBookFromGoogleBooks,
+    searchBooksFromOpenLibrary, importBookFromOpenLibrary
+} from '@/api/bookService';
 import WhiteOutlineButton from '@/shared/WhiteOutlineButton';
+
+const BOOK_SOURCES = {
+    googlebooks: {
+        label: 'Google Books',
+        homeUrl: 'https://books.google.com',
+        getDetailsUrl: (key) => `https://books.google.com/books?id=${key}`
+    },
+    openlibrary: {
+        label: 'Open Library',
+        homeUrl: 'https://openlibrary.org',
+        // Open Library keys are paths like "/works/OL45883W"
+        getDetailsUrl: (key) => `https://openlibrary.org${key}`
+    }
+};
 
 function BookImportSection({ expanded, onAccordionChange }) {
     const navigate = useNavigate();
 
+    const [bookSource, setBookSource] = useState('googlebooks');
     const [bookImportMethod, setBookImportMethod] = useState('search');
     const [bookSearchQuery, setBookSearchQuery] = useState('');
     const [bookSearchType, setBookSearchType] = useState('General');
@@ -25,6 +43,19 @@ function BookImportSection({ expanded, onAccordionChange }) {
     const [bookSuccess, setBookSuccess] = useState('');
     const [displayedCount, setDisplayedCount] = useState(10);
     const [hasSearched, setHasSearched] = useState(false);
+
+    const source = BOOK_SOURCES[bookSource];
+    const searchBooks = bookSource === 'openlibrary' ? searchBooksFromOpenLibrary : searchBooksFromGoogleBooks;
+    const importBook = bookSource === 'openlibrary' ? importBookFromOpenLibrary : importBookFromGoogleBooks;
+
+    const handleBookSourceChange = (e) => {
+        setBookSource(e.target.value);
+        setBookSearchResults([]);
+        setBookError('');
+        setBookSuccess('');
+        setHasSearched(false);
+        setDisplayedCount(10);
+    };
 
     const handleBookSearch = async () => {
         if (!bookSearchQuery.trim()) {
@@ -46,7 +77,7 @@ function BookImportSection({ expanded, onAccordionChange }) {
                 limit: 50
             };
 
-            const results = await searchBooksFromGoogleBooks(searchParams);
+            const results = await searchBooks(searchParams);
             setBookSearchResults(results || []);
             setBookIsLoading(false);
 
@@ -76,7 +107,7 @@ function BookImportSection({ expanded, onAccordionChange }) {
         try {
             console.log('Importing book by ISBN:', bookIsbn);
 
-            const result = await importBookFromGoogleBooks({ isbn: bookIsbn });
+            const result = await importBook({ isbn: bookIsbn });
 
             console.log('Book import response:', result);
 
@@ -129,7 +160,7 @@ function BookImportSection({ expanded, onAccordionChange }) {
 
             console.log('Importing book by title/author:', importData);
 
-            const result = await importBookFromGoogleBooks(importData);
+            const result = await importBook(importData);
 
             console.log('Book import response:', result);
 
@@ -177,15 +208,13 @@ function BookImportSection({ expanded, onAccordionChange }) {
                 authors: book.authors
             });
 
-            const importData = {
-                volumeId: book.key,
-                title: book.title,
-                author: book.authors?.[0]
-            };
+            const importData = bookSource === 'openlibrary'
+                ? { openLibraryKey: book.key, title: book.title, author: book.authors?.[0] }
+                : { volumeId: book.key, title: book.title, author: book.authors?.[0] };
 
             console.log('Import data being sent:', importData);
 
-            const result = await importBookFromGoogleBooks(importData);
+            const result = await importBook(importData);
 
             console.log('Book import response:', result);
 
@@ -245,7 +274,7 @@ function BookImportSection({ expanded, onAccordionChange }) {
                         <Button
                             variant="text"
                             size="small"
-                            href="https://books.google.com"
+                            href={source.homeUrl}
                             target="_blank"
                             rel="noopener noreferrer"
                             endIcon={<OpenInNew fontSize="small" />}
@@ -257,13 +286,26 @@ function BookImportSection({ expanded, onAccordionChange }) {
                             }}
                             onClick={(e) => e.stopPropagation()}
                         >
-                            Google Books
+                            {source.label}
                         </Button>
                     </Box>
                 </Box>
             </AccordionSummary>
             <AccordionDetails>
                 <Box sx={{ padding: 2 }}>
+                    <FormControl fullWidth margin="normal">
+                        <InputLabel id="book-source-label">Source</InputLabel>
+                        <Select
+                            labelId="book-source-label"
+                            value={bookSource}
+                            label="Source"
+                            onChange={handleBookSourceChange}
+                        >
+                            <MenuItem value="googlebooks">Google Books</MenuItem>
+                            <MenuItem value="openlibrary">Open Library</MenuItem>
+                        </Select>
+                    </FormControl>
+
                     <FormControl fullWidth margin="normal">
                         <InputLabel>Import Method</InputLabel>
                         <Select
@@ -379,7 +421,7 @@ function BookImportSection({ expanded, onAccordionChange }) {
                                                         <Box sx={{ display: 'flex', gap: 1 }}>
                                                             <WhiteOutlineButton
                                                                 size="small"
-                                                                href={`https://books.google.com/books?id=${book.key}`}
+                                                                href={source.getDetailsUrl(book.key)}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
                                                                 endIcon={<OpenInNew fontSize="small" />}
