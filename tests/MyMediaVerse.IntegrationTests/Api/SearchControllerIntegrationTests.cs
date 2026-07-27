@@ -132,7 +132,9 @@ namespace MyMediaVerse.IntegrationTests.Api
         [Fact]
         public async Task Reindex_ShouldReturnUnauthorized_WithoutToken()
         {
-            var response = await _client.PostAsync("/api/search/reindex", null);
+            var client = _factory.CreateAnonymousClient();
+
+            var response = await client.PostAsync("/api/search/reindex", null);
 
             response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         }
@@ -140,7 +142,9 @@ namespace MyMediaVerse.IntegrationTests.Api
         [Fact]
         public async Task ReindexMixlists_ShouldReturnUnauthorized_WithoutToken()
         {
-            var response = await _client.PostAsync("/api/search/reindex-mixlists", null);
+            var client = _factory.CreateAnonymousClient();
+
+            var response = await client.PostAsync("/api/search/reindex-mixlists", null);
 
             response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         }
@@ -148,7 +152,9 @@ namespace MyMediaVerse.IntegrationTests.Api
         [Fact]
         public async Task Reset_ShouldReturnUnauthorized_WithoutToken()
         {
-            var response = await _client.PostAsync("/api/search/reset", null);
+            var client = _factory.CreateAnonymousClient();
+
+            var response = await client.PostAsync("/api/search/reset", null);
 
             response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         }

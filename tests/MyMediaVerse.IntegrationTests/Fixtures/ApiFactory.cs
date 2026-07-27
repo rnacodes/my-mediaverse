@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -108,7 +109,13 @@ namespace MyMediaVerse.IntegrationTests.Fixtures
             {
                 config.AddInMemoryCollection(new Dictionary<string, string?>
                 {
-                    ["ConnectionStrings:DefaultConnection"] = ConnectionString
+                    ["ConnectionStrings:DefaultConnection"] = ConnectionString,
+
+                    // AuthController has no credential fallback outside Development, so the
+                    // Testing host needs explicit credentials for the login-flow tests.
+                    // Mirrors AuthTestExtensions.ResolveCredentials (env vars win in both).
+                    ["Auth:Username"] = Environment.GetEnvironmentVariable("AUTH_USERNAME") ?? "admin",
+                    ["Auth:Password"] = Environment.GetEnvironmentVariable("AUTH_PASSWORD") ?? "password123"
                 });
             });
 
@@ -157,6 +164,34 @@ namespace MyMediaVerse.IntegrationTests.Fixtures
                     client.Timeout = TimeSpan.FromSeconds(30);
                 });
             });
+        }
+
+        /// <summary>
+        /// Every client is authenticated by default: a JWT is minted in-process through the host's
+        /// own <see cref="IAuthService"/>, so it is always signed with whatever secret/issuer/audience
+        /// the host resolved. Child factories created via <c>WithWebHostBuilder</c> (including all
+        /// <c>CreateClientWithSubstitute*</c> clients) inherit this. Tests that need an unauthenticated
+        /// caller use <see cref="CreateAnonymousClient"/>.
+        /// </summary>
+        protected override void ConfigureClient(HttpClient client)
+        {
+            base.ConfigureClient(client);
+
+            using var scope = Services.CreateScope();
+            var authService = scope.ServiceProvider.GetRequiredService<IAuthService>();
+            var token = authService.GenerateAccessToken(
+                "integration-test-user", Guid.NewGuid().ToString(), expirationMinutes: 60);
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        }
+
+        /// <summary>
+        /// A client with no <c>Authorization</c> header, for tests asserting unauthenticated behavior.
+        /// </summary>
+        public HttpClient CreateAnonymousClient()
+        {
+            var client = CreateClient();
+            client.DefaultRequestHeaders.Authorization = null;
+            return client;
         }
 
         private static void ReplaceWithSubstitute<TService>(IServiceCollection services) where TService : class

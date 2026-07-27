@@ -54,7 +54,9 @@ namespace MyMediaVerse.IntegrationTests.Api
         [Fact]
         public async Task GetAll_ShouldReturnUnauthorized_WithoutToken()
         {
-            var response = await _client.GetAsync("/api/document");
+            var client = _factory.CreateAnonymousClient();
+
+            var response = await client.GetAsync("/api/document");
 
             response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         }
@@ -62,9 +64,10 @@ namespace MyMediaVerse.IntegrationTests.Api
         [Fact]
         public async Task Create_ShouldReturnUnauthorized_WithoutToken()
         {
+            var client = _factory.CreateAnonymousClient();
             var dto = CreateValidDocumentDto();
 
-            var response = await _client.PostAsJsonAsync("/api/document", dto);
+            var response = await client.PostAsJsonAsync("/api/document", dto);
 
             response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         }

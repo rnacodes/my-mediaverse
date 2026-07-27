@@ -12,13 +12,26 @@ public static class AuthenticationExtensions
     public static IServiceCollection AddJwtAndApiKeyAuthentication(
         this IServiceCollection services,
         IConfiguration configuration,
+        IWebHostEnvironment environment,
         ILogger logger)
     {
         var jwtSettings = configuration.GetSection("JwtSettings");
-        var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET") ?? jwtSettings["Secret"];
+
+        var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET");
+        if (string.IsNullOrEmpty(jwtSecret) && (environment.IsDevelopment() || environment.IsTesting()))
+        {
+            jwtSecret = jwtSettings["Secret"];
+        }
 
         if (string.IsNullOrEmpty(jwtSecret))
         {
+            if (!environment.IsDevelopment())
+            {
+                throw new InvalidOperationException(
+                    "No JWT secret configured. Deployed hosts must set the JWT_SECRET environment variable. " +
+                    "Refusing to start without authentication outside Development.");
+            }
+
             logger.LogWarning("No JWT secret configured. Authentication will not work. Set JWT_SECRET env var or JwtSettings:Secret in appsettings.json.");
             return services;
         }

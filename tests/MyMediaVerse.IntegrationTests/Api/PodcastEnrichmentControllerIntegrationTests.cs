@@ -39,9 +39,9 @@ namespace MyMediaVerse.IntegrationTests.Api
         [Fact]
         public async Task GetStatus_ShouldReturnUnauthorized_WithoutToken()
         {
-            _client.DefaultRequestHeaders.Authorization = null;
+            var client = _factory.CreateAnonymousClient();
 
-            var response = await _client.GetAsync("/api/podcastenrichment/status");
+            var response = await client.GetAsync("/api/podcastenrichment/status");
 
             response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         }
@@ -49,9 +49,9 @@ namespace MyMediaVerse.IntegrationTests.Api
         [Fact]
         public async Task RunEnrichment_ShouldReturnUnauthorized_WithoutToken()
         {
-            _client.DefaultRequestHeaders.Authorization = null;
+            var client = _factory.CreateAnonymousClient();
 
-            var response = await _client.PostAsJsonAsync("/api/podcastenrichment/run", new { });
+            var response = await client.PostAsJsonAsync("/api/podcastenrichment/run", new { });
 
             response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         }
