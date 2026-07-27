@@ -42,13 +42,25 @@ namespace MyMediaVerse.Web.API.Controllers
                 return BadRequest(new { message = "Username and password are required" });
             }
 
-            var validUsername = Environment.GetEnvironmentVariable("AUTH_USERNAME") ?? 
-                               _configuration["Auth:Username"] ?? 
-                               "admin";
-            
-            var validPassword = Environment.GetEnvironmentVariable("AUTH_PASSWORD") ?? 
-                               _configuration["Auth:Password"] ?? 
-                               "password123";
+            var validUsername = Environment.GetEnvironmentVariable("AUTH_USERNAME") ??
+                               _configuration["Auth:Username"];
+
+            var validPassword = Environment.GetEnvironmentVariable("AUTH_PASSWORD") ??
+                               _configuration["Auth:Password"];
+
+            // Well-known defaults are a convenience for local development only; on any other
+            // host, unconfigured credentials mean no login is possible rather than a guessable one.
+            if (_environment.IsDevelopment())
+            {
+                validUsername ??= "admin";
+                validPassword ??= "password123";
+            }
+
+            if (string.IsNullOrEmpty(validUsername) || string.IsNullOrEmpty(validPassword))
+            {
+                _logger.LogError("Login rejected: AUTH_USERNAME/AUTH_PASSWORD are not configured on this host.");
+                return Unauthorized(new { message = "Invalid username or password" });
+            }
 
             if (model.Username != validUsername || model.Password != validPassword)
             {

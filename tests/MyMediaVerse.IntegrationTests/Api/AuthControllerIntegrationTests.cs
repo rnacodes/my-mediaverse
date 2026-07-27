@@ -130,8 +130,11 @@ namespace MyMediaVerse.IntegrationTests.Api
         [Fact]
         public async Task Validate_WithoutToken_ShouldReturnUnauthorized()
         {
+            // Arrange
+            var client = _factory.CreateAnonymousClient();
+
             // Act
-            var response = await _client.GetAsync("/api/auth/validate");
+            var response = await client.GetAsync("/api/auth/validate");
 
             // Assert
             Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
@@ -170,8 +173,11 @@ namespace MyMediaVerse.IntegrationTests.Api
         [Fact]
         public async Task Logout_WithoutToken_ShouldReturnUnauthorized()
         {
+            // Arrange
+            var client = _factory.CreateAnonymousClient();
+
             // Act
-            var response = await _client.PostAsync("/api/auth/logout", null);
+            var response = await client.PostAsync("/api/auth/logout", null);
 
             // Assert
             Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
@@ -201,8 +207,11 @@ namespace MyMediaVerse.IntegrationTests.Api
         [Fact]
         public async Task CleanupTokens_WithoutToken_ShouldReturnUnauthorized()
         {
+            // Arrange
+            var client = _factory.CreateAnonymousClient();
+
             // Act
-            var response = await _client.PostAsync("/api/auth/cleanup-tokens", null);
+            var response = await client.PostAsync("/api/auth/cleanup-tokens", null);
 
             // Assert
             Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);

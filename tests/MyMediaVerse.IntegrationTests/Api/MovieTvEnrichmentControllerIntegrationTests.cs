@@ -39,7 +39,9 @@ namespace MyMediaVerse.IntegrationTests.Api
         [Fact]
         public async Task GetStatus_ShouldReturnUnauthorized_WithoutToken()
         {
-            var response = await _client.GetAsync("/api/movietvenrichment/status");
+            var client = _factory.CreateAnonymousClient();
+
+            var response = await client.GetAsync("/api/movietvenrichment/status");
 
             response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         }
@@ -47,7 +49,9 @@ namespace MyMediaVerse.IntegrationTests.Api
         [Fact]
         public async Task RunMovieEnrichment_ShouldReturnUnauthorized_WithoutToken()
         {
-            var response = await _client.PostAsJsonAsync("/api/movietvenrichment/run/movies", new { });
+            var client = _factory.CreateAnonymousClient();
+
+            var response = await client.PostAsJsonAsync("/api/movietvenrichment/run/movies", new { });
 
             response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         }
@@ -55,7 +59,9 @@ namespace MyMediaVerse.IntegrationTests.Api
         [Fact]
         public async Task RunTvShowEnrichment_ShouldReturnUnauthorized_WithoutToken()
         {
-            var response = await _client.PostAsJsonAsync("/api/movietvenrichment/run/tvshows", new { });
+            var client = _factory.CreateAnonymousClient();
+
+            var response = await client.PostAsJsonAsync("/api/movietvenrichment/run/tvshows", new { });
 
             response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         }

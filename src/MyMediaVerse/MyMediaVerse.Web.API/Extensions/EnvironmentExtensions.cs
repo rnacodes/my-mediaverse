@@ -9,4 +9,10 @@ public static class EnvironmentExtensions
     /// </summary>
     public static bool IsTesting(this IWebHostEnvironment environment)
         => environment.IsEnvironment("Testing");
+
+    /// <summary>
+    /// True when the host is running as the public demo deployment.
+    /// </summary>
+    public static bool IsDemo(this IWebHostEnvironment environment)
+        => environment.IsEnvironment("Demo");
 }

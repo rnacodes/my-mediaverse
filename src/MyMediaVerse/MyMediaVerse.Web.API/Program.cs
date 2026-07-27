@@ -45,7 +45,7 @@ builder.Services.AddControllers(options =>
 builder.Services.AddDemoRateLimiting();
 
 // --- Authentication (JWT + API Key) ---
-builder.Services.AddJwtAndApiKeyAuthentication(builder.Configuration, startupLogger);
+builder.Services.AddJwtAndApiKeyAuthentication(builder.Configuration, builder.Environment, startupLogger);
 
 // --- Database (EF Core + PostgreSQL + pgvector) ---
 var connectionString = DatabaseExtensions.ResolveConnectionString(builder.Configuration, builder.Environment, startupLogger);

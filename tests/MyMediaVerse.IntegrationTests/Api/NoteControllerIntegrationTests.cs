@@ -55,9 +55,10 @@ namespace MyMediaVerse.IntegrationTests.Api
         [Fact]
         public async Task Create_ShouldReturnUnauthorized_WithoutToken()
         {
+            var client = _factory.CreateAnonymousClient();
             var dto = CreateValidNoteDto();
 
-            var response = await _client.PostAsJsonAsync("/api/note", dto);
+            var response = await client.PostAsJsonAsync("/api/note", dto);
 
             response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         }

@@ -205,8 +205,10 @@ namespace MyMediaVerse.IntegrationTests.Api
             // Act
             var response = await _client.PostAsync("/api/media", content);
 
-            // Assert - Should succeed (not get blocked by demo filter)
-            Assert.NotEqual(HttpStatusCode.Forbidden, response.StatusCode);
+            // Assert - Should succeed (not get blocked by demo filter). Asserting success rather
+            // than merely "not Forbidden" so an auth failure (401) can't slip through unnoticed.
+            Assert.True(response.IsSuccessStatusCode,
+                $"Expected a success status code but got {(int)response.StatusCode} {response.StatusCode}.");
         }
 
         [Fact]
