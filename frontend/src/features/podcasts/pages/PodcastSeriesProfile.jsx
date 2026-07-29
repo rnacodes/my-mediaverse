@@ -5,7 +5,7 @@ import {
     ArrowBack, Edit, OpenInNew, Sync, Delete,
     ExpandMore, Visibility, Add, CheckCircle, Close as CloseIcon
 } from '@mui/icons-material';
-import axios from 'axios';
+import { getPodcastFromApi } from '@/api/podcastService';
 import MediaInfoCard from '@/features/media/MediaInfoCard';
 import MediaDetailAccordion from '@/features/media/MediaDetailAccordion';
 import MixlistCarousel from '@/features/mixlists/MixlistCarousel';
@@ -113,24 +113,19 @@ function PodcastSeriesProfile() {
         try {
             setLoadingAllEpisodes(true);
             setViewAllEpisodesDialog(true);
-            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5033/api';
-            
+
             let allEpisodes = [];
             let nextDate = null;
             let hasMore = true;
-            
+
             // Fetch episodes until the ListenNotes API has no more pages
             while (hasMore) {
-                const url = nextDate 
-                    ? `${API_URL}/ListenNotes/podcasts/${series.externalId}?next_episode_pub_date=${nextDate}`
-                    : `${API_URL}/ListenNotes/podcasts/${series.externalId}`;
-                    
-                const response = await axios.get(url);
-                const fetched = response.data.episodes || [];
+                const data = await getPodcastFromApi(series.externalId, nextDate);
+                const fetched = data.episodes || [];
                 allEpisodes = [...allEpisodes, ...fetched];
-                
+
                 // Documentation: ListenNotes uses next_episode_pub_date for pagination
-                nextDate = response.data.next_episode_pub_date || response.data.nextEpisodePubDate;
+                nextDate = data.next_episode_pub_date || data.nextEpisodePubDate;
                 hasMore = nextDate !== null && nextDate !== undefined && allEpisodes.length < 500; // Limit to 500 for performance
             }
             

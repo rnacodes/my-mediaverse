@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Box, Typography, Button, Card, CardContent, Alert, CircularProgress, Paper, Chip, Dialog, DialogTitle, DialogContent, DialogActions, List, ListItem, ListItemText, IconButton } from '@mui/material';
 import { ArrowBack, CloudUpload, FileDownload, CheckCircle, Error, Delete, Preview } from '@mui/icons-material';
 import Papa from 'papaparse';
+import { importMixlists } from '@/api/mixlistService';
 
 function ImportMixlistPage() {
     const [file, setFile] = useState(null);
@@ -59,24 +60,12 @@ function ImportMixlistPage() {
                 mediaItemTypes: row.MediaItemTypes || row.mediaItemTypes || ''
             }));
 
-            const response = await fetch('/api/mixlist/import', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(importData)
-            });
-
-            if (response.ok) {
-                const result = await response.json();
-                setImportResults(result);
-            } else {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Import failed');
-            }
+            const response = await importMixlists(importData);
+            setImportResults(response.data);
         } catch (error) {
             console.error('Import error:', error);
-            alert(`Import failed: ${error.message}`);
+            const message = error.response?.data?.error || error.message || 'Import failed';
+            alert(`Import failed: ${message}`);
         } finally {
             setImporting(false);
         }

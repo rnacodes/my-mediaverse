@@ -17,6 +17,15 @@ export const login = async (username, password) => {
 };
 
 /**
+ * Exchange the HttpOnly refresh cookie for a new access token.
+ * @returns {Promise} Response with token, username and expiresAt
+ */
+export const refresh = async () => {
+    const response = await apiClient.post('/auth/refresh');
+    return response.data;
+};
+
+/**
  * Validate the current token
  * @returns {Promise} Token validation result
  */

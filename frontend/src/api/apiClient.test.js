@@ -32,7 +32,8 @@ vi.mock('axios', () => {
 
 // Side-effect import: evaluating the module registers its interceptors on the
 // mocked axios instance, which the tests below read via globalThis.__testInterceptors.
-import './apiClient';
+import axios from 'axios';
+import { DEMO_READ_ONLY_CODE } from './apiClient';
 
 describe('apiClient - Demo Mode Features', () => {
     let originalSessionStorage;
@@ -112,7 +113,36 @@ describe('apiClient - Demo Mode Features', () => {
             dispatchSpy.mockRestore();
         });
 
-        it('should NOT dispatch event for non-demo 403 errors', async () => {
+        it('should dispatch demoWriteBlocked on the machine-readable code', async () => {
+            const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
+
+            // The code is what the API will emit once the demo write gate lands; it must
+            // be recognized without depending on the message wording.
+            const error = {
+                response: {
+                    status: 403,
+                    data: {
+                        code: DEMO_READ_ONLY_CODE,
+                        blockedOperation: 'POST',
+                        message: 'Rephrased read-only wording'
+                    }
+                },
+                config: { url: '/api/media' }
+            };
+
+            await expect(globalThis.__testInterceptors.responseError(error)).rejects.toBe(error);
+
+            expect(dispatchSpy).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    type: 'demoWriteBlocked',
+                    detail: expect.objectContaining({ blockedOperation: 'POST' })
+                })
+            );
+
+            dispatchSpy.mockRestore();
+        });
+
+        it('should dispatch apiForbidden, not demoWriteBlocked, for other 403 errors', async () => {
             const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
 
             const error = {
@@ -131,6 +161,38 @@ describe('apiClient - Demo Mode Features', () => {
             expect(dispatchSpy).not.toHaveBeenCalledWith(
                 expect.objectContaining({ type: 'demoWriteBlocked' })
             );
+            // Previously nothing was dispatched at all, so the user saw no feedback.
+            expect(dispatchSpy).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    type: 'apiForbidden',
+                    detail: expect.objectContaining({
+                        path: '/api/media',
+                        message: 'You do not have permission'
+                    })
+                })
+            );
+
+            dispatchSpy.mockRestore();
+        });
+
+        it('should fall back to a generic message when a 403 carries no body', async () => {
+            const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
+
+            const error = {
+                response: { status: 403 },
+                config: { url: '/api/media' }
+            };
+
+            await expect(globalThis.__testInterceptors.responseError(error)).rejects.toBe(error);
+
+            expect(dispatchSpy).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    type: 'apiForbidden',
+                    detail: expect.objectContaining({
+                        message: 'You do not have permission to perform this action.'
+                    })
+                })
+            );
 
             dispatchSpy.mockRestore();
         });
@@ -148,6 +210,66 @@ describe('apiClient - Demo Mode Features', () => {
             };
 
             await expect(globalThis.__testInterceptors.responseError(error)).rejects.toBe(error);
+        });
+    });
+
+    describe('401 Handling (Response Interceptor)', () => {
+        it('should dispatch sessionExpired when the token refresh fails', async () => {
+            const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
+            const refreshError = new Error('refresh rejected');
+            axios.post.mockRejectedValueOnce(refreshError);
+
+            const error = {
+                response: { status: 401 },
+                config: { url: '/api/media', headers: {} }
+            };
+
+            await expect(globalThis.__testInterceptors.responseError(error)).rejects.toBe(refreshError);
+
+            // The old behavior assigned window.location.href, which reloaded the SPA and
+            // silently discarded the route the user was on.
+            expect(dispatchSpy).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    type: 'sessionExpired',
+                    detail: expect.objectContaining({ path: '/api/media' })
+                })
+            );
+
+            dispatchSpy.mockRestore();
+        });
+
+        it.each(['/auth/login', '/auth/refresh', '/auth/logout'])(
+            'should not attempt a refresh for a 401 from %s',
+            async (url) => {
+                const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
+
+                const error = {
+                    response: { status: 401 },
+                    config: { url, headers: {} }
+                };
+
+                await expect(globalThis.__testInterceptors.responseError(error)).rejects.toBe(error);
+
+                expect(axios.post).not.toHaveBeenCalled();
+                expect(dispatchSpy).not.toHaveBeenCalledWith(
+                    expect.objectContaining({ type: 'sessionExpired' })
+                );
+
+                dispatchSpy.mockRestore();
+            }
+        );
+
+        it('should retry the original request when the refresh succeeds', async () => {
+            axios.post.mockResolvedValueOnce({ data: { token: 'fresh-token' } });
+
+            const error = {
+                response: { status: 401 },
+                config: { url: '/api/media', headers: {} }
+            };
+
+            await globalThis.__testInterceptors.responseError(error).catch(() => {});
+
+            expect(error.config.headers['Authorization']).toBe('Bearer fresh-token');
         });
     });
 });

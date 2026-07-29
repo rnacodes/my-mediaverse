@@ -14,9 +14,17 @@ export const searchPodcasts = async (query) => {
     }
 };
 
-export const getPodcastFromApi = async (id) => {
+/**
+ * Fetch a podcast and a page of its episodes from ListenNotes.
+ * ListenNotes paginates episodes by publish date rather than by page number:
+ * pass the previous response's next_episode_pub_date to get the following page.
+ */
+export const getPodcastFromApi = async (id, nextEpisodePubDate = null) => {
     try {
-        const response = await apiClient.get(`/ListenNotes/podcasts/${id}`);
+        const query = nextEpisodePubDate
+            ? `?next_episode_pub_date=${encodeURIComponent(nextEpisodePubDate)}`
+            : '';
+        const response = await apiClient.get(`/ListenNotes/podcasts/${id}${query}`);
         return response.data;
     } catch (error) {
         console.error('Error getting podcast:', error);

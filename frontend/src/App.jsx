@@ -9,6 +9,7 @@ import { AuthProvider } from './contexts/AuthProvider';
 import { DemoAdminProvider } from './contexts/DemoAdminProvider';
 import { DemoReadOnlyProvider } from './contexts/DemoReadOnlyProvider';
 import ConditionalProtectedRoute from './features/auth/ConditionalProtectedRoute';
+import ApiErrorListener from './features/auth/ApiErrorListener';
 import DemoRestrictedRoute from './features/demo/DemoRestrictedRoute';
 import DemoReadOnlyDialog from '@/shared/DemoReadOnlyDialog';
 import { theme } from '@/shared/DesignSystem';
@@ -215,7 +216,7 @@ function RoutedContent() {
               <ConditionalProtectedRoute><DemoUnlockPage /></ConditionalProtectedRoute>
             } />
             <Route path="/upload-demo-data" element={
-              <ConditionalProtectedRoute><DemoDataUploadPage /></ConditionalProtectedRoute>
+              <ConditionalProtectedRoute><DemoRestrictedRoute><DemoDataUploadPage /></DemoRestrictedRoute></ConditionalProtectedRoute>
             } />
           {/* Catch-all route for 404 */}
           <Route path="*" element={
@@ -243,6 +244,7 @@ function App() {
           <DemoAdminProvider>
           <DemoReadOnlyProvider>
           <DemoReadOnlyDialog />
+          <ApiErrorListener />
           <Box
             sx={{
               display: 'flex',

@@ -5,7 +5,7 @@ import {
     ArrowBack, Edit, Sync, Delete,
     ExpandMore, Visibility, Add, CheckCircle, YouTube
 } from '@mui/icons-material';
-import axios from 'axios';
+import { getYouTubeChannelUploads, importYouTubeVideo } from '@/api/youtubeService';
 import MediaInfoCard from '@/features/media/MediaInfoCard';
 import MediaDetailAccordion from '@/features/media/MediaDetailAccordion';
 import MixlistCarousel from '@/features/mixlists/MixlistCarousel';
@@ -106,7 +106,6 @@ function YouTubeChannelProfile() {
         try {
             setLoadingAllVideos(true);
             setViewAllVideosDialog(true);
-            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5033/api';
 
             let allVideos = [];
             let pageToken = null;
@@ -114,15 +113,11 @@ function YouTubeChannelProfile() {
 
             // Fetch videos from YouTube API via backend using the uploads endpoint
             while (hasMore) {
-                const url = pageToken
-                    ? `${API_URL}/YouTube/channels/${channel.channelExternalId}/uploads?maxResults=50&pageToken=${pageToken}`
-                    : `${API_URL}/YouTube/channels/${channel.channelExternalId}/uploads?maxResults=50`;
-
-                const response = await axios.get(url);
-                const fetched = response.data.items || response.data || [];
+                const data = await getYouTubeChannelUploads(channel.channelExternalId, 50, pageToken);
+                const fetched = data.items || data || [];
                 allVideos = [...allVideos, ...fetched];
 
-                pageToken = response.data.nextPageToken;
+                pageToken = data.nextPageToken;
                 hasMore = pageToken !== null && pageToken !== undefined && allVideos.length < 200; // Limit to 200 for performance
             }
 
@@ -158,10 +153,9 @@ function YouTubeChannelProfile() {
         if (!videoId) return;
         try {
             setImportingVideo(videoId);
-            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5033/api';
-            const response = await axios.post(`${API_URL}/YouTube/import/video/${videoId}`);
+            const imported = await importYouTubeVideo(videoId);
             const newImportedMap = new Map(importedVideos);
-            newImportedMap.set(videoId, response.data.id);
+            newImportedMap.set(videoId, imported.id);
             setImportedVideos(newImportedMap);
             setSnackbar({ open: true, message: `Successfully imported "${video.snippet?.title || video.title}"!`, severity: 'success' });
             videosQuery.refetch();

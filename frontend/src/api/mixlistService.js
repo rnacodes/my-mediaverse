@@ -36,6 +36,10 @@ export const seedMixlists = () => {
     return apiClient.post('/dev/seed-mixlists');
 };
 
+export const importMixlists = (mixlists) => {
+    return apiClient.post('/mixlist/import', mixlists);
+};
+
 // ============================================
 // Mixlist-Note linking API calls
 // ============================================
