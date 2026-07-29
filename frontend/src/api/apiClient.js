@@ -1,8 +1,9 @@
 import axios from 'axios';
-import { isDemoMode } from '@/utils/demoMode';
 
 // Use environment variable or fall back to localhost for development
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5033/api';
+
+export const DEMO_READ_ONLY_CODE = 'demo_read_only';
 
 export const apiClient = axios.create({
     baseURL: API_URL,
@@ -76,15 +77,9 @@ apiClient.interceptors.response.use(
 
         // If the error is 401 and we haven't already tried to refresh
         if (error.response?.status === 401 && !originalRequest._retry) {
-            // In demo mode, don't try to refresh or redirect - just reject the error
-            if (isDemoMode()) {
-                console.log('Demo mode: Skipping authentication for 401 error');
-                return Promise.reject(error);
-            }
-
-            // Don't try to refresh on login or refresh endpoints
             const isAuthEndpoint = originalRequest.url?.includes('/auth/login') ||
-                                  originalRequest.url?.includes('/auth/refresh');
+                                  originalRequest.url?.includes('/auth/refresh') ||
+                                  originalRequest.url?.includes('/auth/logout');
 
             if (isAuthEndpoint) {
                 return Promise.reject(error);
@@ -129,11 +124,15 @@ apiClient.interceptors.response.use(
                 processQueue(refreshError, null);
                 currentAccessToken = null;
 
-                // Only redirect to login if we're not already there
+                // Hand off to the app rather than assigning window.location: a hard
+                // navigation reloads the whole SPA, discards the route the user was on,
+                // and gives no explanation. The listener routes within the router and
+                // preserves the destination for redirect after sign-in.
                 const currentPath = window.location.pathname;
                 if (currentPath !== '/login') {
-                    console.warn('Session expired. Please login again.');
-                    window.location.href = '/login';
+                    window.dispatchEvent(new CustomEvent('sessionExpired', {
+                        detail: { path: error.config?.url }
+                    }));
                 }
 
                 return Promise.reject(refreshError);
@@ -142,15 +141,31 @@ apiClient.interceptors.response.use(
             }
         }
 
-        // Check for demo mode 403 error and dispatch custom event
         if (error.response?.status === 403) {
             const errorData = error.response?.data;
-            if (errorData?.error === 'Write operations are disabled in demo mode') {
+
+            // The demo write gate is identified by a stable code rather than by its
+            // message text. The legacy message match is kept until the API emits the
+            // code, so the read-only dialog keeps working in the meantime.
+            const isDemoReadOnly = errorData?.code === DEMO_READ_ONLY_CODE ||
+                errorData?.error === 'Write operations are disabled in demo mode';
+
+            if (isDemoReadOnly) {
                 window.dispatchEvent(new CustomEvent('demoWriteBlocked', {
                     detail: {
                         blockedOperation: errorData.blockedOperation,
                         path: error.config?.url,
                         message: errorData.message
+                    }
+                }));
+            } else {
+                // Any other 403 previously surfaced nothing at all — the user clicked a
+                // button and no error appeared anywhere.
+                window.dispatchEvent(new CustomEvent('apiForbidden', {
+                    detail: {
+                        path: error.config?.url,
+                        message: errorData?.message || errorData?.error ||
+                            'You do not have permission to perform this action.'
                     }
                 }));
             }

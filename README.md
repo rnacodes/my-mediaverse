@@ -197,7 +197,6 @@ The v1.5 refactor was as much about engineering discipline as features:
 - **Slimmed a "god" `Program.cs`** by extracting service registration into composable extension methods and simplifying connection-string resolution
 - **Rebuilt the frontend** around a feature-based folder structure with ~25 custom **TanStack Query** hooks for all data access, replacing ad-hoc fetching
 - **Moved Typesense to a bulk/scheduled indexing model**, removing per-item realtime indexing that would have wasted processing during large imports
-- **Added scheduled background services** that periodically enrich metadata (book descriptions, movie/TV, podcasts) and generate AI note summaries and embeddings
 - **Rebuilt both test suites** on open-source tooling (see [Testing](#testing))
 
 ### Key Architectural Patterns
@@ -394,7 +393,7 @@ Version 2 expands the feature set on top of the v1.5 foundation:
 - Backend re-architecture (controller split, slimmed `Program.cs`, clean dependency flow)
 - Frontend re-architecture (feature folders, TanStack Query data layer, shared components)
 - Both test suites rebuilt on open-source tooling
-- New integrations: Trakt sync, Obsidian/Quartz note sync, scheduled background enrichment
+- New integrations: Trakt sync, Obsidian/Quartz note sync
 - Bulk/scheduled Typesense indexing model
 - AI embeddings, similar-items discovery, and AI note summaries
 - Read-only demo site with sample data

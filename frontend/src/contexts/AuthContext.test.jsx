@@ -170,6 +170,80 @@ describe('AuthContext', () => {
     });
   });
 
+  describe('Token expiry', () => {
+    it('is not authenticated once the token has expired', async () => {
+      server.use(
+        http.post(`${API_BASE}/auth/refresh`, () =>
+          HttpResponse.json({
+            token: 'expired-access-token',
+            username: 'testuser',
+            expiresAt: '2020-01-01T00:00:00Z',
+          }),
+        ),
+      );
+
+      renderProvider();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('loading')).toHaveTextContent('ready');
+      });
+      expect(screen.getByTestId('authenticated')).toHaveTextContent('not-authenticated');
+      // The token itself is still held — it is the expiry that makes it unusable.
+      expect(screen.getByTestId('token')).toHaveTextContent('expired-access-token');
+    });
+
+    it('does not repeatedly renew an already-expired token', async () => {
+      // A renewal that keeps returning an expired token must not re-arm forever.
+      let refreshCalls = 0;
+      server.use(
+        http.post(`${API_BASE}/auth/refresh`, () => {
+          refreshCalls += 1;
+          return HttpResponse.json({
+            token: 'expired-access-token',
+            username: 'testuser',
+            expiresAt: '2020-01-01T00:00:00Z',
+          });
+        }),
+      );
+
+      renderProvider();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('loading')).toHaveTextContent('ready');
+      });
+
+      // Only the mount refresh should have run.
+      expect(refreshCalls).toBe(1);
+    });
+
+    it('renews proactively when the token is close to expiring', async () => {
+      // First response expires inside the renewal lead window, so a renewal is due
+      // immediately; the second hands back a long-lived token.
+      let refreshCalls = 0;
+      server.use(
+        http.post(`${API_BASE}/auth/refresh`, () => {
+          refreshCalls += 1;
+          return HttpResponse.json({
+            token: refreshCalls === 1 ? 'near-expiry-token' : 'renewed-token',
+            username: 'testuser',
+            expiresAt:
+              refreshCalls === 1
+                ? new Date(Date.now() + 30 * 1000).toISOString()
+                : '2099-01-01T00:00:00Z',
+          });
+        }),
+      );
+
+      renderProvider();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('token')).toHaveTextContent('renewed-token');
+      });
+      expect(screen.getByTestId('authenticated')).toHaveTextContent('authenticated');
+      expect(refreshCalls).toBe(2);
+    });
+  });
+
   describe('useAuth hook', () => {
     it('throws when used outside an AuthProvider', () => {
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});

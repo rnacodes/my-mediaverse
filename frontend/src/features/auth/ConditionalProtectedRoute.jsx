@@ -28,7 +28,7 @@ import { isDemoMode } from '@/utils/demoMode';
  *   </ConditionalProtectedRoute>
  */
 const ConditionalProtectedRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, refreshing } = useAuth();
   const location = useLocation();
 
   // If demo mode, don't require auth - just render children directly.
@@ -37,8 +37,7 @@ const ConditionalProtectedRoute = ({ children }) => {
     return children;
   }
 
-  // Show loading spinner while checking authentication status
-  if (loading) {
+  if (loading || refreshing) {
     return (
       <Box
         sx={{
@@ -53,13 +52,10 @@ const ConditionalProtectedRoute = ({ children }) => {
     );
   }
 
-  // Redirect to login if not authenticated
-  // Save current location so we can redirect back after login
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // User is authenticated, render the protected content
   return children;
 };
 

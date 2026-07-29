@@ -5,7 +5,7 @@ import {
     ArrowBack, Edit, Sync, Delete,
     YouTube, ExpandMore, Visibility, Add, CheckCircle
 } from '@mui/icons-material';
-import axios from 'axios';
+import { getYouTubePlaylistItems, importYouTubeVideo } from '@/api/youtubeService';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import MediaInfoCard from '@/features/media/MediaInfoCard';
@@ -151,7 +151,6 @@ function YouTubePlaylistProfile() {
         try {
             setLoadingAllVideos(true);
             setViewAllVideosDialog(true);
-            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5033/api';
 
             let allVideos = [];
             let pageToken = null;
@@ -159,15 +158,11 @@ function YouTubePlaylistProfile() {
 
             // Fetch playlist items from YouTube API via backend
             while (hasMore) {
-                const url = pageToken
-                    ? `${API_URL}/YouTube/playlists/${playlist.playlistExternalId}/items?maxResults=50&pageToken=${pageToken}`
-                    : `${API_URL}/YouTube/playlists/${playlist.playlistExternalId}/items?maxResults=50`;
-
-                const response = await axios.get(url);
-                const fetched = response.data.items || response.data || [];
+                const data = await getYouTubePlaylistItems(playlist.playlistExternalId, 50, pageToken);
+                const fetched = data.items || data || [];
                 allVideos = [...allVideos, ...fetched];
 
-                pageToken = response.data.nextPageToken;
+                pageToken = data.nextPageToken;
                 hasMore = pageToken !== null && pageToken !== undefined && allVideos.length < 200;
             }
 
@@ -210,9 +205,8 @@ function YouTubePlaylistProfile() {
         if (!videoId) return;
         try {
             setImportingVideo(videoId);
-            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5033/api';
-            const response = await axios.post(`${API_URL}/YouTube/import/video/${videoId}`);
-            const importedVideoId = response.data.id;
+            const imported = await importYouTubeVideo(videoId);
+            const importedVideoId = imported.id;
 
             // Add the imported video to this playlist (await direct call — sequential with import).
             await addVideoMutation.mutateAsync({ playlistId: id, videoId: importedVideoId });

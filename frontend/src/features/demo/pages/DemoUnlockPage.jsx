@@ -38,9 +38,7 @@ import {
     Palette as PaletteIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-
-const DEMO_API_BASE = 'https://demo-api.mymediaverseuniverse.com/api/demo';
-const DEMO_SITE_URL = 'https://demo.mymediaverseuniverse.com';
+import { DEMO_API_BASE, DEMO_SITE_URL, getDemoStatus } from '@/api/demoAdminService';
 
 const DemoUnlockPage = () => {
     const navigate = useNavigate();
@@ -58,15 +56,7 @@ const DemoUnlockPage = () => {
         setStatusLoading(true);
         setStatusError(null);
         try {
-            const response = await fetch(`${DEMO_API_BASE}/status`, {
-                credentials: 'include',
-            });
-            if (response.ok) {
-                const data = await response.json();
-                setStatusData(data);
-            } else {
-                setStatusError('Failed to fetch status from demo API.');
-            }
+            setStatusData(await getDemoStatus());
         } catch {
             setStatusError(
                 'Could not connect to the demo API. Use "Check Status Directly" to view in a new tab.'

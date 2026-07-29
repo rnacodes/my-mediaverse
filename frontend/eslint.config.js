@@ -36,6 +36,22 @@ export default defineConfig([
       'react/jsx-key': 'error',
       'react/no-array-index-key': 'error',
       'react-hooks/exhaustive-deps': 'error',
+      // Every API call must go through the service layer in src/api/, which owns the
+      // shared client that attaches the auth token. A component calling axios directly
+      // sends an unauthenticated request, which fails against an auth-required API.
+      'no-restricted-imports': ['error', {
+        paths: [{
+          name: 'axios',
+          message: 'Import a service from @/api/ instead. Only src/api/ may use axios directly — see apiClient.js.',
+        }],
+      }],
+    },
+  },
+  {
+    // The service layer is where the HTTP client lives, so axios is expected here.
+    files: ['src/api/**/*.{js,jsx}'],
+    rules: {
+      'no-restricted-imports': 'off',
     },
   },
   {
