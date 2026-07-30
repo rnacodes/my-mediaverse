@@ -415,23 +415,6 @@ function MixlistsPage() {
                         >
                             Deselect All
                         </Button>
-                        <Button 
-                            variant="outlined"
-                            size="small"
-                            onClick={() => navigate('/import-mixlist')}
-                            sx={{ 
-                                color: 'white',
-                                borderColor: 'white',
-                                minHeight: '44px',
-                                fontSize: { xs: '0.8rem', sm: '0.875rem' },
-                                '&:hover': {
-                                    borderColor: 'white',
-                                    backgroundColor: 'rgba(255, 255, 255, 0.08)'
-                                }
-                            }}
-                        >
-                            Import Mixlist
-                        </Button>
                     </Box>
                     <Button
                         variant="contained"
