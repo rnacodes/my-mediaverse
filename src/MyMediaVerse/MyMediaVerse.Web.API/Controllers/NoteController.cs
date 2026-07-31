@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.DTOs;
@@ -10,7 +9,6 @@ namespace MyMediaVerse.Web.API.Controllers
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize]
     public class NoteController : ControllerBase
     {
         private readonly INoteService _noteService;
@@ -32,9 +30,7 @@ namespace MyMediaVerse.Web.API.Controllers
         /// Gets all notes, optionally filtered by vault name.
         /// GET /api/note?vault=general
         /// </summary>
-        [HttpGet]
-        [AllowAnonymous]
-        public async Task<IActionResult> GetAll([FromQuery] string? vault = null)
+        [HttpGet]        public async Task<IActionResult> GetAll([FromQuery] string? vault = null)
         {
             try
             {
@@ -53,9 +49,7 @@ namespace MyMediaVerse.Web.API.Controllers
         /// Gets a note by its ID.
         /// GET /api/note/{id}
         /// </summary>
-        [HttpGet("{id:guid}")]
-        [AllowAnonymous]
-        public async Task<IActionResult> GetById(Guid id)
+        [HttpGet("{id:guid}")]        public async Task<IActionResult> GetById(Guid id)
         {
             try
             {
@@ -78,9 +72,7 @@ namespace MyMediaVerse.Web.API.Controllers
         /// Gets a note by its vault name and slug.
         /// GET /api/note/slug/{vault}/{slug}
         /// </summary>
-        [HttpGet("slug/{vault}/{slug}")]
-        [AllowAnonymous]
-        public async Task<IActionResult> GetBySlug(string vault, string slug)
+        [HttpGet("slug/{vault}/{slug}")]        public async Task<IActionResult> GetBySlug(string vault, string slug)
         {
             try
             {
@@ -223,9 +215,7 @@ namespace MyMediaVerse.Web.API.Controllers
         /// Gets all media items linked to a note.
         /// GET /api/note/{id}/media
         /// </summary>
-        [HttpGet("{id:guid}/media")]
-        [AllowAnonymous]
-        public async Task<IActionResult> GetMediaForNote(Guid id)
+        [HttpGet("{id:guid}/media")]        public async Task<IActionResult> GetMediaForNote(Guid id)
         {
             try
             {
@@ -243,9 +233,7 @@ namespace MyMediaVerse.Web.API.Controllers
         /// Gets all notes linked to a media item.
         /// GET /api/note/for-media/{mediaItemId}
         /// </summary>
-        [HttpGet("for-media/{mediaItemId:guid}")]
-        [AllowAnonymous]
-        public async Task<IActionResult> GetNotesForMedia(Guid mediaItemId)
+        [HttpGet("for-media/{mediaItemId:guid}")]        public async Task<IActionResult> GetNotesForMedia(Guid mediaItemId)
         {
             try
             {

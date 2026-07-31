@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using MyMediaVerse.Web.API.Extensions;
@@ -37,6 +38,7 @@ namespace MyMediaVerse.Web.API.Controllers
         /// <param name="code">6-digit TOTP code from authenticator app</param>
         /// <returns>Success message or 401 Unauthorized</returns>
         [HttpGet("unlock")]
+        [AllowAnonymous] 
         [EnableRateLimiting(RateLimitingExtensions.DemoUnlockPolicy)]
         public IActionResult Unlock([FromQuery] string code)
         {
@@ -120,6 +122,7 @@ namespace MyMediaVerse.Web.API.Controllers
         /// </summary>
         [HttpGet("lock")]
         [HttpPost("lock")]
+        [AllowAnonymous]
         public IActionResult Lock()
         {
             if (!_environment.EnvironmentName.Equals("Demo", StringComparison.OrdinalIgnoreCase))
@@ -144,6 +147,7 @@ namespace MyMediaVerse.Web.API.Controllers
         /// Checks if write access is currently active.
         /// </summary>
         [HttpGet("status")]
+        [AllowAnonymous]
         public IActionResult Status()
         {
             if (!_environment.EnvironmentName.Equals("Demo", StringComparison.OrdinalIgnoreCase))

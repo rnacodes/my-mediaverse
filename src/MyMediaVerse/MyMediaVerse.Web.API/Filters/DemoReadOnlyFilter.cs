@@ -81,13 +81,6 @@ namespace MyMediaVerse.Web.API.Filters
                     }
                 }
 
-                // Allow /dev/seed-demo-data endpoint specifically for initial seeding
-                if (path.Contains("/dev/seed-demo-data", StringComparison.OrdinalIgnoreCase))
-                {
-                    await next();
-                    return;
-                }
-
                 _logger.LogWarning(
                     "Write operation blocked in Demo environment. Method: {Method}, Path: {Path}",
                     httpMethod,

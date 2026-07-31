@@ -293,7 +293,6 @@ namespace MyMediaVerse.Web.API.Controllers
         /// GET /api/search/health
         /// </summary>
         [HttpGet("health")]
-        [AllowAnonymous] // Allow anonymous access for health checks
         public IActionResult Health()
         {
             try

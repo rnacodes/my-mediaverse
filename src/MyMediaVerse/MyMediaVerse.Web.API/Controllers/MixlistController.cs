@@ -7,7 +7,6 @@ namespace MyMediaVerse.Web.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [AllowAnonymous] // Allow anonymous access to all mixlist endpoints
     public class MixlistController : ControllerBase
     {
         private readonly IMixlistService _mixlistService;
@@ -285,6 +284,7 @@ namespace MyMediaVerse.Web.API.Controllers
 
         // GET: api/mixlist/{id}/export
         [HttpGet("{id:guid}/export")]
+        [Authorize] // Whole-mixlist export; not part of anonymous browsing.
         public async Task<IActionResult> ExportMixlist(Guid id)
         {
             try
@@ -305,6 +305,7 @@ namespace MyMediaVerse.Web.API.Controllers
 
         // GET: api/mixlist/export
         [HttpGet("export")]
+        [Authorize] // Bulk export of all mixlists; not part of anonymous browsing.
         public async Task<IActionResult> ExportAllMixlists()
         {
             try

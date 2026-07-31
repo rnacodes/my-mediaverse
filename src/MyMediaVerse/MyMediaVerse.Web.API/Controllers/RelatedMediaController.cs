@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.DTOs;
@@ -7,7 +6,6 @@ namespace MyMediaVerse.Web.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [AllowAnonymous]
     public class RelatedMediaController : ControllerBase
     {
         private readonly IRelatedMediaService _relatedMediaService;
