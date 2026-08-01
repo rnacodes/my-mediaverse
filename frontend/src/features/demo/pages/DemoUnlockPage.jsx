@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Container,
     Paper,
@@ -7,10 +7,6 @@ import {
     Box,
     Alert,
     CircularProgress,
-    Card,
-    CardContent,
-    Grid,
-    Chip,
     TextField,
     Accordion,
     AccordionSummary,
@@ -21,75 +17,90 @@ import {
     ListItemText,
 } from '@mui/material';
 import {
-    Refresh as RefreshIcon,
     LockOpen as LockOpenIcon,
     Lock as LockIcon,
     Timer as TimerIcon,
-    Key as KeyIcon,
     ExpandMore as ExpandMoreIcon,
     PhoneAndroid as PhoneIcon,
     QrCode as QrCodeIcon,
     Numbers as NumbersIcon,
-    OpenInNew as OpenInNewIcon,
-    Info as InfoIcon,
     Schedule as ScheduleIcon,
-    Language as LanguageIcon,
-    Upload as UploadIcon,
-    Palette as PaletteIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { DEMO_API_BASE, DEMO_SITE_URL, getDemoStatus } from '@/api/demoAdminService';
+import { useAuth } from '@/contexts/AuthContext';
+import { unlockDemo, lockDemo } from '@/api/demoService';
 
+/**
+ * The demo site's sign-in page. A valid TOTP code opens a 20-minute write window:
+ * the API sets the write-window cookie and returns an access token, which becomes
+ * the visitor's identity for the rest of the window.
+ */
 const DemoUnlockPage = () => {
     const navigate = useNavigate();
+    const { user, isAuthenticated, applyDemoUnlock, endSession } = useAuth();
     const [totpCode, setTotpCode] = useState('');
-    const [unlockClicked, setUnlockClicked] = useState(false);
-    const [statusData, setStatusData] = useState(null);
-    const [statusLoading, setStatusLoading] = useState(true);
-    const [statusError, setStatusError] = useState(null);
+    const [submitting, setSubmitting] = useState(false);
+    const [feedback, setFeedback] = useState(null);
+    const [minutesLeft, setMinutesLeft] = useState(null);
 
+    // Keep the countdown fresh while a write window is open.
     useEffect(() => {
-        fetchStatus();
-    }, []);
+        if (!isAuthenticated || !user?.expiresAt) {
+            setMinutesLeft(null);
+            return undefined;
+        }
 
-    const fetchStatus = async () => {
-        setStatusLoading(true);
-        setStatusError(null);
+        const update = () => {
+            const remainingMs = new Date(user.expiresAt).getTime() - Date.now();
+            setMinutesLeft(Math.max(0, Math.ceil(remainingMs / 60000)));
+        };
+
+        update();
+        const interval = setInterval(update, 30000);
+        return () => clearInterval(interval);
+    }, [isAuthenticated, user?.expiresAt]);
+
+    const handleUnlock = async () => {
+        if (totpCode.length !== 6 || submitting) return;
+
+        setSubmitting(true);
+        setFeedback(null);
         try {
-            setStatusData(await getDemoStatus());
-        } catch {
-            setStatusError(
-                'Could not connect to the demo API. Use "Check Status Directly" to view in a new tab.'
-            );
+            const session = await unlockDemo(totpCode);
+            applyDemoUnlock(session);
+            setFeedback({
+                severity: 'success',
+                message: `Write access unlocked for ${session.expiresInMinutes} minutes.`,
+            });
+        } catch (error) {
+            const status = error.response?.status;
+            setFeedback({
+                severity: 'error',
+                message: status === 401
+                    ? 'Invalid code. Codes rotate every 30 seconds — try the current one.'
+                    : status === 429
+                        ? 'Too many attempts. Wait a minute, then try again.'
+                        : 'Could not reach the unlock endpoint. Please try again.',
+            });
         } finally {
-            setStatusLoading(false);
+            setSubmitting(false);
+            setTotpCode('');
         }
     };
 
-    const handleUnlock = () => {
-        if (totpCode.length !== 6) return;
-        window.open(`${DEMO_API_BASE}/unlock?code=${totpCode}`, '_blank');
-        setUnlockClicked(true);
-        setTotpCode('');
-    };
-
-    const handleLock = () => {
-        window.open(`${DEMO_API_BASE}/lock`, '_blank');
-        setUnlockClicked(false);
-    };
-
-    const handleCheckStatus = () => {
-        window.open(`${DEMO_API_BASE}/status`, '_blank');
-    };
-
-    const handleGoToDemoSite = () => {
-        window.open(DEMO_SITE_URL, '_blank');
+    const handleLock = async () => {
+        setFeedback(null);
+        try {
+            await lockDemo();
+        } catch {
+            // The cookie may already be gone; ending the local session is what matters.
+        }
+        endSession();
+        setFeedback({ severity: 'info', message: 'Write access revoked. The demo is read-only again.' });
     };
 
     const handleTotpChange = (e) => {
-        const value = e.target.value.replace(/\D/g, '').slice(0, 6);
-        setTotpCode(value);
-        setUnlockClicked(false);
+        setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6));
     };
 
     const handleKeyDown = (e) => {
@@ -99,263 +110,104 @@ const DemoUnlockPage = () => {
     };
 
     return (
-        <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Container maxWidth="md" sx={{ py: 4 }}>
             <Typography variant="h3" gutterBottom sx={{ mb: 1, fontWeight: 'bold' }}>
-                Demo Mode Administration
+                Demo Write Access
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                Manage write access for the demo site at{' '}
-                <a href={DEMO_SITE_URL} target="_blank" rel="noopener noreferrer">
-                    {DEMO_SITE_URL}
-                </a>
+                This demo is read-only for visitors. With an authenticator code you can open a
+                20-minute window to create, edit, and delete data.
             </Typography>
 
-            <Box sx={{ display: 'flex', gap: 2, mb: 4, flexWrap: 'wrap' }}>
-                <Button
-                    variant="contained"
-                    startIcon={<UploadIcon />}
-                    onClick={() => navigate('/upload-demo-data')}
-                    sx={{
-                        bgcolor: '#7b1fa2',
-                        color: 'white',
-                        '&:hover': { bgcolor: '#6a1b9a' },
-                    }}
-                >
-                    Upload Demo Data
-                </Button>
-                <Button
-                    variant="contained"
-                    startIcon={<PaletteIcon />}
-                    onClick={() => navigate('/demo')}
-                    sx={{
-                        bgcolor: '#362759',
-                        color: '#fcfafa',
-                        '&:hover': { bgcolor: '#4f3a7a' },
-                    }}
-                >
-                    View Design System
-                </Button>
-            </Box>
+            {feedback && (
+                <Alert severity={feedback.severity} onClose={() => setFeedback(null)} sx={{ mb: 3 }}>
+                    {feedback.message}
+                </Alert>
+            )}
 
-            {/* Status Section */}
-            <Paper elevation={3} sx={{ p: 3, mb: 3, bgcolor: '#1a1a2e', color: 'white' }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
-                    <Typography variant="h5" sx={{ fontWeight: 'bold', color: 'white' }}>
-                        Demo Write Access Status
-                    </Typography>
-                    <Box sx={{ display: 'flex', gap: 1 }}>
+            {isAuthenticated ? (
+                <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+                        <LockOpenIcon color="success" sx={{ fontSize: 32 }} />
+                        <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
+                            Write access is enabled
+                        </Typography>
+                    </Box>
+                    {minutesLeft !== null && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                            <TimerIcon fontSize="small" />
+                            <Typography variant="body1">
+                                {minutesLeft} {minutesLeft === 1 ? 'minute' : 'minutes'} left in this window.
+                            </Typography>
+                        </Box>
+                    )}
+                    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                        <Button variant="contained" onClick={() => navigate('/')} sx={{ color: '#fcfafa' }}>
+                            Start Browsing
+                        </Button>
                         <Button
                             variant="outlined"
-                            startIcon={<OpenInNewIcon />}
-                            onClick={handleCheckStatus}
-                            size="small"
-                            sx={{
-                                color: 'white',
-                                borderColor: 'rgba(255,255,255,0.5)',
-                                '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,0.1)' },
-                            }}
+                            color="error"
+                            startIcon={<LockIcon />}
+                            onClick={handleLock}
                         >
-                            Check Directly
+                            Revoke Write Access
                         </Button>
+                    </Box>
+                </Paper>
+            ) : (
+                <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
+                    <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>
+                        Unlock Write Access
+                    </Typography>
+
+                    <Alert severity="info" sx={{ mb: 3 }}>
+                        Open your authenticator app, find <strong>&quot;MyMediaVerse Demo&quot;</strong>, and
+                        enter the 6-digit code below.
+                    </Alert>
+
+                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                        <TextField
+                            label="TOTP Code"
+                            value={totpCode}
+                            onChange={handleTotpChange}
+                            onKeyDown={handleKeyDown}
+                            placeholder="123456"
+                            variant="outlined"
+                            disabled={submitting}
+                            inputProps={{
+                                maxLength: 6,
+                                pattern: '[0-9]*',
+                                inputMode: 'numeric',
+                                style: { letterSpacing: '0.5em', fontSize: '1.2em', textAlign: 'center' },
+                            }}
+                            InputLabelProps={{
+                                sx: { color: 'white' }
+                            }}
+                            sx={{
+                                width: 180,
+                                '& .MuiInputLabel-root.Mui-focused': {
+                                    color: 'white'
+                                }
+                            }}
+                        />
                         <Button
                             variant="contained"
-                            startIcon={statusLoading ? <CircularProgress size={18} color="inherit" /> : <RefreshIcon />}
-                            onClick={fetchStatus}
-                            disabled={statusLoading}
-                            size="small"
-                            color="primary"
-                            sx={{ color: '#fcfafa' }}
+                            startIcon={submitting ? <CircularProgress size={18} color="inherit" /> : <LockOpenIcon />}
+                            onClick={handleUnlock}
+                            disabled={totpCode.length !== 6 || submitting}
+                            sx={{
+                                bgcolor: '#4caf50',
+                                color: 'white',
+                                height: 56,
+                                '&:hover': { bgcolor: '#388e3c' },
+                            }}
                         >
-                            Refresh
+                            Unlock
                         </Button>
                     </Box>
-                </Box>
-
-                {statusLoading && !statusData && (
-                    <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}>
-                        <CircularProgress sx={{ color: 'white' }} />
-                    </Box>
-                )}
-
-                {statusError && (
-                    <Alert severity="warning" sx={{ mb: 2 }}>
-                        {statusError}
-                    </Alert>
-                )}
-
-                {statusData && (
-                    <Grid container spacing={2}>
-                        <Grid item xs={12} md={6}>
-                            <Card sx={{
-                                bgcolor: statusData.isDemoEnvironment ? '#0a2647' : '#2d2d2d',
-                                color: 'white',
-                                height: '100%',
-                            }}>
-                                <CardContent>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                        <KeyIcon sx={{ fontSize: 40, color: statusData.isDemoEnvironment ? '#64b5f6' : '#9e9e9e' }} />
-                                        <Box>
-                                            <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'white' }}>
-                                                Demo Environment
-                                            </Typography>
-                                            <Chip
-                                                label={statusData.isDemoEnvironment ? 'Active' : 'Not Active'}
-                                                sx={{
-                                                    bgcolor: statusData.isDemoEnvironment ? '#1565c0' : '#616161',
-                                                    color: 'white',
-                                                    fontWeight: 'bold',
-                                                }}
-                                                size="small"
-                                            />
-                                        </Box>
-                                    </Box>
-                                </CardContent>
-                            </Card>
-                        </Grid>
-                        <Grid item xs={12} md={6}>
-                            <Card sx={{
-                                bgcolor: statusData.writeAccessEnabled ? '#1b5e20' : '#bf360c',
-                                color: 'white',
-                                height: '100%',
-                            }}>
-                                <CardContent>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                        {statusData.writeAccessEnabled ? (
-                                            <LockOpenIcon sx={{ fontSize: 40, color: '#a5d6a7' }} />
-                                        ) : (
-                                            <LockIcon sx={{ fontSize: 40, color: '#ffcc80' }} />
-                                        )}
-                                        <Box>
-                                            <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'white' }}>
-                                                Write Access
-                                            </Typography>
-                                            <Chip
-                                                label={statusData.writeAccessEnabled ? 'Enabled' : 'Disabled (Read-Only)'}
-                                                sx={{
-                                                    bgcolor: statusData.writeAccessEnabled ? '#2e7d32' : '#e65100',
-                                                    color: 'white',
-                                                    fontWeight: 'bold',
-                                                }}
-                                                size="small"
-                                            />
-                                        </Box>
-                                    </Box>
-                                    {statusData.writeAccessEnabled && (
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-                                            <TimerIcon sx={{ fontSize: 18, color: '#a5d6a7' }} />
-                                            <Typography variant="body2" sx={{ color: '#a5d6a7' }}>
-                                                Access expires ~20 minutes from unlock
-                                            </Typography>
-                                        </Box>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </Grid>
-                    </Grid>
-                )}
-
-                {unlockClicked && (
-                    <Alert severity="info" sx={{ mt: 2 }}>
-                        Unlock request opened in a new tab. If the TOTP code was valid, write access is now enabled
-                        for 20 minutes in that browser session. Click &quot;Refresh&quot; or &quot;Check Directly&quot; to verify.
-                    </Alert>
-                )}
-
-                <Typography variant="body2" sx={{ mt: 2, color: 'rgba(255,255,255,0.6)', fontStyle: 'italic' }}>
-                    Status may not reflect the demo site&apos;s cookie state when viewed from a different domain.
-                    Use &quot;Check Directly&quot; to open the status endpoint in a new tab for the most accurate result.
-                </Typography>
-            </Paper>
-
-            {/* Unlock Section */}
-            <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-                <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>
-                    Unlock Write Access
-                </Typography>
-
-                <Alert severity="info" sx={{ mb: 3 }}>
-                    Open Google Authenticator on your phone, find <strong>&quot;MyMediaVerse Demo&quot;</strong>, and enter the 6-digit code below.
-                    Clicking &quot;Unlock&quot; opens the demo API unlock endpoint in a new tab, setting a 20-minute write access cookie.
-                    Then visit the demo site to make changes.
-                </Alert>
-
-                <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                    <TextField
-                        label="TOTP Code"
-                        value={totpCode}
-                        onChange={handleTotpChange}
-                        onKeyDown={handleKeyDown}
-                        placeholder="123456"
-                        variant="outlined"
-                        inputProps={{
-                            maxLength: 6,
-                            pattern: '[0-9]*',
-                            inputMode: 'numeric',
-                            style: { letterSpacing: '0.5em', fontSize: '1.2em', textAlign: 'center' },
-                        }}
-                        InputLabelProps={{
-                            sx: { color: 'white' }
-                        }}
-                        sx={{
-                            width: 180,
-                            '& .MuiInputLabel-root.Mui-focused': {
-                                color: 'white'
-                            }
-                        }}
-                    />
-                    <Button
-                        variant="contained"
-                        startIcon={<LockOpenIcon />}
-                        endIcon={<OpenInNewIcon />}
-                        onClick={handleUnlock}
-                        disabled={totpCode.length !== 6}
-                        sx={{
-                            bgcolor: '#4caf50',
-                            color: 'white',
-                            height: 56,
-                            '&:hover': { bgcolor: '#388e3c' },
-                        }}
-                    >
-                        Unlock
-                    </Button>
-                    <Button
-                        variant="contained"
-                        color="primary"
-                        startIcon={<OpenInNewIcon />}
-                        onClick={handleGoToDemoSite}
-                        sx={{ height: 56, color: '#fcfafa' }}
-                    >
-                        Go to Demo Site
-                    </Button>
-                </Box>
-            </Paper>
-
-            {/* Lock Section */}
-            <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-                <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>
-                    Revoke Write Access
-                </Typography>
-
-                <Alert severity="warning" sx={{ mb: 3 }}>
-                    Click below to immediately revoke write access on the demo site. This opens the lock endpoint
-                    in a new tab, clearing the write access cookie. Use this when you&apos;re done making changes or
-                    want to return the demo site to read-only mode early.
-                </Alert>
-
-                <Button
-                    variant="contained"
-                    startIcon={<LockIcon />}
-                    endIcon={<OpenInNewIcon />}
-                    onClick={handleLock}
-                    sx={{
-                        bgcolor: '#f44336',
-                        color: 'white',
-                        '&:hover': { bgcolor: '#d32f2f' },
-                    }}
-                >
-                    Revoke Write Access
-                </Button>
-            </Paper>
+                </Paper>
+            )}
 
             {/* Quick Reference Notes */}
             <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
@@ -379,25 +231,16 @@ const DemoUnlockPage = () => {
                         </ListItemIcon>
                         <ListItemText
                             primary="Write access lasts 20 minutes"
-                            secondary="After 20 minutes, write access expires automatically. Enter a new code to continue making changes."
+                            secondary="The window expires hard — there is no automatic renewal. Enter a new code to open another window."
                         />
                     </ListItem>
                     <ListItem>
                         <ListItemIcon>
-                            <LanguageIcon sx={{ color: '#fcfafa' }} />
+                            <LockIcon sx={{ color: '#fcfafa' }} />
                         </ListItemIcon>
                         <ListItemText
-                            primary="Write access is cookie-based and browser-specific"
-                            secondary="The unlock sets a cookie in the browser where you opened the unlock link. Other browsers or private/incognito windows won't have access."
-                        />
-                    </ListItem>
-                    <ListItem>
-                        <ListItemIcon>
-                            <InfoIcon sx={{ color: '#fcfafa' }} />
-                        </ListItemIcon>
-                        <ListItemText
-                            primary="Clearing browser cookies will revoke access"
-                            secondary="If you clear cookies or close the browser, you'll need to unlock again with a new code."
+                            primary="Refreshing the page ends the session"
+                            secondary="The access token lives in memory only. After a reload, unlock again with a fresh code."
                         />
                     </ListItem>
                 </List>
@@ -412,8 +255,8 @@ const DemoUnlockPage = () => {
                 </AccordionSummary>
                 <AccordionDetails>
                     <Typography variant="body1" sx={{ mb: 2 }}>
-                        To unlock write access, you need a TOTP (Time-based One-Time Password) authenticator app
-                        configured with the demo secret.
+                        To unlock write access, you need a TOTP (Time-based One-Time Password) authenticator
+                        app configured with the demo secret.
                     </Typography>
 
                     <List>
@@ -432,7 +275,7 @@ const DemoUnlockPage = () => {
                             </ListItemIcon>
                             <ListItemText
                                 primary='Step 2: Add the demo account'
-                                secondary='Scan the QR code or manually enter the secret key provided by the administrator. The account should appear as "MyMediaVerse Demo".'
+                                secondary='Manually enter the secret key provided by the administrator. The account should appear as "MyMediaVerse Demo".'
                             />
                         </ListItem>
                         <ListItem>
@@ -445,11 +288,6 @@ const DemoUnlockPage = () => {
                             />
                         </ListItem>
                     </List>
-
-                    <Alert severity="warning" sx={{ mt: 2 }}>
-                        <strong>Note:</strong> Write access automatically expires after 20 minutes. You&apos;ll need to
-                        enter a new code to continue making changes.
-                    </Alert>
                 </AccordionDetails>
             </Accordion>
         </Container>

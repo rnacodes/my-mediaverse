@@ -28,11 +28,7 @@ var startupLogger = startupLoggerFactory.CreateLogger("Startup");
 builder.Services.AddCorsPolicies(builder.Configuration, builder.Environment, startupLogger);
 
 // --- Controllers + JSON options ---
-builder.Services.AddControllers(options =>
-    {
-        // Add DemoReadOnlyFilter globally - blocks write operations in Demo environment
-        options.Filters.Add<MyMediaVerse.Web.API.Filters.DemoReadOnlyFilter>();
-    })
+builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
@@ -93,6 +89,11 @@ app.UseRouting();
 app.UseCors(CorsExtensions.PolicyName);
 
 app.UseRateLimiter();
+
+// Demo read-only write gate. Must sit after UseRouting (it reads [AllowAnonymous] endpoint
+// metadata) and before UseAuthentication, so a blocked demo write returns a friendly 403
+// with a machine-readable code rather than a bare 401 from the authorization layer.
+app.UseDemoWriteGate();
 
 app.UseAuthentication();
 app.UseAuthorization();

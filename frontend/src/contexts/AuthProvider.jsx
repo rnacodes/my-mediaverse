@@ -33,6 +33,14 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
     }, []);
 
+    // Demo TOTP unlock: the token comes from /demo/unlock with no refresh token behind
+    // it, so the session must end hard when it expires rather than renew itself.
+    const applyDemoUnlock = useCallback(({ token: newToken, username, expiresAt }) => {
+        setToken(newToken);
+        setAccessToken(newToken);
+        setUser({ username, expiresAt, isDemoUnlock: true });
+    }, []);
+
     const refreshToken = useCallback(async () => {
         setRefreshing(true);
         try {
@@ -93,6 +101,13 @@ export const AuthProvider = ({ children }) => {
             return setTimeout(onDue, Math.max(0, delayMs));
         };
 
+        // A demo unlock session has no refresh token: skip proactive renewal and
+        // drop the session outright at the hard expiry.
+        if (user?.isDemoUnlock) {
+            expiryTimerRef.current = schedule(expiresAt - Date.now(), clearSession);
+            return clearTimers;
+        }
+
         refreshTimerRef.current = schedule(expiresAt - Date.now() - REFRESH_LEAD_MS, () => {
             // Rejection is already handled by refreshToken (it clears the session).
             refreshToken().catch(() => {});
@@ -101,7 +116,7 @@ export const AuthProvider = ({ children }) => {
         expiryTimerRef.current = schedule(expiresAt - Date.now(), reArm);
 
         return clearTimers;
-    }, [token, user?.expiresAt, refreshToken, expiryTick]);
+    }, [token, user?.expiresAt, user?.isDemoUnlock, refreshToken, clearSession, expiryTick]);
 
     const login = async (username, password) => {
         try {
@@ -141,6 +156,10 @@ export const AuthProvider = ({ children }) => {
         login,
         logout,
         refreshToken,
+        applyDemoUnlock,
+        // Ends the in-memory session without a server round-trip; used when the
+        // demo write window is locked early.
+        endSession: clearSession,
         isAuthenticated: isAuthenticated()
     };
 

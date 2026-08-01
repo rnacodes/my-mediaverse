@@ -29,6 +29,24 @@ namespace MyMediaVerse.IntegrationTests.Fixtures
     /// </summary>
     public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     {
+        /// <summary>
+        /// The JWT secret must be pinned before ANY test host builds. Token validation captures
+        /// the secret once at host startup, while token minting re-reads the env var on every
+        /// call — so a host built before the variable is set would validate with a different
+        /// secret than later-minted tokens, failing auth intermittently depending on fixture
+        /// creation order. A static constructor runs before the first factory instance exists,
+        /// which removes the ordering hazard for every factory in the process (including
+        /// subclasses hosting non-Testing environments, where the env var is mandatory).
+        /// </summary>
+        static ApiFactory()
+        {
+            if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("JWT_SECRET")))
+            {
+                Environment.SetEnvironmentVariable(
+                    "JWT_SECRET", "integration-test-jwt-secret-key-0123456789");
+            }
+        }
+
         private readonly PostgreSqlContainer _container = new PostgreSqlBuilder()
             .WithImage("pgvector/pgvector:pg16")
             .Build();
