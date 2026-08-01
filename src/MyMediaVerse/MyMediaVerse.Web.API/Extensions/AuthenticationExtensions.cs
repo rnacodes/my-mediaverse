@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using MyMediaVerse.Web.API.Authentication;
 
@@ -73,7 +74,22 @@ public static class AuthenticationExtensions
             };
         });
 
-        services.AddAuthorization();
+        // Fallback policy: applies to every endpoint that carries no [Authorize]/[AllowAnonymous]
+        // attribute, making authentication the default instead of opt-in per controller.
+        // Demo additionally allows anonymous GETs so visitors can browse without logging in.
+        services.AddAuthorization(options =>
+        {
+            options.FallbackPolicy = environment.IsDemo()
+                ? new AuthorizationPolicyBuilder()
+                    .RequireAssertion(context =>
+                        context.User.Identity?.IsAuthenticated == true ||
+                        (context.Resource is HttpContext httpContext &&
+                         HttpMethods.IsGet(httpContext.Request.Method)))
+                    .Build()
+                : new AuthorizationPolicyBuilder()
+                    .RequireAuthenticatedUser()
+                    .Build();
+        });
 
         logger.LogInformation("JWT authentication configured. Issuer: {Issuer}, Audience: {Audience}",
             jwtSettings["Issuer"], jwtSettings["Audience"]);

@@ -122,9 +122,6 @@ namespace MyMediaVerse.Web.API.Controllers
         }
 
         // POST: api/dev/seed-demo-data
-        // Left anonymous so the demo environment can be seeded before any account
-        // exists there; DemoReadOnlyFilter whitelists this same path.
-        [AllowAnonymous]
         [HttpPost("seed-demo-data")]
         public async Task<IActionResult> SeedDemoData()
         {

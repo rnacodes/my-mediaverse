@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MyMediaVerse.Infrastructure.Data;
@@ -26,6 +27,7 @@ namespace MyMediaVerse.Web.API.Controllers
         /// Basic health check endpoint - returns 200 if API is running
         /// </summary>
         [HttpGet]
+        [AllowAnonymous] // Uptime probes (e.g. the hosting platform's health check) must reach this without credentials.
         public IActionResult Get()
         {
             return Ok(new
@@ -40,6 +42,7 @@ namespace MyMediaVerse.Web.API.Controllers
         /// Detailed health check - tests database connectivity and service configuration
         /// </summary>
         [HttpGet("detailed")]
+        [Authorize] // Exposes database error details and configuration presence; operators only.
         public async Task<IActionResult> GetDetailed()
         {
             var databaseHealth = await CheckDatabaseHealth();
@@ -139,6 +142,7 @@ namespace MyMediaVerse.Web.API.Controllers
         /// CORS test endpoint - helps verify CORS is working
         /// </summary>
         [HttpGet("cors-test")]
+        [Authorize]
         public IActionResult CorsTest()
         {
             var origin = Request.Headers["Origin"].ToString();
