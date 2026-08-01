@@ -8,7 +8,6 @@ import userEvent from '@testing-library/user-event';
 
 import { theme } from '@/shared/DesignSystem';
 import { AuthProvider } from '@/contexts/AuthProvider';
-import { DemoAdminProvider } from '@/contexts/DemoAdminProvider';
 import { DemoReadOnlyProvider } from '@/contexts/DemoReadOnlyProvider';
 
 /**
@@ -25,7 +24,7 @@ export const makeTestQueryClient = () =>
 
 /**
  * Render `ui` inside the full app provider stack, mirroring App.jsx order:
- *   QueryClientProvider → ThemeProvider → AuthProvider → DemoAdminProvider
+ *   QueryClientProvider → ThemeProvider → AuthProvider
  *   → DemoReadOnlyProvider → MemoryRouter
  *
  * Options:
@@ -60,19 +59,17 @@ export function renderWithProviders(
         <ThemeProvider theme={theme}>
           <CssBaseline />
           <AuthProvider>
-            <DemoAdminProvider>
-              <DemoReadOnlyProvider>
-                <MemoryRouter initialEntries={[route]}>
-                  {path ? (
-                    <Routes>
-                      <Route path={path} element={children} />
-                    </Routes>
-                  ) : (
-                    children
-                  )}
-                </MemoryRouter>
-              </DemoReadOnlyProvider>
-            </DemoAdminProvider>
+            <DemoReadOnlyProvider>
+              <MemoryRouter initialEntries={[route]}>
+                {path ? (
+                  <Routes>
+                    <Route path={path} element={children} />
+                  </Routes>
+                ) : (
+                  children
+                )}
+              </MemoryRouter>
+            </DemoReadOnlyProvider>
           </AuthProvider>
         </ThemeProvider>
       </QueryClientProvider>

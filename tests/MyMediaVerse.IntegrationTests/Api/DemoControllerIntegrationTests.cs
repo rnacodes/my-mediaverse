@@ -181,12 +181,12 @@ namespace MyMediaVerse.IntegrationTests.Api
 
         #endregion
 
-        #region DemoReadOnlyFilter Tests
+        #region Demo Write Gate Tests
 
         [Fact]
-        public async Task DemoReadOnlyFilter_InTestingEnvironment_AllowsWriteOperations()
+        public async Task DemoWriteGate_InTestingEnvironment_AllowsWriteOperations()
         {
-            // In Testing environment (not Demo), the filter should allow all operations
+            // In Testing environment (not Demo), the write gate should allow all operations
             // Create a simple media item to verify POST is allowed
             var createDto = new
             {
@@ -205,14 +205,14 @@ namespace MyMediaVerse.IntegrationTests.Api
             // Act
             var response = await _client.PostAsync("/api/media", content);
 
-            // Assert - Should succeed (not get blocked by demo filter). Asserting success rather
+            // Assert - Should succeed (not get blocked by the demo gate). Asserting success rather
             // than merely "not Forbidden" so an auth failure (401) can't slip through unnoticed.
             Assert.True(response.IsSuccessStatusCode,
                 $"Expected a success status code but got {(int)response.StatusCode} {response.StatusCode}.");
         }
 
         [Fact]
-        public async Task DemoReadOnlyFilter_GetRequests_AlwaysAllowed()
+        public async Task DemoWriteGate_GetRequests_AlwaysAllowed()
         {
             // GET requests should always be allowed regardless of environment
             var response = await _client.GetAsync("/api/media");

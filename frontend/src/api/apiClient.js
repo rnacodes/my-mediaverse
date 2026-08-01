@@ -43,7 +43,7 @@ const processQueue = (error, token = null) => {
     failedQueue = [];
 };
 
-// Request Interceptor - Attach JWT token and demo admin key to all requests
+// Request Interceptor - Attach JWT token to all requests
 apiClient.interceptors.request.use(
     (config) => {
         // Get token from memory (not localStorage)
@@ -52,12 +52,6 @@ apiClient.interceptors.request.use(
         if (token) {
             // Attach the token as a Bearer token
             config.headers['Authorization'] = `Bearer ${token}`;
-        }
-
-        // Check for demo admin key in sessionStorage
-        const demoAdminKey = sessionStorage.getItem('demoAdminKey');
-        if (demoAdminKey) {
-            config.headers['X-Demo-Admin-Key'] = demoAdminKey;
         }
 
         return config;
@@ -77,9 +71,13 @@ apiClient.interceptors.response.use(
 
         // If the error is 401 and we haven't already tried to refresh
         if (error.response?.status === 401 && !originalRequest._retry) {
+            // Endpoints whose 401s mean "bad credentials", not "stale token" — a
+            // refresh attempt would be wrong for these. /demo/unlock 401s on an
+            // invalid TOTP code.
             const isAuthEndpoint = originalRequest.url?.includes('/auth/login') ||
                                   originalRequest.url?.includes('/auth/refresh') ||
-                                  originalRequest.url?.includes('/auth/logout');
+                                  originalRequest.url?.includes('/auth/logout') ||
+                                  originalRequest.url?.includes('/demo/unlock');
 
             if (isAuthEndpoint) {
                 return Promise.reject(error);
@@ -144,13 +142,9 @@ apiClient.interceptors.response.use(
         if (error.response?.status === 403) {
             const errorData = error.response?.data;
 
-            // The demo write gate is identified by a stable code rather than by its
-            // message text. The legacy message match is kept until the API emits the
-            // code, so the read-only dialog keeps working in the meantime.
-            const isDemoReadOnly = errorData?.code === DEMO_READ_ONLY_CODE ||
-                errorData?.error === 'Write operations are disabled in demo mode';
-
-            if (isDemoReadOnly) {
+            // The demo write gate is identified by a stable machine-readable code,
+            // never by matching its human-facing message text.
+            if (errorData?.code === DEMO_READ_ONLY_CODE) {
                 window.dispatchEvent(new CustomEvent('demoWriteBlocked', {
                     detail: {
                         blockedOperation: errorData.blockedOperation,
@@ -159,8 +153,6 @@ apiClient.interceptors.response.use(
                     }
                 }));
             } else {
-                // Any other 403 previously surfaced nothing at all — the user clicked a
-                // button and no error appeared anywhere.
                 window.dispatchEvent(new CustomEvent('apiForbidden', {
                     detail: {
                         path: error.config?.url,

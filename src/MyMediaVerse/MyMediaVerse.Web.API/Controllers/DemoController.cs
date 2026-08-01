@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using MyMediaVerse.Shared.Interfaces;
 using MyMediaVerse.Web.API.Extensions;
 using OtpNet;
 
@@ -17,26 +18,33 @@ namespace MyMediaVerse.Web.API.Controllers
         private readonly ILogger<DemoController> _logger;
         private readonly IConfiguration _configuration;
         private readonly IWebHostEnvironment _environment;
+        private readonly IAuthService _authService;
 
         private const string CookieName = "Demo_Write_Access";
         private const int WriteAccessMinutes = 20;
+        private const string DemoUsername = "demo";
 
         public DemoController(
             ILogger<DemoController> logger,
             IConfiguration configuration,
-            IWebHostEnvironment environment)
+            IWebHostEnvironment environment,
+            IAuthService authService)
         {
             _logger = logger;
             _configuration = configuration;
             _environment = environment;
+            _authService = authService;
         }
 
         /// <summary>
         /// Unlocks write access for the demo site using a TOTP code from Google Authenticator.
-        /// Sets an HTTP-only cookie that grants 20 minutes of write access.
+        /// Sets an HTTP-only cookie that opens a 20-minute write window, and returns a JWT of the
+        /// same lifetime in the response body so the caller has an identity for authorized
+        /// endpoints. No refresh token is issued — the window expires hard, so the cookie and the
+        /// identity always expire together.
         /// </summary>
         /// <param name="code">6-digit TOTP code from authenticator app</param>
-        /// <returns>Success message or 401 Unauthorized</returns>
+        /// <returns>Access token and expiry, or 401 Unauthorized</returns>
         [HttpGet("unlock")]
         [AllowAnonymous] 
         [EnableRateLimiting(RateLimitingExtensions.DemoUnlockPolicy)]
@@ -76,29 +84,39 @@ namespace MyMediaVerse.Web.API.Controllers
 
                 if (isValid)
                 {
+                    var expiresAt = DateTimeOffset.UtcNow.AddMinutes(WriteAccessMinutes);
+
                     // Set HTTP-only, Secure, SameSite=Strict cookie
                     var cookieOptions = new CookieOptions
                     {
                         HttpOnly = true,
                         Secure = true,
                         SameSite = SameSiteMode.Strict,
-                        Expires = DateTimeOffset.UtcNow.AddMinutes(WriteAccessMinutes),
+                        Expires = expiresAt,
                         Path = "/"
                     };
 
                     Response.Cookies.Append(CookieName, "true", cookieOptions);
 
+                    // The cookie opens the host's write window; the JWT is the caller's identity
+                    // for the authorization policy. Deliberately no refresh token: both expire
+                    // together and the unlock must be repeated for a new window.
+                    var token = _authService.GenerateAccessToken(
+                        DemoUsername, Guid.NewGuid().ToString(), WriteAccessMinutes);
+
                     _logger.LogInformation(
                         "Demo write access unlocked via TOTP. IP: {ClientIp}, Time: {Timestamp}, Access expires at {ExpiryTime}",
                         clientIp,
                         DateTimeOffset.UtcNow,
-                        DateTimeOffset.UtcNow.AddMinutes(WriteAccessMinutes));
+                        expiresAt);
 
                     return Ok(new
                     {
                         message = "Write access unlocked successfully!",
+                        token,
+                        username = DemoUsername,
                         expiresInMinutes = WriteAccessMinutes,
-                        expiresAt = DateTimeOffset.UtcNow.AddMinutes(WriteAccessMinutes)
+                        expiresAt
                     });
                 }
                 else

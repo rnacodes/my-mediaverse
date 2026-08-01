@@ -1,11 +1,11 @@
-import { useDemoAdmin } from '@/contexts/DemoAdminContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { isPublicDemo } from '@/utils/demoMode';
 import DemoUnavailablePage from './pages/DemoUnavailablePage';
 
 const DemoRestrictedRoute = ({ children }) => {
-    const { isAdminMode } = useDemoAdmin();
+    const { isAuthenticated } = useAuth();
 
-    if (isPublicDemo() && !isAdminMode) {
+    if (isPublicDemo() && !isAuthenticated) {
         return <DemoUnavailablePage />;
     }
 

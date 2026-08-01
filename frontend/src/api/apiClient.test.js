@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('axios', () => {
     globalThis.__testInterceptors = globalThis.__testInterceptors || {};
@@ -36,56 +36,15 @@ import axios from 'axios';
 import { DEMO_READ_ONLY_CODE } from './apiClient';
 
 describe('apiClient - Demo Mode Features', () => {
-    let originalSessionStorage;
-
     beforeEach(() => {
         vi.clearAllMocks();
-        originalSessionStorage = window.sessionStorage;
-        const store = {};
-        Object.defineProperty(window, 'sessionStorage', {
-            value: {
-                getItem: vi.fn((key) => store[key] || null),
-                setItem: vi.fn((key, value) => { store[key] = value; }),
-                removeItem: vi.fn((key) => { delete store[key]; }),
-                clear: vi.fn(() => { Object.keys(store).forEach(k => delete store[k]); }),
-            },
-            writable: true,
-            configurable: true,
-        });
-    });
-
-    afterEach(() => {
-        Object.defineProperty(window, 'sessionStorage', {
-            value: originalSessionStorage,
-            writable: true,
-            configurable: true,
-        });
-    });
-
-    describe('Demo Admin Key Header (Request Interceptor)', () => {
-        it('should add X-Demo-Admin-Key header when key exists in sessionStorage', () => {
-            sessionStorage.getItem.mockReturnValue('test-admin-key-123');
-
-            const config = { headers: {} };
-            const result = globalThis.__testInterceptors.request(config);
-
-            expect(result.headers['X-Demo-Admin-Key']).toBe('test-admin-key-123');
-        });
-
-        it('should omit X-Demo-Admin-Key header when no key in sessionStorage', () => {
-            sessionStorage.getItem.mockReturnValue(null);
-
-            const config = { headers: {} };
-            const result = globalThis.__testInterceptors.request(config);
-
-            expect(result.headers['X-Demo-Admin-Key']).toBeUndefined();
-        });
     });
 
     describe('Demo 403 Interception (Response Interceptor)', () => {
-        it('should dispatch demoWriteBlocked event on demo-specific 403', async () => {
+        it('should not treat a 403 without the machine-readable code as demo read-only', async () => {
             const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
 
+            // Message text alone must never trigger the read-only dialog — only the code.
             const error = {
                 response: {
                     status: 403,
@@ -100,14 +59,11 @@ describe('apiClient - Demo Mode Features', () => {
 
             await expect(globalThis.__testInterceptors.responseError(error)).rejects.toBe(error);
 
+            expect(dispatchSpy).not.toHaveBeenCalledWith(
+                expect.objectContaining({ type: 'demoWriteBlocked' })
+            );
             expect(dispatchSpy).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    type: 'demoWriteBlocked',
-                    detail: expect.objectContaining({
-                        blockedOperation: 'POST',
-                        path: '/api/media'
-                    })
-                })
+                expect.objectContaining({ type: 'apiForbidden' })
             );
 
             dispatchSpy.mockRestore();
@@ -116,8 +72,8 @@ describe('apiClient - Demo Mode Features', () => {
         it('should dispatch demoWriteBlocked on the machine-readable code', async () => {
             const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
 
-            // The code is what the API will emit once the demo write gate lands; it must
-            // be recognized without depending on the message wording.
+            // The code is what the API emits from the demo write gate; it must be
+            // recognized without depending on the message wording.
             const error = {
                 response: {
                     status: 403,
@@ -202,7 +158,7 @@ describe('apiClient - Demo Mode Features', () => {
                 response: {
                     status: 403,
                     data: {
-                        error: 'Write operations are disabled in demo mode',
+                        code: DEMO_READ_ONLY_CODE,
                         blockedOperation: 'POST'
                     }
                 },
@@ -238,7 +194,7 @@ describe('apiClient - Demo Mode Features', () => {
             dispatchSpy.mockRestore();
         });
 
-        it.each(['/auth/login', '/auth/refresh', '/auth/logout'])(
+        it.each(['/auth/login', '/auth/refresh', '/auth/logout', '/demo/unlock'])(
             'should not attempt a refresh for a 401 from %s',
             async (url) => {
                 const dispatchSpy = vi.spyOn(window, 'dispatchEvent');

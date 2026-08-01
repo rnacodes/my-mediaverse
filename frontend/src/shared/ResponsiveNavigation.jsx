@@ -103,7 +103,9 @@ const ResponsiveNavigation = () => {
     { text: 'AI Admin', path: '/ai-admin', icon: <Psychology />, requiresAuth: true },
     { text: 'Background Jobs', path: '/background-jobs', icon: <Work />, requiresAuth: true },
     { text: 'Cleanup', path: '/cleanup', icon: <CleaningServices />, requiresAuth: true },
-    { text: 'Demo Admin', path: '/demo-unlock', icon: <LockOpen />, requiresAuth: true },
+    // The unlock page only exists on the demo site; it is the demo's sign-in, so it must
+    // stay reachable while unauthenticated.
+    ...(isDemoMode() ? [{ text: 'Unlock Write Access', path: '/demo-unlock', icon: <LockOpen /> }] : []),
     { text: 'Link Highlights', path: '/highlight-linking', icon: <AddLink />, requiresAuth: true },
     { text: 'Readwise Sync', path: '/readwise-sync', icon: <Sync />, requiresAuth: true },
     { text: 'Sources', path: '/sources', icon: <Apps />, requiresAuth: true },

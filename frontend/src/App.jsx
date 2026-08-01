@@ -6,8 +6,8 @@ import { ThemeProvider, CssBaseline, Typography, Button, Box } from '@mui/materi
 
 // --- Eager imports: providers, route guards, chrome (always rendered) ---
 import { AuthProvider } from './contexts/AuthProvider';
-import { DemoAdminProvider } from './contexts/DemoAdminProvider';
 import { DemoReadOnlyProvider } from './contexts/DemoReadOnlyProvider';
+import { isDemoMode } from '@/utils/demoMode';
 import ConditionalProtectedRoute from './features/auth/ConditionalProtectedRoute';
 import ApiErrorListener from './features/auth/ApiErrorListener';
 import DemoRestrictedRoute from './features/demo/DemoRestrictedRoute';
@@ -54,9 +54,9 @@ import HighlightProfilePage from './features/notes/pages/HighlightProfilePage';
 import NotesListingPage from './features/notes/pages/NotesListingPage';
 import AiAdminPage from './features/admin/pages/AiAdminPage';
 import SearchByVibePage from './features/search/pages/SearchByVibePage';
-import DemoUnlockPage from './features/demo/pages/DemoUnlockPage';
 import DemoDataUploadPage from './features/demo/pages/DemoDataUploadPage';
 
+const DemoUnlockPage = lazy(() => import('./features/demo/pages/DemoUnlockPage'));
 const DemoPage = lazy(() => import('./features/demo/pages/DemoPage'));
 const ImportMixlistPage = lazy(() => import('./features/imports/pages/ImportMixlistPage'));
 const TypesenseAdminPage = lazy(() => import('./features/admin/pages/TypesenseAdminPage'));
@@ -212,9 +212,8 @@ function RoutedContent() {
             <Route path="/search-by-vibe" element={
               <ConditionalProtectedRoute><SearchByVibePage /></ConditionalProtectedRoute>
             } />
-            <Route path="/demo-unlock" element={
-              <ConditionalProtectedRoute><DemoUnlockPage /></ConditionalProtectedRoute>
-            } />
+            {/* The demo site's sign-in page: public, and absent from production builds. */}
+            {isDemoMode() && <Route path="/demo-unlock" element={<DemoUnlockPage />} />}
             <Route path="/upload-demo-data" element={
               <ConditionalProtectedRoute><DemoRestrictedRoute><DemoDataUploadPage /></DemoRestrictedRoute></ConditionalProtectedRoute>
             } />
@@ -241,7 +240,6 @@ function App() {
       <CssBaseline />
       <Router>
         <AuthProvider>
-          <DemoAdminProvider>
           <DemoReadOnlyProvider>
           <DemoReadOnlyDialog />
           <ApiErrorListener />
@@ -267,7 +265,6 @@ function App() {
             <Footer />
           </Box>
           </DemoReadOnlyProvider>
-          </DemoAdminProvider>
         </AuthProvider>
       </Router>
     </ThemeProvider>
