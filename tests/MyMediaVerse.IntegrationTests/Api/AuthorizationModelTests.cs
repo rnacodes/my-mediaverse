@@ -19,6 +19,10 @@ namespace MyMediaVerse.IntegrationTests.Api
     /// - "Unclassified": carries neither attribute, so the host's fallback policy governs it:
     ///   authentication is required everywhere, except that the Demo host also permits
     ///   anonymous GET requests.
+    ///
+    /// Actions gated to other environments via [Environments] (e.g. Development-only
+    /// endpoints) are removed from this host's route table and so never appear here;
+    /// EnvironmentGatingTests covers their presence and absence per host.
     /// </summary>
     [Collection("Database")]
     public class AuthorizationModelTests
@@ -79,7 +83,7 @@ namespace MyMediaVerse.IntegrationTests.Api
                 ["BookEnrichment.GetStatus"] = Authorized,
                 ["BookEnrichment.RunEnrichment"] = Authorized,
                 ["BookEnrichment.RunEnrichmentAll"] = Authorized,
-                ["Demo.GenerateSecret"] = Unclassified,
+                // Demo.GenerateSecret is absent: it is environment-gated to Development
                 ["Demo.Lock"] = Anonymous,
                 ["Demo.Status"] = Anonymous,
                 ["Demo.Unlock"] = Anonymous,
@@ -104,7 +108,6 @@ namespace MyMediaVerse.IntegrationTests.Api
                 ["Dev.CleanupYouTubeData"] = Authorized,
                 ["Dev.DiagnoseOrphanedMedia"] = Authorized,
                 ["Dev.FixOrphanedMedia"] = Authorized,
-                ["Dev.ResetDatabase"] = Authorized,
                 ["Dev.SeedDemoData"] = Authorized,
                 ["Dev.SeedDemoNotes"] = Authorized,
                 ["Dev.SeedMixlists"] = Authorized,
@@ -249,7 +252,7 @@ namespace MyMediaVerse.IntegrationTests.Api
                 ["Recommendation.GetSimilarMedia"] = Unclassified,
                 ["Recommendation.GetSimilarNotes"] = Unclassified,
                 ["Recommendation.GetStatus"] = Unclassified,
-                ["Recommendation.SearchByVibe"] = Authorized,
+                ["Recommendation.SearchByVibe"] = Unclassified,
                 ["RelatedMedia.GetRelatedMedia"] = Unclassified,
                 ["RelatedMedia.RemoveRelatedMedia"] = Unclassified,
                 ["RelatedMedia.SaveRelatedMedia"] = Unclassified,
@@ -270,13 +273,13 @@ namespace MyMediaVerse.IntegrationTests.Api
                 ["Search.ResetNotesCollection"] = Authorized,
                 ["Search.Search"] = Unclassified,
                 ["Search.SearchByType"] = Unclassified,
-                ["Search.SearchByVibe"] = Authorized,
+                ["Search.SearchByVibe"] = Unclassified,
                 ["Search.SearchHighlights"] = Unclassified,
                 ["Search.SearchMixlists"] = Unclassified,
                 ["Search.SearchNotes"] = Unclassified,
                 ["Search.SearchNotesByVault"] = Unclassified,
-                ["Search.SemanticSearchMedia"] = Authorized,
-                ["Search.SemanticSearchNotes"] = Authorized,
+                ["Search.SemanticSearchMedia"] = Unclassified,
+                ["Search.SemanticSearchNotes"] = Unclassified,
                 ["Tmdb.GetImageUrl"] = Unclassified,
                 ["Tmdb.GetMovieDetails"] = Unclassified,
                 ["Tmdb.GetMovieGenres"] = Unclassified,

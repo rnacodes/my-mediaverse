@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using MyMediaVerse.Application.Interfaces;
+using MyMediaVerse.Web.API.Extensions;
 
 namespace MyMediaVerse.Web.API.Controllers
 {
@@ -116,37 +118,44 @@ namespace MyMediaVerse.Web.API.Controllers
 
         /// <summary>
         /// Searches for media matching a "vibe" description.
-        /// POST /api/recommendation/by-vibe
+        /// GET /api/recommendation/by-vibe?description=cozy+mystery+novels&amp;count=20
+        /// A read-only operation, so it is a GET; the rate limit bounds the
+        /// per-visitor inference spend.
         /// </summary>
-        /// <param name="request">The vibe search request</param>
-        [Authorize] // Runs LLM/embedding inference; anonymous access is a billing risk.
-        [HttpPost("by-vibe")]
-        public async Task<IActionResult> SearchByVibe([FromBody] RecommendationVibeSearchRequest request)
+        /// <param name="description">A description of the "vibe" or mood to search for</param>
+        /// <param name="mediaType">Optional filter by media type (Book, Movie, Article, etc.)</param>
+        /// <param name="count">Maximum number of results (default: 20, max: 100)</param>
+        [EnableRateLimiting(RateLimitingExtensions.ExpensiveReadPolicy)]
+        [HttpGet("by-vibe")]
+        public async Task<IActionResult> SearchByVibe(
+            [FromQuery] string description,
+            [FromQuery] string? mediaType = null,
+            [FromQuery] int? count = null)
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(request.Description))
+                if (string.IsNullOrWhiteSpace(description))
                 {
                     return BadRequest(new { error = "Description is required" });
                 }
 
-                var count = Math.Clamp(request.Count ?? 20, 1, 100);
+                var countClamped = Math.Clamp(count ?? 20, 1, 100);
 
                 var results = await _recommendationService.SearchByVibeAsync(
-                    request.Description,
-                    count,
-                    request.MediaType);
+                    description,
+                    countClamped,
+                    mediaType);
 
                 return Ok(new
                 {
-                    description = request.Description,
+                    description,
                     count = results.Count,
                     items = results
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error in vibe search for '{Description}'", request.Description);
+                _logger.LogError(ex, "Error in vibe search for '{Description}'", description);
                 return StatusCode(500, new { error = "Error performing vibe search" });
             }
         }
@@ -245,27 +254,5 @@ namespace MyMediaVerse.Web.API.Controllers
                 return StatusCode(500, new { error = "Error finding related notes" });
             }
         }
-    }
-
-    /// <summary>
-    /// Request model for vibe-based search in recommendation context.
-    /// </summary>
-    public class RecommendationVibeSearchRequest
-    {
-        /// <summary>
-        /// A description of the "vibe" or mood you're looking for.
-        /// Examples: "dark atmospheric sci-fi", "uplifting productivity content", "cozy mystery novels"
-        /// </summary>
-        public string Description { get; set; } = string.Empty;
-
-        /// <summary>
-        /// Optional filter by media type (Book, Movie, Article, etc.)
-        /// </summary>
-        public string? MediaType { get; set; }
-
-        /// <summary>
-        /// Maximum number of results (default: 20, max: 100)
-        /// </summary>
-        public int? Count { get; set; }
     }
 }

@@ -3,9 +3,9 @@ import { ArrowForwardIos } from '@mui/icons-material';
 import Section from '@/shared/Section';
 import MixlistCard from '@/shared/MixlistCard';
 
-// "Recent Mixlists" — shows up to 6 mixlists, an empty state with create/seed actions,
+// "Recent Mixlists" — shows up to 6 mixlists, an empty state with a create action,
 // and a "View More Mixlists" button that routes to the search page in mixlists mode.
-const RecentMixlistsSection = ({ mixlists, loading, navigate, onCreateMixlist, onSeedMixlists }) => {
+const RecentMixlistsSection = ({ mixlists, loading, navigate, onCreateMixlist }) => {
   const theme = useTheme();
 
   return (
@@ -30,25 +30,11 @@ const RecentMixlistsSection = ({ mixlists, loading, navigate, onCreateMixlist, o
                         onClick={onCreateMixlist}
                         sx={{
                             mt: 2,
-                            mr: { xs: 0, sm: 2 },
-                            mb: { xs: 1, sm: 0 },
                             width: { xs: '100%', sm: 'auto' },
                             minHeight: '44px'
                         }}
                     >
                         Create New Mixlist
-                    </Button>
-                    <Button
-                        variant="contained"
-                        color="primary"
-                        onClick={onSeedMixlists}
-                        sx={{
-                            mt: { xs: 1, sm: 2 },
-                            width: { xs: '100%', sm: 'auto' },
-                            minHeight: '44px'
-                        }}
-                    >
-                        Seed Mixlists (Development)
                     </Button>
                 </Grid>
             ) : (

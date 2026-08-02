@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Shared.Interfaces;
+using MyMediaVerse.Web.API.Conventions;
 
 namespace MyMediaVerse.Web.API.Controllers
 {
@@ -30,9 +31,11 @@ namespace MyMediaVerse.Web.API.Controllers
         /// <summary>
         /// Login endpoint that validates credentials and returns a JWT access token
         /// Sets the refresh token as an HttpOnly cookie
+        /// Not routed on the Demo host, where sign-in happens via the TOTP unlock instead
         /// </summary>
         /// <param name="model">Login credentials (username and password)</param>
         /// <returns>JWT access token if credentials are valid</returns>
+        [Environments("Production", "Development", "Testing")]
         [HttpPost("login")]
         [AllowAnonymous]
         public async Task<IActionResult> Login([FromBody] LoginRequestDto model)

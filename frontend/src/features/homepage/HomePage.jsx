@@ -23,7 +23,6 @@ export default function HomePage() {
     activelyExploringLoading,
     activelyExploringError,
     wakingUp,
-    seedMutation,
   } = useHomepageData();
 
   const handleCreateMixlist = () => navigate('/create-mixlist', { state: { returnTo: '/' } });
@@ -31,11 +30,6 @@ export default function HomePage() {
   const handleSearchByTopicOrGenre = () => navigate('/search-by-topic-genre');
   const handleAddMedia = () => navigate('/add-media');
   const handleSourceDirectory = () => navigate('/sources');
-  const handleSeedMixlists = () => {
-    seedMutation.mutate(undefined, {
-      onError: (error) => console.error('Error seeding mixlists:', error),
-    });
-  };
 
   return (
     <Box sx={{ backgroundColor: theme.palette.background.default, minHeight: '100vh', width: '100%' }}>
@@ -108,7 +102,6 @@ export default function HomePage() {
             loading={mixlistsLoading}
             navigate={navigate}
             onCreateMixlist={handleCreateMixlist}
-            onSeedMixlists={handleSeedMixlists}
           />
 
         </Container>

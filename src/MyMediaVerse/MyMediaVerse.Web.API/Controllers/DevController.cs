@@ -42,25 +42,6 @@ namespace MyMediaVerse.Web.API.Controllers
             return null;
         }
 
-        // POST: api/dev/reset-database
-        [HttpPost("reset-database")]
-        public async Task<IActionResult> ResetDatabase()
-        {
-            var envCheck = CheckEnvironment();
-            if (envCheck != null) return envCheck;
-
-            try
-            {
-                await _context.Database.EnsureDeletedAsync();
-                await _context.Database.EnsureCreatedAsync();
-                return Ok("Database reset successfully");
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { error = "Failed to reset database", details = ex.Message });
-            }
-        }
-
         // POST: api/dev/seed-mixlists
         [HttpPost("seed-mixlists")]
         public async Task<IActionResult> SeedMixlists()

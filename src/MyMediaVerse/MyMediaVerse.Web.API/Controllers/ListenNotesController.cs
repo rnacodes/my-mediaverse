@@ -1,10 +1,15 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Shared.DTOs.ListenNotes;
+using MyMediaVerse.Web.API.Extensions;
 
 namespace MyMediaVerse.Web.API.Controllers
 {
+    // Every action proxies the metered ListenNotes API on the app's key, so the
+    // whole controller is rate limited per client IP.
+    [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
     [ApiController]
     [Route("api/[controller]")]
     public class ListenNotesController : ControllerBase

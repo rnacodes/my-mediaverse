@@ -342,29 +342,6 @@ describe('HomePage', () => {
       expect(mixlistCard).toBeInTheDocument();
     });
 
-    it('should call seedMixlists when clicking Seed button', async () => {
-      mixlistService.getAllMixlists.mockResolvedValue({ data: [] });
-      mediaService.getAllMedia.mockResolvedValue({ data: [] });
-      mixlistService.seedMixlists.mockResolvedValue({});
-
-      render(
-        <BrowserRouter>
-          <HomePage />
-        </BrowserRouter>
-      );
-
-      await waitFor(() => {
-        expect(screen.getByText('Seed Mixlists (Development)')).toBeInTheDocument();
-      });
-
-      const seedButton = screen.getByText('Seed Mixlists (Development)');
-      fireEvent.click(seedButton);
-
-      await waitFor(() => {
-        expect(mixlistService.seedMixlists).toHaveBeenCalled();
-      });
-    });
-
     it('should reload page when clicking Retry button', async () => {
       mixlistService.getAllMixlists.mockRejectedValue(new Error('Network Error'));
       mediaService.getAllMedia.mockResolvedValue({ data: [] });

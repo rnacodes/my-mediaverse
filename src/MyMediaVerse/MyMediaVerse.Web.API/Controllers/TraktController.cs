@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
 using MyMediaVerse.Shared.DTOs.Trakt;
 using MyMediaVerse.Shared.Interfaces;
+using MyMediaVerse.Web.API.Conventions;
 
 namespace MyMediaVerse.Web.API.Controllers
 {
+    [Environments("Production", "Development", "Testing")]
     [ApiController]
     [Route("api/[controller]")]
     public class TraktController : ControllerBase

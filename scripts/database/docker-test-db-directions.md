@@ -128,8 +128,5 @@ dotnet ef database update --project ..\MyMediaVerse.Infrastructure
 ```
 
 Because the seed restores the dump's `__EFMigrationsHistory`, `dotnet ef database update` correctly
-applies only the **new** migrations on top of the restored schema.
-
-> ⚠️ Do **not** use `POST /api/dev/reset-database` on this DB if you're practicing migrations — it
-> uses `EnsureCreated` (no migration history), which makes a later `dotnet ef database update` try
-> to re-run every migration and fail. For a clean migration-practice DB, recreate the container instead.
+applies only the **new** migrations on top of the restored schema. For a clean migration-practice DB,
+recreate the container.

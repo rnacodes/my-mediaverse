@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useAllMixlists, useSeedMixlists } from '@/hooks/useMixlist';
+import { useAllMixlists } from '@/hooks/useMixlist';
 import { getAllMixlists } from '@/api/mixlistService';
 import { fetchActivelyExploringMedia } from '@/api/typesenseService';
 import { mediaKeys } from '@/api/queryKeys';
@@ -64,8 +64,6 @@ export default function useHomepageData() {
   const activelyExploringLoading = mediaQuery.isLoading;
   const activelyExploringError = mediaQuery.error ? getErrorMessage(mediaQuery.error, 'actively exploring media') : null;
 
-  const seedMutation = useSeedMixlists();
-
   return {
     mixlists,
     mixlistsLoading,
@@ -74,6 +72,5 @@ export default function useHomepageData() {
     activelyExploringLoading,
     activelyExploringError,
     wakingUp,
-    seedMutation,
   };
 }

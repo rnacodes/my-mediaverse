@@ -1,10 +1,13 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Shared.DTOs.TMDB;
+using MyMediaVerse.Web.API.Extensions;
 
 namespace MyMediaVerse.Web.API.Controllers
 {
+    [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
     [ApiController]
     [Route("api/[controller]")]
     public class TmdbController : ControllerBase

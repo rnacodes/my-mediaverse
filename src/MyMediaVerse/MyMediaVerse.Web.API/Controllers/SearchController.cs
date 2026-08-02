@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Shared.Interfaces;
+using MyMediaVerse.Web.API.Extensions;
 
 namespace MyMediaVerse.Web.API.Controllers
 {
@@ -570,117 +572,135 @@ namespace MyMediaVerse.Web.API.Controllers
 
         /// <summary>
         /// Performs a semantic/hybrid search across media items.
-        /// POST /api/search/semantic
-        /// Uses AI-generated embeddings for semantic understanding.
+        /// GET /api/search/semantic?query=searchterm&amp;alpha=0.5&amp;page=1&amp;perPage=20
+        /// Uses AI-generated embeddings for semantic understanding. A read-only operation,
+        /// so it is a GET; the rate limit bounds the per-visitor embedding spend.
         /// </summary>
-        /// <param name="request">Search request with query and optional parameters</param>
-        [Authorize] // Generates embeddings on every call; anonymous access is a billing risk.
-        [HttpPost("semantic")]
-        public async Task<IActionResult> SemanticSearchMedia([FromBody] SemanticSearchRequest request)
+        /// <param name="query">Search query text</param>
+        /// <param name="filter">Optional filter string (e.g., "media_type:=Book")</param>
+        /// <param name="alpha">Balance between keyword (0) and semantic (1) search (default: 0.5)</param>
+        /// <param name="page">Page number (default: 1)</param>
+        /// <param name="perPage">Results per page (default: 20, max: 100)</param>
+        [EnableRateLimiting(RateLimitingExtensions.ExpensiveReadPolicy)]
+        [HttpGet("semantic")]
+        public async Task<IActionResult> SemanticSearchMedia(
+            [FromQuery] string query,
+            [FromQuery] string? filter = null,
+            [FromQuery] float? alpha = null,
+            [FromQuery] int? page = null,
+            [FromQuery] int? perPage = null)
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(request.Query))
+                if (string.IsNullOrWhiteSpace(query))
                 {
                     return BadRequest(new { error = "Search query is required." });
                 }
 
-                var perPage = Math.Clamp(request.PerPage ?? 20, 1, 100);
-                var page = Math.Max(request.Page ?? 1, 1);
-                var alpha = Math.Clamp(request.Alpha ?? 0.5f, 0f, 1f);
+                var perPageClamped = Math.Clamp(perPage ?? 20, 1, 100);
+                var pageClamped = Math.Max(page ?? 1, 1);
+                var alphaClamped = Math.Clamp(alpha ?? 0.5f, 0f, 1f);
 
                 _logger.LogInformation(
                     "Semantic media search: query='{Query}', alpha={Alpha}, page={Page}, per_page={PerPage}",
-                    request.Query, alpha, page, perPage);
+                    query, alphaClamped, pageClamped, perPageClamped);
 
                 // Typesense embeds the query text itself via the collection's remote embedder
                 // when auto-embedding is configured; otherwise it falls back to keyword-only search.
                 var results = await _typesenseService.HybridSearchMediaAsync(
-                    request.Query,
-                    request.Filter,
-                    alpha,
-                    perPage,
-                    page);
+                    query,
+                    filter,
+                    alphaClamped,
+                    perPageClamped,
+                    pageClamped);
 
                 return Ok(new
                 {
                     results,
                     semantic_enabled = _typesenseService.IsAutoEmbeddingEnabled,
-                    alpha
+                    alpha = alphaClamped
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error performing semantic media search for query '{Query}'", request.Query);
+                _logger.LogError(ex, "Error performing semantic media search for query '{Query}'", query);
                 return StatusCode(500, new { error = "An error occurred during semantic search. Please try again." });
             }
         }
 
         /// <summary>
         /// Performs a semantic/hybrid search across notes.
-        /// POST /api/search/semantic/notes
+        /// GET /api/search/semantic/notes?query=searchterm&amp;alpha=0.5&amp;page=1&amp;perPage=20
         /// </summary>
-        [Authorize] // Generates embeddings on every call; anonymous access is a billing risk.
-        [HttpPost("semantic/notes")]
-        public async Task<IActionResult> SemanticSearchNotes([FromBody] SemanticSearchRequest request)
+        [EnableRateLimiting(RateLimitingExtensions.ExpensiveReadPolicy)]
+        [HttpGet("semantic/notes")]
+        public async Task<IActionResult> SemanticSearchNotes(
+            [FromQuery] string query,
+            [FromQuery] string? filter = null,
+            [FromQuery] float? alpha = null,
+            [FromQuery] int? page = null,
+            [FromQuery] int? perPage = null)
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(request.Query))
+                if (string.IsNullOrWhiteSpace(query))
                 {
                     return BadRequest(new { error = "Search query is required." });
                 }
 
-                var perPage = Math.Clamp(request.PerPage ?? 20, 1, 100);
-                var page = Math.Max(request.Page ?? 1, 1);
-                var alpha = Math.Clamp(request.Alpha ?? 0.5f, 0f, 1f);
+                var perPageClamped = Math.Clamp(perPage ?? 20, 1, 100);
+                var pageClamped = Math.Max(page ?? 1, 1);
+                var alphaClamped = Math.Clamp(alpha ?? 0.5f, 0f, 1f);
 
                 _logger.LogInformation(
                     "Semantic notes search: query='{Query}', alpha={Alpha}, page={Page}, per_page={PerPage}",
-                    request.Query, alpha, page, perPage);
+                    query, alphaClamped, pageClamped, perPageClamped);
 
                 // Typesense embeds the query text itself via the collection's remote embedder
                 // when auto-embedding is configured; otherwise it falls back to keyword-only search.
                 var results = await _typesenseService.HybridSearchNotesAsync(
-                    request.Query,
-                    request.Filter,
-                    alpha,
-                    perPage,
-                    page);
+                    query,
+                    filter,
+                    alphaClamped,
+                    perPageClamped,
+                    pageClamped);
 
                 return Ok(new
                 {
                     results,
                     semantic_enabled = _typesenseService.IsAutoEmbeddingEnabled,
-                    alpha
+                    alpha = alphaClamped
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error performing semantic notes search for query '{Query}'", request.Query);
+                _logger.LogError(ex, "Error performing semantic notes search for query '{Query}'", query);
                 return StatusCode(500, new { error = "An error occurred during semantic search. Please try again." });
             }
         }
 
         /// <summary>
         /// Performs a "search by vibe" - pure semantic search using a description.
-        /// POST /api/search/by-vibe
+        /// GET /api/search/by-vibe?description=dark+atmospheric+sci-fi&amp;limit=20
         /// Useful for queries like "dark atmospheric sci-fi movies" or "uplifting productivity podcasts".
         /// </summary>
-        [Authorize] // Generates embeddings on every call; anonymous access is a billing risk.
-        [HttpPost("by-vibe")]
-        public async Task<IActionResult> SearchByVibe([FromBody] VibeSearchRequest request)
+        [EnableRateLimiting(RateLimitingExtensions.ExpensiveReadPolicy)]
+        [HttpGet("by-vibe")]
+        public async Task<IActionResult> SearchByVibe(
+            [FromQuery] string description,
+            [FromQuery] string? filter = null,
+            [FromQuery] int? limit = null)
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(request.Description))
+                if (string.IsNullOrWhiteSpace(description))
                 {
                     return BadRequest(new { error = "Description is required for vibe search." });
                 }
 
-                var limit = Math.Clamp(request.Limit ?? 20, 1, 100);
+                var limitClamped = Math.Clamp(limit ?? 20, 1, 100);
 
-                _logger.LogInformation("Vibe search: description='{Description}', limit={Limit}", request.Description, limit);
+                _logger.LogInformation("Vibe search: description='{Description}', limit={Limit}", description, limitClamped);
 
                 if (!_typesenseService.IsAutoEmbeddingEnabled)
                 {
@@ -689,19 +709,19 @@ namespace MyMediaVerse.Web.API.Controllers
 
                 // Typesense embeds the vibe description itself via the collection's remote embedder.
                 var results = await _typesenseService.SemanticSearchMediaAsync(
-                    request.Description,
-                    request.Filter,
-                    limit);
+                    description,
+                    filter,
+                    limitClamped);
 
                 return Ok(new
                 {
                     results,
-                    description = request.Description
+                    description
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error performing vibe search for description '{Description}'", request.Description);
+                _logger.LogError(ex, "Error performing vibe search for description '{Description}'", description);
                 return StatusCode(500, new { error = "An error occurred during vibe search. Please try again." });
             }
         }
@@ -828,56 +848,4 @@ namespace MyMediaVerse.Web.API.Controllers
 
     }
 
-    /// <summary>
-    /// Request model for semantic search operations.
-    /// </summary>
-    public class SemanticSearchRequest
-    {
-        /// <summary>
-        /// The search query text.
-        /// </summary>
-        public string Query { get; set; } = string.Empty;
-
-        /// <summary>
-        /// Optional filter string (e.g., "media_type:=Book").
-        /// </summary>
-        public string? Filter { get; set; }
-
-        /// <summary>
-        /// Balance between keyword (0) and semantic (1) search. Default: 0.5
-        /// </summary>
-        public float? Alpha { get; set; }
-
-        /// <summary>
-        /// Page number (default: 1).
-        /// </summary>
-        public int? Page { get; set; }
-
-        /// <summary>
-        /// Results per page (default: 20, max: 100).
-        /// </summary>
-        public int? PerPage { get; set; }
-    }
-
-    /// <summary>
-    /// Request model for vibe-based search.
-    /// </summary>
-    public class VibeSearchRequest
-    {
-        /// <summary>
-        /// A description of the "vibe" or mood you're looking for.
-        /// Examples: "dark atmospheric sci-fi", "uplifting productivity content"
-        /// </summary>
-        public string Description { get; set; } = string.Empty;
-
-        /// <summary>
-        /// Optional filter string.
-        /// </summary>
-        public string? Filter { get; set; }
-
-        /// <summary>
-        /// Maximum number of results (default: 20, max: 100).
-        /// </summary>
-        public int? Limit { get; set; }
-    }
 }

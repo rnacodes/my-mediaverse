@@ -56,10 +56,16 @@ namespace MyMediaVerse.Web.API.Middleware
                 return;
             }
 
+            var endpoint = context.GetEndpoint();
+            if (endpoint is null)
+            {
+                await _next(context);
+                return;
+            }
+
             // Endpoints that opted out of authentication (login, demo unlock/lock) are the
             // host's entry points and must stay reachable while the site is read-only.
-            var endpoint = context.GetEndpoint();
-            if (endpoint?.Metadata.GetMetadata<IAllowAnonymous>() is not null)
+            if (endpoint.Metadata.GetMetadata<IAllowAnonymous>() is not null)
             {
                 await _next(context);
                 return;

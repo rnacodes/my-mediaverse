@@ -35,10 +35,13 @@ export const AuthProvider = ({ children }) => {
 
     // Demo TOTP unlock: the token comes from /demo/unlock with no refresh token behind
     // it, so the session must end hard when it expires rather than renew itself.
-    const applyDemoUnlock = useCallback(({ token: newToken, username, expiresAt }) => {
+    const applyDemoUnlock = useCallback(({ token: newToken, username, expiresInMinutes, expiresAt }) => {
         setToken(newToken);
         setAccessToken(newToken);
-        setUser({ username, expiresAt, isDemoUnlock: true });
+        const localExpiresAt = Number.isFinite(expiresInMinutes)
+            ? new Date(Date.now() + expiresInMinutes * 60 * 1000).toISOString()
+            : expiresAt;
+        setUser({ username, expiresAt: localExpiresAt, isDemoUnlock: true });
     }, []);
 
     const refreshToken = useCallback(async () => {
