@@ -69,9 +69,9 @@ export const getSimilarNotes = async (id, limit = 10, vault = null) => {
  */
 export const searchByVibe = async (query, mediaType = null, limit = 20) => {
     try {
-        const data = { description: query, count: limit };
-        if (mediaType) data.mediaType = mediaType;
-        const response = await apiClient.post('/recommendation/by-vibe', data);
+        const params = { description: query, count: limit };
+        if (mediaType) params.mediaType = mediaType;
+        const response = await apiClient.get('/recommendation/by-vibe', { params });
         return response.data.items || [];
     } catch (error) {
         console.error('Error searching by vibe:', error);

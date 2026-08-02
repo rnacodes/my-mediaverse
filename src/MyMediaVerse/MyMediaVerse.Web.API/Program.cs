@@ -1,3 +1,4 @@
+using MyMediaVerse.Web.API.Conventions;
 using MyMediaVerse.Web.API.Extensions;
 using MyMediaVerse.Web.API.Middleware;
 
@@ -28,7 +29,12 @@ var startupLogger = startupLoggerFactory.CreateLogger("Startup");
 builder.Services.AddCorsPolicies(builder.Configuration, builder.Environment, startupLogger);
 
 // --- Controllers + JSON options ---
-builder.Services.AddControllers()
+// The environment gating convention strips [Environments]-restricted endpoints from
+// the route table on hosts where they don't apply (404 + absent from Swagger).
+builder.Services.AddControllers(options =>
+    {
+        options.Conventions.Add(new EnvironmentGatingConvention(builder.Environment.EnvironmentName));
+    })
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
@@ -37,8 +43,8 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
     });
 
-// --- Rate limiting (demo unlock brute-force protection) ---
-builder.Services.AddDemoRateLimiting();
+// --- Rate limiting (demo unlock brute-force, AI-inference reads, external API proxies) ---
+builder.Services.AddApiRateLimiting();
 
 // --- Authentication (JWT + API Key) ---
 builder.Services.AddJwtAndApiKeyAuthentication(builder.Configuration, builder.Environment, startupLogger);

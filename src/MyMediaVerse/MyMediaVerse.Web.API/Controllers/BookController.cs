@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Shared.DTOs.GoogleBooks;
 using MyMediaVerse.Shared.DTOs.OpenLibrary;
 using MyMediaVerse.DTOs;
+using MyMediaVerse.Web.API.Extensions;
 
 namespace MyMediaVerse.Web.API.Controllers
 {
@@ -169,6 +171,7 @@ namespace MyMediaVerse.Web.API.Controllers
         }
 
         // GET: api/book/search-openlibrary
+        [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
         [HttpGet("search-openlibrary")]
         public async Task<ActionResult<IEnumerable<BookSearchResultDto>>> SearchOpenLibrary([FromQuery] SearchBooksDto searchDto)
         {
@@ -271,6 +274,7 @@ namespace MyMediaVerse.Web.API.Controllers
         // ============================================
 
         // GET: api/book/search-googlebooks
+        [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
         [HttpGet("search-googlebooks")]
         public async Task<ActionResult<IEnumerable<BookSearchResultDto>>> SearchGoogleBooks([FromQuery] SearchBooksDto searchDto)
         {

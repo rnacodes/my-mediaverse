@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.DTOs;
+using MyMediaVerse.Web.API.Conventions;
 
 namespace MyMediaVerse.Web.API.Controllers
 {
@@ -8,6 +9,9 @@ namespace MyMediaVerse.Web.API.Controllers
     /// Controller for Readwise and Reader sync operations.
     /// Provides a unified sync endpoint that syncs both Reader documents and Readwise highlights.
     /// </summary>
+    // Proxies the owner's personal Readwise/Reader library via an app-wide API token,
+    // so these endpoints exist only on hosts the owner uses.
+    [Environments("Production", "Development", "Testing")]
     [ApiController]
     [Route("api/[controller]")]
     public class ReadwiseController : ControllerBase

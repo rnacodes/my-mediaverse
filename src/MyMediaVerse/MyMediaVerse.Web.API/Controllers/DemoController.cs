@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using MyMediaVerse.Shared.Interfaces;
+using MyMediaVerse.Web.API.Conventions;
 using MyMediaVerse.Web.API.Extensions;
 using OtpNet;
 
@@ -192,19 +193,13 @@ namespace MyMediaVerse.Web.API.Controllers
         }
 
         /// <summary>
-        /// Generates a new Base32 secret for TOTP setup.
-        /// This endpoint is protected and only works in Development environment.
-        /// After generating, save the secret to DEMO_TOTP_SECRET environment variable.
+        /// Generates a new Base32 secret for TOTP setup. Only routed in the Development
+        /// environment.
         /// </summary>
+        [Environments("Development")]
         [HttpGet("generate-secret")]
         public IActionResult GenerateSecret()
         {
-            // Only allow in Development environment for security
-            if (!_environment.IsDevelopment())
-            {
-                return NotFound(new { error = "This endpoint is only available in Development environment" });
-            }
-
             // Generate a random 20-byte (160-bit) secret
             var secretBytes = KeyGeneration.GenerateRandomKey(20);
             var base32Secret = Base32Encoding.ToString(secretBytes);
