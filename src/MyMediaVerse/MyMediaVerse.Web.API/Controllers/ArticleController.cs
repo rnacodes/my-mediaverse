@@ -439,7 +439,7 @@ namespace MyMediaVerse.Web.API.Controllers
 
         // GET: api/article/duplicates
         [HttpGet("duplicates")]
-        public async Task<ActionResult<List<DuplicateGroupDto>>> FindDuplicates()
+        public async Task<ActionResult<FindDuplicatesResultDto>> FindDuplicates()
         {
             try
             {
@@ -451,11 +451,11 @@ namespace MyMediaVerse.Web.API.Controllers
                 _logger.LogInformation("Finding duplicate articles");
                 var duplicates = await _deduplicationService.FindDuplicatesAsync();
 
-                return Ok(new 
-                { 
-                    count = duplicates.Count,
-                    totalDuplicates = duplicates.Sum(g => g.Articles.Count - 1),
-                    groups = duplicates 
+                return Ok(new FindDuplicatesResultDto
+                {
+                    Count = duplicates.Count,
+                    TotalDuplicates = duplicates.Sum(g => g.Articles.Count - 1),
+                    Groups = duplicates
                 });
             }
             catch (Exception ex)

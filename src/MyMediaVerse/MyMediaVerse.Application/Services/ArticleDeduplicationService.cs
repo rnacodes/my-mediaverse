@@ -44,7 +44,7 @@ namespace MyMediaVerse.Application.Services
                 .ToListAsync();
 
             var groups = articles
-                .GroupBy(a => UrlNormalizer.Normalize(a.Link))
+                .GroupBy(a => UrlNormalizer.GetComparisonKey(a.Link))
                 .Where(g => g.Count() > 1)
                 .Select(g => new DuplicateGroupDto
                 {
@@ -85,7 +85,7 @@ namespace MyMediaVerse.Application.Services
                     .ToListAsync();
 
                 var groupedByUrl = articles
-                    .GroupBy(a => UrlNormalizer.Normalize(a.Link))
+                    .GroupBy(a => UrlNormalizer.GetComparisonKey(a.Link))
                     .Where(g => g.Count() > 1)
                     .ToList();
 

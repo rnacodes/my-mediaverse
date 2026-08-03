@@ -57,6 +57,23 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         [Fact]
+        public async Task FindDuplicatesAsync_HttpAndHttpsVariants_GroupedTogether()
+        {
+            var article1 = TestDataFactory.CreateArticle("Article 1");
+            article1.Link = "http://example.com/article";
+            var article2 = TestDataFactory.CreateArticle("Article 2");
+            article2.Link = "https://example.com/article"; // Same URL, different scheme
+
+            Context.Articles.AddRange(article1, article2);
+            await Context.SaveChangesAsync();
+
+            var result = await _service.FindDuplicatesAsync();
+
+            result.Should().HaveCount(1);
+            result[0].Articles.Should().HaveCount(2);
+        }
+
+        [Fact]
         public async Task FindDuplicatesAsync_NullLinks_Excluded()
         {
             var article1 = TestDataFactory.CreateArticle("Article 1");

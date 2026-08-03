@@ -86,10 +86,12 @@ app.UseSwagger();
 app.UseSwaggerUI(options =>
 {
     options.SwaggerEndpoint("/swagger/v1/swagger.json", "My MediaVerse API V1");
-    options.RoutePrefix = string.Empty;
+    options.RoutePrefix = "swagger";
 });
 
-//app.UseHttpsRedirection();
+// No in-app HTTPS redirection: TLS terminates at the hosting platform's edge, which
+// forces HTTPS before requests reach this app, so the container only ever serves plain
+// HTTP.
 app.UseRouting();
 
 app.UseCors(CorsExtensions.PolicyName);

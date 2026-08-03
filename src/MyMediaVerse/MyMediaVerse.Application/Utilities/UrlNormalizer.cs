@@ -17,7 +17,10 @@ namespace MyMediaVerse.Application.Utilities
         /// - Removes trailing slash
         /// - Removes URL fragments (#section)
         /// - Removes common tracking parameters (utm_*, fbclid, gclid, etc.)
-        /// - Standardizes protocol (http/https treated as equivalent)
+        /// - Removes www. prefix
+        /// The scheme (http/https) is preserved because normalized URLs are stored
+        /// and used as links; use <see cref="GetComparisonKey"/> or
+        /// <see cref="AreEquivalent"/> for scheme-insensitive comparison.
         /// </summary>
         /// <param name="url">The URL to normalize</param>
         /// <returns>Normalized URL string, or empty string if invalid</returns>
@@ -96,7 +99,28 @@ namespace MyMediaVerse.Application.Utilities
         }
 
         /// <summary>
+        /// Produces a scheme-insensitive key for duplicate detection.
+        /// Applies the same transformations as <see cref="Normalize"/>, then strips
+        /// the http/https prefix so the same page reached over either protocol
+        /// produces the same key. Not suitable for storage or display as a link.
+        /// </summary>
+        /// <param name="url">The URL to build a comparison key for</param>
+        /// <returns>Comparison key, or empty string if invalid</returns>
+        public static string GetComparisonKey(string? url)
+        {
+            var normalized = Normalize(url);
+
+            if (normalized.StartsWith("https://"))
+                return normalized.Substring(8);
+            if (normalized.StartsWith("http://"))
+                return normalized.Substring(7);
+
+            return normalized;
+        }
+
+        /// <summary>
         /// Checks if two URLs are equivalent after normalization.
+        /// Scheme-insensitive: http and https versions of the same URL are equivalent.
         /// Useful for deduplication logic.
         /// </summary>
         /// <param name="url1">First URL to compare</param>
@@ -111,7 +135,7 @@ namespace MyMediaVerse.Application.Utilities
             if (string.IsNullOrWhiteSpace(url1) || string.IsNullOrWhiteSpace(url2))
                 return false;
 
-            return Normalize(url1) == Normalize(url2);
+            return GetComparisonKey(url1) == GetComparisonKey(url2);
         }
 
         /// <summary>

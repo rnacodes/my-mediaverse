@@ -45,7 +45,6 @@ import YouTubeChannelProfile from './features/videos/pages/YouTubeChannelProfile
 import YouTubePlaylistProfile from './features/videos/pages/YouTubePlaylistProfile';
 import PodcastSeriesProfile from './features/podcasts/pages/PodcastSeriesProfile';
 import TvShowProfile from './features/videos/pages/TvShowProfile';
-import CleanupManagementPage from './features/admin/pages/CleanupManagementPage';
 import WebsiteImportPage from './features/imports/pages/WebsiteImportPage';
 import WebsitesPage from './features/imports/pages/WebsitesPage';
 import GoodreadsUploadPage from './features/media/pages/GoodreadsUploadPage';
@@ -181,9 +180,6 @@ function RoutedContent() {
             } />
             <Route path="/podcast-episode/:id" element={
               <ConditionalProtectedRoute><MediaProfilePage /></ConditionalProtectedRoute>
-            } />
-            <Route path="/cleanup" element={
-              <ConditionalProtectedRoute><DemoRestrictedRoute><CleanupManagementPage /></DemoRestrictedRoute></ConditionalProtectedRoute>
             } />
             <Route path="/import-website" element={
               <ConditionalProtectedRoute><DemoRestrictedRoute><WebsiteImportPage /></DemoRestrictedRoute></ConditionalProtectedRoute>

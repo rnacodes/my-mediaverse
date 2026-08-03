@@ -20,6 +20,17 @@ namespace MyMediaVerse.DTOs
         public string Title { get; set; } = string.Empty;
     }
 
+    public class FindDuplicatesResultDto
+    {
+        /// <summary>Number of duplicate groups (distinct URLs with more than one article).</summary>
+        public int Count { get; set; }
+
+        /// <summary>Number of redundant copies across all groups (articles that a merge would remove).</summary>
+        public int TotalDuplicates { get; set; }
+
+        public List<DuplicateGroupDto> Groups { get; set; } = new List<DuplicateGroupDto>();
+    }
+
     public class DuplicateGroupDto
     {
         public string NormalizedUrl { get; set; } = string.Empty;

@@ -12,15 +12,18 @@ namespace MyMediaVerse.Web.API.Controllers
         private readonly MediaLibraryDbContext _context;
         private readonly IConfiguration _configuration;
         private readonly ILogger<HealthController> _logger;
+        private readonly IWebHostEnvironment _environment;
 
         public HealthController(
             MediaLibraryDbContext context,
             IConfiguration configuration,
-            ILogger<HealthController> logger)
+            ILogger<HealthController> logger,
+            IWebHostEnvironment environment)
         {
             _context = context;
             _configuration = configuration;
             _logger = logger;
+            _environment = environment;
         }
 
         /// <summary>
@@ -90,13 +93,14 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Database health check failed");
+
                 return new DatabaseHealthResult
                 {
                     Status = "unhealthy",
                     IsHealthy = false,
                     CanConnect = false,
-                    Error = ex.Message,
-                    ErrorType = ex.GetType().Name,
+                    Error = _environment.IsDevelopment() ? ex.Message : "Database connection failed. See server logs for details.",
+                    ErrorType = _environment.IsDevelopment() ? ex.GetType().Name : null,
                     Provider = _context.Database.ProviderName
                 };
             }
