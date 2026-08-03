@@ -41,10 +41,7 @@ namespace MyMediaVerse.Web.API.Middleware
 
         private static bool IsSwaggerRequest(PathString requestPath)
         {
-            var path = requestPath.Value?.TrimEnd('/') ?? string.Empty;
-            return path.Length == 0
-                || path.Equals("/index.html", StringComparison.OrdinalIgnoreCase)
-                || path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase);
+            return requestPath.StartsWithSegments("/swagger", StringComparison.OrdinalIgnoreCase);
         }
 
         private bool TryAuthenticate(string? authHeader)

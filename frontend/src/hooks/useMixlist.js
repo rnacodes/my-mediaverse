@@ -7,7 +7,6 @@ import {
   deleteMixlist,
   addMediaToMixlist,
   removeMediaFromMixlist,
-  seedMixlists,
   getNotesForMixlist,
   linkNoteToMixlist,
   unlinkNoteFromMixlist,
@@ -92,16 +91,6 @@ export function useRemoveMediaFromMixlist() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: mixlistKeys.detail(variables.mixlistId) });
       queryClient.invalidateQueries({ queryKey: mixlistKeys.lists() });
-    },
-  });
-}
-
-export function useSeedMixlists() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: () => seedMixlists().then((r) => r.data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: mixlistKeys.all });
     },
   });
 }

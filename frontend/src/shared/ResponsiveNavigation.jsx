@@ -19,7 +19,7 @@ import {
   MenuItem,
   Collapse
 } from '@mui/material';
-import { Menu as MenuIcon, Close as CloseIcon, Home, Movie, QueueMusic, Add, Upload, Download, Search, Apps, CleaningServices, Login as LoginIcon, Logout as LogoutIcon, Person as PersonIcon, Storage as StorageIcon, Article, Language, Category, AdminPanelSettings, Sync, ExpandMore, Work, ExpandLess, Book, Tv, Podcasts, VideoLibrary, YouTube, Note as NoteIcon, Psychology, FormatQuote, AddLink, LockOpen, PlaylistAdd, Phonelink } from '@mui/icons-material';
+import { Menu as MenuIcon, Close as CloseIcon, Home, Movie, QueueMusic, Add, Upload, Download, Search, Apps, Login as LoginIcon, Logout as LogoutIcon, Person as PersonIcon, Storage as StorageIcon, Article, Language, Category, AdminPanelSettings, Sync, ExpandMore, Work, ExpandLess, Book, Tv, Podcasts, VideoLibrary, YouTube, Note as NoteIcon, Psychology, FormatQuote, AddLink, LockOpen, PlaylistAdd, Phonelink } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { isDemoMode } from '@/utils/demoMode';
 import BrandLogo from '@/shared/BrandLogo';
@@ -102,7 +102,6 @@ const ResponsiveNavigation = () => {
   const adminMenuItems = [
     { text: 'AI Admin', path: '/ai-admin', icon: <Psychology />, requiresAuth: true },
     { text: 'Background Jobs', path: '/background-jobs', icon: <Work />, requiresAuth: true },
-    { text: 'Cleanup', path: '/cleanup', icon: <CleaningServices />, requiresAuth: true },
     // The unlock page only exists on the demo site; it is the demo's sign-in, so it must
     // stay reachable while unauthenticated.
     ...(isDemoMode() ? [{ text: 'Unlock Write Access', path: '/demo-unlock', icon: <LockOpen /> }] : []),
