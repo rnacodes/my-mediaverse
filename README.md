@@ -418,9 +418,11 @@ This is a personal project, but feedback and suggestions are welcome. Please ope
 
 **Proprietary License**
 
-> Please do not copy or redistribute this code without permission.
+Please do not copy or redistribute this code without permission.
 
-This project is not open source. All rights reserved.
+This project is source-available for portfolio and reference purposes — it is not open source. Viewing the code is welcome, but reuse, redistribution, or deployment requires explicit written permission.
+
+See [LICENSE](./LICENSE.txt) for full terms, or reach out to discuss a use case.
 
 ---
 
