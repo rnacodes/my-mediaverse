@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { BrowserRouter as Router, Route, Routes, Link, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Link, Navigate, useLocation } from 'react-router-dom';
 import { ErrorBoundary } from 'react-error-boundary';
 import * as Sentry from '@sentry/react';
 import { ThemeProvider, CssBaseline, Typography, Button, Box } from '@mui/material';
@@ -22,7 +22,6 @@ import LoadingSpinner from '@/shared/LoadingSpinner';
 import HomePage from './features/homepage';
 import LoginPage from './features/auth/pages/LoginPage';
 import AddMediaForm from './features/media/pages/AddMediaForm';
-import MixlistsPage from './features/mixlists/pages/MixlistsPage';
 import CreateMixlistForm from './features/mixlists/pages/CreateMixlistForm';
 import MixlistProfilePage from './features/mixlists/pages/MixlistProfilePage';
 import MediaProfilePage from './features/media/pages/MediaProfilePage';
@@ -103,9 +102,10 @@ function RoutedContent() {
             <Route path="/all-media" element={
               <ConditionalProtectedRoute><Search defaultMediaTypes={['all']} /></ConditionalProtectedRoute>
             } />
-            <Route path="/mixlists" element={
-              <ConditionalProtectedRoute><MixlistsPage /></ConditionalProtectedRoute>
-            } />
+            {/* The standalone mixlists page was retired in favor of the search page's
+                mixlists mode. The route stays as a redirect so existing links and
+                bookmarks keep working. */}
+            <Route path="/mixlists" element={<Navigate to="/search?searchMode=mixlists" replace />} />
             <Route path="/mixlist/:id" element={
               <ConditionalProtectedRoute><MixlistProfilePage /></ConditionalProtectedRoute>
             } />
@@ -115,8 +115,10 @@ function RoutedContent() {
             <Route path="/create-mixlist" element={
               <ConditionalProtectedRoute><CreateMixlistForm /></ConditionalProtectedRoute>
             } />
+            {/* Browsable in the demo so visitors can see how importing works; the
+                page's own actions are disabled there. */}
             <Route path="/import-media" element={
-              <ConditionalProtectedRoute><DemoRestrictedRoute><ImportMediaPage /></DemoRestrictedRoute></ConditionalProtectedRoute>
+              <ConditionalProtectedRoute><ImportMediaPage /></ConditionalProtectedRoute>
             } />
             <Route path="/import-mixlist" element={
               <ConditionalProtectedRoute><DemoRestrictedRoute><ImportMixlistPage /></DemoRestrictedRoute></ConditionalProtectedRoute>

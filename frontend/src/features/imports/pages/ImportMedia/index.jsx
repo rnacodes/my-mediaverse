@@ -4,6 +4,7 @@ import {
     Box, Typography, Container, Divider, Snackbar, Alert
 } from '@mui/material';
 import WhiteOutlineButton from '@/shared/WhiteOutlineButton';
+import { useDemoWriteBlocked } from '@/features/demo/useDemoWriteBlocked';
 
 // Import section components
 import BookImportSection from './BookImportSection';
@@ -18,6 +19,7 @@ function ImportMediaPage() {
     const [expanded, setExpanded] = useState(false);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
     const navigate = useNavigate();
+    const demoBlocked = useDemoWriteBlocked();
 
     const handleAccordionChange = (panel) => (event, isExpanded) => {
         setExpanded(isExpanded ? panel : false);
@@ -40,9 +42,16 @@ function ImportMediaPage() {
                 Import Media
             </Typography>
 
-            <Typography variant="body1" sx={{ mb: 4 }}>
+            <Typography variant="body1" sx={{ mb: demoBlocked ? 2 : 4 }}>
                 Import media from external sources into your library.
             </Typography>
+
+            {demoBlocked && (
+                <Alert severity="info" sx={{ mb: 4 }}>
+                    You can search these sources and see what an import looks like, but saving to
+                    the library is disabled in the demo.
+                </Alert>
+            )}
 
             {/* Book Import Section */}
             <BookImportSection

@@ -52,6 +52,7 @@ builder.Services.AddJwtAndApiKeyAuthentication(builder.Configuration, builder.En
 // --- Database (EF Core + PostgreSQL + pgvector) ---
 var connectionString = DatabaseExtensions.ResolveConnectionString(builder.Configuration, builder.Environment, startupLogger);
 builder.Services.AddDatabase(connectionString, builder.Environment);
+builder.Services.AddStartupBanner(builder.Environment, builder.Configuration, connectionString);
 
 // --- Application services, external API clients, background workers ---
 builder.Services.AddMemoryCache();
@@ -108,8 +109,7 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-app.Logger.LogInformation("Environment: {Environment}", builder.Environment.EnvironmentName);
-app.Logger.LogInformation("Connection string: {ConnectionString}", DatabaseExtensions.MaskConnectionString(connectionString));
+app.LogStartupBanner();
 
 app.Run();
 

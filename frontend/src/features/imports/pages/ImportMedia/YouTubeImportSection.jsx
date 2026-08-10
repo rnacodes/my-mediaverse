@@ -13,6 +13,8 @@ import {
     importFromYouTubeUrl, checkYouTubeChannelExists
 } from '@/api/youtubeService';
 import WhiteOutlineButton from '@/shared/WhiteOutlineButton';
+import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
+import { DEMO_IMPORT_BLOCKED } from '@/features/demo/demoMessages';
 import { getPlaceholderImage } from '@/utils/mediaImageUtils';
 import SafeImage from './SafeImage';
 
@@ -473,15 +475,17 @@ function YouTubeImportSection({ expanded, onAccordionChange, onSnackbar }) {
                                                             >
                                                                 View Details
                                                             </WhiteOutlineButton>
-                                                            <Button
-                                                                variant="contained"
-                                                                size="small"
-                                                                onClick={() => handleImportYoutubeItem(item)}
-                                                                disabled={youtubeIsLoading}
-                                                                startIcon={<Download />}
-                                                            >
-                                                                Import
-                                                            </Button>
+                                                            <DemoWriteGuard title={DEMO_IMPORT_BLOCKED}>
+                                                                <Button
+                                                                    variant="contained"
+                                                                    size="small"
+                                                                    onClick={() => handleImportYoutubeItem(item)}
+                                                                    disabled={youtubeIsLoading}
+                                                                    startIcon={<Download />}
+                                                                >
+                                                                    Import
+                                                                </Button>
+                                                            </DemoWriteGuard>
                                                         </Box>
                                                     </Box>
                                                 </Box>
@@ -541,14 +545,16 @@ function YouTubeImportSection({ expanded, onAccordionChange, onSnackbar }) {
                                     }
                                     onKeyPress={(e) => e.key === 'Enter' && handleYoutubeImportFromUrl()}
                                 />
-                                <Button
-                                    variant="contained"
-                                    onClick={handleYoutubeImportFromUrl}
-                                    disabled={youtubeIsLoading}
-                                    startIcon={<Download />}
-                                >
-                                    Import
-                                </Button>
+                                <DemoWriteGuard title={DEMO_IMPORT_BLOCKED}>
+                                    <Button
+                                        variant="contained"
+                                        onClick={handleYoutubeImportFromUrl}
+                                        disabled={youtubeIsLoading}
+                                        startIcon={<Download />}
+                                    >
+                                        Import
+                                    </Button>
+                                </DemoWriteGuard>
                             </Box>
 
                             {youtubeError && (

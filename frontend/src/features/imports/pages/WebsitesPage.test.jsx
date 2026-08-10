@@ -8,9 +8,9 @@ import WebsitesPage from './WebsitesPage';
 
 // WebsitesPage reads the list from useAllWebsites -> GET /website (singular; no
 // default handler, so each test seeds it). The default "All Websites" filter keeps
-// the rss-only query disabled, so only /website fires on mount. Unlike MixlistsPage,
-// this page DOES render a distinct error Alert (activeQuery.error), so all four
-// states are observable: loading / error / empty / success.
+// the rss-only query disabled, so only /website fires on mount. Unlike the pages that
+// swallow query errors, this one DOES render a distinct error Alert (activeQuery.error),
+// so all four states are observable: loading / error / empty / success.
 
 describe('WebsitesPage', () => {
   it('shows the loading spinner before the list resolves', async () => {

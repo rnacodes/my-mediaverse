@@ -201,7 +201,7 @@ export const typesenseSearch = async (query, mediaType = 'all', page = 1, perPag
  * @param {Array<string>} options.mediaTypes - Array of media types to filter by
  * @param {Array<string>} options.topics - Array of topics to filter by
  * @param {Array<string>} options.genres - Array of genres to filter by
- * @param {string} options.status - Status filter (Uncharted, ActivelyExploring, Completed, Abandoned)
+ * @param {string|Array<string>} options.status - Status filter, one or many (Uncharted, ActivelyExploring, Completed, Abandoned)
  * @param {Array<string>} options.ratings - Array of ratings to filter by (SuperLike, Like, Neutral, Dislike)
  * @param {number} options.page - Page number (default: 1)
  * @param {number} options.perPage - Results per page (default: 20)
@@ -243,9 +243,12 @@ export const typesenseAdvancedSearch = async (options) => {
             filters.push(`(${genreFilter})`);
         }
 
-        // Status filter
-        if (status && status !== 'all') {
-            filters.push(`status:=${status}`);
+        // Status filter — accepts a single status or a list of them
+        const statusList = (Array.isArray(status) ? status : [status])
+            .filter((s) => s && s !== 'all');
+        if (statusList.length > 0) {
+            const statusFilter = statusList.map((s) => `status:=${s}`).join(' || ');
+            filters.push(`(${statusFilter})`);
         }
 
         // Ratings filter

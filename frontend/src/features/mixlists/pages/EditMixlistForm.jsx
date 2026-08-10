@@ -133,7 +133,7 @@ function EditMixlistForm() {
                     message: 'Mixlist deleted successfully!',
                     severity: 'success'
                 });
-                setTimeout(() => navigate('/mixlists'), 1500);
+                setTimeout(() => navigate('/search?searchMode=mixlists'), 1500);
             },
             onError: (error) => {
                 console.error('Failed to delete mixlist:', error);

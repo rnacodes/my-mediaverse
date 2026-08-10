@@ -29,7 +29,6 @@ export default function HomePage() {
   const handleImportMedia = () => navigate('/import-media');
   const handleSearchByTopicOrGenre = () => navigate('/search-by-topic-genre');
   const handleAddMedia = () => navigate('/add-media');
-  const handleSourceDirectory = () => navigate('/sources');
 
   return (
     <Box sx={{ backgroundColor: theme.palette.background.default, minHeight: '100vh', width: '100%' }}>
@@ -81,7 +80,6 @@ export default function HomePage() {
           <Section title="">
             <MediaTypeNav navigate={navigate} />
             <QuickActionsBar
-              onSourceDirectory={handleSourceDirectory}
               onCreateMixlist={handleCreateMixlist}
               onImportMedia={handleImportMedia}
               onSearchByTopicOrGenre={handleSearchByTopicOrGenre}

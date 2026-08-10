@@ -183,9 +183,16 @@ function MixlistProfilePage() {
         <Box sx={{ minHeight: '100vh' }}>
             {/* Header */}
             <Box sx={{ p: 3, pb: 0 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 4 }}>
+                <Box sx={{
+                    display: 'flex',
+                    flexDirection: { xs: 'column', sm: 'row' },
+                    alignItems: { xs: 'flex-start', sm: 'center' },
+                    justifyContent: 'space-between',
+                    gap: { xs: 2, sm: 0 },
+                    mb: 4
+                }}>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <IconButton onClick={() => navigate('/mixlists')} sx={{ mr: 2 }}>
+                        <IconButton onClick={() => navigate('/search?searchMode=mixlists')} sx={{ mr: 2 }}>
                             <ArrowBack />
                         </IconButton>
                         <Typography variant="h3" component="h1" sx={{ 
@@ -195,14 +202,22 @@ function MixlistProfilePage() {
                         </Typography>
                     </Box>
 
-                    {/* Action Buttons */}
-                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                    {/* Side by side from `sm` up; stacked under the name on mobile, Edit first */}
+                    <Box sx={{
+                        display: 'flex',
+                        flexDirection: { xs: 'column', sm: 'row' },
+                        gap: 1,
+                        alignItems: { xs: 'stretch', sm: 'center' },
+                        width: { xs: '100%', sm: 'auto' }
+                    }}>
                         <Button
                             onClick={handleReindex}
                             startIcon={reindexing ? <CircularProgress size={16} /> : <Sync />}
-                            variant="outlined"
-                            size="medium"
+                            variant="contained"
+                            color="primary"
+                            size="large"
                             disabled={reindexing}
+                            sx={{ order: { xs: 2, sm: 0 } }}
                         >
                             {reindexing ? 'Reindexing...' : 'Reindex'}
                         </Button>
@@ -212,6 +227,7 @@ function MixlistProfilePage() {
                             variant="contained"
                             color="primary"
                             size="large"
+                            sx={{ order: { xs: 1, sm: 0 } }}
                         >
                             Edit Mixlist
                         </Button>
@@ -716,7 +732,8 @@ function MixlistProfilePage() {
                 </DialogContent>
                 <DialogActions>
                     <Button 
-                        variant="outlined"
+                        variant="contained"
+                        color="primary"
                         onClick={() => {
                             setAddMediaDialogOpen(false);
                             setSelectedMediaIds([]);

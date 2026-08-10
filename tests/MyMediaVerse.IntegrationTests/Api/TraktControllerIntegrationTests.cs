@@ -106,11 +106,14 @@ namespace MyMediaVerse.IntegrationTests.Api
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
             var content = await response.Content.ReadAsStringAsync();
-            var deviceCode = JsonSerializer.Deserialize<TraktDeviceCodeDto>(content, _jsonOptions);
-            Assert.NotNull(deviceCode);
-            Assert.Equal("test-device-code", deviceCode.DeviceCode);
-            Assert.Equal("ABCD1234", deviceCode.UserCode);
-            Assert.Equal("https://trakt.tv/activate", deviceCode.VerificationUrl);
+            using var json = JsonDocument.Parse(content);
+            var root = json.RootElement;
+
+            Assert.Equal("test-device-code", root.GetProperty("deviceCode").GetString());
+            Assert.Equal("ABCD1234", root.GetProperty("userCode").GetString());
+            Assert.Equal("https://trakt.tv/activate", root.GetProperty("verificationUrl").GetString());
+            Assert.Equal(600, root.GetProperty("expiresIn").GetInt32());
+            Assert.Equal(5, root.GetProperty("interval").GetInt32());
         }
 
         [Fact]
@@ -213,6 +216,36 @@ namespace MyMediaVerse.IntegrationTests.Api
 
             // Assert
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
+
+        [Theory]
+        [InlineData("")]
+        [InlineData("   ")]
+        public async Task PollDeviceToken_WhenDeviceCodeMissing_ShouldReturnBadRequestWithoutCallingTrakt(string deviceCode)
+        {
+            // Arrange
+            var (client, _, mockApiClient) = _factory.CreateClientWithSubstitutes<ITraktSyncService, ITraktApiClient>(
+                null,
+                null);
+
+            var requestBody = new StringContent(
+                JsonSerializer.Serialize(new { deviceCode }, _jsonOptions),
+                Encoding.UTF8,
+                "application/json"
+            );
+
+            // Act
+            var response = await client.PostAsync("/api/trakt/auth/poll", requestBody);
+
+            // Assert: must fail outright rather than reporting "pending", which is how
+            // Trakt's own 400 response would otherwise be interpreted.
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+            var content = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(content);
+            Assert.Equal("failed", doc.RootElement.GetProperty("status").GetString());
+
+            await mockApiClient.DidNotReceive().PollDeviceTokenAsync(Arg.Any<string>());
         }
 
         #endregion

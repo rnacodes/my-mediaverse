@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MyMediaVerse.Infrastructure.Data;
+using MyMediaVerse.Web.API.Extensions;
 
 namespace MyMediaVerse.Web.API.Controllers
 {
@@ -13,17 +14,32 @@ namespace MyMediaVerse.Web.API.Controllers
         private readonly IConfiguration _configuration;
         private readonly ILogger<HealthController> _logger;
         private readonly IWebHostEnvironment _environment;
+        private readonly StartupBanner _startupBanner;
 
         public HealthController(
             MediaLibraryDbContext context,
             IConfiguration configuration,
             ILogger<HealthController> logger,
-            IWebHostEnvironment environment)
+            IWebHostEnvironment environment,
+            StartupBanner startupBanner)
         {
             _context = context;
             _configuration = configuration;
             _logger = logger;
             _environment = environment;
+            _startupBanner = startupBanner;
+        }
+
+        /// <summary>
+        /// Reprints the startup banner to the server console and returns it, for when the
+        /// original has scrolled out of the log.
+        /// </summary>
+        [HttpGet("environment")]
+        [Authorize] // Describes the host's auth posture; operators only.
+        public IActionResult GetEnvironmentBanner()
+        {
+            _logger.LogInformation("{Banner}", _startupBanner.Text);
+            return Content(_startupBanner.Text, "text/plain");
         }
 
         /// <summary>

@@ -1,12 +1,12 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Typography, TextField, InputAdornment, Grid, Button, Divider, Accordion, AccordionSummary, AccordionDetails, FormGroup, FormControlLabel, Checkbox, Select, MenuItem, FormControl, Paper } from '@mui/material';
+import { Box, Typography, TextField, InputAdornment, Grid, Button, Divider, Accordion, AccordionSummary, AccordionDetails, FormGroup, FormControlLabel, Checkbox, Paper } from '@mui/material';
 import { Search as SearchIcon, Clear, TuneRounded, ExpandMore } from '@mui/icons-material';
 import { getRatingIcon } from '@/utils/formatters';
 
 
+// No "all" entry — like ratings, an empty selection means no status filter.
 const statusOptions = [
-    { value: 'all', label: 'All Statuses' },
     { value: 'Uncharted', label: 'Uncharted' },
     { value: 'ActivelyExploring', label: 'Actively Exploring' },
     { value: 'Completed', label: 'Completed' },
@@ -28,8 +28,8 @@ export const SearchFilterSidebar = React.memo(({
     setSelectedTopics,
     selectedGenres,
     setSelectedGenres,
-    selectedStatus,
-    setSelectedStatus,
+    selectedStatuses,
+    setSelectedStatuses,
     selectedRatings,
     setSelectedRatings,
     handleClearFilters,
@@ -70,6 +70,12 @@ export const SearchFilterSidebar = React.memo(({
     const handleGenreToggle = (genre) => {
         setSelectedGenres(prev =>
             prev.includes(genre) ? prev.filter(g => g !== genre) : [...prev, genre]
+        );
+    };
+
+    const handleStatusToggle = (status) => {
+        setSelectedStatuses(prev =>
+            prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
         );
     };
 
@@ -298,22 +304,26 @@ export const SearchFilterSidebar = React.memo(({
                         <Accordion disableGutters elevation={0}>
                             <AccordionSummary expandIcon={<ExpandMore />}>
                                 <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                                    Status
+                                    Status {selectedStatuses.length > 0 && `(${selectedStatuses.length})`}
                                 </Typography>
                             </AccordionSummary>
                             <AccordionDetails sx={{ pt: 0 }}>
-                                <FormControl fullWidth size="small">
-                                    <Select
-                                        value={selectedStatus}
-                                        onChange={(e) => setSelectedStatus(e.target.value)}
-                                    >
-                                        {statusOptions.map((option) => (
-                                            <MenuItem key={option.value} value={option.value}>
-                                                {option.label}
-                                            </MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
+                                <FormGroup>
+                                    {statusOptions.map((option) => (
+                                        <FormControlLabel
+                                            key={option.value}
+                                            control={
+                                                <Checkbox
+                                                    checked={selectedStatuses.includes(option.value)}
+                                                    onChange={() => handleStatusToggle(option.value)}
+                                                    size="small"
+                                                />
+                                            }
+                                            label={<Typography variant="body2">{option.label}</Typography>}
+                                            sx={{ mb: 0.5 }}
+                                        />
+                                    ))}
+                                </FormGroup>
                             </AccordionDetails>
                         </Accordion>
 

@@ -1,6 +1,7 @@
 import React from 'react';
-import { Box, Typography, Button, ToggleButtonGroup, ToggleButton, FormControl, InputLabel, Select, MenuItem, Chip } from '@mui/material';
-import { ViewModule, ViewList, FilterList, Search as SearchIcon } from '@mui/icons-material';
+import { Box, Typography, ToggleButtonGroup, ToggleButton, FormControl, InputLabel, Select, MenuItem, Chip } from '@mui/material';
+import { ViewModule, ViewList } from '@mui/icons-material';
+import SearchViewToggles from './SearchViewToggles';
 
 const sortOptions = [
     { value: 'relevance', label: 'Most Relevant' },
@@ -80,27 +81,14 @@ export const ResultHeader = React.memo(({
                     </ToggleButton>
                 </ToggleButtonGroup>
 
-                {/* Toggle Search Bar */}
-                <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={() => setShowSearchBar(!showSearchBar)}
-                    startIcon={<SearchIcon />}
-                    sx={{ borderColor: '#fcfafa', color: '#fcfafa' }}
-                >
-                    {showSearchBar ? 'Hide' : 'Show'} Search
-                </Button>
-
-                {/* Toggle Filters */}
-                <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={() => setShowFilters(!showFilters)}
-                    startIcon={<FilterList />}
-                    sx={{ borderColor: '#fcfafa', color: '#fcfafa' }}
-                >
-                    {showFilters ? 'Hide' : 'Show'} Filters
-                </Button>
+                {/* Toggles live under the page intro on mobile instead */}
+                <SearchViewToggles
+                    showSearchBar={showSearchBar}
+                    setShowSearchBar={setShowSearchBar}
+                    showFilters={showFilters}
+                    setShowFilters={setShowFilters}
+                    sx={{ display: { xs: 'none', sm: 'flex' } }}
+                />
             </Box>
             
             {/* Active Filters Display */}

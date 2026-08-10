@@ -66,7 +66,9 @@ const SearchBar = ({
   // or clicking the search icon) from live search-as-you-type.
   const handleSearch = async (searchQuery = query, { commit = true } = {}) => {
     if (!searchQuery.trim()) return;
-    setSearching(true);
+    // Only a committed search swaps the search icon for a spinner. Type-ahead runs
+    // constantly, and swapping there makes the icon flicker on every keystroke.
+    setSearching(commit);
     try {
       const results = await searchAll(searchQuery.trim());
       setSearchResults(results);
@@ -191,7 +193,7 @@ const SearchBar = ({
                 edge="start"
                 sx={{ p: '10px', color: COLORS.text.secondary }}
               >
-                {searching ? <CircularProgress size={20} /> : <Search sx={{ fontSize: 30 }} />}
+                {searching ? <CircularProgress size={20} sx={{ color: 'inherit' }} /> : <Search sx={{ fontSize: 30 }} />}
               </IconButton>
             </InputAdornment>
           ),

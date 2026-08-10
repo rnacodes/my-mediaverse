@@ -83,7 +83,7 @@ const ResponsiveNavigation = () => {
     { text: 'Channels', path: '/search?mediaType=Channel', icon: <YouTube /> },
     { text: 'Highlights', path: '/search?mediaType=Highlight', icon: <FormatQuote /> },
     { text: 'Movies', path: '/search?mediaType=Movie', icon: <Movie /> },
-    { text: 'Notes', path: '/notes', icon: <NoteIcon /> },
+    { text: 'Notes', path: '/search?mediaType=Note', icon: <NoteIcon /> },
     { text: 'Playlists', path: '/search?mediaType=Playlist', icon: <VideoLibrary /> },
     { text: 'Podcasts', path: '/search?mediaType=Podcast', icon: <Podcasts /> },
     { text: 'TV Shows', path: '/search?mediaType=TVShow', icon: <Tv /> },

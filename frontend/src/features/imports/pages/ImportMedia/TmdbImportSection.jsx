@@ -12,6 +12,8 @@ import { importMovieFromTmdb } from '@/api/movieService';
 import { importTvShowFromTmdb } from '@/api/tvShowService';
 import WhiteOutlineButton from '@/shared/WhiteOutlineButton';
 import { getPlaceholderImage } from '@/utils/mediaImageUtils';
+import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
+import { DEMO_IMPORT_BLOCKED } from '@/features/demo/demoMessages';
 
 function TmdbImportSection({ expanded, onAccordionChange }) {
     const navigate = useNavigate();
@@ -370,15 +372,17 @@ function TmdbImportSection({ expanded, onAccordionChange }) {
                                                         >
                                                             View Details
                                                         </WhiteOutlineButton>
-                                                        <Button
-                                                            variant="contained"
-                                                            size="small"
-                                                            onClick={() => handleTmdbImport(item)}
-                                                            disabled={tmdbIsLoading}
-                                                            startIcon={<Download />}
-                                                        >
-                                                            Import
-                                                        </Button>
+                                                        <DemoWriteGuard title={DEMO_IMPORT_BLOCKED}>
+                                                            <Button
+                                                                variant="contained"
+                                                                size="small"
+                                                                onClick={() => handleTmdbImport(item)}
+                                                                disabled={tmdbIsLoading}
+                                                                startIcon={<Download />}
+                                                            >
+                                                                Import
+                                                            </Button>
+                                                        </DemoWriteGuard>
                                                     </Box>
                                                 </Box>
                                             </Box>
@@ -546,17 +550,19 @@ function TmdbImportSection({ expanded, onAccordionChange }) {
                                 )}
 
                                 <Box sx={{ display: 'flex', gap: 2 }}>
-                                    <Button
-                                        variant="contained"
-                                        onClick={() => {
-                                            handleTmdbImport(selectedTmdbItem);
-                                            setShowTmdbDetails(false);
-                                        }}
-                                        disabled={tmdbIsLoading}
-                                        startIcon={<Download />}
-                                    >
-                                        Import to Library
-                                    </Button>
+                                    <DemoWriteGuard title={DEMO_IMPORT_BLOCKED}>
+                                        <Button
+                                            variant="contained"
+                                            onClick={() => {
+                                                handleTmdbImport(selectedTmdbItem);
+                                                setShowTmdbDetails(false);
+                                            }}
+                                            disabled={tmdbIsLoading}
+                                            startIcon={<Download />}
+                                        >
+                                            Import to Library
+                                        </Button>
+                                    </DemoWriteGuard>
                                     <WhiteOutlineButton
                                         onClick={() => setShowTmdbDetails(false)}
                                     >

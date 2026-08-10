@@ -62,6 +62,31 @@ describe('TraktSyncPage', () => {
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
   });
 
+  it('surfaces an error instead of the panel when the device-code response is incomplete', async () => {
+    mockStatus({ connected: false });
+    server.use(
+      http.post(`${API_BASE}/trakt/auth/device-code`, () =>
+        HttpResponse.json({
+          device_code: 'device-code-123',
+          user_code: 'ABC123',
+          verification_url: 'https://trakt.tv/activate',
+          expires_in: 600,
+          interval: 5,
+        }),
+      ),
+    );
+
+    const { user } = renderWithProviders(<TraktSyncPage />, { route: '/trakt-sync' });
+
+    await user.click(await screen.findByRole('button', { name: 'Connect to Trakt' }));
+
+    expect(
+      await screen.findByText(/missing deviceCode, userCode, verificationUrl/),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Connect to Trakt' })).toBeInTheDocument();
+  });
+
   it('runs Sync All and renders the results summary', async () => {
     mockStatus({ connected: true, username: 'testuser' });
     server.use(

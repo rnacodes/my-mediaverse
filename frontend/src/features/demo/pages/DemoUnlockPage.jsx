@@ -162,7 +162,7 @@ const DemoUnlockPage = () => {
                     </Typography>
 
                     <Alert severity="info" sx={{ mb: 3 }}>
-                        Open your authenticator app, find <strong>&quot;MyMediaVerse Demo&quot;</strong>, and
+                        Open your authenticator app, find <strong>&quot;MyMediaVerse Demo,&quot;</strong> and
                         enter the 6-digit code below.
                     </Alert>
 
