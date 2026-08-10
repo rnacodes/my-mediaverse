@@ -46,13 +46,20 @@ namespace MyMediaVerse.Web.API.Controllers
         /// Start device auth flow - returns a user code and verification URL
         /// </summary>
         [HttpPost("auth/device-code")]
-        public async Task<ActionResult<TraktDeviceCodeDto>> StartDeviceAuth()
+        public async Task<ActionResult<TraktDeviceCodeResponseDto>> StartDeviceAuth()
         {
             try
             {
                 _logger.LogInformation("Starting Trakt device auth flow");
                 var deviceCode = await _apiClient.GetDeviceCodeAsync();
-                return Ok(deviceCode);
+                return Ok(new TraktDeviceCodeResponseDto
+                {
+                    DeviceCode = deviceCode.DeviceCode,
+                    UserCode = deviceCode.UserCode,
+                    VerificationUrl = deviceCode.VerificationUrl,
+                    ExpiresIn = deviceCode.ExpiresIn,
+                    Interval = deviceCode.Interval
+                });
             }
             catch (Exception ex)
             {
@@ -67,6 +74,11 @@ namespace MyMediaVerse.Web.API.Controllers
         [HttpPost("auth/poll")]
         public async Task<ActionResult> PollDeviceToken([FromBody] TraktDevicePollRequestDto request)
         {
+            if (string.IsNullOrWhiteSpace(request?.DeviceCode))
+            {
+                return BadRequest(new { status = "failed", message = "Device code is required." });
+            }
+
             try
             {
                 var tokenResponse = await _apiClient.PollDeviceTokenAsync(request.DeviceCode);

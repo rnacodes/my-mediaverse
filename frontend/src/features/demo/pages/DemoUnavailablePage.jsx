@@ -17,7 +17,7 @@ const DemoUnavailablePage = () => (
                 <Button component={Link} to="/" variant="contained">
                     Back to Home
                 </Button>
-                <Button component={Link} to="/search" variant="outlined">
+                <Button component={Link} to="/search" variant="contained">
                     Browse the library
                 </Button>
             </Box>

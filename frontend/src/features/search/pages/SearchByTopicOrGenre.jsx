@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Container, Typography, Box, Accordion, AccordionSummary, AccordionDetails, Chip, CircularProgress, Alert, Grid, Card, CardContent, Button, TextField, Dialog, DialogTitle, DialogContent, DialogActions, IconButton, DialogContentText } from '@mui/material';
 import { ExpandMore, Topic as TopicIcon, Category as GenreIcon, Add as AddIcon, Delete as DeleteIcon, CloudUpload as UploadIcon, Edit as EditIcon, PlaylistAdd } from '@mui/icons-material';
+import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
 import {
     useAllTopics,
     useAllGenres,
@@ -581,18 +582,20 @@ function SearchByTopicOrGenre() {
                         >
                             Cancel
                         </Button>
-                        <Button
-                            onClick={handleCreateTopic}
-                            variant="contained"
-                            disabled={creating || !newTopicName.trim()}
-                            sx={{
-                                backgroundColor: '#9c27b0',
-                                color: 'white',
-                                '&:hover': { backgroundColor: '#7b1fa2' }
-                            }}
-                        >
-                            {creating ? 'Creating...' : 'Create'}
-                        </Button>
+                        <DemoWriteGuard title="Creating topics is not available in the demo">
+                            <Button
+                                onClick={handleCreateTopic}
+                                variant="contained"
+                                disabled={creating || !newTopicName.trim()}
+                                sx={{
+                                    backgroundColor: '#9c27b0',
+                                    color: 'white',
+                                    '&:hover': { backgroundColor: '#7b1fa2' }
+                                }}
+                            >
+                                {creating ? 'Creating...' : 'Create'}
+                            </Button>
+                        </DemoWriteGuard>
                     </DialogActions>
                 </Dialog>
 
@@ -632,18 +635,20 @@ function SearchByTopicOrGenre() {
                         >
                             Cancel
                         </Button>
-                        <Button
-                            onClick={handleCreateGenre}
-                            variant="contained"
-                            disabled={creating || !newGenreName.trim()}
-                            sx={{
-                                backgroundColor: '#9c27b0',
-                                color: 'white',
-                                '&:hover': { backgroundColor: '#7b1fa2' }
-                            }}
-                        >
-                            {creating ? 'Creating...' : 'Create'}
-                        </Button>
+                        <DemoWriteGuard title="Creating genres is not available in the demo">
+                            <Button
+                                onClick={handleCreateGenre}
+                                variant="contained"
+                                disabled={creating || !newGenreName.trim()}
+                                sx={{
+                                    backgroundColor: '#9c27b0',
+                                    color: 'white',
+                                    '&:hover': { backgroundColor: '#7b1fa2' }
+                                }}
+                            >
+                                {creating ? 'Creating...' : 'Create'}
+                            </Button>
+                        </DemoWriteGuard>
                     </DialogActions>
                 </Dialog>
 
@@ -681,18 +686,20 @@ function SearchByTopicOrGenre() {
                         >
                             Cancel
                         </Button>
-                        <Button
-                            onClick={handleConfirmDelete}
-                            variant="contained"
-                            disabled={deleting}
-                            sx={{
-                                backgroundColor: '#9c27b0',
-                                color: 'white',
-                                '&:hover': { backgroundColor: '#7b1fa2' }
-                            }}
-                        >
-                            {deleting ? 'Deleting...' : 'Delete'}
-                        </Button>
+                        <DemoWriteGuard title="Deleting is not available in the demo">
+                            <Button
+                                onClick={handleConfirmDelete}
+                                variant="contained"
+                                disabled={deleting}
+                                sx={{
+                                    backgroundColor: '#9c27b0',
+                                    color: 'white',
+                                    '&:hover': { backgroundColor: '#7b1fa2' }
+                                }}
+                            >
+                                {deleting ? 'Deleting...' : 'Delete'}
+                            </Button>
+                        </DemoWriteGuard>
                     </DialogActions>
                 </Dialog>
 

@@ -497,7 +497,7 @@ const DemoPage = () => {
           View Mode Toggle Pattern
         </Typography>
         <Typography variant="body1" sx={{ mb: 3, color: 'text.secondary' }}>
-          Common pattern used across AllMedia and MixlistsPage for switching between card and list layouts.
+          Common pattern used across the search and listing pages for switching between card and list layouts.
         </Typography>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Typography variant="body2" color="text.secondary">

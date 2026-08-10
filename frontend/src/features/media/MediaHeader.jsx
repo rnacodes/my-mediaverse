@@ -8,7 +8,6 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 function MediaHeader({ title, mediaId, onReindex, reindexing }) {
   const navigate = useNavigate();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
 
   return (
@@ -37,29 +36,36 @@ function MediaHeader({ title, mediaId, onReindex, reindexing }) {
         {title || 'Untitled Media'}
       </Typography>
 
-      {!isMobile && (
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-          {onReindex && (
-            <Button
-              onClick={onReindex}
-              startIcon={reindexing ? <CircularProgress size={16} /> : <Sync />}
-              variant="outlined"
-              size={isTablet ? 'small' : 'medium'}
-              disabled={reindexing}
-            >
-              {reindexing ? 'Reindexing...' : 'Reindex'}
-            </Button>
-          )}
+      {/* Side by side from `sm` up; stacked under the title on mobile, Edit first */}
+      <Box sx={{
+        display: 'flex',
+        flexDirection: { xs: 'column', sm: 'row' },
+        gap: 1,
+        alignItems: { xs: 'stretch', sm: 'center' },
+        width: { xs: '100%', sm: 'auto' }
+      }}>
+        {onReindex && (
           <Button
-            onClick={() => navigate(`/media/${mediaId}/edit`)}
-            startIcon={<Edit />}
+            onClick={onReindex}
+            startIcon={reindexing ? <CircularProgress size={16} /> : <Sync />}
             variant="contained"
             size={isTablet ? 'medium' : 'large'}
+            disabled={reindexing}
+            sx={{ order: { xs: 2, sm: 0 } }}
           >
-            Edit Media
+            {reindexing ? 'Reindexing...' : 'Reindex'}
           </Button>
-        </Box>
-      )}
+        )}
+        <Button
+          onClick={() => navigate(`/media/${mediaId}/edit`)}
+          startIcon={<Edit />}
+          variant="contained"
+          size={isTablet ? 'medium' : 'large'}
+          sx={{ order: { xs: 1, sm: 0 } }}
+        >
+          Edit Media
+        </Button>
+      </Box>
     </Box>
   );
 }

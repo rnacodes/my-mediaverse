@@ -111,6 +111,7 @@ namespace MyMediaVerse.IntegrationTests.Api
                 ["Health.CorsTest"] = Authorized,
                 ["Health.Get"] = Anonymous,
                 ["Health.GetDetailed"] = Authorized,
+                ["Health.GetEnvironmentBanner"] = Authorized,
                 ["Highlight.BulkCreateHighlights"] = Unclassified,
                 ["Highlight.CleanHighlightText"] = Unclassified,
                 ["Highlight.CreateHighlight"] = Unclassified,

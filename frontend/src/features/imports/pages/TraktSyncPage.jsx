@@ -59,6 +59,13 @@ const TraktSyncPage = () => {
     startAuthMutation.mutate(undefined, {
       onSuccess: (response) => {
         const data = response.data;
+
+        const missing = ['deviceCode', 'userCode', 'verificationUrl'].filter((key) => !data?.[key]);
+        if (missing.length > 0) {
+          setError(`Trakt device authorization is unavailable (incomplete response: missing ${missing.join(', ')}). Please try again.`);
+          return;
+        }
+
         setDeviceAuth(data);
         startPolling(data.deviceCode, data.interval || 5, data.expiresIn || 600);
       },

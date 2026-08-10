@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Container, Box, Typography, Grid, Button, ButtonGroup, Collapse, CircularProgress, Paper, Alert, Toolbar, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Snackbar, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import { SearchBarSection } from '../SearchBarSection';
 import { SearchFilterSidebar } from '../SearchFilterSidebar';
 import { Search as SearchIcon, Delete, CheckBox, CheckBoxOutlineBlank, PlaylistAdd } from '@mui/icons-material';
 import { ResultHeader } from '../ResultHeader';
+import SearchViewToggles from '../SearchViewToggles';
 import { SearchResultCard } from '../SearchResultCard';
 import { MediaListItem } from '../MediaListItem';
 import { typesenseAdvancedSearch, typesenseAdvancedSearchMixlists, searchHighlights } from '@/api/typesenseService';
@@ -41,6 +42,7 @@ const mediaTypeOptions = [
 // MAIN COMPONENT
 export default function Search({ defaultMediaTypes = [] }) {
     const [searchParams] = useSearchParams();
+    const navigate = useNavigate();
     const [searchQuery, setSearchQuery] = useState('');
     const [viewMode, setViewMode] = useState('card');
     const [sortBy, setSortBy] = useState('relevance');
@@ -49,7 +51,7 @@ export default function Search({ defaultMediaTypes = [] }) {
     const [selectedMediaTypes, setSelectedMediaTypes] = useState(defaultMediaTypes); // Empty = show "please select" message
     const [selectedTopics, setSelectedTopics] = useState([]);
     const [selectedGenres, setSelectedGenres] = useState([]);
-    const [selectedStatus, setSelectedStatus] = useState('all');
+    const [selectedStatuses, setSelectedStatuses] = useState([]);
     const [selectedRatings, setSelectedRatings] = useState([]);
     const [showFilters, setShowFilters] = useState(true);
     const [showSearchBar, setShowSearchBar] = useState(true);
@@ -193,7 +195,7 @@ export default function Search({ defaultMediaTypes = [] }) {
             if (mediaType) setSelectedMediaTypes(mediaType.split(',').map(t => t.trim()));
             if (topics) setSelectedTopics(topics.split(',').map(t => t.trim()));
             if (genres) setSelectedGenres(genres.split(',').map(g => g.trim()));
-            if (status) setSelectedStatus(status);
+            if (status) setSelectedStatuses(status.split(',').map(s => s.trim()).filter(s => s && s !== 'all'));
             if (mode === 'mixlists') setSearchMode('mixlists');
 
             setUrlParamsLoaded(true);
@@ -208,7 +210,7 @@ export default function Search({ defaultMediaTypes = [] }) {
         selectedMediaTypes,
         selectedTopics,
         selectedGenres,
-        selectedStatus,
+        selectedStatuses,
         selectedRatings,
         sortBy,
     ]);
@@ -229,13 +231,26 @@ export default function Search({ defaultMediaTypes = [] }) {
     }, [searchCriteriaKey, currentPage, urlParamsLoaded]);
 
     // Check if we have any selection criteria for media search
+    // The /all-media route opts in to browsing the whole library, so it needs no filters.
+    // Everywhere else 'all' is only a no-selection sentinel and must not count as a chosen
+    // filter, or arriving with ?mediaType=all and no query lists the entire library.
+    const browseAllMode = defaultMediaTypes.includes('all');
+
     const hasMediaFilters = searchMode === 'media' && (
+        browseAllMode ||
         debouncedSearchQuery.trim() !== '' ||
-        selectedMediaTypes.length > 0 ||
+        selectedMediaTypes.some(type => type !== 'all') ||
         selectedTopics.length > 0 ||
         selectedGenres.length > 0 ||
-        selectedStatus !== 'all' ||
+        selectedStatuses.length > 0 ||
         selectedRatings.length > 0
+    );
+
+    // Distinguishes "you have no mixlists yet" from "your search matched none".
+    const hasMixlistFilters = searchMode === 'mixlists' && (
+        debouncedSearchQuery.trim() !== '' ||
+        selectedTopics.length > 0 ||
+        selectedGenres.length > 0
     );
 
     const performSearch = async () => {
@@ -294,8 +309,12 @@ export default function Search({ defaultMediaTypes = [] }) {
             } else {
                 // Search media items (and optionally notes/highlights)
                 const mediaTypesFiltered = selectedMediaTypes.filter(type => type !== 'all' && type !== 'Note' && type !== 'Highlight');
-                const includeNotes = selectedMediaTypes.includes('all') || selectedMediaTypes.includes('Note');
-                const includeHighlights = selectedMediaTypes.includes('all') || selectedMediaTypes.includes('Highlight');
+                // Notes and highlights carry no genre, status, or rating, so any of those
+                // filters rules them out. Without this they come back unfiltered and a
+                // genre with no media reads as "the whole library".
+                const mediaOnlyFilters = selectedGenres.length > 0 || selectedStatuses.length > 0 || selectedRatings.length > 0;
+                const includeNotes = !mediaOnlyFilters && (selectedMediaTypes.includes('all') || selectedMediaTypes.includes('Note'));
+                const includeHighlights = !mediaOnlyFilters && (selectedMediaTypes.includes('all') || selectedMediaTypes.includes('Highlight'));
                 const onlyNotes = selectedMediaTypes.length === 1 && selectedMediaTypes[0] === 'Note';
                 const onlyHighlights = selectedMediaTypes.length === 1 && selectedMediaTypes[0] === 'Highlight';
 
@@ -389,7 +408,13 @@ export default function Search({ defaultMediaTypes = [] }) {
                     };
                 });
 
-                if (onlyNotes) {
+                if ((onlyNotes || onlyHighlights) && mediaOnlyFilters) {
+                    // An explicit notes/highlights search under a media-only filter can
+                    // never match, so don't run it.
+                    setSearchResults([]);
+                    setTotalResults(0);
+                    setTotalPages(1);
+                } else if (onlyNotes) {
                     // Only searching notes
                     const noteFilter = selectedTopics.length > 0 ? `tags:=[${selectedTopics.map(t => `"${t}"`).join(',')}]` : null;
                     response = await searchNotes(debouncedSearchQuery || '*', noteFilter, currentPage, perPage, sortBy);
@@ -420,7 +445,7 @@ export default function Search({ defaultMediaTypes = [] }) {
                         mediaTypes: selectedMediaTypes.includes('all') ? [] : mediaTypesFiltered,
                         topics: selectedTopics,
                         genres: selectedGenres,
-                        status: selectedStatus !== 'all' ? selectedStatus : null,
+                        status: selectedStatuses,
                         ratings: selectedRatings,
                         page: currentPage,
                         perPage: perPagePerType,
@@ -493,7 +518,7 @@ export default function Search({ defaultMediaTypes = [] }) {
                         mediaTypes: selectedMediaTypes.includes('all') ? [] : mediaTypesFiltered,
                         topics: selectedTopics,
                         genres: selectedGenres,
-                        status: selectedStatus !== 'all' ? selectedStatus : null,
+                        status: selectedStatuses,
                         ratings: selectedRatings,
                         page: currentPage,
                         perPage: perPage,
@@ -547,7 +572,7 @@ export default function Search({ defaultMediaTypes = [] }) {
         setSelectedMediaTypes([]);
         setSelectedTopics([]);
         setSelectedGenres([]);
-        setSelectedStatus('all');
+        setSelectedStatuses([]);
         setSelectedRatings([]);
         setSearchQuery('');
         setTopicSearchQuery('');
@@ -578,6 +603,13 @@ export default function Search({ defaultMediaTypes = [] }) {
                             ? 'Search across all your media and notes with powerful filters and instant results'
                             : 'Search and discover curated mixlists by name, topics, or genres'}
                     </Typography>
+                    <SearchViewToggles
+                        showSearchBar={showSearchBar}
+                        setShowSearchBar={setShowSearchBar}
+                        showFilters={showFilters}
+                        setShowFilters={setShowFilters}
+                        sx={{ display: { xs: 'flex', sm: 'none' }, mt: 2 }}
+                    />
                 </Box>
 
                 {/* Search Bar */}
@@ -605,8 +637,8 @@ export default function Search({ defaultMediaTypes = [] }) {
                             setSelectedTopics={setSelectedTopics}
                             selectedGenres={selectedGenres}
                             setSelectedGenres={setSelectedGenres}
-                            selectedStatus={selectedStatus}
-                            setSelectedStatus={setSelectedStatus}
+                            selectedStatuses={selectedStatuses}
+                            setSelectedStatuses={setSelectedStatuses}
                             selectedRatings={selectedRatings}
                             setSelectedRatings={setSelectedRatings}
                             handleClearFilters={handleClearFilters}
@@ -723,7 +755,7 @@ export default function Search({ defaultMediaTypes = [] }) {
                                     width: { xs: '100%', sm: 'auto' }
                                 }}>
                                     <Button
-                                        variant="outlined"
+                                        variant="contained"
                                         color="primary"
                                         size="small"
                                         onClick={openAddToMixlistDialog}
@@ -774,6 +806,21 @@ export default function Search({ defaultMediaTypes = [] }) {
                                 <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                                     Use the search bar or select media types, topics, genres, or other filters to find your media
                                 </Typography>
+                            </Paper>
+                        ) : searchResults.length === 0 && searchMode === 'mixlists' && !hasMixlistFilters ? (
+                            <Paper sx={{ p: 8, textAlign: 'center' }}>
+                                <Typography variant="h6" color="text.secondary">
+                                    Create your first mixlist to organize your media!
+                                </Typography>
+                                <Button
+                                    variant="contained"
+                                    color="primary"
+                                    startIcon={<PlaylistAdd />}
+                                    onClick={() => navigate('/create-mixlist', { state: { returnTo: '/search?searchMode=mixlists' } })}
+                                    sx={{ mt: 3, minHeight: '44px' }}
+                                >
+                                    Create First Mixlist
+                                </Button>
                             </Paper>
                         ) : searchResults.length === 0 ? (
                             <Paper sx={{ p: 8, textAlign: 'center' }}>
@@ -902,7 +949,12 @@ export default function Search({ defaultMediaTypes = [] }) {
                     </FormControl>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setAddToMixlistDialogOpen(false)} disabled={addingToMixlist}>
+                    <Button
+                        onClick={() => setAddToMixlistDialogOpen(false)}
+                        color="primary"
+                        variant="contained"
+                        disabled={addingToMixlist}
+                    >
                         Cancel
                     </Button>
                     <Button

@@ -7,6 +7,9 @@ import * as Sentry from '@sentry/react'
 import './index.css'
 import App from './App.jsx'
 import { queryClient } from './api/queryClient'
+import { logEnvironmentBanner } from './utils/logEnvironmentBanner'
+
+if (import.meta.env.DEV) logEnvironmentBanner()
 
 // Initialize Sentry before rendering. No-op unless VITE_SENTRY_DSN is set,
 // so local dev stays silent unless you opt in. Environment mirrors the backend

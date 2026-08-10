@@ -4,6 +4,7 @@ import { TextField, Button, Box, Typography, Chip, Autocomplete } from '@mui/mat
 import { useCreateMixlist } from '@/hooks/useMixlist';
 import { useUploadThumbnail } from '@/hooks/useUpload';
 import { useTopicSearch, useGenreSearch } from '@/hooks/useTopicGenre';
+import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
 
 function CreateMixlistForm() {
     const [name, setName] = useState('');
@@ -350,7 +351,8 @@ function CreateMixlistForm() {
                         color: '#ffffff',
                         opacity: 0.8
                     }}>
-                        📐 Ideal image size: 400x400 pixels (square format recommended).
+                        📐 Ideal image size: 800x400 pixels. Mixlist images are shown in wide
+                        landscape frames, so a square image gets cropped top and bottom.
                     </Typography>
                 </Box>
 
@@ -374,6 +376,7 @@ function CreateMixlistForm() {
                     >
                         Cancel
                     </Button>
+                    <DemoWriteGuard title="Creating mixlists is not available in the demo" style={{ flex: 2, display: 'flex' }}>
                     <Button
                         type="submit"
                         variant="contained"
@@ -393,6 +396,7 @@ function CreateMixlistForm() {
                     >
                         {isSubmitting ? 'Creating...' : 'Create Mixlist'}
                     </Button>
+                    </DemoWriteGuard>
                 </Box>
             </Box>
         </Box>

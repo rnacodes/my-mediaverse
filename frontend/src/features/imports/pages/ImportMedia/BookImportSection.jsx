@@ -12,6 +12,8 @@ import {
     searchBooksFromOpenLibrary, importBookFromOpenLibrary
 } from '@/api/bookService';
 import WhiteOutlineButton from '@/shared/WhiteOutlineButton';
+import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
+import { DEMO_IMPORT_BLOCKED } from '@/features/demo/demoMessages';
 
 const BOOK_SOURCES = {
     googlebooks: {
@@ -428,15 +430,17 @@ function BookImportSection({ expanded, onAccordionChange }) {
                                                             >
                                                                 View Details
                                                             </WhiteOutlineButton>
-                                                            <Button
-                                                                variant="contained"
-                                                                size="small"
-                                                                onClick={() => handleImportBook(book)}
-                                                                disabled={bookIsLoading}
-                                                                startIcon={<Download />}
-                                                            >
-                                                                Import
-                                                            </Button>
+                                                            <DemoWriteGuard title={DEMO_IMPORT_BLOCKED}>
+                                                                <Button
+                                                                    variant="contained"
+                                                                    size="small"
+                                                                    onClick={() => handleImportBook(book)}
+                                                                    disabled={bookIsLoading}
+                                                                    startIcon={<Download />}
+                                                                >
+                                                                    Import
+                                                                </Button>
+                                                            </DemoWriteGuard>
                                                         </Box>
                                                     </Box>
                                                 </Box>
@@ -476,14 +480,16 @@ function BookImportSection({ expanded, onAccordionChange }) {
                                     sx: { color: 'white' }
                                 }}
                             />
-                            <Button
-                                variant="contained"
-                                onClick={handleBookImportByIsbn}
-                                disabled={bookIsLoading}
-                                startIcon={<Download />}
-                            >
-                                Import
-                            </Button>
+                            <DemoWriteGuard title={DEMO_IMPORT_BLOCKED}>
+                                <Button
+                                    variant="contained"
+                                    onClick={handleBookImportByIsbn}
+                                    disabled={bookIsLoading}
+                                    startIcon={<Download />}
+                                >
+                                    Import
+                                </Button>
+                            </DemoWriteGuard>
                         </Box>
                     )}
 
@@ -511,15 +517,17 @@ function BookImportSection({ expanded, onAccordionChange }) {
                                     sx: { color: 'white' }
                                 }}
                             />
-                            <Button
-                                variant="contained"
-                                onClick={handleBookImportByTitleAuthor}
-                                disabled={bookIsLoading}
-                                startIcon={<Download />}
-                                sx={{ mt: 1 }}
-                            >
-                                Import
-                            </Button>
+                            <DemoWriteGuard title={DEMO_IMPORT_BLOCKED}>
+                                <Button
+                                    variant="contained"
+                                    onClick={handleBookImportByTitleAuthor}
+                                    disabled={bookIsLoading}
+                                    startIcon={<Download />}
+                                    sx={{ mt: 1 }}
+                                >
+                                    Import
+                                </Button>
+                            </DemoWriteGuard>
                         </Box>
                     )}
 

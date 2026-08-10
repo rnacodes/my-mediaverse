@@ -16,6 +16,7 @@ import {
 import CommonFields from '@/features/media/form/CommonFields';
 import TypeSpecificFields from '@/features/media/form/TypeSpecificFields';
 import MixlistSelector from './MixlistSelector';
+import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
 
 function AddMediaForm() {
   const navigate = useNavigate();
@@ -125,15 +126,17 @@ function AddMediaForm() {
           <MixlistSelector />
           <TypeSpecificFields />
 
-          <Button
-            type="submit"
-            variant="contained"
-            color="primary"
-            disabled={methods.formState.isSubmitting}
-            sx={{ mt: 3, width: '100%', fontSize: '16px', fontWeight: 'bold', py: 1.5 }}
-          >
-            Save Media
-          </Button>
+          <DemoWriteGuard title="Adding media is not available in the demo" style={{ width: '100%' }}>
+            <Button
+              type="submit"
+              variant="contained"
+              color="primary"
+              disabled={methods.formState.isSubmitting}
+              sx={{ mt: 3, width: '100%', fontSize: '16px', fontWeight: 'bold', py: 1.5 }}
+            >
+              Save Media
+            </Button>
+          </DemoWriteGuard>
         </Box>
       </FormProvider>
     </Box>

@@ -112,7 +112,7 @@ function ImportMixlistPage() {
         <Box sx={{ p: 3, minHeight: '100vh' }}>
             {/* Header */}
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
-                <IconButton onClick={() => navigate('/mixlists')} sx={{ mr: 2 }}>
+                <IconButton onClick={() => navigate('/search?searchMode=mixlists')} sx={{ mr: 2 }}>
                     <ArrowBack />
                 </IconButton>
                 <Typography variant="h3" component="h1" sx={{ 
@@ -310,7 +310,7 @@ function ImportMixlistPage() {
                         <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
                             <Button
                                 variant="contained"
-                                onClick={() => navigate('/mixlists')}
+                                onClick={() => navigate('/search?searchMode=mixlists')}
                                 sx={{ px: 3, py: 1.5 }}
                             >
                                 View All Mixlists

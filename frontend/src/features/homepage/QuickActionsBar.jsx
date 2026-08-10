@@ -1,11 +1,10 @@
 import { Box, Grid, Typography } from '@mui/material';
-import { Apps, AddCircleOutline, ImportExport, Topic, BookmarkAdd } from '@mui/icons-material';
+import { AddCircleOutline, ImportExport, Topic, BookmarkAdd } from '@mui/icons-material';
 
 // One tile in the quick-actions bar. The icon color (#695a8c) and hover behavior are
-// shared across tiles; only the hover background tint varies (Source Directory uses a
-// purple tint, the rest use the muted lilac tint).
+// shared across tiles.
 const ActionTile = ({ icon: Icon, label, onClick, hoverBg }) => (
-  <Grid item xs={6} sm={6} md={2.4} sx={{ textAlign: 'center' }}>
+  <Grid item xs={6} sm={6} md={3} sx={{ textAlign: 'center' }}>
     <Box
       onClick={onClick}
       sx={{
@@ -45,7 +44,6 @@ const ActionTile = ({ icon: Icon, label, onClick, hoverBg }) => (
 
 // The card of primary actions below the media-type grid.
 const QuickActionsBar = ({
-  onSourceDirectory,
   onCreateMixlist,
   onImportMedia,
   onSearchByTopicOrGenre,
@@ -59,7 +57,6 @@ const QuickActionsBar = ({
       boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
   }}>
     <Grid container spacing={{ xs: 2, sm: 3 }} alignItems="center" justifyContent="center">
-      <ActionTile icon={Apps} label="Source Directory" onClick={onSourceDirectory} hoverBg="rgba(156, 39, 176, 0.1)" />
       <ActionTile icon={AddCircleOutline} label="Create a Mixlist" onClick={onCreateMixlist} hoverBg="rgba(105, 90, 140, 0.1)" />
       <ActionTile icon={ImportExport} label="Import Media" onClick={onImportMedia} hoverBg="rgba(105, 90, 140, 0.1)" />
       <ActionTile icon={Topic} label="Browse Topics/Genres" onClick={onSearchByTopicOrGenre} hoverBg="rgba(105, 90, 140, 0.1)" />

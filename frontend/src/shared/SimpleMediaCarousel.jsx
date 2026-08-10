@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import {
-  Box, Typography, Card, CardContent, CardMedia, IconButton, Chip
+  Box, Typography, Card, CardContent, CardMedia, IconButton, Chip, useTheme, useMediaQuery
 } from '@mui/material';
 import { ChevronLeft, ChevronRight } from '@mui/icons-material';
 import { formatMediaType } from '@/utils/formatters';
 import { resolveMediaImage, getPlaceholderImage } from '@/utils/mediaImageUtils';
 
 const VISIBLE_ITEMS = 5;
+const VISIBLE_ITEMS_MOBILE = 1;
 const MAX_DOTS = 6;
 
 const SimpleMediaCarousel = ({
@@ -18,16 +19,14 @@ const SimpleMediaCarousel = ({
   cardHeight = 380,
   imageHeight,
   showCardContent = true,
-  // Nav arrows appear only when item count exceeds this threshold. Defaults to 1
-  // (arrows whenever there's more than one item); callers can raise it to hide the
-  // arrows for small sets that already fit on screen.
-  arrowThreshold = 1,
   sx = {},
   ...props
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const effectiveImageHeight = imageHeight ?? (showCardContent ? Math.round(cardHeight * 0.58) : cardHeight);
-  
+
   if (!mediaItems || mediaItems.length === 0) {
     return (
       <Box sx={{ textAlign: 'center', py: 4 }}>
@@ -62,14 +61,15 @@ const SimpleMediaCarousel = ({
     return colors[mediaType] || colors['Other'];
   };
 
-  // Show current item and 2 items on each side (5 total)
-  const getVisibleItems = () => {
-    if (mediaItems.length <= VISIBLE_ITEMS) {
-      return mediaItems.map((item, index) => ({ ...item, offset: index - currentIndex }));
-    }
+  // One card at a time on mobile, where a wider window only clips; up to five elsewhere.
+  const windowSize = Math.min(mediaItems.length, isMobile ? VISIBLE_ITEMS_MOBILE : VISIBLE_ITEMS);
 
+  // Always a rotating window centred on currentIndex, so the arrows move the strip no
+  // matter how many items there are.
+  const getVisibleItems = () => {
+    const half = Math.floor(windowSize / 2);
     const visible = [];
-    for (let i = -2; i <= 2; i++) {
+    for (let i = -half; i < windowSize - half; i++) {
       const index = (currentIndex + i + mediaItems.length) % mediaItems.length;
       visible.push({ ...mediaItems[index], offset: i });
     }
@@ -78,7 +78,9 @@ const SimpleMediaCarousel = ({
 
   const visibleItems = getVisibleItems();
 
-  const showDots = mediaItems.length > VISIBLE_ITEMS;
+  // Only worth navigating when something is actually off-screen.
+  const showArrows = mediaItems.length > windowSize;
+  const showDots = mediaItems.length > windowSize;
   const dotCount = Math.min(mediaItems.length, MAX_DOTS);
   const activeDotIndex = dotCount >= mediaItems.length
     ? currentIndex
@@ -107,12 +109,14 @@ const SimpleMediaCarousel = ({
       {/* Carousel */}
       <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
         {/* Previous Button */}
-        {mediaItems.length > arrowThreshold && (
+        {showArrows && (
           <IconButton
             onClick={handlePrevious}
+            aria-label="Previous item"
             sx={{
               position: 'absolute',
-              left: -20,
+              // Sits just outside the cards on wider screens; pulled inside on mobile.
+              left: { xs: 0, sm: -20 },
               zIndex: 2,
               backgroundColor: 'background.paper',
               boxShadow: 2,
@@ -130,7 +134,7 @@ const SimpleMediaCarousel = ({
           alignItems: 'center',
           gap: 1, // Reduced from 2 to 1 for tighter spacing
           overflow: 'hidden',
-          px: 6
+          px: { xs: 5, sm: 6 }
         }}>
           {visibleItems.map((media) => {
             const isCenter = media.offset === 0;
@@ -201,12 +205,13 @@ const SimpleMediaCarousel = ({
         </Box>
 
         {/* Next Button */}
-        {mediaItems.length > arrowThreshold && (
+        {showArrows && (
           <IconButton
             onClick={handleNext}
+            aria-label="Next item"
             sx={{
               position: 'absolute',
-              right: -20,
+              right: { xs: 0, sm: -20 },
               zIndex: 2,
               backgroundColor: 'background.paper',
               boxShadow: 2,
