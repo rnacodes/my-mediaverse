@@ -5,6 +5,8 @@ import {
     Accordion, AccordionSummary, AccordionDetails
 } from '@mui/material';
 import { Language, ExpandMore } from '@mui/icons-material';
+import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
+import { DEMO_SECTION_BLOCKED } from '@/features/demo/demoMessages';
 
 function WebsiteImportSection({ expanded, onAccordionChange }) {
     const navigate = useNavigate();
@@ -54,14 +56,16 @@ function WebsiteImportSection({ expanded, onAccordionChange }) {
                             </Typography>
                         </li>
                     </Box>
-                    <Button
-                        variant="contained"
-                        startIcon={<Language />}
-                        onClick={() => navigate('/import-website')}
-                        sx={{ mt: 2 }}
-                    >
-                        Import Website
-                    </Button>
+                    <DemoWriteGuard title={DEMO_SECTION_BLOCKED}>
+                        <Button
+                            variant="contained"
+                            startIcon={<Language />}
+                            onClick={() => navigate('/import-website')}
+                            sx={{ mt: 2 }}
+                        >
+                            Import Website
+                        </Button>
+                    </DemoWriteGuard>
                 </Box>
             </AccordionDetails>
         </Accordion>

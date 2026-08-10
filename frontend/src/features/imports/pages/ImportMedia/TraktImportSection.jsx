@@ -5,6 +5,8 @@ import {
     Accordion, AccordionSummary, AccordionDetails
 } from '@mui/material';
 import { LiveTv, ExpandMore, OpenInNew } from '@mui/icons-material';
+import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
+import { DEMO_SECTION_BLOCKED } from '@/features/demo/demoMessages';
 
 function TraktImportSection({ expanded, onAccordionChange }) {
     const navigate = useNavigate();
@@ -78,14 +80,16 @@ function TraktImportSection({ expanded, onAccordionChange }) {
                             </Typography>
                         </li>
                     </Box>
-                    <Button
-                        variant="contained"
-                        startIcon={<LiveTv />}
-                        onClick={() => navigate('/trakt-sync')}
-                        sx={{ mt: 2 }}
-                    >
-                        Go to Trakt Sync
-                    </Button>
+                    <DemoWriteGuard title={DEMO_SECTION_BLOCKED}>
+                        <Button
+                            variant="contained"
+                            startIcon={<LiveTv />}
+                            onClick={() => navigate('/trakt-sync')}
+                            sx={{ mt: 2 }}
+                        >
+                            Go to Trakt Sync
+                        </Button>
+                    </DemoWriteGuard>
                 </Box>
             </AccordionDetails>
         </Accordion>

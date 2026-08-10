@@ -5,6 +5,8 @@ import {
     Accordion, AccordionSummary, AccordionDetails
 } from '@mui/material';
 import { AutoStories, ExpandMore, OpenInNew } from '@mui/icons-material';
+import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
+import { DEMO_SECTION_BLOCKED } from '@/features/demo/demoMessages';
 
 function ReadwiseImportSection({ expanded, onAccordionChange }) {
     const navigate = useNavigate();
@@ -76,14 +78,16 @@ function ReadwiseImportSection({ expanded, onAccordionChange }) {
                             </Typography>
                         </li>
                     </Box>
-                    <Button
-                        variant="contained"
-                        startIcon={<AutoStories />}
-                        onClick={() => navigate('/readwise-sync')}
-                        sx={{ mt: 2 }}
-                    >
-                        Go to Readwise Sync
-                    </Button>
+                    <DemoWriteGuard title={DEMO_SECTION_BLOCKED}>
+                        <Button
+                            variant="contained"
+                            startIcon={<AutoStories />}
+                            onClick={() => navigate('/readwise-sync')}
+                            sx={{ mt: 2 }}
+                        >
+                            Go to Readwise Sync
+                        </Button>
+                    </DemoWriteGuard>
                 </Box>
             </AccordionDetails>
         </Accordion>
