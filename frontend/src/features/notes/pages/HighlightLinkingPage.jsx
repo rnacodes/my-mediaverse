@@ -1,5 +1,3 @@
-//Update purple outline buttons to white
-
 import React, { useState, useMemo } from 'react';
 import { Box, Container, Typography, Paper, TextField, Button, Checkbox, Chip, CircularProgress, Alert, Snackbar, Dialog, DialogTitle, DialogContent, DialogActions, InputAdornment, Accordion, AccordionSummary, AccordionDetails, Divider } from '@mui/material';
 import { Search as SearchIcon, ExpandMore as ExpandMoreIcon, Link as LinkIcon, MenuBook as BookIcon, Article as ArticleIcon } from '@mui/icons-material';
@@ -33,6 +31,7 @@ export default function HighlightLinkingPage() {
     const [linking, setLinking] = useState(false);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
     const [expandedSources, setExpandedSources] = useState(new Set());
+    const [expandedText, setExpandedText] = useState(new Set()); // which highlights show their full text
 
     const refreshData = () => {
         setDismissedError(false);
@@ -208,6 +207,21 @@ export default function HighlightLinkingPage() {
     const truncateText = (text, maxLength = 150) => {
         if (!text || text.length <= maxLength) return text;
         return text.substring(0, maxLength) + '...';
+    };
+
+    const TEXT_CUTOFF = 300;
+    const isTextLong = (text) => text && text.length > TEXT_CUTOFF;
+
+    const toggleTextExpansion = (highlightId) => {
+        setExpandedText(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(highlightId)) {
+                newSet.delete(highlightId);
+            } else {
+                newSet.add(highlightId);
+            }
+            return newSet;
+        });
     };
 
     if (loading) {
@@ -393,8 +407,21 @@ export default function HighlightLinkingPage() {
                                                             color: 'text.primary'
                                                         }}
                                                     >
-                                                        &quot;{truncateText(highlight.text, 300)}&quot;
+                                                        &quot;{expandedText.has(highlight.id) ? highlight.text : truncateText(highlight.text, TEXT_CUTOFF)}&quot;
                                                     </Typography>
+                                                    {isTextLong(highlight.text) && (
+                                                        <Button
+                                                            size="small"
+                                                            variant="text"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                toggleTextExpansion(highlight.id);
+                                                            }}
+                                                            sx={{ mt: 0.5, minWidth: 0, p: 0 }}
+                                                        >
+                                                            {expandedText.has(highlight.id) ? 'Show Less' : 'Read More'}
+                                                        </Button>
+                                                    )}
                                                     {highlight.note && (
                                                         <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
                                                             Note: {truncateText(highlight.note, 100)}

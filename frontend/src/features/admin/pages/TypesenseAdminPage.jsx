@@ -1,16 +1,15 @@
-import React, { useState } from 'react';
-import { Container, Paper, Typography, Button, Box, Alert, CircularProgress, Card, CardContent, Grid, Chip, TextField, Select, MenuItem, FormControl, InputLabel, Divider, List, ListItem, ListItemText, Switch, FormControlLabel } from '@mui/material';
+import React from 'react';
+import { Container, Paper, Typography, Button, Box, Alert, CircularProgress, Card, CardContent, Grid, Chip, List, ListItem, ListItemText, Switch, FormControlLabel } from '@mui/material';
 import { Refresh as RefreshIcon, Search as SearchIcon, CheckCircle as CheckCircleIcon, Error as ErrorIcon, Info as InfoIcon } from '@mui/icons-material';
 import {
   useRealTimeIndexingStatus, useSetRealTimeIndexingStatus,
-  useTypesenseHealth, useTypesenseSearch,
+  useTypesenseHealth,
   useTypesenseReindex, useTypesenseReindexMixlists, useReindexHighlights,
   useTypesenseResetMediaItems, useTypesenseResetMixlists, useResetHighlightsCollection,
   useTypesenseReindexNotes, useTypesenseResetNotesCollection,
 } from '@/hooks/useTypesense';
 import { useDuplicateArticles, useDeduplicateArticles } from '@/hooks/useArticle';
 import { useSyncAllVaults, useNoteSyncStatus } from '@/hooks/useNote';
-import { formatStatus } from '@/utils/formatters';
 
 // Typesense/admin errors surface via data.message.
 const errMsg = (error, fallback) =>
@@ -131,35 +130,6 @@ const TypesenseAdminPage = () => {
     resetNotesMutation.mutate();
   };
 
-  // ----- Search testing (button-triggered query via a submitted mirror state) -----
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchType, setSearchType] = useState('all');
-  const [submittedSearch, setSubmittedSearch] = useState(null);
-  const [searchValidationError, setSearchValidationError] = useState(null);
-  const searchTestQuery = useTypesenseSearch(submittedSearch?.query, submittedSearch?.type ?? 'all', 1, 20);
-  const searchResults = submittedSearch ? (searchTestQuery.data ?? null) : null;
-  const searchLoading = searchTestQuery.isFetching;
-  const searchError = searchValidationError || errMsg(searchTestQuery.error, 'Search failed');
-  const handleSearchTest = () => {
-    if (!searchQuery.trim()) {
-      setSearchValidationError('Please enter a search query');
-      return;
-    }
-    setSearchValidationError(null);
-    setSubmittedSearch({ query: searchQuery, type: searchType });
-  };
-
-  const mediaTypes = [
-    { value: 'all', label: 'All Types' },
-    { value: 'Book', label: 'Books' },
-    { value: 'Article', label: 'Articles' },
-    { value: 'Movie', label: 'Movies' },
-    { value: 'TVShow', label: 'TV Shows' },
-    { value: 'Video', label: 'Videos' },
-    { value: 'Podcast', label: 'Podcasts' },
-    { value: 'Website', label: 'Websites' },
-  ];
-
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Typography variant="h3" gutterBottom sx={{ mb: 4, fontWeight: 'bold' }}>
@@ -267,6 +237,33 @@ const TypesenseAdminPage = () => {
           Reindex syncs data from your database to Typesense. Use this after adding or modifying content, or if search results seem out of sync.
         </Alert>
 
+        {/* Obsidian vault sync status */}
+        {noteSyncStatus && (
+          <Card variant="outlined" sx={{ mb: 2 }}>
+            <CardContent>
+              <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
+                Obsidian Sync Configuration
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                <Chip
+                  label={noteSyncStatus.backgroundSyncEnabled ? 'Background Sync Enabled' : 'Background Sync Disabled'}
+                  color={noteSyncStatus.backgroundSyncEnabled ? 'success' : 'default'}
+                  size="small"
+                />
+                {noteSyncStatus.generalVaultConfigured && (
+                  <Chip label="General Vault Configured" color="primary" size="small" />
+                )}
+                {noteSyncStatus.programmingVaultConfigured && (
+                  <Chip label="Programming Vault Configured" color="primary" size="small" />
+                )}
+                {noteSyncStatus.lastSyncTime && (
+                  <Chip label={`Last Sync: ${new Date(noteSyncStatus.lastSyncTime).toLocaleString()}`} size="small" variant="outlined" />
+                )}
+              </Box>
+            </CardContent>
+          </Card>
+        )}
+
         <Grid container spacing={2}>
           <Grid item xs={12} md={6}>
             <Card variant="outlined">
@@ -332,6 +329,52 @@ const TypesenseAdminPage = () => {
                   fullWidth
                 >
                   {reindexingHighlights ? 'Reindexing...' : 'Reindex Highlights'}
+                </Button>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <Card variant="outlined">
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Sync Notes from Vaults
+                </Typography>
+                <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+                  Import notes from your configured Quartz vaults. New notes are added, existing notes are updated if content changed.
+                </Typography>
+                <Button
+                  variant="contained"
+                  color="error"
+                  startIcon={syncingNotes ? <CircularProgress size={20} color="inherit" /> : <RefreshIcon />}
+                  onClick={handleSyncNotes}
+                  disabled={syncingNotes}
+                  fullWidth
+                >
+                  {syncingNotes ? 'Syncing...' : 'Sync All Vaults'}
+                </Button>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid item xs={12} md={6}>
+            <Card variant="outlined">
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Reindex Notes
+                </Typography>
+                <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+                  Reindex all notes from the database to Typesense. Use this if search results are out of sync.
+                </Typography>
+                <Button
+                  variant="contained"
+                  color="error"
+                  startIcon={reindexingNotes ? <CircularProgress size={20} color="inherit" /> : <RefreshIcon />}
+                  onClick={handleReindexNotes}
+                  disabled={reindexingNotes}
+                  fullWidth
+                >
+                  {reindexingNotes ? 'Reindexing...' : 'Reindex Notes'}
                 </Button>
               </CardContent>
             </Card>
@@ -433,6 +476,77 @@ const TypesenseAdminPage = () => {
             </CardContent>
           </Card>
         )}
+
+        {/* Vault Sync Results */}
+        {syncNotesError && (
+          <Alert severity="error" sx={{ mt: 2 }}>
+            <strong>Sync Failed:</strong> {syncNotesError}
+          </Alert>
+        )}
+
+        {syncNotesResult && (
+          <Card variant="outlined" sx={{ mt: 2, bgcolor: 'success.light' }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: '#fcfafa' }}>
+                Sync Complete
+              </Typography>
+
+              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                {syncNotesResult.results && syncNotesResult.results.map((result, index) => (
+                  <Box key={`sync-${result.vaultName || index}`} sx={{ textAlign: 'center', p: 2, bgcolor: 'background.paper', borderRadius: 1, minWidth: 120 }}>
+                    <Typography variant="subtitle2" color="textSecondary">
+                      {result.vaultName || `Vault ${index + 1}`}
+                    </Typography>
+                    <Typography variant="h5" sx={{ fontWeight: 'bold', color: 'white' }}>
+                      {result.importedCount || 0}
+                    </Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      Imported/Updated
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+
+              {syncNotesResult.message && (
+                <Typography variant="body2" sx={{ mt: 2, fontStyle: 'italic' }}>
+                  {syncNotesResult.message}
+                </Typography>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Notes Reindex Results */}
+        {reindexNotesError && (
+          <Alert severity="error" sx={{ mt: 2 }}>
+            <strong>Notes Reindex Failed:</strong> {reindexNotesError}
+          </Alert>
+        )}
+
+        {reindexNotesResult && (
+          <Card variant="outlined" sx={{ mt: 2, bgcolor: 'success.light' }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: '#fcfafa' }}>
+                Notes Reindex Complete
+              </Typography>
+
+              <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
+                <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'white' }}>
+                  {reindexNotesResult.indexed_count || reindexNotesResult.indexedCount || 0}
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  Notes Indexed
+                </Typography>
+              </Box>
+
+              {reindexNotesResult.message && (
+                <Typography variant="body2" sx={{ mt: 2, fontStyle: 'italic' }}>
+                  {reindexNotesResult.message}
+                </Typography>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </Paper>
 
       {/* Reset Collections Section */}
@@ -516,6 +630,29 @@ const TypesenseAdminPage = () => {
               </CardContent>
             </Card>
           </Grid>
+
+          <Grid item xs={12} md={6}>
+            <Card variant="outlined">
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Reset Notes
+                </Typography>
+                <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+                  Deletes and recreates the notes collection. All indexed notes will be removed from search.
+                </Typography>
+                <Button
+                  variant="contained"
+                  color="error"
+                  startIcon={resettingNotes ? <CircularProgress size={20} color="inherit" /> : <RefreshIcon />}
+                  onClick={handleResetNotes}
+                  disabled={resettingNotes}
+                  fullWidth
+                >
+                  {resettingNotes ? 'Resetting...' : 'Reset Notes Collection'}
+                </Button>
+              </CardContent>
+            </Card>
+          </Grid>
         </Grid>
 
         {resetError && (
@@ -539,6 +676,18 @@ const TypesenseAdminPage = () => {
         {resetHighlightsResult && (
           <Alert severity="success" sx={{ mt: 2 }}>
             <strong>Reset Complete:</strong> {resetHighlightsResult.message || 'Highlights collection has been reset successfully.'}
+          </Alert>
+        )}
+
+        {resetNotesError && (
+          <Alert severity="error" sx={{ mt: 2 }}>
+            <strong>Notes Reset Failed:</strong> {resetNotesError}
+          </Alert>
+        )}
+
+        {resetNotesResult && (
+          <Alert severity="success" sx={{ mt: 2 }}>
+            <strong>Reset Complete:</strong> {resetNotesResult.message || 'Notes collection has been reset successfully.'}
           </Alert>
         )}
       </Paper>
@@ -691,368 +840,6 @@ const TypesenseAdminPage = () => {
         )}
       </Paper>
 
-      {/* Obsidian Notes Sync Section */}
-      <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
-          Obsidian Notes
-        </Typography>
-
-        <Alert severity="info" icon={<InfoIcon />} sx={{ mb: 2 }}>
-          Sync notes from your Quartz-published Obsidian vaults and index them in Typesense for search.
-        </Alert>
-
-        {/* Sync Status */}
-        {noteSyncStatus && (
-          <Card variant="outlined" sx={{ mb: 2 }}>
-            <CardContent>
-              <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
-                Sync Configuration
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                <Chip
-                  label={noteSyncStatus.backgroundSyncEnabled ? 'Background Sync Enabled' : 'Background Sync Disabled'}
-                  color={noteSyncStatus.backgroundSyncEnabled ? 'success' : 'default'}
-                  size="small"
-                />
-                {noteSyncStatus.generalVaultConfigured && (
-                  <Chip label="General Vault Configured" color="primary" size="small" />
-                )}
-                {noteSyncStatus.programmingVaultConfigured && (
-                  <Chip label="Programming Vault Configured" color="primary" size="small" />
-                )}
-                {noteSyncStatus.lastSyncTime && (
-                  <Chip label={`Last Sync: ${new Date(noteSyncStatus.lastSyncTime).toLocaleString()}`} size="small" variant="outlined" />
-                )}
-              </Box>
-            </CardContent>
-          </Card>
-        )}
-
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={4}>
-            <Card variant="outlined">
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Sync from Vaults
-                </Typography>
-                <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-                  Import notes from your configured Quartz vaults. New notes are added, existing notes are updated if content changed.
-                </Typography>
-                <Button
-                  variant="contained"
-                  color="error"
-                  startIcon={syncingNotes ? <CircularProgress size={20} color="inherit" /> : <RefreshIcon />}
-                  onClick={handleSyncNotes}
-                  disabled={syncingNotes}
-                  fullWidth
-                >
-                  {syncingNotes ? 'Syncing...' : 'Sync All Vaults'}
-                </Button>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          <Grid item xs={12} md={4}>
-            <Card variant="outlined">
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Reindex Notes
-                </Typography>
-                <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-                  Reindex all notes from the database to Typesense. Use this if search results are out of sync.
-                </Typography>
-                <Button
-                  variant="contained"
-                  color="error"
-                  startIcon={reindexingNotes ? <CircularProgress size={20} color="inherit" /> : <RefreshIcon />}
-                  onClick={handleReindexNotes}
-                  disabled={reindexingNotes}
-                  fullWidth
-                >
-                  {reindexingNotes ? 'Reindexing...' : 'Reindex Notes'}
-                </Button>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          <Grid item xs={12} md={4}>
-            <Card variant="outlined">
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Reset Notes Collection
-                </Typography>
-                <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-                  Delete and recreate the notes collection in Typesense. All indexed notes will be removed.
-                </Typography>
-                <Button
-                  variant="contained"
-                  color="error"
-                  startIcon={resettingNotes ? <CircularProgress size={20} color="inherit" /> : <RefreshIcon />}
-                  onClick={handleResetNotes}
-                  disabled={resettingNotes}
-                  fullWidth
-                >
-                  {resettingNotes ? 'Resetting...' : 'Reset Notes Collection'}
-                </Button>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-
-        {/* Sync Results */}
-        {syncNotesError && (
-          <Alert severity="error" sx={{ mt: 2 }}>
-            <strong>Sync Failed:</strong> {syncNotesError}
-          </Alert>
-        )}
-
-        {syncNotesResult && (
-          <Card variant="outlined" sx={{ mt: 2, bgcolor: 'success.light' }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: '#fcfafa' }}>
-                Sync Complete
-              </Typography>
-
-              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                {syncNotesResult.results && syncNotesResult.results.map((result, index) => (
-                  <Box key={`sync-${result.vaultName || index}`} sx={{ textAlign: 'center', p: 2, bgcolor: 'background.paper', borderRadius: 1, minWidth: 120 }}>
-                    <Typography variant="subtitle2" color="textSecondary">
-                      {result.vaultName || `Vault ${index + 1}`}
-                    </Typography>
-                    <Typography variant="h5" sx={{ fontWeight: 'bold', color: 'white' }}>
-                      {result.importedCount || 0}
-                    </Typography>
-                    <Typography variant="caption" color="textSecondary">
-                      Imported/Updated
-                    </Typography>
-                  </Box>
-                ))}
-              </Box>
-
-              {syncNotesResult.message && (
-                <Typography variant="body2" sx={{ mt: 2, fontStyle: 'italic' }}>
-                  {syncNotesResult.message}
-                </Typography>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Reindex Results */}
-        {reindexNotesError && (
-          <Alert severity="error" sx={{ mt: 2 }}>
-            <strong>Reindex Failed:</strong> {reindexNotesError}
-          </Alert>
-        )}
-
-        {reindexNotesResult && (
-          <Card variant="outlined" sx={{ mt: 2, bgcolor: 'success.light' }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', color: '#fcfafa' }}>
-                Notes Reindex Complete
-              </Typography>
-
-              <Box sx={{ textAlign: 'center', p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
-                <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'white' }}>
-                  {reindexNotesResult.indexed_count || reindexNotesResult.indexedCount || 0}
-                </Typography>
-                <Typography variant="body2" color="textSecondary">
-                  Notes Indexed
-                </Typography>
-              </Box>
-
-              {reindexNotesResult.message && (
-                <Typography variant="body2" sx={{ mt: 2, fontStyle: 'italic' }}>
-                  {reindexNotesResult.message}
-                </Typography>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Reset Results */}
-        {resetNotesError && (
-          <Alert severity="error" sx={{ mt: 2 }}>
-            <strong>Reset Failed:</strong> {resetNotesError}
-          </Alert>
-        )}
-
-        {resetNotesResult && (
-          <Alert severity="success" sx={{ mt: 2 }}>
-            <strong>Reset Complete:</strong> {resetNotesResult.message || 'Notes collection has been reset successfully.'}
-          </Alert>
-        )}
-      </Paper>
-
-      {/* Search Testing Section */}
-      <Paper elevation={3} sx={{ p: 3 }}>
-        <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
-          Search Testing
-        </Typography>
-        
-        <Alert severity="info" icon={<InfoIcon />} sx={{ mb: 2 }}>
-          Test your Typesense search functionality by entering a query below. This uses the same search API as your application.
-        </Alert>
-
-        <Grid container spacing={2} sx={{ mb: 2 }}>
-          <Grid item xs={12} md={8}>
-            <TextField
-              fullWidth
-              label="Search Query"
-              variant="outlined"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  handleSearchTest();
-                }
-              }}
-              placeholder="Enter search terms..."
-              InputLabelProps={{
-                sx: { color: 'white' }
-              }}
-            />
-          </Grid>
-
-          <Grid item xs={12} md={4}>
-            <FormControl fullWidth>
-              <InputLabel>Media Type</InputLabel>
-              <Select
-                value={searchType}
-                label="Media Type"
-                onChange={(e) => setSearchType(e.target.value)}
-              >
-                {mediaTypes.map((type) => (
-                  <MenuItem key={type.value} value={type.value}>
-                    {type.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-        </Grid>
-
-        <Button
-          variant="contained"
-          color="error"
-          startIcon={searchLoading ? <CircularProgress size={20} color="inherit" /> : <SearchIcon />}
-          onClick={handleSearchTest}
-          disabled={searchLoading || !searchQuery.trim()}
-        >
-          {searchLoading ? 'Searching...' : 'Test Search'}
-        </Button>
-
-        {searchError && (
-          <Alert severity="error" sx={{ mt: 2 }}>
-            <strong>Search Failed:</strong> {searchError}
-          </Alert>
-        )}
-
-        {searchResults && (
-          <Card variant="outlined" sx={{ mt: 2 }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                  Search Results
-                </Typography>
-                <Chip
-                  label={`${searchResults.found || 0} results`}
-                  color="primary"
-                  size="small"
-                />
-              </Box>
-
-              <Divider sx={{ mb: 2 }} />
-
-              {searchResults.hits && searchResults.hits.length > 0 ? (
-                <List>
-                  {searchResults.hits.slice(0, 10).map((hit, index) => {
-                    const doc = hit.document;
-                    return (
-                      <ListItem
-                        key={doc.id || index}
-                        sx={{
-                          border: '1px solid',
-                          borderColor: 'divider',
-                          borderRadius: 1,
-                          mb: 1,
-                          flexDirection: 'column',
-                          alignItems: 'flex-start',
-                        }}
-                      >
-                        <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                          <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                            {doc.title}
-                          </Typography>
-                          <Chip label={doc.media_type} size="small" color="secondary" />
-                        </Box>
-
-                        {doc.description && (
-                          <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
-                            {doc.description.substring(0, 150)}
-                            {doc.description.length > 150 ? '...' : ''}
-                          </Typography>
-                        )}
-
-                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                          {doc.author && (
-                            <Chip label={`Author: ${doc.author}`} size="small" variant="outlined" />
-                          )}
-                          {doc.director && (
-                            <Chip label={`Director: ${doc.director}`} size="small" variant="outlined" />
-                          )}
-                          {doc.creator && (
-                            <Chip label={`Creator: ${doc.creator}`} size="small" variant="outlined" />
-                          )}
-                          {doc.status && (
-                            <Chip label={formatStatus(doc.status)} size="small" variant="outlined" />
-                          )}
-                          {doc.rating && (
-                            <Chip label={doc.rating} size="small" variant="outlined" color="primary" />
-                          )}
-                          {hit.text_match && (
-                            <Chip
-                              label={`Match Score: ${Math.round(hit.text_match / 1000000)}`}
-                              size="small"
-                              color="info"
-                            />
-                          )}
-                        </Box>
-
-                        {(doc.topics && doc.topics.length > 0) && (
-                          <Box sx={{ mt: 1 }}>
-                            <Typography variant="caption" color="textSecondary">
-                              Topics: {doc.topics.join(', ')}
-                            </Typography>
-                          </Box>
-                        )}
-
-                        {(doc.genres && doc.genres.length > 0) && (
-                          <Box sx={{ mt: 0.5 }}>
-                            <Typography variant="caption" color="textSecondary">
-                              Genres: {doc.genres.join(', ')}
-                            </Typography>
-                          </Box>
-                        )}
-                      </ListItem>
-                    );
-                  })}
-                </List>
-              ) : (
-                <Alert severity="info">
-                  No results found for &quot;{searchQuery}&quot;
-                </Alert>
-              )}
-
-              {searchResults.hits && searchResults.hits.length > 10 && (
-                <Typography variant="caption" color="textSecondary" sx={{ mt: 2, display: 'block', textAlign: 'center' }}>
-                  Showing first 10 of {searchResults.found} results
-                </Typography>
-              )}
-            </CardContent>
-          </Card>
-        )}
-      </Paper>
     </Container>
   );
 };

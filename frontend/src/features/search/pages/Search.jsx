@@ -38,6 +38,29 @@ const mediaTypeOptions = [
 
 // HELPER FUNCTIONS
 
+// Transform Typesense note hits into the shared result shape
+const transformNoteHits = (hits) => hits.map(hit => {
+    const doc = hit.document;
+    return {
+        id: doc.id,
+        title: doc.title,
+        mediaType: 'Note',
+        status: null,
+        ratingType: null,
+        topics: doc.tags || [],
+        genres: [],
+        author: doc.vault_name || 'Unknown Vault',
+        dateAdded: doc.date_imported ? new Date(doc.date_imported * 1000).toISOString().split('T')[0] : null,
+        notes: doc.description || '',
+        thumbnail: null,
+        isMixlist: false,
+        isNote: true,
+        isHighlight: false,
+        sourceUrl: doc.source_url,
+        vaultName: doc.vault_name,
+        linkedMediaCount: doc.linked_media_count || 0
+    };
+});
 
 // MAIN COMPONENT
 export default function Search({ defaultMediaTypes = [] }) {
@@ -46,7 +69,7 @@ export default function Search({ defaultMediaTypes = [] }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [viewMode, setViewMode] = useState('card');
     const [sortBy, setSortBy] = useState('relevance');
-    const [searchMode, setSearchMode] = useState('media'); // 'media' or 'mixlists'
+    const [searchMode, setSearchMode] = useState('media'); // 'media', 'mixlists', or 'notes'
     const [selectedItems, setSelectedItems] = useState(new Set());
     const [selectedMediaTypes, setSelectedMediaTypes] = useState(defaultMediaTypes); // Empty = show "please select" message
     const [selectedTopics, setSelectedTopics] = useState([]);
@@ -196,7 +219,7 @@ export default function Search({ defaultMediaTypes = [] }) {
             if (topics) setSelectedTopics(topics.split(',').map(t => t.trim()));
             if (genres) setSelectedGenres(genres.split(',').map(g => g.trim()));
             if (status) setSelectedStatuses(status.split(',').map(s => s.trim()).filter(s => s && s !== 'all'));
-            if (mode === 'mixlists') setSearchMode('mixlists');
+            if (mode === 'mixlists' || mode === 'notes') setSearchMode(mode);
 
             setUrlParamsLoaded(true);
         };
@@ -246,16 +269,23 @@ export default function Search({ defaultMediaTypes = [] }) {
         selectedRatings.length > 0
     );
 
-    // Distinguishes "you have no mixlists yet" from "your search matched none".
     const hasMixlistFilters = searchMode === 'mixlists' && (
         debouncedSearchQuery.trim() !== '' ||
         selectedTopics.length > 0 ||
         selectedGenres.length > 0
     );
 
+    const hasNotesFilters = searchMode === 'notes' && (
+        debouncedSearchQuery.trim() !== '' ||
+        selectedTopics.length > 0
+    );
+
     const performSearch = async () => {
-        // For media mode, require at least some filter to be selected
-        if (searchMode === 'media' && !hasMediaFilters) {
+        // Every mode requires a query or at least one filter before searching;
+        // otherwise switching modes would dump the entire collection.
+        if ((searchMode === 'media' && !hasMediaFilters) ||
+            (searchMode === 'mixlists' && !hasMixlistFilters) ||
+            (searchMode === 'notes' && !hasNotesFilters)) {
             setSearchResults([]);
             setTotalResults(0);
             setTotalPages(1);
@@ -306,6 +336,14 @@ export default function Search({ defaultMediaTypes = [] }) {
                 setSearchResults(transformedResults);
                 setTotalResults(response.found || 0);
                 setTotalPages(Math.ceil((response.found || 0) / perPage));
+            } else if (searchMode === 'notes') {
+                // Search notes only
+                const noteFilter = selectedTopics.length > 0 ? `tags:=[${selectedTopics.map(t => `"${t}"`).join(',')}]` : null;
+                response = await searchNotes(debouncedSearchQuery || '*', noteFilter, currentPage, perPage, sortBy);
+                const transformedResults = transformNoteHits(response.hits || []);
+                setSearchResults(transformedResults);
+                setTotalResults(response.found || 0);
+                setTotalPages(Math.ceil((response.found || 0) / perPage));
             } else {
                 // Search media items (and optionally notes/highlights)
                 const mediaTypesFiltered = selectedMediaTypes.filter(type => type !== 'all' && type !== 'Note' && type !== 'Highlight');
@@ -353,30 +391,6 @@ export default function Search({ defaultMediaTypes = [] }) {
                         estimatedReadingTimeMinutes: doc.estimated_reading_time_minutes || null,
                         wordCount: doc.word_count || null,
                         isStarred: doc.is_starred || false
-                    };
-                });
-
-                // Helper to transform note hits
-                const transformNoteHits = (hits) => hits.map(hit => {
-                    const doc = hit.document;
-                    return {
-                        id: doc.id,
-                        title: doc.title,
-                        mediaType: 'Note',
-                        status: null,
-                        ratingType: null,
-                        topics: doc.tags || [],
-                        genres: [],
-                        author: doc.vault_name || 'Unknown Vault',
-                        dateAdded: doc.date_imported ? new Date(doc.date_imported * 1000).toISOString().split('T')[0] : null,
-                        notes: doc.description || '',
-                        thumbnail: null,
-                        isMixlist: false,
-                        isNote: true,
-                        isHighlight: false,
-                        sourceUrl: doc.source_url,
-                        vaultName: doc.vault_name,
-                        linkedMediaCount: doc.linked_media_count || 0
                     };
                 });
 
@@ -601,7 +615,9 @@ export default function Search({ defaultMediaTypes = [] }) {
                     <Typography variant="body1" color="text.secondary">
                         {searchMode === 'media'
                             ? 'Search across all your media and notes with powerful filters and instant results'
-                            : 'Search and discover curated mixlists by name, topics, or genres'}
+                            : searchMode === 'mixlists'
+                                ? 'Search and discover curated mixlists by name, topics, or genres'
+                                : 'Search your Obsidian notes by title, content, or tags'}
                     </Typography>
                     <SearchViewToggles
                         showSearchBar={showSearchBar}
@@ -678,6 +694,21 @@ export default function Search({ defaultMediaTypes = [] }) {
                             handleMediaTypeToggle={handleMediaTypeToggle}
                             mediaTypeOptions={mediaTypeOptions}
                         />
+
+                        {/* Create Mixlist shortcut */}
+                        {searchMode === 'mixlists' && (
+                            <Box sx={{ mb: 2, display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' } }}>
+                                <Button
+                                    variant="contained"
+                                    color="primary"
+                                    startIcon={<PlaylistAdd />}
+                                    onClick={() => navigate('/create-mixlist', { state: { returnTo: '/search?searchMode=mixlists' } })}
+                                    sx={{ minHeight: '44px', width: { xs: '100%', sm: 'auto' } }}
+                                >
+                                    Create Mixlist
+                                </Button>
+                            </Box>
+                        )}
 
                         {/* Bulk Actions Toolbar */}
                         {searchResults.length > 0 && searchMode === 'media' && (
@@ -807,20 +838,25 @@ export default function Search({ defaultMediaTypes = [] }) {
                                     Use the search bar or select media types, topics, genres, or other filters to find your media
                                 </Typography>
                             </Paper>
-                        ) : searchResults.length === 0 && searchMode === 'mixlists' && !hasMixlistFilters ? (
+                        ) : searchMode === 'mixlists' && !hasMixlistFilters ? (
                             <Paper sx={{ p: 8, textAlign: 'center' }}>
+                                <SearchIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
                                 <Typography variant="h6" color="text.secondary">
-                                    Create your first mixlist to organize your media!
+                                    Search your mixlists
                                 </Typography>
-                                <Button
-                                    variant="contained"
-                                    color="primary"
-                                    startIcon={<PlaylistAdd />}
-                                    onClick={() => navigate('/create-mixlist', { state: { returnTo: '/search?searchMode=mixlists' } })}
-                                    sx={{ mt: 3, minHeight: '44px' }}
-                                >
-                                    Create First Mixlist
-                                </Button>
+                                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                                    Enter a name in the search bar or select topics or genres to find mixlists
+                                </Typography>
+                            </Paper>
+                        ) : searchMode === 'notes' && !hasNotesFilters ? (
+                            <Paper sx={{ p: 8, textAlign: 'center' }}>
+                                <SearchIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+                                <Typography variant="h6" color="text.secondary">
+                                    Search your notes
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                                    Enter a search term or select topics to find notes from your vaults
+                                </Typography>
                             </Paper>
                         ) : searchResults.length === 0 ? (
                             <Paper sx={{ p: 8, textAlign: 'center' }}>

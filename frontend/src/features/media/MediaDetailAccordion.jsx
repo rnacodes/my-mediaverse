@@ -18,6 +18,7 @@ function getJustWatchUrl(title) {
 function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBookEnriched, onVideoLinked, onFetchContent, fetchingContent }) {
   const [enrichResult, setEnrichResult] = useState(null);
   const [channelDialogOpen, setChannelDialogOpen] = useState(false);
+  const [feedDialogOpen, setFeedDialogOpen] = useState(false);
 
   // RSS feed items for websites — auto-fetched when conditions match.
   const isWebsiteWithRss = mediaItem.mediaType === 'Website' && !!mediaItem.rssFeedUrl;
@@ -27,6 +28,15 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
   const rssFeedItems = rssFeedQuery.data ?? [];
   const loadingRss = rssFeedQuery.isLoading;
   const rssError = rssFeedQuery.error ? 'Failed to load RSS feed' : null;
+
+  // Full feed as JSON — fetched lazily when the feed dialog opens. Linking
+  // straight to the feed URL makes browsers download the XML instead of
+  // rendering it, so the dialog shows the parsed feed in-app instead.
+  const fullFeedQuery = useWebsiteRssFeedItems(mediaItem.id, 20, {
+    enabled: feedDialogOpen && isWebsiteWithRss && !!mediaItem.id,
+  });
+  const fullFeedItems = fullFeedQuery.data ?? [];
+  const loadingFullFeed = fullFeedQuery.isLoading;
 
   // Channels — fetched lazily when the link-to-channel dialog opens.
   const channelsQuery = useAllYouTubeChannels({ enabled: channelDialogOpen });
@@ -961,6 +971,36 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
                 <Typography variant="body1" sx={{ fontSize: '0.875rem' }}>{mediaItem.originalName}</Typography>
               </Box>
             )}
+
+            {mediaItem.link && (
+              <Box sx={{
+                display: 'flex',
+                flexDirection: { xs: 'column', sm: 'row' },
+                alignItems: { xs: 'flex-start', sm: 'center' },
+                gap: { xs: 0.5, sm: 0 }
+              }}>
+                <Typography variant="body1" sx={{ mr: 1, minWidth: { sm: '120px' }, fontSize: '0.875rem' }}>
+                  <strong>TMDB:</strong>
+                </Typography>
+                <Link
+                  href={mediaItem.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  sx={{
+                    fontSize: '0.875rem',
+                    color: '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    '&:hover': {
+                      color: '#e3f2fd'
+                    }
+                  }}
+                >
+                  <OpenInNew sx={{ fontSize: 16, mr: 0.5 }} />
+                  View TMDB Page
+                </Link>
+              </Box>
+            )}
           </Box>
         )}
         
@@ -1354,24 +1394,20 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <RssFeed sx={{ fontSize: 18, color: '#f5a623' }} />
                   <Link
-                    href={mediaItem.rssFeedUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    component="button"
+                    type="button"
+                    onClick={() => setFeedDialogOpen(true)}
                     sx={{
                       fontSize: '0.875rem',
                       color: '#ffffff',
-                      maxWidth: { xs: '200px', sm: '300px' },
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
                       '&:hover': {
                         color: '#e3f2fd'
                       }
                     }}
                   >
-                    Subscribe
+                    View Feed (JSON)
                   </Link>
-                  <Tooltip title="Copy RSS URL">
+                  <Tooltip title="Copy RSS URL for your feed reader">
                     <IconButton
                       size="small"
                       onClick={() => {
@@ -1595,6 +1631,49 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
                 </ListItem>
               ))}
             </List>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* RSS Feed JSON Dialog */}
+      <Dialog
+        open={feedDialogOpen}
+        onClose={() => setFeedDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <RssFeed sx={{ color: '#f5a623' }} />
+          RSS Feed
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2, wordBreak: 'break-all' }}>
+            {mediaItem.rssFeedUrl}
+          </Typography>
+          {loadingFullFeed ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+              <CircularProgress />
+            </Box>
+          ) : fullFeedItems.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+              No feed items available.
+            </Typography>
+          ) : (
+            <Box
+              component="pre"
+              sx={{
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                borderRadius: 1,
+                p: 2,
+                overflow: 'auto',
+                maxHeight: '60vh',
+                fontSize: '0.8rem',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word'
+              }}
+            >
+              {JSON.stringify(fullFeedItems, null, 2)}
+            </Box>
           )}
         </DialogContent>
       </Dialog>

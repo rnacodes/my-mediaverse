@@ -88,8 +88,9 @@ function RoutedContent() {
     >
       <Suspense fallback={<LoadingSpinner fullScreen message="Loading page..." />}>
         <Routes>
-            {/* Public routes - always accessible */}
-            <Route path="/login" element={<LoginPage />} />
+            {/* Public routes - always accessible. The demo site has no login;
+                send visitors to the unlock page instead. */}
+            <Route path="/login" element={isDemoMode() ? <Navigate to="/demo-unlock" replace /> : <LoginPage />} />
             <Route path="/demo" element={<DemoPage />} />
 
             {/* Protected routes - require login in production, open in demo */}

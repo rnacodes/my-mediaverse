@@ -220,9 +220,11 @@ export const SearchFilterSidebar = React.memo(({
                     </AccordionDetails>
                 </Accordion>
 
+                {/* Genres Filter - notes have no genres, so hide it in notes mode */}
+                {searchMode !== 'notes' && (
+                <>
                 <Divider sx={{ my: 1 }} />
 
-                {/* Genres Filter */}
                 <Accordion disableGutters elevation={0}>
                     <AccordionSummary expandIcon={<ExpandMore />}>
                         <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
@@ -294,6 +296,8 @@ export const SearchFilterSidebar = React.memo(({
                         </Button>
                     </AccordionDetails>
                 </Accordion>
+                </>
+                )}
 
                 {/* Status and Rating Filters - Only show for media search */}
                 {searchMode === 'media' && (

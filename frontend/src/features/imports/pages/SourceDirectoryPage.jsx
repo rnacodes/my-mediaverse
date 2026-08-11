@@ -9,20 +9,19 @@ import {
     ArrowForward, CheckCircle, OpenInNew, AutoStories
 } from '@mui/icons-material';
 import WhiteOutlineButton from '@/shared/WhiteOutlineButton';
+import { COLORS } from '@/shared/DesignSystem';
 
 function SourceDirectoryPage() {
     const navigate = useNavigate();
 
-    // Define all available import sources
     const importSources = [
         {
             id: 'podcasts',
             name: 'Podcasts',
-            provider: 'ListenNotes',
-            providerUrl: 'https://www.listennotes.com',
+            providers: [{ label: 'ListenNotes', url: 'https://www.listennotes.com' }],
             icon: <Podcasts sx={{ fontSize: 48 }} />,
             description: 'Search and import podcasts from the largest podcast database. Import individual episodes or entire series.',
-            color: '#9C27B0',
+            color: COLORS.mediaTypes.podcast,
             available: true,
             connected: false,
             action: () => navigate('/import-media'),
@@ -36,30 +35,31 @@ function SourceDirectoryPage() {
         {
             id: 'books',
             name: 'Books',
-            provider: 'Google Books',
-            providerUrl: 'https://books.google.com',
+            providers: [
+                { label: 'Google Books', url: 'https://books.google.com' },
+                { label: 'Open Library', url: 'https://openlibrary.org' }
+            ],
             icon: <MenuBook sx={{ fontSize: 48 }} />,
-            description: 'Import books from Google Books\' extensive catalog. Search by title, author, or ISBN.',
-            color: '#FF9800',
+            description: 'Import books from Google Books or Open Library. Search by title, author, or ISBN.',
+            color: COLORS.mediaTypes.book,
             available: true,
             connected: false,
             action: () => navigate('/import-media'),
             features: [
                 'Search millions of books',
+                'Choose Google Books or Open Library as source',
                 'Import by ISBN, title, or author',
-                'Auto-fetch metadata & cover images',
-                'Import from Goodreads CSV export'
+                'Auto-fetch metadata & cover images'
             ]
         },
 
         {
             id: 'movies-tv',
             name: 'Movies & TV Shows',
-            provider: 'TMDB',
-            providerUrl: 'https://www.themoviedb.org',
+            providers: [{ label: 'TMDB', url: 'https://www.themoviedb.org' }],
             icon: <MovieFilter sx={{ fontSize: 48 }} />,
             description: 'Search and import movies & TV shows from The Movie Database (TMDB). This product uses the TMDB API but is not endorsed or certified by TMDB.',
-            color: '#01D277',
+            color: COLORS.mediaTypes.movie,
             available: true,
             connected: false,
             action: () => navigate('/import-media'),
@@ -67,17 +67,16 @@ function SourceDirectoryPage() {
                 'Search movies & TV shows on TMDB',
                 'Auto-fetch metadata, cast & artwork',
                 'Upload watchlist CSV from external providers',
-                'Background enrichment for uploaded lists'
+                'Sync watch history from Trakt'
             ]
         },
         {
             id: 'youtube',
             name: 'YouTube Videos',
-            provider: 'YouTube',
-            providerUrl: 'https://www.youtube.com',
+            providers: [{ label: 'YouTube', url: 'https://www.youtube.com' }],
             icon: <VideoLibrary sx={{ fontSize: 48 }} />,
             description: 'Import YouTube videos, playlists, or entire channels to organize your video content.',
-            color: '#FF0000',
+            color: COLORS.mediaTypes.video,
             available: true,
             connected: false,
             action: () => navigate('/import-media'),
@@ -91,11 +90,10 @@ function SourceDirectoryPage() {
         {
             id: 'readwise',
             name: 'Articles & Highlights',
-            provider: 'Readwise',
-            providerUrl: 'https://readwise.io',
+            providers: [{ label: 'Readwise', url: 'https://readwise.io' }],
             icon: <Article sx={{ fontSize: 48 }} />,
             description: 'Sync articles from Readwise Reader and highlights from Readwise to your library.',
-            color: '#D6A84E',
+            color: COLORS.mediaTypes.article,
             available: true,
             connected: false,
             action: () => navigate('/import-media'),
@@ -109,11 +107,10 @@ function SourceDirectoryPage() {
         {
             id: 'websites',
             name: 'Websites',
-            provider: 'Web Scraper',
-            providerUrl: '',
+            providers: [{ label: 'Web Scraper', url: '' }],
             icon: <Language sx={{ fontSize: 48 }} />,
             description: 'Save and organize websites with automatic metadata extraction and RSS feed detection.',
-            color: '#26A69A',
+            color: COLORS.mediaTypes.website,
             available: true,
             connected: false,
             action: () => navigate('/import-media'),
@@ -127,11 +124,10 @@ function SourceDirectoryPage() {
         {
             id: 'goodreads',
             name: 'Goodreads Import',
-            provider: 'Goodreads',
-            providerUrl: 'https://www.goodreads.com',
+            providers: [{ label: 'Goodreads', url: 'https://www.goodreads.com' }],
             icon: <AutoStories sx={{ fontSize: 48 }} />,
             description: 'Import your Goodreads library by uploading a CSV export from your Goodreads account.',
-            color: '#553B08',
+            color: COLORS.mediaTypes.book,
             available: true,
             connected: false,
             action: () => navigate('/import-media'),
@@ -234,32 +230,41 @@ function SourceDirectoryPage() {
                                         {source.name}
                                     </Typography>
                                     
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 2 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 2, flexWrap: 'wrap' }}>
                                         <Typography variant="caption" color="text.secondary">
                                             Powered by
                                         </Typography>
-                                        <Button
-                                            variant="text"
-                                            size="small"
-                                            href={source.providerUrl}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            endIcon={<OpenInNew sx={{ fontSize: 12 }} />}
-                                            sx={{ 
-                                                minWidth: 'auto',
-                                                textTransform: 'none',
-                                                fontSize: '0.75rem',
-                                                p: 0.25,
-                                                color: 'text.secondary',
-                                                '&:hover': { 
-                                                    backgroundColor: 'transparent', 
-                                                    color: source.color,
-                                                    textDecoration: 'underline' 
-                                                }
-                                            }}
-                                        >
-                                            {source.provider}
-                                        </Button>
+                                        {source.providers.map((provider, index) => (
+                                            <React.Fragment key={provider.label}>
+                                                {index > 0 && (
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        and
+                                                    </Typography>
+                                                )}
+                                                <Button
+                                                    variant="text"
+                                                    size="small"
+                                                    href={provider.url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    endIcon={<OpenInNew sx={{ fontSize: 12 }} />}
+                                                    sx={{
+                                                        minWidth: 'auto',
+                                                        textTransform: 'none',
+                                                        fontSize: '0.75rem',
+                                                        p: 0.25,
+                                                        color: 'text.secondary',
+                                                        '&:hover': {
+                                                            backgroundColor: 'transparent',
+                                                            color: source.color,
+                                                            textDecoration: 'underline'
+                                                        }
+                                                    }}
+                                                >
+                                                    {provider.label}
+                                                </Button>
+                                            </React.Fragment>
+                                        ))}
                                     </Box>
 
                                     {/* Description */}

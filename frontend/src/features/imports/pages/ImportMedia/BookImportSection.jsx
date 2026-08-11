@@ -269,27 +269,36 @@ function BookImportSection({ expanded, onAccordionChange }) {
                     <Typography variant="h6">
                         Books
                     </Typography>
-                    <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                         <Typography variant="body2" color="text.secondary">
                             Powered by
                         </Typography>
-                        <Button
-                            variant="text"
-                            size="small"
-                            href={source.homeUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            endIcon={<OpenInNew fontSize="small" />}
-                            sx={{
-                                minWidth: 'auto',
-                                textTransform: 'none',
-                                color: '#ffffff',
-                                '&:hover': { backgroundColor: 'transparent', textDecoration: 'underline' }
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            {source.label}
-                        </Button>
+                        {Object.entries(BOOK_SOURCES).map(([key, provider], index) => (
+                            <React.Fragment key={key}>
+                                {index > 0 && (
+                                    <Typography variant="body2" color="text.secondary">
+                                        and
+                                    </Typography>
+                                )}
+                                <Button
+                                    variant="text"
+                                    size="small"
+                                    href={provider.homeUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    endIcon={<OpenInNew fontSize="small" />}
+                                    sx={{
+                                        minWidth: 'auto',
+                                        textTransform: 'none',
+                                        color: '#ffffff',
+                                        '&:hover': { backgroundColor: 'transparent', textDecoration: 'underline' }
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    {provider.label}
+                                </Button>
+                            </React.Fragment>
+                        ))}
                     </Box>
                 </Box>
             </AccordionSummary>

@@ -49,6 +49,9 @@ export const SearchBarSection = React.memo(({
                     <ToggleButton value="mixlists">
                         Mixlists
                     </ToggleButton>
+                    <ToggleButton value="notes">
+                        Notes
+                    </ToggleButton>
                 </ToggleButtonGroup>
             </Box>
             <TextField

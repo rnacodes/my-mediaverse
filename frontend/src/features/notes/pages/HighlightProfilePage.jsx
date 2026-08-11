@@ -143,11 +143,12 @@ function HighlightProfilePage() {
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         {highlight.isFavorite && <StarIcon sx={{ color: '#FFD700', fontSize: 28 }} />}
                         <Button
-                            startIcon={reindexing ? <CircularProgress size={16} /> : <SyncIcon />}
+                            startIcon={reindexing ? <CircularProgress size={16} color="inherit" /> : <SyncIcon />}
                             onClick={handleReindex}
-                            variant="outlined"
+                            variant="contained"
                             size="small"
                             disabled={reindexing}
+                            sx={{ color: '#fcfafa' }}
                         >
                             {reindexing ? 'Reindexing...' : 'Reindex'}
                         </Button>

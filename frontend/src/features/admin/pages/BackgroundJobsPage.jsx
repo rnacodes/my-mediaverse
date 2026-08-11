@@ -176,9 +176,6 @@ const BackgroundJobsPage = () => {
             <Typography variant="h3" gutterBottom sx={{ mb: 4, fontWeight: 'bold' }}>
                 Background Jobs
             </Typography>
-            <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                        Enrichment Services Coming Soon
-                    </Typography>
 
             {/* ==========================================
                 BOOK DESCRIPTION ENRICHMENT
@@ -271,7 +268,7 @@ const BackgroundJobsPage = () => {
                         <Card variant="outlined"><CardContent>
                             <Typography variant="h6" gutterBottom>Run All (Bulk)</Typography>
                             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Process up to {maxBooks} books in multiple batches.</Typography>
-                            <Button variant="contained" color="secondary" fullWidth
+                            <Button variant="contained" color="primary" fullWidth sx={{ color: '#fcfafa' }}
                                 startIcon={runningAll ? <CircularProgress size={20} color="inherit" /> : <PlayIcon />}
                                 onClick={handleRunBookAll} disabled={isBookRunning || enrichmentStatus?.booksNeedingEnrichment === 0}>
                                 {runningAll ? 'Running (this may take a while)...' : `Run All (up to ${maxBooks} books)`}
@@ -425,7 +422,7 @@ const BackgroundJobsPage = () => {
                         <Card variant="outlined"><CardContent>
                             <Typography variant="h6" gutterBottom>Run All (Bulk)</Typography>
                             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Process all movies and TV shows.</Typography>
-                            <Button variant="contained" color="secondary" fullWidth
+                            <Button variant="contained" color="primary" fullWidth sx={{ color: '#fcfafa' }}
                                 startIcon={runningMovieTvAll ? <CircularProgress size={20} color="inherit" /> : <PlayIcon />}
                                 onClick={handleRunMovieTvAll} disabled={isMovieTvRunning}>
                                 {runningMovieTvAll ? 'Running...' : 'Run All'}
@@ -576,7 +573,7 @@ const BackgroundJobsPage = () => {
                         <Card variant="outlined"><CardContent>
                             <Typography variant="h6" gutterBottom>Run All (Bulk)</Typography>
                             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Process up to {maxPodcasts} podcasts.</Typography>
-                            <Button variant="contained" color="secondary" fullWidth
+                            <Button variant="contained" color="primary" fullWidth sx={{ color: '#fcfafa' }}
                                 startIcon={runningPodcastAll ? <CircularProgress size={20} color="inherit" /> : <PlayIcon />}
                                 onClick={handleRunPodcastAll} disabled={isPodcastRunning || podcastStatus?.podcastsNeedingEnrichment === 0}>
                                 {runningPodcastAll ? 'Running...' : `Run All (up to ${maxPodcasts})`}

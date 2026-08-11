@@ -46,6 +46,7 @@ export const ResultHeader = React.memo(({
                     {searchQuery && `Showing results for "${searchQuery}"`}
                     {!searchQuery && searchMode === 'media' && 'Showing all media items'}
                     {!searchQuery && searchMode === 'mixlists' && 'Showing all mixlists'}
+                    {!searchQuery && searchMode === 'notes' && 'Showing all notes'}
                 </Typography>
             </Box>
 

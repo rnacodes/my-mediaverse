@@ -115,7 +115,7 @@ const DemoUnlockPage = () => {
                 Demo Write Access
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                This demo is read-only for visitors. With an authenticator code you can open a
+                This demo is read-only for visitors. With a Google Authenticator code you can open a
                 20-minute window to create, edit, and delete data.
             </Typography>
 
@@ -146,10 +146,10 @@ const DemoUnlockPage = () => {
                             Start Browsing
                         </Button>
                         <Button
-                            variant="outlined"
-                            color="error"
+                            variant="contained"
                             startIcon={<LockIcon />}
                             onClick={handleLock}
+                            sx={{ color: '#fcfafa' }}
                         >
                             Revoke Write Access
                         </Button>
@@ -162,7 +162,7 @@ const DemoUnlockPage = () => {
                     </Typography>
 
                     <Alert severity="info" sx={{ mb: 3 }}>
-                        Open your authenticator app, find <strong>&quot;MyMediaVerse Demo,&quot;</strong> and
+                        Open Google Authenticator, find <strong>&quot;MyMediaVerse Demo,&quot;</strong> and
                         enter the 6-digit code below.
                     </Alert>
 
@@ -231,7 +231,7 @@ const DemoUnlockPage = () => {
                         </ListItemIcon>
                         <ListItemText
                             primary="Write access lasts 20 minutes"
-                            secondary="The window expires hard — there is no automatic renewal. Enter a new code to open another window."
+                            secondary="The access token has a hard expiration time — there is no automatic renewal. To get write access in another window, a new code must be entered."
                         />
                     </ListItem>
                     <ListItem>
@@ -255,8 +255,8 @@ const DemoUnlockPage = () => {
                 </AccordionSummary>
                 <AccordionDetails>
                     <Typography variant="body1" sx={{ mb: 2 }}>
-                        To unlock write access, you need a TOTP (Time-based One-Time Password) authenticator
-                        app configured with the demo secret.
+                        To unlock write access, you need the Google Authenticator app configured with the
+                        demo secret.
                     </Typography>
 
                     <List>
@@ -265,8 +265,8 @@ const DemoUnlockPage = () => {
                                 <PhoneIcon sx={{ color: '#fcfafa' }} />
                             </ListItemIcon>
                             <ListItemText
-                                primary="Step 1: Install an authenticator app"
-                                secondary="Download Google Authenticator, Authy, or any TOTP-compatible app on your phone"
+                                primary="Step 1: Install the Google Authenticator app"
+                                secondary="Download Google Authenticator on your phone from the App Store or Google Play"
                             />
                         </ListItem>
                         <ListItem>
@@ -275,7 +275,7 @@ const DemoUnlockPage = () => {
                             </ListItemIcon>
                             <ListItemText
                                 primary='Step 2: Add the demo account'
-                                secondary='Manually enter the secret key provided by the administrator. The account should appear as "MyMediaVerse Demo".'
+                                secondary='Manually enter the secret key. The account should appear as "MyMediaVerse Demo".'
                             />
                         </ListItem>
                         <ListItem>
@@ -284,7 +284,7 @@ const DemoUnlockPage = () => {
                             </ListItemIcon>
                             <ListItemText
                                 primary="Step 3: Enter the code"
-                                secondary="Enter the 6-digit code shown in your authenticator app in the Unlock section above to enable write access for 20 minutes."
+                                secondary="Enter the 6-digit code shown in Google Authenticator in the Unlock section above to enable write access for 20 minutes."
                             />
                         </ListItem>
                     </List>
