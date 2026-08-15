@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { renderWithProviders, screen, within, waitFor } from '@/test/test-utils';
+import { renderWithProviders, screen, waitFor } from '@/test/test-utils';
 import { server } from '@/test/mocks/server';
 import { API_BASE } from '@/test/mocks/handlers';
 import { makeTvShow } from '@/test/factories/media';
@@ -95,22 +95,16 @@ describe('TvShowProfile', () => {
     expect(screen.queryByText(/watch progress/i)).not.toBeInTheDocument();
   });
 
-  it('opens the delete confirmation dialog and cancels it', async () => {
+  it('renders the Reindex and Edit Media header buttons and no Delete button', async () => {
     seedShow();
-    const { user } = render();
+    render();
 
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: 'Breaking Bad' })).toBeInTheDocument(),
     );
 
-    await user.click(screen.getByRole('button', { name: /^delete$/i }));
-
-    const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText(/delete tv show\?/i)).toBeInTheDocument();
-    expect(within(dialog).getByText(/this will remove "breaking bad"/i)).toBeInTheDocument();
-
-    await user.click(within(dialog).getByRole('button', { name: /cancel/i }));
-
-    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.getByRole('button', { name: /reindex/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /edit media/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^delete$/i })).not.toBeInTheDocument();
   });
 });

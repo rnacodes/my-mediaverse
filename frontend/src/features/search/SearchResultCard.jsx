@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Box, Card, CardContent, Chip, Typography, Checkbox } from '@mui/material';
+import { Box, Card, CardContent, CardMedia, Chip, Typography, Checkbox } from '@mui/material';
 import { Star, AccessTime } from '@mui/icons-material';
 import { formatMediaType, formatStatus, getRatingIcon } from '@/utils/formatters';
 
@@ -110,6 +110,14 @@ export const SearchResultCard = React.memo(({ item, isSelected = false, onToggle
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
             }}
         >
+        {item.isMixlist && item.thumbnail && (
+            <CardMedia
+                component="img"
+                image={item.thumbnail}
+                alt={item.title}
+                sx={{ height: 140, objectFit: 'cover' }}
+            />
+        )}
         <CardContent sx={{ flexGrow: 1, p: 2.5 }}>
             {/* HEADER ROW: Checkbox + Title + Rating Icon */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>

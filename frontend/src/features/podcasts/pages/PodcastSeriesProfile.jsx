@@ -2,10 +2,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Box, Typography, Button, Card, CardContent, Chip, Divider, IconButton, CircularProgress, Alert, Accordion, AccordionSummary, AccordionDetails, List, Dialog, DialogTitle, DialogContent, DialogActions, Snackbar, ListItemButton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper } from '@mui/material';
 import {
-    ArrowBack, Edit, OpenInNew, Sync, Delete,
+    OpenInNew, Sync, Delete,
     ExpandMore, Visibility, Add, CheckCircle, Close as CloseIcon
 } from '@mui/icons-material';
 import { getPodcastFromApi } from '@/api/podcastService';
+import MediaHeader from '@/features/media/MediaHeader';
 import MediaInfoCard from '@/features/media/MediaInfoCard';
 import MediaDetailAccordion from '@/features/media/MediaDetailAccordion';
 import MixlistCarousel from '@/features/mixlists/MixlistCarousel';
@@ -20,6 +21,7 @@ import {
     useImportPodcastEpisodeFromApi,
 } from '@/hooks/usePodcast';
 import { useAllMixlists } from '@/hooks/useMixlist';
+import { useReindexMediaItem } from '@/hooks/useTypesense';
 import {
     formatMediaType,
     formatStatus,
@@ -72,6 +74,20 @@ function PodcastSeriesProfile() {
     const syncing = syncMutation.isPending;
     const deleteMutation = useDeletePodcastSeries();
     const importEpisodeMutation = useImportPodcastEpisodeFromApi();
+
+    const reindexMutation = useReindexMediaItem();
+    const reindexing = reindexMutation.isPending;
+
+    const handleReindex = () => {
+        reindexMutation.mutate(id, {
+            onSuccess: () => setSnackbar({ open: true, message: 'Media item re-indexed in search.', severity: 'success' }),
+            onError: (error) => {
+                if (error.response?.status !== 403) {
+                    setSnackbar({ open: true, message: 'Failed to re-index media item.', severity: 'error' });
+                }
+            },
+        });
+    };
 
     // Force refetch when refreshKey changes (used by child sections).
     useEffect(() => {
@@ -212,12 +228,13 @@ function PodcastSeriesProfile() {
     return (
         <Box sx={{ minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', py: { xs: 2, sm: 4 }, px: { xs: 1, sm: 2 } }}>
             <Box sx={{ width: '100%', maxWidth: '900px', backgroundColor: 'background.paper', borderRadius: { xs: '8px', sm: '16px' }, p: { xs: 2, sm: 3, md: 4 }, boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
-                {/* Header */}
-                <Box display="flex" alignItems="center" mb={3}>
-                    <IconButton onClick={() => navigate('/all-media?mediaType=Podcast')} sx={{ mr: 2 }}><ArrowBack /></IconButton>
-                    <Typography variant="h4" sx={{ flexGrow: 1 }}>{series.title}</Typography>
-                    <IconButton onClick={() => navigate(`/media/${id}/edit`)}><Edit /></IconButton>
-                </Box>
+                {/* Header with back button, reindex, and edit buttons */}
+                <MediaHeader
+                    title={series.title}
+                    mediaId={id}
+                    onReindex={handleReindex}
+                    reindexing={reindexing}
+                />
 
                 {/* Profile Card */}
                 <Card sx={{ borderRadius: 2, mb: 3 }}>

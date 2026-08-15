@@ -4,23 +4,13 @@ import {
   useReadwiseSyncAll,
   useReadwiseFetchArticleContent,
 } from '@/hooks/useReadwise';
-import { useUnlinkedHighlights, useUpdateHighlight, useCleanHighlightText } from '@/hooks/useHighlight';
-import { useAllBooks } from '@/hooks/useBook';
-import { useAllArticles } from '@/hooks/useArticle';
+import { useCleanHighlightText } from '@/hooks/useHighlight';
 import './ReadwiseSyncPage.css';
-
-const TEXT_CUTOFF = 200;
 
 const ReadwiseSyncPage = () => {
   const [syncResult, setSyncResult] = useState(null);
   const [fetchResult, setFetchResult] = useState(null);
   const [error, setError] = useState(null);
-
-  // Unlinked-highlight linking UI state
-  const [expandedHighlight, setExpandedHighlight] = useState(null);
-  const [expandedText, setExpandedText] = useState(new Set()); // which highlights have expanded text
-  const [searchQuery, setSearchQuery] = useState('');
-  const [linkSuccess, setLinkSuccess] = useState(null);
 
   // Connection validation: query gated to button click (enabled:false + refetch()).
   const validateQuery = useValidateReadwiseConnection({ enabled: false, retry: false });
@@ -39,25 +29,11 @@ const ReadwiseSyncPage = () => {
   const cleaningHighlights = cleanMutation.isPending;
   const cleanResult = cleanMutation.data;
 
-  // Unlinked highlights + media options (auto-fetch on mount)
-  const unlinkedQuery = useUnlinkedHighlights();
-  const unlinkedHighlights = unlinkedQuery.data ?? [];
-  const unlinkedLoading = unlinkedQuery.isFetching;
-  const refetchUnlinked = () => unlinkedQuery.refetch();
-
-  const books = useAllBooks().data ?? [];
-  const articles = useAllArticles().data ?? [];
-
-  // Linking mutation; derive the in-flight highlight id from its variables.
-  const updateMutation = useUpdateHighlight();
-  const linkingId = updateMutation.isPending ? updateMutation.variables?.id : null;
-
   const handleCleanHighlightText = () => {
     setError(null);
     cleanMutation.mutate(undefined, {
       onError: (err) => setError(`Cleanup failed: ${err.response?.data?.details || err.message}`),
     });
-    // unlinked list auto-refreshes via the hook's highlightKeys.all invalidation
   };
 
   const handleValidateConnection = async () => {
@@ -97,63 +73,6 @@ const ReadwiseSyncPage = () => {
     if (parseInt(hours) > 0) return `${hours}h ${minutes}m ${seconds}s`;
     if (parseInt(minutes) > 0) return `${minutes}m ${seconds}s`;
     return `${seconds}s`;
-  };
-
-  const handleLinkHighlight = (highlightId, mediaType, mediaId) => {
-    setLinkSuccess(null);
-    const highlight = unlinkedHighlights.find(h => h.id === highlightId);
-    if (!highlight) return;
-
-    const updateData = {
-      text: highlight.text,
-      note: highlight.note,
-      tags: highlight.tags || [],
-      articleId: mediaType === 'article' ? mediaId : null,
-      bookId: mediaType === 'book' ? mediaId : null
-    };
-
-    updateMutation.mutate({ id: highlightId, highlightData: updateData }, {
-      onSuccess: () => {
-        setLinkSuccess(`Highlight linked to ${mediaType} successfully!`);
-        setExpandedHighlight(null);
-        setSearchQuery('');
-        // unlinked list auto-refreshes via the hook's invalidation
-      },
-      onError: (err) => setError(`Failed to link highlight: ${err.message}`),
-    });
-  };
-
-  const filteredBooks = books.filter(book =>
-    searchQuery.length > 0 && (
-      book.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      book.author?.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-  ).slice(0, 10);
-
-  const filteredArticles = articles.filter(article =>
-    searchQuery.length > 0 && (
-      article.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      article.author?.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-  ).slice(0, 10);
-
-  const truncateText = (text, maxLength = TEXT_CUTOFF) => {
-    if (!text || text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + '...';
-  };
-
-  const isTextLong = (text) => text && text.length > TEXT_CUTOFF;
-
-  const toggleTextExpansion = (highlightId) => {
-    setExpandedText(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(highlightId)) {
-        newSet.delete(highlightId);
-      } else {
-        newSet.add(highlightId);
-      }
-      return newSet;
-    });
   };
 
   return (
@@ -372,151 +291,6 @@ const ReadwiseSyncPage = () => {
         )}
       </section>
 
-      {/* Unlinked Highlights Section */}
-      <section className="sync-section unlinked-highlights-section">
-        <h2>Manage Unlinked Highlights</h2>
-        <p>
-          These highlights are not linked to any book or article in your library.
-          Link them manually to see them on the media profile pages.
-        </p>
-
-        {linkSuccess && (
-          <div className="alert alert-success">
-            {linkSuccess}
-          </div>
-        )}
-
-        <button
-          onClick={refetchUnlinked}
-          disabled={unlinkedLoading}
-          className="btn btn-secondary"
-          style={{ marginBottom: '1rem' }}
-        >
-          {unlinkedLoading ? 'Loading...' : 'Refresh List'}
-        </button>
-
-        {unlinkedLoading ? (
-          <div className="loading-state">Loading unlinked highlights...</div>
-        ) : unlinkedHighlights.length === 0 ? (
-          <div className="empty-state">
-            <p>No unlinked highlights found. All highlights are linked to books or articles.</p>
-          </div>
-        ) : (
-          <>
-            <div className="unlinked-count">
-              <strong>{unlinkedHighlights.length}</strong> highlight{unlinkedHighlights.length !== 1 ? 's' : ''} need manual linking
-            </div>
-
-            <div className="unlinked-highlights-list">
-              {unlinkedHighlights.map((highlight) => (
-                <div key={highlight.id} className="highlight-card">
-                  <div className="highlight-text">
-                    &quot;{expandedText.has(highlight.id) ? highlight.text : truncateText(highlight.text)}&quot;
-                    {isTextLong(highlight.text) && (
-                      <button
-                        className="read-more-btn"
-                        onClick={() => toggleTextExpansion(highlight.id)}
-                      >
-                        {expandedText.has(highlight.id) ? 'Show Less' : 'Read More'}
-                      </button>
-                    )}
-                  </div>
-                  <div className="highlight-meta">
-                    {highlight.title && (
-                      <span className="meta-item">
-                        <strong>From:</strong> {highlight.title}
-                        {highlight.author && ` by ${highlight.author}`}
-                      </span>
-                    )}
-                    {highlight.category && (
-                      <span className="meta-badge">{highlight.category}</span>
-                    )}
-                    {highlight.highlightedAt && (
-                      <span className="meta-date">
-                        {new Date(highlight.highlightedAt).toLocaleDateString()}
-                      </span>
-                    )}
-                  </div>
-
-                  {expandedHighlight === highlight.id ? (
-                    <div className="link-panel">
-                      <input
-                        type="text"
-                        placeholder="Search books or articles..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="search-input"
-                        // eslint-disable-next-line jsx-a11y/no-autofocus -- focuses search input when link panel expands
-                        autoFocus
-                      />
-
-                      {searchQuery.length > 0 && (
-                        <div className="search-results">
-                          {filteredBooks.length > 0 && (
-                            <div className="result-section">
-                              <h4>Books</h4>
-                              {filteredBooks.map((book) => (
-                                <button
-                                  key={book.id}
-                                  className="result-item"
-                                  onClick={() => handleLinkHighlight(highlight.id, 'book', book.id)}
-                                  disabled={linkingId === highlight.id}
-                                >
-                                  <span className="result-title">{book.title}</span>
-                                  {book.author && <span className="result-author">by {book.author}</span>}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-
-                          {filteredArticles.length > 0 && (
-                            <div className="result-section">
-                              <h4>Articles</h4>
-                              {filteredArticles.map((article) => (
-                                <button
-                                  key={article.id}
-                                  className="result-item"
-                                  onClick={() => handleLinkHighlight(highlight.id, 'article', article.id)}
-                                  disabled={linkingId === highlight.id}
-                                >
-                                  <span className="result-title">{article.title}</span>
-                                  {article.author && <span className="result-author">by {article.author}</span>}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-
-                          {filteredBooks.length === 0 && filteredArticles.length === 0 && (
-                            <div className="no-results">No matches found</div>
-                          )}
-                        </div>
-                      )}
-
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => {
-                          setExpandedHighlight(null);
-                          setSearchQuery('');
-                        }}
-                        style={{ marginTop: '0.5rem' }}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      className="btn btn-primary btn-sm"
-                      onClick={() => setExpandedHighlight(highlight.id)}
-                    >
-                      Link to Media
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-      </section>
     </div>
   );
 };

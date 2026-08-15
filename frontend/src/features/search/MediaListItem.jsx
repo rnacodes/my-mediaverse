@@ -129,6 +129,16 @@ export const MediaListItem = React.memo(({ item, isSelected = false, onToggleSel
                     />
                 </Grid>
             )}
+            {item.isMixlist && item.thumbnail && (
+                <Grid item>
+                    <Box
+                        component="img"
+                        src={item.thumbnail}
+                        alt={item.title}
+                        sx={{ width: 56, height: 56, borderRadius: 1, objectFit: 'cover', display: 'block' }}
+                    />
+                </Grid>
+            )}
             <Grid item xs={12} md={6}>
                 {/* Title and Rating */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
