@@ -11,13 +11,12 @@ import {
     Save as SaveIcon,
     Close as CloseIcon,
     Article as NoteIcon,
-    AutoAwesome as AutoAwesomeIcon,
-    Sync as SyncIcon
+    AutoAwesome as AutoAwesomeIcon
 } from '@mui/icons-material';
 import { useNote, useMediaForNote, useUpdateNote } from '@/hooks/useNote';
 import { useGenerateNoteDescription } from '@/hooks/useAi';
-import { useReindexNote } from '@/hooks/useTypesense';
-import { formatMediaType, getMediaTypeColor } from '@/utils/formatters';
+import { formatMediaType } from '@/utils/formatters';
+import { getMediaTypeColor } from '@/shared/DesignSystem';
 import { resolveMediaImage, getPlaceholderImage } from '@/utils/mediaImageUtils';
 import SimilarNotesSection from '../SimilarNotesSection';
 import RelatedMediaByEmbeddingSection from '../RelatedMediaByEmbeddingSection';
@@ -43,9 +42,6 @@ function NoteProfilePage() {
     const generateMutation = useGenerateNoteDescription();
     const generatingDescription = generateMutation.isPending;
 
-    const reindexMutation = useReindexNote();
-    const reindexing = reindexMutation.isPending;
-
     // Seed the edit field once the note has loaded.
     useEffect(() => {
         if (note) setEditedDescription(note.description ?? '');
@@ -57,17 +53,6 @@ function NoteProfilePage() {
             setSnackbar({ open: true, message: 'Failed to load note', severity: 'error' });
         }
     }, [noteQuery.error]);
-
-    const handleReindex = () => {
-        reindexMutation.mutate(id, {
-            onSuccess: () => setSnackbar({ open: true, message: 'Note re-indexed in search.', severity: 'success' }),
-            onError: (error) => {
-                if (error.response?.status !== 403) {
-                    setSnackbar({ open: true, message: 'Failed to re-index note.', severity: 'error' });
-                }
-            },
-        });
-    };
 
     // Get vault color
     const getVaultColor = (vaultName) => {
@@ -227,15 +212,6 @@ function NoteProfilePage() {
                         sx={{ color: 'white' }}
                     >
                         Back
-                    </Button>
-                    <Button
-                        startIcon={reindexing ? <CircularProgress size={16} /> : <SyncIcon />}
-                        onClick={handleReindex}
-                        variant="outlined"
-                        size="small"
-                        disabled={reindexing}
-                    >
-                        {reindexing ? 'Reindexing...' : 'Reindex'}
                     </Button>
                 </Box>
 

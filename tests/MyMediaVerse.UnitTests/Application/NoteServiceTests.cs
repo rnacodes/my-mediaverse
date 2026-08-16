@@ -17,6 +17,7 @@ namespace MyMediaVerse.UnitTests.Application
     {
         private readonly IQuartzApiClient _mockQuartzClient;
         private readonly IConfiguration _mockConfiguration;
+        private readonly ITypesenseService _mockTypesenseService;
         private readonly ILogger<NoteService> _mockLogger;
         private readonly NoteService _service;
 
@@ -24,8 +25,9 @@ namespace MyMediaVerse.UnitTests.Application
         {
             _mockQuartzClient = Substitute.For<IQuartzApiClient>();
             _mockConfiguration = Substitute.For<IConfiguration>();
+            _mockTypesenseService = Substitute.For<ITypesenseService>();
             _mockLogger = Substitute.For<ILogger<NoteService>>();
-            _service = new NoteService(Context, _mockQuartzClient, _mockConfiguration, _mockLogger);
+            _service = new NoteService(Context, _mockQuartzClient, _mockConfiguration, _mockTypesenseService, _mockLogger);
         }
 
         private Note CreateTestNote(string slug = "test-note", string title = "Test Note", string vaultName = "general")
@@ -84,6 +86,22 @@ namespace MyMediaVerse.UnitTests.Application
 
             // Act
             var result = await _service.GetBySlugAndVaultAsync("my-slug", "General");
+
+            // Assert
+            result.Should().NotBeNull();
+            result!.Title.Should().Be("My Note");
+        }
+
+        [Fact]
+        public async Task GetBySlugAndVaultAsync_WithMixedCaseSlug_ShouldReturnNote()
+        {
+            // Arrange — slugs are stored lowercase; lookups must be case-insensitive
+            var note = CreateTestNote("my-slug", "My Note", "general");
+            Context.Notes.Add(note);
+            await Context.SaveChangesAsync();
+
+            // Act
+            var result = await _service.GetBySlugAndVaultAsync("My-Slug", "general");
 
             // Assert
             result.Should().NotBeNull();

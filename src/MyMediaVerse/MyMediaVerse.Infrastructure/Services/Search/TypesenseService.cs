@@ -1270,39 +1270,46 @@ namespace MyMediaVerse.Infrastructure.Services.Search
             {
                 _logger.LogInformation("Starting bulk re-index of all notes...");
 
-                var notes = await _context.Notes
-                    .Include(n => n.MediaItemNotes)
-                    .AsNoTracking()
-                    .ToListAsync();
-
-                var documents = notes.Select(note => new ObsidianNoteDocument
-                {
-                    Id = note.Id.ToString(),
-                    Slug = note.Slug,
-                    Title = note.Title,
-                    Content = note.Content,
-                    Description = note.Description,
-                    VaultName = note.VaultName,
-                    SourceUrl = note.SourceUrl,
-                    Tags = note.Tags ?? new List<string>(),
-                    DateImported = ((DateTimeOffset)note.DateImported).ToUnixTimeSeconds(),
-                    NoteDate = note.NoteDate.HasValue ? ((DateTimeOffset)note.NoteDate.Value).ToUnixTimeSeconds() : null,
-                    LinkedMediaCount = note.MediaItemNotes.Count
-                }).ToList();
-
-                // Ensure the collection exists without dropping it. Upsert-in-place keeps the live
-                // index searchable throughout and lets Typesense skip re-embedding unchanged docs
-                // (the embedding_source text is stable). Rows deleted in Postgres are reconciled
-                // away below; use the explicit reset endpoint for a destructive full rebuild.
                 await EnsureNotesCollectionExistsAsync();
 
+                // Notes carry their full content, so page the table instead of loading it whole.
+                const int pageSize = 200;
                 var successCount = 0;
-                if (documents.Count == 0)
+                var failureCount = 0;
+                var indexedDocIds = new List<string>();
+
+                for (var skip = 0; ; skip += pageSize)
                 {
-                    _logger.LogInformation("No notes found to index.");
-                }
-                else
-                {
+                    var notes = await _context.Notes
+                        .Include(n => n.MediaItemNotes)
+                        .AsNoTracking()
+                        .OrderBy(n => n.Id)
+                        .Skip(skip)
+                        .Take(pageSize)
+                        .ToListAsync();
+
+                    if (notes.Count == 0)
+                    {
+                        break;
+                    }
+
+                    var documents = notes.Select(note => new ObsidianNoteDocument
+                    {
+                        Id = note.Id.ToString(),
+                        Slug = note.Slug,
+                        Title = note.Title,
+                        Content = note.Content,
+                        Description = note.Description,
+                        VaultName = note.VaultName,
+                        SourceUrl = note.SourceUrl,
+                        Tags = note.Tags ?? new List<string>(),
+                        DateImported = ((DateTimeOffset)note.DateImported).ToUnixTimeSeconds(),
+                        NoteDate = note.NoteDate.HasValue ? ((DateTimeOffset)note.NoteDate.Value).ToUnixTimeSeconds() : null,
+                        LinkedMediaCount = note.MediaItemNotes.Count
+                    }).ToList();
+
+                    indexedDocIds.AddRange(documents.Select(d => d.Id));
+
                     // Upsert so existing docs are updated in place; unchanged docs avoid a needless re-embed.
                     var importResults = await _typesenseClient.ImportDocuments<ObsidianNoteDocument>(
                         _notesCollectionName,
@@ -1311,9 +1318,21 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                         ImportType.Upsert
                     );
 
-                    successCount = importResults.Count(r => r.Success);
-                    var failureCount = importResults.Count(r => !r.Success);
+                    successCount += importResults.Count(r => r.Success);
+                    failureCount += importResults.Count(r => !r.Success);
 
+                    if (notes.Count < pageSize)
+                    {
+                        break;
+                    }
+                }
+
+                if (indexedDocIds.Count == 0)
+                {
+                    _logger.LogInformation("No notes found to index.");
+                }
+                else
+                {
                     _logger.LogInformation(
                         "Bulk re-index of notes complete. Success: {SuccessCount}, Failures: {FailureCount}",
                         successCount,
@@ -1323,7 +1342,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
 
                 // Remove any indexed documents whose source rows no longer exist in Postgres so
                 // deleted notes stop appearing as ghost search hits.
-                await ReconcileDeletedDocumentsAsync(_notesCollectionName, documents.Select(d => d.Id));
+                await ReconcileDeletedDocumentsAsync(_notesCollectionName, indexedDocIds);
 
                 return successCount;
             }

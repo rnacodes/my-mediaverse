@@ -17,7 +17,6 @@
 - [Overview](#overview)
 - [Features](#features)
 - [Tech Stack](#tech-stack)
-- [Screenshots](#screenshots)
 - [Architecture](#architecture)
 - [Getting Started](#getting-started)
 - [API Endpoints](#api-endpoints)

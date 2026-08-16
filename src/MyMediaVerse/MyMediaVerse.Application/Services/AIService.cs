@@ -1,9 +1,11 @@
 using System.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
+using MyMediaVerse.Shared.Configuration;
 using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.Application.Services
@@ -15,6 +17,7 @@ namespace MyMediaVerse.Application.Services
     {
         private readonly IApplicationDbContext _context;
         private readonly IGradientAIClient _gradientClient;
+        private readonly NoteDescriptionGenerationOptions _options;
         private readonly ILogger<AIService> _logger;
 
         // Prompt templates
@@ -36,10 +39,12 @@ Content (excerpt):
         public AIService(
             IApplicationDbContext context,
             IGradientAIClient gradientClient,
+            IOptions<NoteDescriptionGenerationOptions> options,
             ILogger<AIService> logger)
         {
             _context = context;
             _gradientClient = gradientClient;
+            _options = options.Value;
             _logger = logger;
         }
 
@@ -73,7 +78,7 @@ Content (excerpt):
                 var description = await _gradientClient.GenerateTextAsync(
                     userPrompt,
                     NoteDescriptionSystemPrompt,
-                    maxTokens: 200,
+                    maxTokens: _options.MaxTokensPerDescription,
                     cancellationToken);
 
                 if (string.IsNullOrWhiteSpace(description))
@@ -153,7 +158,7 @@ Content (excerpt):
                         }
 
                         // Add delay to avoid rate limiting
-                        await Task.Delay(1000, cancellationToken);
+                        await Task.Delay(_options.DelayBetweenCallsMs, cancellationToken);
                     }
                     catch (Exception ex)
                     {

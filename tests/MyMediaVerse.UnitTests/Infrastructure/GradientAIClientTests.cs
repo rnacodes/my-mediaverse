@@ -200,6 +200,20 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         }
 
         [Fact]
+        public async Task IsAvailableAsync_WhenApiReturnsError_ShouldReturnFalse()
+        {
+            // Arrange
+            SetupGradientResponse(HttpStatusCode.Unauthorized, "{\"error\": \"invalid key\"}");
+            var client = CreateClient();
+
+            // Act
+            var result = await client.IsAvailableAsync();
+
+            // Assert
+            result.Should().BeFalse();
+        }
+
+        [Fact]
         public async Task IsAvailableAsync_WhenNotConfigured_ShouldReturnFalse()
         {
             // Arrange

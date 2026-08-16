@@ -415,7 +415,6 @@ export default function Search({ defaultMediaTypes = [] }) {
                         highlightText: doc.text,
                         highlightNote: doc.note,
                         category: doc.category,
-                        isFavorite: doc.is_favorite,
                         linkedMediaId: doc.linked_media_id,
                         linkedMediaTitle: doc.linked_media_title,
                         linkedMediaType: doc.linked_media_type

@@ -233,18 +233,184 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         [Fact]
-        public async Task SyncFromQuartzVaultAsync_WhenAuthError_ShouldReturnResultWithError()
+        public async Task SyncFromQuartzVaultAsync_WhenAuthError_ShouldPropagate()
         {
-            // Arrange
+            // Arrange — a total failure must reach the API layer so it can return a real
+            // error status instead of a 200 that looks like a successful empty sync
             _mockQuartzClient.GetContentIndexAsync(Arg.Any<string>(), Arg.Any<string?>())
                 .Throws(new UnauthorizedAccessException("Invalid token"));
 
+            // Act & Assert
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(
+                () => _service.SyncFromQuartzVaultAsync("general", "https://vault.example.com", "bad-token"));
+        }
+
+        [Fact]
+        public async Task SyncFromQuartzVaultAsync_ShouldLowercaseSlugsOnImport()
+        {
+            // Arrange — Quartz can publish mixed-case slugs; MMV stores them lowercase
+            var contentIndex = new Dictionary<string, QuartzNoteDto>
+            {
+                ["Philosophy/Stoicism"] = new QuartzNoteDto
+                {
+                    Title = "Stoicism",
+                    Content = "Content about stoicism",
+                    Tags = new List<string> { "philosophy" }
+                }
+            };
+
+            _mockQuartzClient.GetContentIndexAsync(Arg.Any<string>(), Arg.Any<string?>())
+                .Returns(contentIndex);
+
             // Act
-            var result = await _service.SyncFromQuartzVaultAsync("general", "https://vault.example.com", "bad-token");
+            await _service.SyncFromQuartzVaultAsync("general", "https://vault.example.com");
+
+            // Assert — slug lowered in the DB, but the published URL keeps its original casing
+            var note = Context.Notes.Single();
+            note.Slug.Should().Be("philosophy/stoicism");
+            note.SourceUrl.Should().Be("https://vault.example.com/Philosophy/Stoicism");
+        }
+
+        [Fact]
+        public async Task SyncFromQuartzVaultAsync_WithMixedCaseSlug_ShouldUpdateExistingLowercaseNote()
+        {
+            // Arrange — the same note must not duplicate when the vault reports a different casing
+            var existingNote = CreateTestNote("philosophy/stoicism", "Stoicism", "general");
+            existingNote.ContentHash = "old-hash";
+            Context.Notes.Add(existingNote);
+            await Context.SaveChangesAsync();
+
+            var contentIndex = new Dictionary<string, QuartzNoteDto>
+            {
+                ["Philosophy/Stoicism"] = new QuartzNoteDto
+                {
+                    Title = "Stoicism Updated",
+                    Content = "Updated content",
+                    Tags = new List<string> { "philosophy" }
+                }
+            };
+
+            _mockQuartzClient.GetContentIndexAsync(Arg.Any<string>(), Arg.Any<string?>())
+                .Returns(contentIndex);
+
+            // Act
+            var result = await _service.SyncFromQuartzVaultAsync("general", "https://vault.example.com");
 
             // Assert
-            result.Errors.Should().NotBeEmpty();
-            result.Errors.First().Should().Contain("Authentication error");
+            result.Imported.Should().Be(0);
+            result.Updated.Should().Be(1);
+            Context.Notes.Should().HaveCount(1);
+        }
+
+        [Fact]
+        public async Task SyncFromQuartzVaultAsync_WithRemoveOrphans_ShouldDeleteNotesMissingFromIndex()
+        {
+            // Arrange — one note still published, one removed from the vault
+            var keptNote = CreateTestNote("philosophy/stoicism", "Stoicism", "general");
+            keptNote.ContentHash = "kept-hash";
+            var orphanNote = CreateTestNote("philosophy/deleted-note", "Deleted Note", "general");
+            Context.Notes.AddRange(keptNote, orphanNote);
+            await Context.SaveChangesAsync();
+
+            var contentIndex = new Dictionary<string, QuartzNoteDto>
+            {
+                ["philosophy/stoicism"] = new QuartzNoteDto
+                {
+                    Title = "Stoicism",
+                    Content = "Content",
+                    Tags = new List<string> { "philosophy" }
+                }
+            };
+
+            _mockQuartzClient.GetContentIndexAsync(Arg.Any<string>(), Arg.Any<string?>())
+                .Returns(contentIndex);
+
+            // Act
+            var result = await _service.SyncFromQuartzVaultAsync("general", "https://vault.example.com", removeOrphans: true);
+
+            // Assert — orphan gone from DB and search index; published note untouched
+            result.OrphansRemoved.Should().Be(1);
+            result.RemovedSlugs.Should().ContainSingle().Which.Should().Be("philosophy/deleted-note");
+            Context.Notes.Should().ContainSingle(n => n.Slug == "philosophy/stoicism");
+            await _mockTypesenseService.Received(1).DeleteNoteAsync(orphanNote.Id);
+        }
+
+        [Fact]
+        public async Task SyncFromQuartzVaultAsync_WithoutRemoveOrphans_ShouldKeepNotesMissingFromIndex()
+        {
+            // Arrange
+            var orphanNote = CreateTestNote("philosophy/deleted-note", "Deleted Note", "general");
+            Context.Notes.Add(orphanNote);
+            await Context.SaveChangesAsync();
+
+            var contentIndex = new Dictionary<string, QuartzNoteDto>
+            {
+                ["philosophy/stoicism"] = new QuartzNoteDto
+                {
+                    Title = "Stoicism",
+                    Content = "Content",
+                    Tags = new List<string> { "philosophy" }
+                }
+            };
+
+            _mockQuartzClient.GetContentIndexAsync(Arg.Any<string>(), Arg.Any<string?>())
+                .Returns(contentIndex);
+
+            // Act
+            var result = await _service.SyncFromQuartzVaultAsync("general", "https://vault.example.com");
+
+            // Assert — default sync never deletes
+            result.OrphansRemoved.Should().Be(0);
+            Context.Notes.Should().HaveCount(2);
+        }
+
+        [Fact]
+        public async Task SyncFromQuartzVaultAsync_WithRemoveOrphansAndEmptyIndex_ShouldRefuseToWipeVault()
+        {
+            // Arrange — empty index + existing notes looks like a bad publish, not an emptied vault
+            Context.Notes.Add(CreateTestNote("philosophy/stoicism", "Stoicism", "general"));
+            await Context.SaveChangesAsync();
+
+            _mockQuartzClient.GetContentIndexAsync(Arg.Any<string>(), Arg.Any<string?>())
+                .Returns(new Dictionary<string, QuartzNoteDto>());
+
+            // Act
+            var result = await _service.SyncFromQuartzVaultAsync("general", "https://vault.example.com", removeOrphans: true);
+
+            // Assert
+            result.OrphansRemoved.Should().Be(0);
+            result.Errors.Should().ContainSingle(e => e.Contains("Orphan removal skipped"));
+            Context.Notes.Should().HaveCount(1);
+        }
+
+        [Fact]
+        public async Task SyncFromQuartzVaultAsync_WithRemoveOrphans_ShouldMatchSlugsCaseInsensitively()
+        {
+            // Arrange — DB slug is lowercase, vault publishes mixed case; not an orphan
+            var note = CreateTestNote("philosophy/stoicism", "Stoicism", "general");
+            note.ContentHash = "old-hash";
+            Context.Notes.Add(note);
+            await Context.SaveChangesAsync();
+
+            var contentIndex = new Dictionary<string, QuartzNoteDto>
+            {
+                ["Philosophy/Stoicism"] = new QuartzNoteDto
+                {
+                    Title = "Stoicism",
+                    Content = "Content",
+                    Tags = new List<string> { "philosophy" }
+                }
+            };
+
+            _mockQuartzClient.GetContentIndexAsync(Arg.Any<string>(), Arg.Any<string?>())
+                .Returns(contentIndex);
+
+            // Act
+            var result = await _service.SyncFromQuartzVaultAsync("general", "https://vault.example.com", removeOrphans: true);
+
+            // Assert
+            result.OrphansRemoved.Should().Be(0);
+            Context.Notes.Should().HaveCount(1);
         }
 
         [Fact]

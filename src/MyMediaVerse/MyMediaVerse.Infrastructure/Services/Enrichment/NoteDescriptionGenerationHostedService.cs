@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MyMediaVerse.Application.Interfaces;
+using MyMediaVerse.Shared.Configuration;
 
 namespace MyMediaVerse.Infrastructure.Services.Enrichment
 {
@@ -106,37 +107,4 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
         }
     }
 
-    /// <summary>
-    /// Configuration options for the note description generation background service.
-    /// </summary>
-    public class NoteDescriptionGenerationOptions
-    {
-        public const string SectionName = "NoteDescriptionGeneration";
-
-        /// <summary>
-        /// Whether the background service is enabled. Default: false
-        /// </summary>
-        public bool Enabled { get; set; } = false;
-
-        /// <summary>
-        /// Hours between generation runs. Default: 12
-        /// </summary>
-        public int IntervalHours { get; set; } = 12;
-
-        /// <summary>
-        /// Initial delay in minutes before the first run. Default: 20
-        /// (gives time for note sync to complete first)
-        /// </summary>
-        public int InitialDelayMinutes { get; set; } = 20;
-
-        /// <summary>
-        /// Number of notes to process per batch. Default: 20
-        /// </summary>
-        public int BatchSize { get; set; } = 20;
-
-        /// <summary>
-        /// Maximum tokens for generated descriptions. Default: 200
-        /// </summary>
-        public int MaxTokensPerDescription { get; set; } = 200;
-    }
 }

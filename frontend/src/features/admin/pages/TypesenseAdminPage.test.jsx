@@ -10,7 +10,6 @@ import TypesenseAdminPage from './TypesenseAdminPage';
 describe('TypesenseAdminPage', () => {
   it('mounts and renders its primary heading', async () => {
     server.use(
-      http.get(`${API_BASE}/search/realtime-indexing`, () => HttpResponse.json({ enabled: true })),
       http.get(`${API_BASE}/search/health`, () => HttpResponse.json({ status: 'healthy', message: 'OK' })),
       http.get(`${API_BASE}/note/sync/status`, () => HttpResponse.json({ backgroundSyncEnabled: true })),
     );

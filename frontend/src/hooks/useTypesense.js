@@ -1,12 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  getRealTimeIndexingStatus,
-  setRealTimeIndexingStatus,
   typesenseReindex,
   reindexMediaItem,
   reindexMixlist,
-  reindexNote,
-  reindexHighlight,
   typesenseHealth,
   typesenseResetMediaItems,
   typesenseResetMixlists,
@@ -25,14 +21,6 @@ import {
 import { typesenseKeys, highlightKeys } from '../api/queryKeys';
 
 // ----- Queries -----
-
-export function useRealTimeIndexingStatus(options = {}) {
-  return useQuery({
-    queryKey: [...typesenseKeys.all, 'realTimeIndexing'],
-    queryFn: () => getRealTimeIndexingStatus(),
-    ...options,
-  });
-}
 
 export function useTypesenseHealth(options = {}) {
   return useQuery({
@@ -97,16 +85,6 @@ export function useHighlightSearchAdvanced(searchOptions, options = {}) {
 
 // ----- Mutations -----
 
-export function useSetRealTimeIndexingStatus() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (enabled) => setRealTimeIndexingStatus(enabled),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [...typesenseKeys.all, 'realTimeIndexing'] });
-    },
-  });
-}
-
 export function useTypesenseReindex() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -126,18 +104,6 @@ export function useReindexMediaItem() {
 export function useReindexMixlist() {
   return useMutation({
     mutationFn: (id) => reindexMixlist(id),
-  });
-}
-
-export function useReindexNote() {
-  return useMutation({
-    mutationFn: (id) => reindexNote(id),
-  });
-}
-
-export function useReindexHighlight() {
-  return useMutation({
-    mutationFn: (id) => reindexHighlight(id),
   });
 }
 

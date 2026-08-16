@@ -18,17 +18,20 @@ namespace MyMediaVerse.Application.Services
         private readonly IApplicationDbContext _context;
         private readonly IQuartzApiClient _quartzClient;
         private readonly IConfiguration _configuration;
+        private readonly ITypesenseService _typesenseService;
         private readonly ILogger<NoteService> _logger;
 
         public NoteService(
             IApplicationDbContext context,
             IQuartzApiClient quartzClient,
             IConfiguration configuration,
+            ITypesenseService typesenseService,
             ILogger<NoteService> logger)
         {
             _context = context;
             _quartzClient = quartzClient;
             _configuration = configuration;
+            _typesenseService = typesenseService;
             _logger = logger;
         }
 
@@ -46,10 +49,11 @@ namespace MyMediaVerse.Application.Services
 
         public async Task<Note?> GetBySlugAndVaultAsync(string slug, string vaultName)
         {
+            var normalizedSlug = slug.ToLowerInvariant();
             return await _context.Notes
                 .Include(n => n.MediaItemNotes)
                     .ThenInclude(min => min.MediaItem)
-                .FirstOrDefaultAsync(n => n.Slug == slug && n.VaultName == vaultName.ToLower());
+                .FirstOrDefaultAsync(n => n.Slug == normalizedSlug && n.VaultName == vaultName.ToLower());
         }
 
         public async Task<List<Note>> GetAllAsync(string? vaultName = null)
@@ -136,6 +140,15 @@ namespace MyMediaVerse.Application.Services
             await _context.SaveChangesAsync();
 
             _logger.LogInformation("Deleted note {Id}", id);
+
+         try
+            {
+                await _typesenseService.DeleteNoteAsync(id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to remove note {Id} from the search index; it will be removed on the next reindex", id);
+            }
         }
 
         // ============================================
@@ -241,7 +254,7 @@ namespace MyMediaVerse.Application.Services
         // Sync Operations
         // ============================================
 
-        public async Task<NoteSyncResultDto> SyncFromQuartzVaultAsync(string vaultName, string vaultUrl, string? authToken = null)
+        public async Task<NoteSyncResultDto> SyncFromQuartzVaultAsync(string vaultName, string vaultUrl, string? authToken = null, bool removeOrphans = false)
         {
             var result = new NoteSyncResultDto
             {
@@ -249,122 +262,168 @@ namespace MyMediaVerse.Application.Services
                 SyncedAt = DateTime.UtcNow
             };
 
-            try
+             _logger.LogInformation("Starting sync for vault {VaultName} from {VaultUrl}", vaultName, vaultUrl);
+
+            var contentIndex = await _quartzClient.GetContentIndexAsync(vaultUrl, authToken);
+            result.TotalProcessed = contentIndex.Count;
+
+            foreach (var (slug, noteDto) in contentIndex)
             {
-                _logger.LogInformation("Starting sync for vault {VaultName} from {VaultUrl}", vaultName, vaultUrl);
-
-                var contentIndex = await _quartzClient.GetContentIndexAsync(vaultUrl, authToken);
-                result.TotalProcessed = contentIndex.Count;
-
-                foreach (var (slug, noteDto) in contentIndex)
+                try
                 {
-                    try
+                    // Debug logging for tags deserialization
+                    _logger.LogDebug("Processing note {Slug}: Tags count = {TagsCount}, Tags = [{Tags}]",
+                        slug,
+                        noteDto.Tags?.Count ?? 0,
+                        noteDto.Tags != null ? string.Join(", ", noteDto.Tags) : "null");
+
+                    var normalizedSlug = slug.ToLowerInvariant();
+
+                    var existingNote = await _context.Notes
+                        .FirstOrDefaultAsync(n => n.Slug == normalizedSlug && n.VaultName == vaultName.ToLower());
+
+                    var contentHash = ComputeContentHash(noteDto.Content);
+
+                    if (existingNote == null)
                     {
-                        // Debug logging for tags deserialization
-                        _logger.LogDebug("Processing note {Slug}: Tags count = {TagsCount}, Tags = [{Tags}]",
-                            slug,
-                            noteDto.Tags?.Count ?? 0,
-                            noteDto.Tags != null ? string.Join(", ", noteDto.Tags) : "null");
-
-                        var existingNote = await _context.Notes
-                            .FirstOrDefaultAsync(n => n.Slug == slug && n.VaultName == vaultName.ToLower());
-
-                        var contentHash = ComputeContentHash(noteDto.Content);
-
-                        if (existingNote == null)
+                        // Create new note
+                        var note = new Note
                         {
-                            // Create new note
-                            var note = new Note
-                            {
-                                Slug = slug,
-                                Title = noteDto.Title,
-                                Content = noteDto.Content,
-                                Description = noteDto.Description,
-                                VaultName = vaultName.ToLower(),
-                                SourceUrl = $"{vaultUrl.TrimEnd('/')}/{slug}",
-                                Tags = NormalizeTags(noteDto.Tags),
-                                NoteDate = ParseDate(noteDto.Date),
-                                DateImported = DateTime.UtcNow,
-                                LastSyncedAt = DateTime.UtcNow,
-                                ContentHash = contentHash
-                            };
+                            Slug = normalizedSlug,
+                            Title = noteDto.Title,
+                            Content = noteDto.Content,
+                            Description = noteDto.Description,
+                            VaultName = vaultName.ToLower(),
+                            SourceUrl = $"{vaultUrl.TrimEnd('/')}/{slug}",
+                            Tags = NormalizeTags(noteDto.Tags),
+                            NoteDate = ParseDate(noteDto.Date),
+                            DateImported = DateTime.UtcNow,
+                            LastSyncedAt = DateTime.UtcNow,
+                            ContentHash = contentHash
+                        };
 
-                            _context.Add(note);
-                            await _context.SaveChangesAsync();
+                        _context.Add(note);
+                        await _context.SaveChangesAsync();
 
-                            result.Imported++;
-                        }
-                        else if (existingNote.ContentHash != contentHash)
-                        {
-                            // Update existing note
-                            existingNote.Title = noteDto.Title;
-                            existingNote.Content = noteDto.Content;
-                            existingNote.Tags = NormalizeTags(noteDto.Tags);
-                            existingNote.NoteDate = ParseDate(noteDto.Date);
-                            existingNote.LastSyncedAt = DateTime.UtcNow;
-                            existingNote.ContentHash = contentHash;
-
-                            // Content changed, so any AI summary is now stale. Clear it (and reset the
-                            // synced Description unless the user hand-edited it) so the batch regen,
-                            // which selects notes where AiDescription == null, picks this note up again.
-                            existingNote.AiDescription = null;
-                            existingNote.AiDescriptionGeneratedAt = null;
-                            if (!existingNote.IsDescriptionManual)
-                            {
-                                existingNote.Description = noteDto.Description;
-                            }
-
-                            _context.Update(existingNote);
-                            await _context.SaveChangesAsync();
-
-                            result.Updated++;
-                        }
-                        else
-                        {
-                            // Content unchanged, but still update tags in case they were missed in a previous sync
-                            var normalizedTags = NormalizeTags(noteDto.Tags);
-                            var tagsChanged = !TagsAreEqual(existingNote.Tags, normalizedTags);
-                            if (tagsChanged)
-                            {
-                                _logger.LogDebug("Updating tags for unchanged note {Slug}: [{OldTags}] -> [{NewTags}]",
-                                    slug,
-                                    string.Join(", ", existingNote.Tags ?? new List<string>()),
-                                    string.Join(", ", normalizedTags));
-                                existingNote.Tags = normalizedTags;
-                            }
-                            existingNote.LastSyncedAt = DateTime.UtcNow;
-                            _context.Update(existingNote);
-                            result.Unchanged++;
-                        }
+                        result.Imported++;
                     }
-                    catch (Exception ex)
+                    else if (existingNote.ContentHash != contentHash)
                     {
-                        _logger.LogError(ex, "Error syncing note {Slug} from vault {VaultName}", slug, vaultName);
-                        result.Failed++;
-                        result.Errors.Add($"Failed to sync note '{slug}': {ex.Message}");
+                        // Update existing note
+                        existingNote.Title = noteDto.Title;
+                        existingNote.Content = noteDto.Content;
+                        existingNote.Tags = NormalizeTags(noteDto.Tags);
+                        existingNote.NoteDate = ParseDate(noteDto.Date);
+                        existingNote.LastSyncedAt = DateTime.UtcNow;
+                        existingNote.ContentHash = contentHash;
+
+                        // Content changed, so any AI summary is now stale. Clear it (and reset the
+                        // synced Description unless the user hand-edited it) so the batch regen,
+                        // which selects notes where AiDescription == null, picks this note up again.
+                        existingNote.AiDescription = null;
+                        existingNote.AiDescriptionGeneratedAt = null;
+                        if (!existingNote.IsDescriptionManual)
+                        {
+                            existingNote.Description = noteDto.Description;
+                        }
+
+                        _context.Update(existingNote);
+                        await _context.SaveChangesAsync();
+
+                        result.Updated++;
+                    }
+                    else
+                    {
+                        // Content unchanged, but still update tags in case they were missed in a previous sync
+                        var normalizedTags = NormalizeTags(noteDto.Tags);
+                        var tagsChanged = !TagsAreEqual(existingNote.Tags, normalizedTags);
+                        if (tagsChanged)
+                        {
+                            _logger.LogDebug("Updating tags for unchanged note {Slug}: [{OldTags}] -> [{NewTags}]",
+                                slug,
+                                string.Join(", ", existingNote.Tags ?? new List<string>()),
+                                string.Join(", ", normalizedTags));
+                            existingNote.Tags = normalizedTags;
+                        }
+                        existingNote.LastSyncedAt = DateTime.UtcNow;
+                        _context.Update(existingNote);
+                        result.Unchanged++;
                     }
                 }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error syncing note {Slug} from vault {VaultName}", slug, vaultName);
+                    result.Failed++;
+                    result.Errors.Add($"Failed to sync note '{slug}': {ex.Message}");
+                }
+            }
 
-                await _context.SaveChangesAsync();
-                _logger.LogInformation(
-                    "Sync completed for vault {VaultName}: {Imported} imported, {Updated} updated, {Unchanged} unchanged, {Failed} failed",
-                    vaultName, result.Imported, result.Updated, result.Unchanged, result.Failed);
-            }
-            catch (UnauthorizedAccessException ex)
+            await _context.SaveChangesAsync();
+            _logger.LogInformation(
+                "Sync completed for vault {VaultName}: {Imported} imported, {Updated} updated, {Unchanged} unchanged, {Failed} failed",
+                vaultName, result.Imported, result.Updated, result.Unchanged, result.Failed);
+
+            if (removeOrphans)
             {
-                _logger.LogError(ex, "Authentication error syncing vault {VaultName}", vaultName);
-                result.Errors.Add($"Authentication error: {ex.Message}");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error syncing vault {VaultName}", vaultName);
-                result.Errors.Add($"Sync error: {ex.Message}");
+                await RemoveOrphanedNotesAsync(vaultName.ToLower(), contentIndex.Keys, result);
             }
 
             return result;
         }
 
-        public async Task<List<NoteSyncResultDto>> SyncAllVaultsAsync()
+        // Deletes notes whose slug is no longer present in the vault's published content index.
+        // Runs only after a successful index fetch, so a vault outage can never look like a mass deletion.
+        private async Task RemoveOrphanedNotesAsync(string vaultName, IEnumerable<string> publishedSlugs, NoteSyncResultDto result)
+        {
+            var publishedSet = publishedSlugs.Select(s => s.ToLowerInvariant()).ToHashSet();
+
+            var vaultNotes = await _context.Notes
+                .Where(n => n.VaultName == vaultName)
+                .ToListAsync();
+
+            var orphans = vaultNotes.Where(n => !publishedSet.Contains(n.Slug.ToLowerInvariant())).ToList();
+
+            if (publishedSet.Count == 0 && orphans.Count > 0)
+            {
+                _logger.LogWarning(
+                    "Orphan removal skipped for vault {VaultName}: content index is empty but {Count} notes exist in the database",
+                    vaultName, orphans.Count);
+                result.Errors.Add($"Orphan removal skipped: the published content index is empty but {orphans.Count} notes exist in the database. Check the vault publish.");
+                return;
+            }
+
+            foreach (var orphan in orphans)
+            {
+                _context.Remove(orphan);
+                result.OrphansRemoved++;
+                result.RemovedSlugs.Add(orphan.Slug);
+                _logger.LogInformation("Removing orphaned note {Id} ({Slug}) from vault {VaultName}", orphan.Id, orphan.Slug, vaultName);
+            }
+
+            if (orphans.Count == 0)
+            {
+                return;
+            }
+
+            await _context.SaveChangesAsync();
+
+            // Best-effort search index cleanup, mirroring DeleteAsync; the next bulk reindex reconciles any misses.
+            foreach (var orphan in orphans)
+            {
+                try
+                {
+                    await _typesenseService.DeleteNoteAsync(orphan.Id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to remove orphaned note {Id} from the search index; it will be removed on the next reindex", orphan.Id);
+                }
+            }
+
+            _logger.LogInformation("Removed {Count} orphaned note(s) from vault {VaultName}", orphans.Count, vaultName);
+        }
+
+        public async Task<List<NoteSyncResultDto>> SyncAllVaultsAsync(bool removeOrphans = false)
         {
             var results = new List<NoteSyncResultDto>();
 
@@ -375,7 +434,7 @@ namespace MyMediaVerse.Application.Services
 
             if (!string.IsNullOrEmpty(generalVaultUrl))
             {
-                var result = await SyncFromQuartzVaultAsync("general", generalVaultUrl, generalVaultAuth);
+                var result = await SyncFromQuartzVaultAsync("general", generalVaultUrl, generalVaultAuth, removeOrphans);
                 results.Add(result);
             }
 
@@ -386,7 +445,7 @@ namespace MyMediaVerse.Application.Services
 
             if (!string.IsNullOrEmpty(programmingVaultUrl))
             {
-                var result = await SyncFromQuartzVaultAsync("programming", programmingVaultUrl, programmingVaultAuth);
+                var result = await SyncFromQuartzVaultAsync("programming", programmingVaultUrl, programmingVaultAuth, removeOrphans);
                 results.Add(result);
             }
 
@@ -423,16 +482,26 @@ namespace MyMediaVerse.Application.Services
             var totalGeneral = await _context.Notes.CountAsync(n => n.VaultName == "general");
             var totalProgramming = await _context.Notes.CountAsync(n => n.VaultName == "programming");
 
+            // The background worker only honors the ObsidianNoteSync config section,
+            // so report that value (not the legacy OBSIDIAN_SYNC_ENABLED variable) here.
+            var backgroundSyncEnabled = bool.TryParse(_configuration["ObsidianNoteSync:Enabled"], out var bg) && bg;
+
+            var lastSyncTime = lastSyncGeneral > lastSyncProgramming ? lastSyncGeneral : lastSyncProgramming;
+
             return new NoteSyncStatusDto
             {
                 Enabled = enabled,
+                BackgroundSyncEnabled = backgroundSyncEnabled,
                 IntervalHours = intervalHours,
                 GeneralVaultUrl = generalVaultUrl,
                 ProgrammingVaultUrl = programmingVaultUrl,
+                GeneralVaultConfigured = !string.IsNullOrEmpty(generalVaultUrl),
+                ProgrammingVaultConfigured = !string.IsNullOrEmpty(programmingVaultUrl),
                 GeneralVaultHasAuth = !string.IsNullOrEmpty(generalVaultAuth),
                 ProgrammingVaultHasAuth = !string.IsNullOrEmpty(programmingVaultAuth),
                 LastSyncGeneral = lastSyncGeneral,
                 LastSyncProgramming = lastSyncProgramming,
+                LastSyncTime = lastSyncTime,
                 TotalNotesGeneral = totalGeneral,
                 TotalNotesProgramming = totalProgramming
             };

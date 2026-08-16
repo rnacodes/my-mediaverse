@@ -86,8 +86,12 @@ namespace MyMediaVerse.Infrastructure.Clients.Obsidian
 
                 if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                 {
+                    
                     _logger.LogWarning("Content index not found at {Url}. The vault may not have published a contentIndex.json.", url);
-                    return new Dictionary<string, QuartzNoteDto>();
+                    throw new HttpRequestException(
+                        $"Quartz content index not found at {url}. Check the vault URL.",
+                        inner: null,
+                        statusCode: System.Net.HttpStatusCode.NotFound);
                 }
 
                 response.EnsureSuccessStatusCode();

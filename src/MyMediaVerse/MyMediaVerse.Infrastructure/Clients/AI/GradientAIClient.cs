@@ -136,7 +136,7 @@ namespace MyMediaVerse.Infrastructure.Clients.AI
                     _logger.LogWarning("Gradient AI availability check failed with status {Status}", gradientResponse.StatusCode);
                 }
 
-                return true;
+                return gradientResponse.IsSuccessStatusCode;
             }
             catch (Exception ex)
             {
