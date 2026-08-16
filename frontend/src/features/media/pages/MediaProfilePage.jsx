@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
-import { Box, Card, CardContent, CircularProgress, Typography, Button } from '@mui/material';
+import { Box, Card, CardContent, CircularProgress, Typography, Button, Snackbar, Alert } from '@mui/material';
 
 import MediaHeader from '../MediaHeader';
 import MixlistCarousel from '@/features/mixlists/MixlistCarousel';
@@ -24,7 +24,7 @@ import { useMergedMediaItem } from '@/hooks/useMergedMediaItem';
 function MediaProfilePage() {
   const [currentMixlists, setCurrentMixlists] = useState([]);
   const [availableMixlists, setAvailableMixlists] = useState([]);
-  const [_snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [refreshKey, setRefreshKey] = useState(0);
   const [relatedMediaRefreshTrigger, setRelatedMediaRefreshTrigger] = useState(0);
 
@@ -279,6 +279,21 @@ function MediaProfilePage() {
           </CardContent>
         </Card>
       </Box>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

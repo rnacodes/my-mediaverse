@@ -1,8 +1,7 @@
 import React from 'react';
-import { Container, Paper, Typography, Button, Box, Alert, CircularProgress, Card, CardContent, Grid, Chip, List, ListItem, ListItemText, Switch, FormControlLabel } from '@mui/material';
+import { Container, Paper, Typography, Button, Box, Alert, CircularProgress, Card, CardContent, Grid, Chip, List, ListItem, ListItemText } from '@mui/material';
 import { Refresh as RefreshIcon, Search as SearchIcon, CheckCircle as CheckCircleIcon, Error as ErrorIcon, Info as InfoIcon } from '@mui/icons-material';
 import {
-  useRealTimeIndexingStatus, useSetRealTimeIndexingStatus,
   useTypesenseHealth,
   useTypesenseReindex, useTypesenseReindexMixlists, useReindexHighlights,
   useTypesenseResetMediaItems, useTypesenseResetMixlists, useResetHighlightsCollection,
@@ -16,17 +15,6 @@ const errMsg = (error, fallback) =>
   error ? (error.response?.data?.message || error.message || fallback) : null;
 
 const TypesenseAdminPage = () => {
-  // ----- Real-time indexing toggle (status query + toggle mutation) -----
-  // 401s while unauthenticated just leave the toggle at its default (enabled).
-  const realTimeIndexingQuery = useRealTimeIndexingStatus({ retry: false });
-  const realTimeIndexing = realTimeIndexingQuery.data?.enabled ?? true;
-  const toggleIndexingMutation = useSetRealTimeIndexingStatus();
-  const realTimeIndexingLoading = toggleIndexingMutation.isPending;
-  const realTimeIndexingError = errMsg(toggleIndexingMutation.error, 'Failed to toggle real-time indexing');
-  const handleToggleRealTimeIndexing = (event) => {
-    toggleIndexingMutation.mutate(event.target.checked);
-  };
-
   // ----- Health -----
   const healthQuery = useTypesenseHealth({ retry: false });
   const healthStatus = healthQuery.data ?? null;
@@ -135,43 +123,6 @@ const TypesenseAdminPage = () => {
       <Typography variant="h3" gutterBottom sx={{ mb: 4, fontWeight: 'bold' }}>
         Typesense Administration
       </Typography>
-
-      {/* Real-Time Indexing Toggle */}
-      <Paper elevation={3} sx={{ p: 3, mb: 3, border: !realTimeIndexing ? '2px solid #f44336' : 'none' }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
-            Real-Time Indexing
-          </Typography>
-          <FormControlLabel
-            control={
-              <Switch
-                checked={realTimeIndexing}
-                onChange={handleToggleRealTimeIndexing}
-                disabled={realTimeIndexingLoading}
-                color="success"
-              />
-            }
-            label={realTimeIndexingLoading ? 'Updating...' : (realTimeIndexing ? 'Enabled' : 'Paused')}
-            labelPlacement="start"
-          />
-        </Box>
-
-        {realTimeIndexing ? (
-          <Alert severity="info" icon={<InfoIcon />}>
-            Media items are indexed in Typesense immediately after each create, update, or delete. Toggle this off before bulk imports to avoid hundreds of individual index operations.
-          </Alert>
-        ) : (
-          <Alert severity="warning" icon={<ErrorIcon />}>
-            Real-time indexing is <strong>paused</strong>. New media items will NOT appear in search results until you run a bulk reindex below. This setting resets to enabled when the server restarts.
-          </Alert>
-        )}
-
-        {realTimeIndexingError && (
-          <Alert severity="error" sx={{ mt: 2 }}>
-            <strong>Toggle Failed:</strong> {realTimeIndexingError}
-          </Alert>
-        )}
-      </Paper>
 
       {/* Health Status Section */}
       <Paper elevation={3} sx={{ p: 3, mb: 3 }}>

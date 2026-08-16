@@ -1,38 +1,5 @@
 import { apiClient } from './apiClient';
 
-// ============================================
-// Real-Time Indexing Toggle
-// ============================================
-
-/**
- * Get the current real-time indexing status
- * @returns {Promise<Object>} Object with { enabled: boolean }
- */
-export const getRealTimeIndexingStatus = async () => {
-    try {
-        const response = await apiClient.get('/search/realtime-indexing');
-        return response.data;
-    } catch (error) {
-        console.error('Error getting real-time indexing status:', error);
-        throw error;
-    }
-};
-
-/**
- * Enable or disable real-time Typesense indexing for CRUD operations
- * @param {boolean} enabled - Whether to enable real-time indexing
- * @returns {Promise<Object>} Result with { enabled, message }
- */
-export const setRealTimeIndexingStatus = async (enabled) => {
-    try {
-        const response = await apiClient.post('/search/realtime-indexing', { enabled });
-        return response.data;
-    } catch (error) {
-        console.error('Error setting real-time indexing status:', error);
-        throw error;
-    }
-};
-
 const MEDIA_SORT_BY = {
     dateAdded: 'date_added:desc',
     title: 'title:asc',
@@ -87,36 +54,6 @@ export const reindexMixlist = async (id) => {
         return response.data;
     } catch (error) {
         console.error(`Error reindexing mixlist ${id}:`, error);
-        throw error;
-    }
-};
-
-/**
- * Re-index a single note in Typesense
- * @param {string} id - The note ID
- * @returns {Promise<Object>} Reindex result
- */
-export const reindexNote = async (id) => {
-    try {
-        const response = await apiClient.post(`/search/reindex-note/${id}`);
-        return response.data;
-    } catch (error) {
-        console.error(`Error reindexing note ${id}:`, error);
-        throw error;
-    }
-};
-
-/**
- * Re-index a single highlight in Typesense
- * @param {string} id - The highlight ID
- * @returns {Promise<Object>} Reindex result
- */
-export const reindexHighlight = async (id) => {
-    try {
-        const response = await apiClient.post(`/search/reindex-highlight/${id}`);
-        return response.data;
-    } catch (error) {
-        console.error(`Error reindexing highlight ${id}:`, error);
         throw error;
     }
 };
@@ -494,7 +431,7 @@ const HIGHLIGHT_SORT_BY = {
 /**
  * Search highlights using Typesense
  * @param {string} query - The search query (searches text, note, title, author, tags)
- * @param {string} filter - Optional filter string (e.g., "category:=books", "is_favorite:=true")
+ * @param {string} filter - Optional filter string (e.g., "category:=books")
  * @param {number} page - Page number (default 1)
  * @param {number} perPage - Results per page (default 20)
  * @param {string} sortBy - Optional sort key (unmapped keys fall back to relevance)
@@ -524,7 +461,6 @@ export const searchHighlights = async (query = '*', filter = null, page = 1, per
  * @param {string} options.query - Search query text
  * @param {string[]} options.categories - Filter by categories (books, articles, etc.)
  * @param {string[]} options.tags - Filter by tags
- * @param {boolean} options.isFavorite - Filter by favorite status
  * @param {string} options.linkedMediaType - Filter by linked media type (article, book, or null for unlinked)
  * @param {number} options.page - Page number
  * @param {number} options.perPage - Results per page
@@ -535,7 +471,6 @@ export const searchHighlightsAdvanced = async (options) => {
         query = '*',
         categories = [],
         tags = [],
-        isFavorite = null,
         linkedMediaType = null,
         page = 1,
         perPage = 20
@@ -554,11 +489,6 @@ export const searchHighlightsAdvanced = async (options) => {
         if (tags.length > 0) {
             const tagFilter = tags.map(t => `tags:=\`${t}\``).join(' || ');
             filters.push(`(${tagFilter})`);
-        }
-
-        // Favorite filter
-        if (isFavorite !== null) {
-            filters.push(`is_favorite:=${isFavorite}`);
         }
 
         // Linked media type filter

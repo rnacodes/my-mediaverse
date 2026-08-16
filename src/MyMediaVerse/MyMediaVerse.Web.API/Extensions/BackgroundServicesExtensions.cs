@@ -1,6 +1,7 @@
 using MyMediaVerse.Infrastructure.Services.Enrichment;
 using MyMediaVerse.Infrastructure.Services.Search;
 using MyMediaVerse.Infrastructure.Services.Sync;
+using MyMediaVerse.Shared.Configuration;
 using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.Web.API.Extensions;

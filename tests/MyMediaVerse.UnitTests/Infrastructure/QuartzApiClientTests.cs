@@ -90,16 +90,15 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         }
 
         [Fact]
-        public async Task GetContentIndexAsync_WhenNotFound_ShouldReturnEmptyDictionary()
+        public async Task GetContentIndexAsync_WhenNotFound_ShouldThrowHttpRequestException()
         {
-            // Arrange
+            // Arrange — a missing contentIndex.json means a wrong vault URL, not an empty vault
             SetupHttpResponse(HttpStatusCode.NotFound, "");
 
-            // Act
-            var result = await _client.GetContentIndexAsync("https://vault.example.com");
-
-            // Assert
-            result.Should().BeEmpty();
+            // Act & Assert
+            var ex = await Assert.ThrowsAsync<HttpRequestException>(
+                () => _client.GetContentIndexAsync("https://vault.example.com"));
+            ex.StatusCode.Should().Be(HttpStatusCode.NotFound);
         }
 
         [Fact]

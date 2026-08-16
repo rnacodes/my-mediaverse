@@ -1,8 +1,10 @@
 using AwesomeAssertions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
+using MyMediaVerse.Shared.Configuration;
 using MyMediaVerse.Shared.Interfaces;
 using MyMediaVerse.UnitTests.TestData;
 using MyMediaVerse.UnitTests.TestHelpers;
@@ -20,7 +22,8 @@ namespace MyMediaVerse.UnitTests.Application
         {
             _mockGradientClient = Substitute.For<IGradientAIClient>();
             _mockLogger = Substitute.For<ILogger<AIService>>();
-            _service = new AIService(Context, _mockGradientClient, _mockLogger);
+            var options = Options.Create(new NoteDescriptionGenerationOptions { DelayBetweenCallsMs = 0 });
+            _service = new AIService(Context, _mockGradientClient, options, _mockLogger);
         }
 
         #region IsAvailableAsync

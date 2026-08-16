@@ -51,15 +51,6 @@ namespace MyMediaVerse.DTOs
         [JsonPropertyName("isDescriptionManual")]
         public bool IsDescriptionManual { get; set; }
 
-        [JsonPropertyName("hasEmbedding")]
-        public bool HasEmbedding { get; set; }
-
-        [JsonPropertyName("embeddingGeneratedAt")]
-        public DateTime? EmbeddingGeneratedAt { get; set; }
-
-        [JsonPropertyName("embeddingModel")]
-        public string? EmbeddingModel { get; set; }
-
         [JsonPropertyName("linkedMediaItems")]
         public List<LinkedMediaItemDto> LinkedMediaItems { get; set; } = new();
     }
@@ -216,6 +207,22 @@ namespace MyMediaVerse.DTOs
         [JsonPropertyName("failed")]
         public int Failed { get; set; }
 
+        /// <summary>
+        /// Combined count of notes imported or updated by this sync.
+        /// </summary>
+        [JsonPropertyName("importedCount")]
+        public int ImportedCount => Imported + Updated;
+
+        /// <summary>
+        /// Notes deleted because they no longer exist in the published vault
+        /// (only populated when the sync is called with removeOrphans).
+        /// </summary>
+        [JsonPropertyName("orphansRemoved")]
+        public int OrphansRemoved { get; set; }
+
+        [JsonPropertyName("removedSlugs")]
+        public List<string> RemovedSlugs { get; set; } = new();
+
         [JsonPropertyName("errors")]
         public List<string> Errors { get; set; } = new();
 
@@ -234,8 +241,27 @@ namespace MyMediaVerse.DTOs
         [JsonPropertyName("enabled")]
         public bool Enabled { get; set; }
 
+        /// <summary>
+        /// Whether the background sync worker is enabled (the ObsidianNoteSync config
+        /// section the worker actually honors).
+        /// </summary>
+        [JsonPropertyName("backgroundSyncEnabled")]
+        public bool BackgroundSyncEnabled { get; set; }
+
         [JsonPropertyName("intervalHours")]
         public int IntervalHours { get; set; }
+
+        [JsonPropertyName("generalVaultConfigured")]
+        public bool GeneralVaultConfigured { get; set; }
+
+        [JsonPropertyName("programmingVaultConfigured")]
+        public bool ProgrammingVaultConfigured { get; set; }
+
+        /// <summary>
+        /// The most recent sync time across all vaults.
+        /// </summary>
+        [JsonPropertyName("lastSyncTime")]
+        public DateTime? LastSyncTime { get; set; }
 
         [JsonPropertyName("generalVaultUrl")]
         public string? GeneralVaultUrl { get; set; }

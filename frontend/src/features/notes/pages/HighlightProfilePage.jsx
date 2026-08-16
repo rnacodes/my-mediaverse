@@ -9,14 +9,12 @@ import {
     ArrowBack as ArrowBackIcon,
     OpenInNew as OpenInNewIcon,
     FormatQuote as QuoteIcon,
-    Star as StarIcon,
     Article as ArticleIcon,
     Book as BookIcon,
-    Delete as DeleteIcon,
-    Sync as SyncIcon
+    Delete as DeleteIcon
 } from '@mui/icons-material';
 import { useHighlight, useDeleteHighlight } from '@/hooks/useHighlight';
-import { useReindexHighlight } from '@/hooks/useTypesense';
+import { getMediaTypeColor } from '@/shared/DesignSystem';
 
 function HighlightProfilePage() {
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
@@ -29,9 +27,6 @@ function HighlightProfilePage() {
     const highlight = highlightQuery.data ?? null;
     const loading = highlightQuery.isLoading;
 
-    const reindexMutation = useReindexHighlight();
-    const reindexing = reindexMutation.isPending;
-
     const deleteMutation = useDeleteHighlight();
     const deleting = deleteMutation.isPending;
 
@@ -41,17 +36,6 @@ function HighlightProfilePage() {
             setSnackbar({ open: true, message: 'Failed to load highlight', severity: 'error' });
         }
     }, [highlightQuery.error]);
-
-    const handleReindex = () => {
-        reindexMutation.mutate(id, {
-            onSuccess: () => setSnackbar({ open: true, message: 'Highlight re-indexed in search.', severity: 'success' }),
-            onError: (error) => {
-                if (error.response?.status !== 403) {
-                    setSnackbar({ open: true, message: 'Failed to re-index highlight.', severity: 'error' });
-                }
-            },
-        });
-    };
 
     const handleDelete = () => {
         deleteMutation.mutate(id, {
@@ -78,15 +62,8 @@ function HighlightProfilePage() {
         }
     };
 
-    const getCategoryColor = (category) => {
-        switch (category?.toLowerCase()) {
-            case 'books': return '#8B4513';
-            case 'articles': return '#2196f3';
-            case 'podcasts': return '#9c27b0';
-            case 'tweets': return '#1DA1F2';
-            default: return '#9e9e9e';
-        }
-    };
+    // Readwise categories are plural ("books"); media type colors are keyed by singular type.
+    const getCategoryColor = (category) => getMediaTypeColor(category?.replace(/s$/i, ''));
 
     // Parse tags - handles both array (from API) and string (legacy) formats
     const parseTags = (tags) => {
@@ -141,23 +118,12 @@ function HighlightProfilePage() {
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                     <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} sx={{ color: 'white' }}>Back</Button>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        {highlight.isFavorite && <StarIcon sx={{ color: '#FFD700', fontSize: 28 }} />}
-                        <Button
-                            startIcon={reindexing ? <CircularProgress size={16} color="inherit" /> : <SyncIcon />}
-                            onClick={handleReindex}
-                            variant="contained"
-                            size="small"
-                            disabled={reindexing}
-                            sx={{ color: '#fcfafa' }}
-                        >
-                            {reindexing ? 'Reindexing...' : 'Reindex'}
-                        </Button>
                         <Button
                             startIcon={<DeleteIcon />}
                             onClick={() => setDeleteDialogOpen(true)}
-                            color="error"
-                            variant="outlined"
+                            variant="contained"
                             size="small"
+                            sx={{ color: '#fcfafa' }}
                         >
                             Delete
                         </Button>
@@ -258,7 +224,7 @@ function HighlightProfilePage() {
                                             '&:hover': { backgroundColor: 'rgba(255,255,255,0.08)' }
                                         }}
                                     >
-                                        <ArticleIcon sx={{ mr: 2, color: '#2196f3' }} />
+                                        <ArticleIcon sx={{ mr: 2, color: getMediaTypeColor('article') }} />
                                         <Typography sx={{ color: 'white' }}>{highlight.articleTitle || highlight.title || 'View Article'}</Typography>
                                     </Card>
                                 )}
@@ -275,7 +241,7 @@ function HighlightProfilePage() {
                                             '&:hover': { backgroundColor: 'rgba(255,255,255,0.08)' }
                                         }}
                                     >
-                                        <BookIcon sx={{ mr: 2, color: '#8B4513' }} />
+                                        <BookIcon sx={{ mr: 2, color: getMediaTypeColor('book') }} />
                                         <Typography sx={{ color: 'white' }}>{highlight.bookTitle || highlight.title || 'View Book'}</Typography>
                                     </Card>
                                 )}

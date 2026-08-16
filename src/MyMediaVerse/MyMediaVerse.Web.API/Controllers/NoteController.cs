@@ -256,7 +256,7 @@ namespace MyMediaVerse.Web.API.Controllers
         /// POST /api/note/sync/{vault}
         /// </summary>
         [HttpPost("sync/{vault}")]
-        public async Task<IActionResult> SyncVault(string vault, [FromQuery] string? url = null, [FromQuery] string? authToken = null)
+        public async Task<IActionResult> SyncVault(string vault, [FromQuery] string? url = null, [FromQuery] string? authToken = null, [FromQuery] bool removeOrphans = false)
         {
             try
             {
@@ -293,8 +293,18 @@ namespace MyMediaVerse.Web.API.Controllers
                     };
                 }
 
-                var result = await _noteService.SyncFromQuartzVaultAsync(vault, vaultUrl, token);
+                var result = await _noteService.SyncFromQuartzVaultAsync(vault, vaultUrl, token, removeOrphans);
                 return Ok(result);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogError(ex, "Vault authentication failed while syncing vault {Vault}", vault);
+                return StatusCode(502, new { message = "Vault authentication failed", error = ex.Message });
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogError(ex, "Failed to reach vault {Vault}", vault);
+                return StatusCode(502, new { message = "Failed to reach the vault", error = ex.Message });
             }
             catch (Exception ex)
             {
@@ -308,12 +318,22 @@ namespace MyMediaVerse.Web.API.Controllers
         /// POST /api/note/sync
         /// </summary>
         [HttpPost("sync")]
-        public async Task<IActionResult> SyncAll()
+        public async Task<IActionResult> SyncAll([FromQuery] bool removeOrphans = false)
         {
             try
             {
-                var results = await _noteService.SyncAllVaultsAsync();
-                return Ok(results);
+                var results = await _noteService.SyncAllVaultsAsync(removeOrphans);
+                return Ok(new { results });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogError(ex, "Vault authentication failed while syncing all vaults");
+                return StatusCode(502, new { message = "Vault authentication failed", error = ex.Message });
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogError(ex, "Failed to reach a vault while syncing all vaults");
+                return StatusCode(502, new { message = "Failed to reach a vault", error = ex.Message });
             }
             catch (Exception ex)
             {
@@ -360,6 +380,9 @@ namespace MyMediaVerse.Web.API.Controllers
                 NoteDate = note.NoteDate,
                 DateImported = note.DateImported,
                 LastSyncedAt = note.LastSyncedAt,
+                AiDescription = note.AiDescription,
+                AiDescriptionGeneratedAt = note.AiDescriptionGeneratedAt,
+                IsDescriptionManual = note.IsDescriptionManual,
                 LinkedMediaItems = note.MediaItemNotes?.Select(min => new LinkedMediaItemDto
                 {
                     Id = min.MediaItem.Id,

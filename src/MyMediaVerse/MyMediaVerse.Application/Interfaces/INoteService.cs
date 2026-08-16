@@ -76,12 +76,14 @@ namespace MyMediaVerse.Application.Interfaces
         /// <param name="vaultName">The vault name ("general" or "programming")</param>
         /// <param name="vaultUrl">The base URL of the Quartz vault</param>
         /// <param name="authToken">Optional authentication token</param>
-        Task<NoteSyncResultDto> SyncFromQuartzVaultAsync(string vaultName, string vaultUrl, string? authToken = null);
+        /// <param name="removeOrphans">Also delete notes that no longer exist in the published vault</param>
+        Task<NoteSyncResultDto> SyncFromQuartzVaultAsync(string vaultName, string vaultUrl, string? authToken = null, bool removeOrphans = false);
 
         /// <summary>
         /// Syncs notes from all configured vaults.
         /// </summary>
-        Task<List<NoteSyncResultDto>> SyncAllVaultsAsync();
+        /// <param name="removeOrphans">Also delete notes that no longer exist in the published vaults</param>
+        Task<List<NoteSyncResultDto>> SyncAllVaultsAsync(bool removeOrphans = false);
 
         /// <summary>
         /// Gets the current sync configuration status.
