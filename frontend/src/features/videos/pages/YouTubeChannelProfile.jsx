@@ -274,7 +274,7 @@ function YouTubeChannelProfile() {
                                     <Box sx={{ width: '100%' }}>
                                         <Box display="flex" justifyContent="space-between">
                                             <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>{video.title}</Typography>
-                                            <Chip label={formatStatus(video.status)} size="small" sx={{ bgcolor: getStatusColor(video.status), color: 'white' }} />
+                                            {video.status && <Chip label={formatStatus(video.status)} size="small" sx={{ bgcolor: getStatusColor(video.status), color: 'white' }} />}
                                         </Box>
                                         <Typography variant="caption" color="text.secondary">
                                             {video.releaseDate ? `Published: ${new Date(video.releaseDate).toLocaleDateString()}` : `Added: ${new Date(video.dateAdded).toLocaleDateString()}`}

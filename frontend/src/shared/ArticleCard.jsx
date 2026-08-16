@@ -116,11 +116,13 @@ function ArticleCard({ article }) {
 
                 <Box sx={{ mt: 'auto' }}>
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-                        <Chip
-                            label={formatStatus(article.status)}
-                            color={getStatusColor(article.status)}
-                            size="small"
-                        />
+                        {article.status && (
+                            <Chip
+                                label={formatStatus(article.status)}
+                                color={getStatusColor(article.status)}
+                                size="small"
+                            />
+                        )}
                         
                         {article.publication && (
                             <Chip

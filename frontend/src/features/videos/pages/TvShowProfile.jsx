@@ -266,11 +266,13 @@ function TvShowProfile() {
                                                                 sx={{ fontSize: '0.7rem' }}
                                                             />
                                                         )}
-                                                        <Chip
-                                                            label={formatStatus(ep.status)}
-                                                            size="small"
-                                                            sx={{ bgcolor: getStatusColor(ep.status), color: 'white' }}
-                                                        />
+                                                        {ep.status && (
+                                                            <Chip
+                                                                label={formatStatus(ep.status)}
+                                                                size="small"
+                                                                sx={{ bgcolor: getStatusColor(ep.status), color: 'white' }}
+                                                            />
+                                                        )}
                                                     </Box>
                                                 </Box>
                                                 <Box display="flex" gap={2} mt={0.5}>

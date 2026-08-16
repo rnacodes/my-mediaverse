@@ -325,7 +325,7 @@ function YouTubePlaylistProfile() {
                                                 )}
                                                 {video.title}
                                             </Typography>
-                                            <Chip label={formatStatus(video.status)} size="small" sx={{ bgcolor: getStatusColor(video.status), color: 'white' }} />
+                                            {video.status && <Chip label={formatStatus(video.status)} size="small" sx={{ bgcolor: getStatusColor(video.status), color: 'white' }} />}
                                         </Box>
                                         <Typography variant="caption" color="text.secondary">
                                             {video.lengthInSeconds > 0 ? `Duration: ${formatDuration(video.lengthInSeconds)}` : ''}
