@@ -1,4 +1,5 @@
 # My MediaVerse
+## Version 1.5
 
 **One home for everything you read, watch, and listen to — track it, organize it, and rediscover it.**
 
@@ -102,9 +103,9 @@ My MediaVerse uses AI to enhance organization and discovery:
 
 | Feature                       | Description                                                                                                        |
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| **Vector embeddings**         | Semantic embeddings for all media items and notes via OpenAI's `text-embedding-3-large`, stored in PostgreSQL with **pgvector** |
+| **Vector embeddings**         | Semantic embeddings for all media items and notes, generated inside Typesense (auto-embedding) using OpenAI's `text-embedding-3-large` |
 | **Similar items**             | Surface semantically related media and notes based on embedding similarity                                        |
-| **AI note summaries**         | Concise descriptions auto-generated for notes using DigitalOcean Gradient AI (`gpt-oss-120b`)                     |
+| **AI note summaries**         | Concise descriptions auto-generated for notes using DigitalOcean Gradient serverless inference (`openai-gpt-oss-120b`) |
 
 > Two AI providers are used intentionally — OpenAI for embeddings, DigitalOcean Gradient for text generation — because each serves a distinct purpose and the single-user cost difference is negligible.
 
@@ -114,7 +115,7 @@ An admin area for operating the library:
 
 - **Search reindexing** — trigger bulk Typesense reindexing per collection
 - **Background-job monitoring** — observe the scheduled enrichment services
-- **AI admin** — manage embedding and summary generation
+- **AI admin** — monitor AI availability and run note-summary generation
 - **Script execution** — run maintenance scripts from the UI
 - **Demo read-only mode** — a guarded mode that blocks writes for the public demo
 
@@ -142,7 +143,7 @@ An admin area for operating the library:
 | ------------------------ | ---------------------- |
 | ASP.NET Core 10.0        | Web API framework      |
 | Entity Framework Core 10 | ORM                    |
-| PostgreSQL + pgvector    | Database & vector search |
+| PostgreSQL               | Database               |
 | JWT                      | Authentication         |
 | Clean Architecture       | Architectural pattern  |
 
@@ -151,7 +152,7 @@ An admin area for operating the library:
 | Service                     | Purpose                                |
 | --------------------------- | -------------------------------------- |
 | Typesense (self-hosted)     | Full-text search engine                |
-| DigitalOcean Droplet        | Hosts Typesense + Umami via Docker Compose |
+| DigitalOcean Droplet        | Hosts Typesense, the demo database, N8N, and Umami via Docker Compose |
 | DigitalOcean Spaces         | File / thumbnail storage               |
 | Umami (self-hosted)         | Privacy-friendly analytics             |
 | Render.com                  | Application hosting                    |
@@ -213,7 +214,7 @@ The v1.5 refactor was as much about engineering discipline as features:
 
 - Node.js 18+
 - .NET 10 SDK
-- PostgreSQL 15+ (with the `pgvector` extension)
+- PostgreSQL 15+
 - Typesense server (optional for local development)
 
 ### Frontend Setup
@@ -318,7 +319,7 @@ The API is RESTful with a base URL of `/api`. Controllers are organized by respo
 
 | Controller | Endpoint        | Description                         |
 | ---------- | --------------- | ----------------------------------- |
-| AI         | `/api/ai`       | Embedding & summary generation      |
+| AI         | `/api/ai`       | Note summary generation & AI status |
 | Auth       | `/api/auth`     | Authentication                      |
 | Dev / Demo | `/api/dev`, `/api/demo` | Maintenance & demo controls |
 | Health     | `/api/health`   | Service health checks               |

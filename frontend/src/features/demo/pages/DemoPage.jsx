@@ -564,15 +564,17 @@ const DemoPage = () => {
                       fontWeight: 'bold'
                     }}
                   />
-                  <Chip
-                    label={formatStatus(media.status)}
-                    size="small"
-                    sx={{
-                      backgroundColor: getStatusColor(media.status),
-                      color: 'white',
-                      fontWeight: 'bold'
-                    }}
-                  />
+                  {media.status && (
+                    <Chip
+                      label={formatStatus(media.status)}
+                      size="small"
+                      sx={{
+                        backgroundColor: getStatusColor(media.status),
+                        color: 'white',
+                        fontWeight: 'bold'
+                      }}
+                    />
+                  )}
                 </Box>
               </ListItem>
             ))}

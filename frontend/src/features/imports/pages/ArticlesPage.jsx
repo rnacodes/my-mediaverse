@@ -388,11 +388,13 @@ function ArticlesPage() {
                                                                 </Typography>
                                                             )}
                                                             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-                                                                <Chip
-                                                                    label={formatStatus(article.status)}
-                                                                    size="small"
-                                                                    color={article.status === 'Completed' ? 'success' : article.status === 'ActivelyExploring' ? 'primary' : 'default'}
-                                                                />
+                                                                {article.status && (
+                                                                    <Chip
+                                                                        label={formatStatus(article.status)}
+                                                                        size="small"
+                                                                        color={article.status === 'Completed' ? 'success' : article.status === 'ActivelyExploring' ? 'primary' : 'default'}
+                                                                    />
+                                                                )}
                                                                 {article.publication && (
                                                                     <Chip
                                                                         label={article.publication}

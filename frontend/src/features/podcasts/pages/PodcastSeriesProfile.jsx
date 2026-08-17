@@ -286,7 +286,7 @@ function PodcastSeriesProfile() {
                                     <Box sx={{ width: '100%' }}>
                                         <Box display="flex" justifyContent="space-between">
                                             <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>{ep.title}</Typography>
-                                            <Chip label={formatStatus(ep.status)} size="small" sx={{ bgcolor: getStatusColor(ep.status), color: 'white' }} />
+                                            {ep.status && <Chip label={formatStatus(ep.status)} size="small" sx={{ bgcolor: getStatusColor(ep.status), color: 'white' }} />}
                                         </Box>
                                         <Typography variant="caption" color="text.secondary">Released: {ep.releaseDate ? new Date(ep.releaseDate).toLocaleDateString() : 'N/A'}</Typography>
                                     </Box>
