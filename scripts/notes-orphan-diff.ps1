@@ -4,12 +4,17 @@
     whose slug no longer exists in the published Quartz vault's content index.
 
 .DESCRIPTION
-    The note sync intentionally never deletes — removing a note from the Obsidian vault
-    leaves its row in the database (and in search) until it is deleted through the API.
-    This script diffs the vault's published /static/contentIndex.json against
-    GET /api/note?vault=<vault> and lists the orphans. Re-run with -Delete to remove
-    them via DELETE /api/note/{id} (media/mixlist links cascade away; the search index
-    is cleaned up by the next notes reindex).
+    A plain note sync never deletes — removing a note from the Obsidian vault leaves its
+    row in the database (and in search) unless the sync is called with
+    ?removeOrphans=true, which is the normal cleanup path. This script is primarily a
+    read-only verification tool around that: run it before a sync to preview what
+    removeOrphans will delete, and after to confirm zero orphans remain.
+
+    It diffs the vault's published /static/contentIndex.json against
+    GET /api/note?vault=<vault> and lists the orphans. As a manual fallback, re-run with
+    -Delete to remove them via DELETE /api/note/{id} (media/mixlist links cascade away;
+    the endpoint also cleans the search index best-effort, and the next notes reindex
+    reconciles any stragglers).
 
     Default run is a read-only dry run. Credentials are only required for -Delete
     (or if the API rejects anonymous reads).
@@ -31,11 +36,14 @@
 
 .EXAMPLE
     .\notes-orphan-diff.ps1                 # dry run against the demo environment
+    .\notes-orphan-diff.ps1 -ApiBase "https://www.api.mymediaverseuniverse.com/api" -VaultUrl "https://garden.mymediaverseuniverse.com"   # dry run against production
     .\notes-orphan-diff.ps1 -Delete         # delete orphans (prompts first)
 
-    Username/password/admin-key fall back to the AUTH_USERNAME, AUTH_PASSWORD and
-    DEMO_ADMIN_KEY environment variables. The admin key header is only needed for
-    demo-environment writes.
+    Username/password fall back to the AUTH_USERNAME and AUTH_PASSWORD environment
+    variables. Note: -Delete authenticates via /api/auth/login, which the demo host does
+    not route (demo writes require the TOTP unlock instead) — against demo, prefer the
+    sync endpoint's removeOrphans option; -Delete remains usable against hosts with
+    password login.
 #>
 [CmdletBinding()]
 param(
