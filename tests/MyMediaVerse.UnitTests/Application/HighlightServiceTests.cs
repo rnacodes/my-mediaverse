@@ -13,6 +13,7 @@ using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Shared.DTOs.Readwise;
 using MyMediaVerse.Shared.Interfaces;
+using MyMediaVerse.UnitTests.TestData;
 using MyMediaVerse.UnitTests.TestHelpers;
 using Xunit;
 
@@ -440,6 +441,104 @@ namespace MyMediaVerse.UnitTests.Application
             var saved = await Context.Highlights.SingleAsync(h => h.ReadwiseId == 42);
             saved.Text.Should().Be("Synced highlight");
             saved.Title.Should().Be("Sync Book");
+        }
+
+        [Fact]
+        public async Task SyncHighlightsFromReadwiseAsync_LinksBookHighlightOnCreate()
+        {
+            // Arrange
+            _service.ExportPageDelayMs = 0;
+            var book = new Book { Id = Guid.NewGuid(), Title = "Meditations", Author = "Marcus Aurelius" };
+            Context.Books.Add(book);
+            await Context.SaveChangesAsync();
+
+            var page = new ReadwiseExportResponse
+            {
+                results = new List<ReadwiseExportBookDto>
+                {
+                    new ReadwiseExportBookDto
+                    {
+                        user_book_id = 9,
+                        title = "MEDITATIONS",
+                        author = "marcus aurelius",
+                        category = "books",
+                        highlights = new List<ReadwiseExportHighlightDto>
+                        {
+                            new ReadwiseExportHighlightDto { id = 77, text = "Memento mori" }
+                        }
+                    }
+                }
+            };
+            _mockReadwiseClient.GetExportAsync(Arg.Any<string?>(), Arg.Any<string?>())
+                .Returns(page);
+
+            // Act
+            var result = await _service.SyncHighlightsFromReadwiseAsync();
+
+            // Assert
+            result.LinkedCount.Should().Be(1);
+            var saved = await Context.Highlights.SingleAsync(h => h.ReadwiseId == 77);
+            saved.BookId.Should().Be(book.Id);
+        }
+
+        [Fact]
+        public async Task BulkCreateHighlightsAsync_AutoLinksBookByTitleAndAuthor()
+        {
+            // Arrange
+            var book = new Book { Id = Guid.NewGuid(), Title = "Meditations", Author = "Marcus Aurelius" };
+            Context.Books.Add(book);
+            await Context.SaveChangesAsync();
+
+            var dtos = new List<CreateHighlightDto>
+            {
+                new CreateHighlightDto
+                {
+                    Text = "Memento mori",
+                    Title = "Meditations",
+                    Author = "Marcus Aurelius",
+                    Category = "books"
+                }
+            };
+
+            // Act
+            var result = await _service.BulkCreateHighlightsAsync(dtos);
+
+            // Assert
+            result.Created.Should().Be(1);
+            result.Linked.Should().Be(1);
+            var saved = await Context.Highlights.SingleAsync(h => h.Text == "Memento mori");
+            saved.BookId.Should().Be(book.Id);
+        }
+
+        [Fact]
+        public async Task BulkCreateHighlightsAsync_ExplicitLink_SkipsAutoLinking()
+        {
+            // Arrange — caller-provided link must be respected, not second-guessed
+            var explicitBookId = Guid.NewGuid();
+            Context.Books.Add(new Book { Id = explicitBookId, Title = "Chosen Book", Author = "Someone" });
+            Context.Articles.Add(TestDataFactory.CreateArticle("Decoy Article"));
+            await Context.SaveChangesAsync();
+
+            var dtos = new List<CreateHighlightDto>
+            {
+                new CreateHighlightDto
+                {
+                    Text = "Explicitly linked",
+                    Title = "Decoy Article",
+                    Category = "articles",
+                    BookId = explicitBookId
+                }
+            };
+
+            // Act
+            var result = await _service.BulkCreateHighlightsAsync(dtos);
+
+            // Assert
+            result.Created.Should().Be(1);
+            result.Linked.Should().Be(0);
+            var saved = await Context.Highlights.SingleAsync(h => h.Text == "Explicitly linked");
+            saved.BookId.Should().Be(explicitBookId);
+            saved.ArticleId.Should().BeNull();
         }
 
         [Fact]

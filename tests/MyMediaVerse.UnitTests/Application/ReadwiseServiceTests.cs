@@ -155,7 +155,33 @@ namespace MyMediaVerse.UnitTests.Application
 
             var result = await _service.LinkHighlightsToMediaAsync();
 
-            result.Should().BeGreaterThanOrEqualTo(0);
+            result.Should().Be(1);
+            var linked = await Context.Highlights.FindAsync(highlight.Id);
+            linked!.ArticleId.Should().Be(article.Id);
+        }
+
+        [Fact]
+        public async Task LinkHighlightsToMediaAsync_MatchesBookByTitleAndAuthor_CaseInsensitive()
+        {
+            var book = new Book { Id = Guid.NewGuid(), Title = "Meditations", Author = "Marcus Aurelius" };
+            Context.Books.Add(book);
+
+            var highlight = TestDataFactory.CreateHighlight("Memento mori");
+            highlight.Title = "MEDITATIONS";
+            highlight.Author = "marcus aurelius";
+            highlight.Category = "books";
+            highlight.SourceUrl = null;
+            highlight.ArticleId = null;
+            highlight.BookId = null;
+            Context.Highlights.Add(highlight);
+
+            await Context.SaveChangesAsync();
+
+            var result = await _service.LinkHighlightsToMediaAsync();
+
+            result.Should().Be(1);
+            var linked = await Context.Highlights.FindAsync(highlight.Id);
+            linked!.BookId.Should().Be(book.Id);
         }
 
         #endregion

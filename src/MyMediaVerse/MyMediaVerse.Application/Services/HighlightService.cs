@@ -393,91 +393,35 @@ namespace MyMediaVerse.Application.Services
                         CreatedAt = DateTime.UtcNow
                     };
 
-                    // Auto-link to article by URL (using multiple matching strategies)
-                    // Try source_url first, then unique_url as fallback
-                    var urlsToTry = new List<string>();
-                    if (!string.IsNullOrEmpty(bookDto.source_url))
-                        urlsToTry.Add(bookDto.source_url);
-                    if (!string.IsNullOrEmpty(bookDto.unique_url) && bookDto.unique_url != bookDto.source_url)
-                        urlsToTry.Add(bookDto.unique_url);
+                    // Auto-link to source media: URL(s) first, then title/title+author
+                    var match = await HighlightLinkMatcher.ResolveAsync(
+                        _context,
+                        new[] { bookDto.source_url, bookDto.unique_url },
+                        bookDto.title,
+                        bookDto.author,
+                        bookDto.category);
 
-                    Article? article = null;
-                    foreach (var urlToTry in urlsToTry)
+                    if (match.Article != null)
                     {
-                        var normalizedUrl = UrlNormalizer.Normalize(urlToTry);
-
-                        // Try exact normalized match first
-                        article = await _context.Articles
-                            .FirstOrDefaultAsync(a =>
-                                a.Link != null &&
-                                EF.Functions.ILike(a.Link, normalizedUrl));
-
-                        // If no match, try partial URL match (without protocol)
-                        if (article == null)
-                        {
-                            var urlWithoutProtocol = normalizedUrl
-                                .Replace("https://", "")
-                                .Replace("http://", "");
-                            article = await _context.Articles
-                                .FirstOrDefaultAsync(a =>
-                                    a.Link != null &&
-                                    (EF.Functions.ILike(a.Link, $"%{urlWithoutProtocol}") ||
-                                     EF.Functions.ILike(a.Link, $"%{urlWithoutProtocol}/")));
-                        }
-
-                        if (article != null)
-                            break;
-                    }
-
-                    // Fallback: Try to match by title if URL matching failed
-                    if (article == null &&
-                        bookDto.category?.ToLowerInvariant() == "articles" &&
-                        !string.IsNullOrEmpty(bookDto.title))
-                    {
-                        article = await _context.Articles
-                            .FirstOrDefaultAsync(a =>
-                                EF.Functions.ILike(a.Title, bookDto.title));
-
-                        if (article != null)
-                        {
-                            _logger.LogDebug("Auto-linked highlight {HighlightId} to article {ArticleId} by title match (URL match failed)",
-                                highlight.Id, article.Id);
-                        }
-                    }
-
-                    if (article != null)
-                    {
-                        highlight.ArticleId = article.Id;
-                        highlight.Article = article;
+                        highlight.ArticleId = match.Article.Id;
+                        highlight.Article = match.Article;
                         result.LinkedCount++;
                         _logger.LogDebug("Auto-linked highlight {HighlightId} to article {ArticleId} (title: {Title})",
-                            highlight.Id, article.Id, article.Title);
+                            highlight.Id, match.Article.Id, match.Article.Title);
                     }
-                    else if ((urlsToTry.Count > 0 || !string.IsNullOrEmpty(bookDto.title)) && bookDto.category?.ToLowerInvariant() == "articles")
+                    else if (match.Book != null)
+                    {
+                        highlight.BookId = match.Book.Id;
+                        highlight.Book = match.Book;
+                        result.LinkedCount++;
+                        _logger.LogDebug("Auto-linked highlight {HighlightId} to book {BookId}",
+                            highlight.Id, match.Book.Id);
+                    }
+                    else if (bookDto.category?.ToLowerInvariant() == "articles")
                     {
                         // Log unlinked article highlights for debugging
                         _logger.LogDebug("Could not link highlight to article. Source URL: {SourceUrl}, Title: {Title}",
                             bookDto.source_url, bookDto.title);
-                    }
-
-                    // Auto-link to book by title and author if category is "books"
-                    if (highlight.ArticleId == null &&
-                        bookDto.category?.ToLowerInvariant() == "books" &&
-                        !string.IsNullOrEmpty(bookDto.title) &&
-                        !string.IsNullOrEmpty(bookDto.author))
-                    {
-                        var book = await _context.Books
-                            .FirstOrDefaultAsync(b =>
-                                b.Title.ToLower() == bookDto.title.ToLower() &&
-                                b.Author != null && b.Author.ToLower() == bookDto.author.ToLower());
-                        if (book != null)
-                        {
-                            highlight.BookId = book.Id;
-                            highlight.Book = book;
-                            result.LinkedCount++;
-                            _logger.LogDebug("Auto-linked highlight {HighlightId} to book {BookId}",
-                                highlight.Id, book.Id);
-                        }
                     }
 
                     _context.Add(highlight);
@@ -563,67 +507,26 @@ namespace MyMediaVerse.Application.Services
                         CreatedAt = DateTime.UtcNow
                     };
 
-                    // Auto-link to article by URL if sourceUrl is provided and no articleId set
-                    if (highlight.ArticleId == null && !string.IsNullOrEmpty(dto.SourceUrl))
+                    // Auto-link only when the caller didn't supply an explicit link
+                    if (highlight.ArticleId == null && highlight.BookId == null)
                     {
-                        var normalizedUrl = UrlNormalizer.Normalize(dto.SourceUrl);
-                        var urlWithoutProtocol = normalizedUrl
-                            .Replace("https://", "")
-                            .Replace("http://", "");
+                        var match = await HighlightLinkMatcher.ResolveAsync(
+                            _context,
+                            new[] { dto.SourceUrl },
+                            dto.Title,
+                            dto.Author,
+                            dto.Category);
 
-                        var article = await _context.Articles
-                            .FirstOrDefaultAsync(a =>
-                                a.Link != null &&
-                                EF.Functions.ILike(a.Link, normalizedUrl));
-
-                        if (article == null)
+                        if (match.Article != null)
                         {
-                            article = await _context.Articles
-                                .FirstOrDefaultAsync(a =>
-                                    a.Link != null &&
-                                    (EF.Functions.ILike(a.Link, $"%{urlWithoutProtocol}") ||
-                                     EF.Functions.ILike(a.Link, $"%{urlWithoutProtocol}/")));
-                        }
-
-                        if (article != null)
-                        {
-                            highlight.ArticleId = article.Id;
-                            highlight.Article = article;
+                            highlight.ArticleId = match.Article.Id;
+                            highlight.Article = match.Article;
                             result.Linked++;
                         }
-                    }
-
-                    // Auto-link to book by title + author if category is "books" and no bookId set
-                    if (highlight.ArticleId == null && highlight.BookId == null &&
-                        dto.Category?.ToLowerInvariant() == "books" &&
-                        !string.IsNullOrEmpty(dto.Title) && !string.IsNullOrEmpty(dto.Author))
-                    {
-                        var book = await _context.Books
-                            .FirstOrDefaultAsync(b =>
-                                b.Title.ToLower() == dto.Title.ToLower() &&
-                                b.Author != null && b.Author.ToLower() == dto.Author.ToLower());
-
-                        if (book != null)
+                        else if (match.Book != null)
                         {
-                            highlight.BookId = book.Id;
-                            highlight.Book = book;
-                            result.Linked++;
-                        }
-                    }
-
-                    // Fallback: try title match for articles if no link yet
-                    if (highlight.ArticleId == null && highlight.BookId == null &&
-                        dto.Category?.ToLowerInvariant() == "articles" &&
-                        !string.IsNullOrEmpty(dto.Title))
-                    {
-                        var article = await _context.Articles
-                            .FirstOrDefaultAsync(a =>
-                                EF.Functions.ILike(a.Title, dto.Title));
-
-                        if (article != null)
-                        {
-                            highlight.ArticleId = article.Id;
-                            highlight.Article = article;
+                            highlight.BookId = match.Book.Id;
+                            highlight.Book = match.Book;
                             result.Linked++;
                         }
                     }

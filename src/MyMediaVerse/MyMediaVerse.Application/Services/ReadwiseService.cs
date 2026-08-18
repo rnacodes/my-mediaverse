@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MyMediaVerse.Application.Interfaces;
-using MyMediaVerse.Application.Utilities;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Shared.Interfaces;
 
@@ -111,75 +110,26 @@ namespace MyMediaVerse.Application.Services
 
                 foreach (var highlight in unlinkedHighlights)
                 {
-                    Domain.Entities.Article? article = null;
+                    var match = await HighlightLinkMatcher.ResolveAsync(
+                        _context,
+                        new[] { highlight.SourceUrl },
+                        highlight.Title,
+                        highlight.Author,
+                        highlight.Category);
 
-                    // Try to match by source URL first (for articles) - using multiple matching strategies
-                    if (!string.IsNullOrEmpty(highlight.SourceUrl))
+                    if (match.Article != null)
                     {
-                        var normalizedSourceUrl = UrlNormalizer.Normalize(highlight.SourceUrl);
-
-                        // Try exact normalized match first
-                        article = await _context.Articles
-                            .FirstOrDefaultAsync(a =>
-                                a.Link != null &&
-                                EF.Functions.ILike(a.Link, normalizedSourceUrl));
-
-                        // If no match, try partial URL match (without protocol)
-                        if (article == null)
-                        {
-                            var urlWithoutProtocol = normalizedSourceUrl
-                                .Replace("https://", "")
-                                .Replace("http://", "");
-                            article = await _context.Articles
-                                .FirstOrDefaultAsync(a =>
-                                    a.Link != null &&
-                                    (EF.Functions.ILike(a.Link, $"%{urlWithoutProtocol}") ||
-                                     EF.Functions.ILike(a.Link, $"%{urlWithoutProtocol}/")));
-                        }
-                    }
-
-                    // Fallback: Try to match by title for article highlights if URL match failed
-                    if (article == null &&
-                        highlight.Category?.ToLowerInvariant() == "articles" &&
-                        !string.IsNullOrEmpty(highlight.Title))
-                    {
-                        article = await _context.Articles
-                            .FirstOrDefaultAsync(a =>
-                                EF.Functions.ILike(a.Title, highlight.Title));
-
-                        if (article != null)
-                        {
-                            _logger.LogDebug("Linked highlight {HighlightId} to article {ArticleId} by title match (URL match failed)",
-                                highlight.Id, article.Id);
-                        }
-                    }
-
-                    if (article != null)
-                    {
-                        highlight.ArticleId = article.Id;
+                        highlight.ArticleId = match.Article.Id;
                         linkedCount++;
                         _logger.LogDebug("Linked highlight {HighlightId} to article {ArticleId}",
-                            highlight.Id, article.Id);
-                        continue;
+                            highlight.Id, match.Article.Id);
                     }
-
-                    // Try to match books by title and author
-                    if (!string.IsNullOrEmpty(highlight.Title) &&
-                        !string.IsNullOrEmpty(highlight.Author) &&
-                        highlight.Category == "books")
+                    else if (match.Book != null)
                     {
-                        var book = await _context.Books
-                            .FirstOrDefaultAsync(b =>
-                                b.Title.ToLower() == highlight.Title.ToLower() &&
-                                b.Author.ToLower() == highlight.Author.ToLower());
-
-                        if (book != null)
-                        {
-                            highlight.BookId = book.Id;
-                            linkedCount++;
-                            _logger.LogDebug("Linked highlight {HighlightId} to book {BookId} by title/author",
-                                highlight.Id, book.Id);
-                        }
+                        highlight.BookId = match.Book.Id;
+                        linkedCount++;
+                        _logger.LogDebug("Linked highlight {HighlightId} to book {BookId} by title/author",
+                            highlight.Id, match.Book.Id);
                     }
                 }
 
