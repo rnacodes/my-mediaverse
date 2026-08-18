@@ -185,6 +185,16 @@ const ReadwiseSyncPage = () => {
                 </div>
               )}
             </div>
+            {syncResult.errorMessage && (
+              <div className="alert alert-error" style={{ marginTop: '1rem', marginBottom: 0 }}>
+                <strong>Error:</strong> {syncResult.errorMessage}
+              </div>
+            )}
+            {syncResult.warningMessage && (
+              <div className="alert alert-warning" style={{ marginTop: '1rem', marginBottom: 0 }}>
+                <strong>Warning:</strong> {syncResult.warningMessage}
+              </div>
+            )}
           </div>
         )}
       </section>

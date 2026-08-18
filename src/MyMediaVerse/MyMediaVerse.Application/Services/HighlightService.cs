@@ -10,9 +10,15 @@ namespace MyMediaVerse.Application.Services
 {
     public class HighlightService : IHighlightService
     {
+        private const int MaxExportPages = 100;
+
         private readonly IApplicationDbContext _context;
         private readonly IReadwiseApiClient _readwiseClient;
         private readonly ILogger<HighlightService> _logger;
+
+        // Delay between export pages to respect Readwise rate limits (20 req/min for
+        // list endpoints).
+        internal int ExportPageDelayMs { get; set; } = 3000;
 
         public HighlightService(
             IApplicationDbContext context,
@@ -188,7 +194,7 @@ namespace MyMediaVerse.Application.Services
                 var hasMore = true;
                 var iteration = 0;
 
-                while (hasMore && iteration < 100) // Safety limit
+                while (hasMore && iteration < MaxExportPages)
                 {
                     _logger.LogInformation("Fetching export page {Iteration}", iteration + 1);
 
@@ -198,6 +204,7 @@ namespace MyMediaVerse.Application.Services
 
                     if (response.results.Count == 0)
                     {
+                        hasMore = false;
                         break;
                     }
 
@@ -211,8 +218,18 @@ namespace MyMediaVerse.Application.Services
                     pageCursor = response.nextPageCursor;
                     iteration++;
 
-                    // Small delay to respect rate limits (20 req/min for list endpoints)
-                    await Task.Delay(3000);
+                    // Pause between pages to respect rate limits; skipped after the last page
+                    if (hasMore && ExportPageDelayMs > 0)
+                    {
+                        await Task.Delay(ExportPageDelayMs);
+                    }
+                }
+
+                if (hasMore)
+                {
+                    result.WarningMessage =
+                        $"Sync stopped at the {MaxExportPages}-page safety limit before reaching the end of the Readwise export; some highlights were not synced.";
+                    _logger.LogWarning("Highlight sync hit the {MaxPages}-page safety limit with more export pages remaining", MaxExportPages);
                 }
 
                 result.CompletedAt = DateTime.UtcNow;

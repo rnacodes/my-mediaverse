@@ -139,6 +139,7 @@ namespace MyMediaVerse.Web.API.Controllers
                 result.HighlightsCreated = highlightResult.CreatedCount;
                 result.HighlightsUpdated = highlightResult.UpdatedCount;
                 result.HighlightsLinked = highlightResult.LinkedCount;
+                result.WarningMessage = highlightResult.WarningMessage;
 
                 result.Success = true;
                 result.CompletedAt = DateTime.UtcNow;

@@ -18,6 +18,7 @@ namespace MyMediaVerse.DTOs
         public int HighlightsLinked { get; set; }
 
         public string? ErrorMessage { get; set; }
+        public string? WarningMessage { get; set; }  // Non-fatal issues surfaced by either sync step
         public DateTime StartedAt { get; set; }
         public DateTime? CompletedAt { get; set; }
 

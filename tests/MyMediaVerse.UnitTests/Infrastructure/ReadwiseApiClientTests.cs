@@ -205,6 +205,103 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         }
 
         [Fact]
+        public async Task GetExportAsync_Success_ReturnsBooksWithNestedHighlights()
+        {
+            // Arrange
+            var responseJson = @"{
+                ""count"": 1,
+                ""nextPageCursor"": ""cursor-2"",
+                ""results"": [
+                    {
+                        ""user_book_id"": 123,
+                        ""title"": ""Test Book"",
+                        ""author"": ""Test Author"",
+                        ""category"": ""books"",
+                        ""source"": ""kindle"",
+                        ""cover_image_url"": ""https://example.com/cover.jpg"",
+                        ""highlights"": [
+                            {
+                                ""id"": 1,
+                                ""text"": ""Highlight 1"",
+                                ""note"": ""Note 1"",
+                                ""location"": 100,
+                                ""location_type"": ""location"",
+                                ""highlighted_at"": ""2023-01-01T12:00:00Z"",
+                                ""url"": ""https://readwise.io/open/1"",
+                                ""color"": ""yellow"",
+                                ""is_favorite"": false,
+                                ""tags"": [{ ""id"": 1, ""name"": ""Important"" }]
+                            }
+                        ]
+                    }
+                ]
+            }";
+
+            SetupHttpResponse(HttpStatusCode.OK, responseJson);
+
+            // Act
+            var result = await _client.GetExportAsync();
+
+            // Assert
+            result.Should().NotBeNull();
+            result.nextPageCursor.Should().Be("cursor-2");
+            result.results.Should().HaveCount(1);
+            result.results[0].title.Should().Be("Test Book");
+            result.results[0].user_book_id.Should().Be(123);
+            result.results[0].highlights.Should().HaveCount(1);
+            result.results[0].highlights[0].text.Should().Be("Highlight 1");
+            result.results[0].highlights[0].tags.Should().ContainSingle(t => t.name == "Important");
+        }
+
+        [Fact]
+        public async Task GetExportAsync_WithUpdatedAfterAndCursor_IncludesQueryParameters()
+        {
+            // Arrange
+            var responseJson = @"{""count"": 0, ""results"": []}";
+
+            _mockHttpMessageHandler.OnSend = (req, ct) => Task.FromResult(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent(responseJson)
+            });
+
+            // Act
+            await _client.GetExportAsync("2023-01-01T00:00:00Z", "abc123");
+
+            // Assert
+            var capturedRequest = _mockHttpMessageHandler.Requests.LastOrDefault();
+            capturedRequest.Should().NotBeNull();
+            capturedRequest.RequestUri.AbsolutePath.Should().EndWith("export/");
+            capturedRequest.RequestUri.Query.Should().Contain("updatedAfter=");
+            capturedRequest.RequestUri.Query.Should().Contain("pageCursor=abc123");
+        }
+
+        [Fact]
+        public async Task GetExportAsync_Unauthorized_ThrowsUnauthorizedAccessException()
+        {
+            // Arrange
+            SetupHttpResponse(HttpStatusCode.Unauthorized, "Unauthorized");
+
+            // Act & Assert — failures must propagate so a bad token can't
+            // masquerade as an empty (successful) sync
+            await _client.Invoking(c => c.GetExportAsync())
+                .Should().ThrowAsync<UnauthorizedAccessException>()
+                .WithMessage("Readwise API token is invalid or expired*");
+        }
+
+        [Fact]
+        public async Task GetExportAsync_ServerError_ThrowsHttpRequestException()
+        {
+            // Arrange
+            SetupHttpResponse(HttpStatusCode.InternalServerError, "Server error");
+
+            // Act & Assert
+            await _client.Invoking(c => c.GetExportAsync())
+                .Should().ThrowAsync<HttpRequestException>()
+                .WithMessage("*failed with status*");
+        }
+
+        [Fact]
         public async Task GetHighlightsAsync_Unauthorized_ReturnsEmptyResponse()
         {
             // Arrange

@@ -17,7 +17,9 @@ using Testcontainers.PostgreSql;
 namespace MyMediaVerse.IntegrationTests.Fixtures
 {
     /// <summary>
-    /// HTTP integration test factory backed by a real PostgreSQL container with pgvector.
+    /// HTTP integration test factory backed by a real PostgreSQL container. The pgvector image
+    /// is required not by the current schema but by migration replay: the initial migration
+    /// runs CREATE EXTENSION vector (later dropped), which fails on a plain postgres image.
     ///
     /// Lifecycle:
     /// - <c>InitializeAsync</c> starts the container, builds the host, runs EF migrations,

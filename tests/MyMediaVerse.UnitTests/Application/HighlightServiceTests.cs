@@ -6,10 +6,12 @@ using AwesomeAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.DTOs;
+using MyMediaVerse.Shared.DTOs.Readwise;
 using MyMediaVerse.Shared.Interfaces;
 using MyMediaVerse.UnitTests.TestHelpers;
 using Xunit;
@@ -212,6 +214,110 @@ namespace MyMediaVerse.UnitTests.Application
 
             // Assert
             result.Should().BeFalse();
+        }
+
+        [Fact]
+        public async Task SyncHighlightsFromReadwiseAsync_ClientThrows_ReportsFailure()
+        {
+            // Arrange
+            _service.ExportPageDelayMs = 0;
+            _mockReadwiseClient.GetExportAsync(Arg.Any<string?>(), Arg.Any<string?>())
+                .ThrowsAsync(new UnauthorizedAccessException("Readwise API token is invalid or expired."));
+
+            // Act
+            var result = await _service.SyncHighlightsFromReadwiseAsync();
+
+            // Assert — an API failure must not look like a successful empty sync
+            result.Success.Should().BeFalse();
+            result.ErrorMessage.Should().Contain("invalid or expired");
+            result.CreatedCount.Should().Be(0);
+            result.UpdatedCount.Should().Be(0);
+        }
+
+        [Fact]
+        public async Task SyncHighlightsFromReadwiseAsync_EmptyExport_SucceedsWithoutWarning()
+        {
+            // Arrange
+            _service.ExportPageDelayMs = 0;
+            _mockReadwiseClient.GetExportAsync(Arg.Any<string?>(), Arg.Any<string?>())
+                .Returns(new ReadwiseExportResponse());
+
+            // Act
+            var result = await _service.SyncHighlightsFromReadwiseAsync();
+
+            // Assert
+            result.Success.Should().BeTrue();
+            result.WarningMessage.Should().BeNull();
+            result.CreatedCount.Should().Be(0);
+        }
+
+        [Fact]
+        public async Task SyncHighlightsFromReadwiseAsync_ImportsHighlightsFromExport()
+        {
+            // Arrange
+            _service.ExportPageDelayMs = 0;
+            var page = new ReadwiseExportResponse
+            {
+                nextPageCursor = null,
+                results = new List<ReadwiseExportBookDto>
+                {
+                    new ReadwiseExportBookDto
+                    {
+                        user_book_id = 7,
+                        title = "Sync Book",
+                        author = "Sync Author",
+                        category = "books",
+                        highlights = new List<ReadwiseExportHighlightDto>
+                        {
+                            new ReadwiseExportHighlightDto { id = 42, text = "Synced highlight" }
+                        }
+                    }
+                }
+            };
+            _mockReadwiseClient.GetExportAsync(Arg.Any<string?>(), Arg.Any<string?>())
+                .Returns(page);
+
+            // Act
+            var result = await _service.SyncHighlightsFromReadwiseAsync();
+
+            // Assert
+            result.Success.Should().BeTrue();
+            result.CreatedCount.Should().Be(1);
+            result.WarningMessage.Should().BeNull();
+            var saved = await Context.Highlights.SingleAsync(h => h.ReadwiseId == 42);
+            saved.Text.Should().Be("Synced highlight");
+            saved.Title.Should().Be("Sync Book");
+        }
+
+        [Fact]
+        public async Task SyncHighlightsFromReadwiseAsync_PageCapReached_SurfacesWarning()
+        {
+            // Arrange — every page reports another page after it, so the sync
+            // must stop at the safety limit and say so
+            _service.ExportPageDelayMs = 0;
+            var neverEndingPage = new ReadwiseExportResponse
+            {
+                nextPageCursor = "more",
+                results = new List<ReadwiseExportBookDto>
+                {
+                    new ReadwiseExportBookDto
+                    {
+                        title = "Book",
+                        highlights = new List<ReadwiseExportHighlightDto>()
+                    }
+                }
+            };
+            _mockReadwiseClient.GetExportAsync(Arg.Any<string?>(), Arg.Any<string?>())
+                .Returns(neverEndingPage);
+
+            // Act
+            var result = await _service.SyncHighlightsFromReadwiseAsync();
+
+            // Assert
+            result.Success.Should().BeTrue();
+            result.WarningMessage.Should().NotBeNull();
+            result.WarningMessage.Should().Contain("safety limit");
+            await _mockReadwiseClient.Received(100).GetExportAsync(Arg.Any<string?>(), Arg.Any<string?>());
         }
     }
 }
