@@ -11,6 +11,7 @@ import {
   bulkCreateHighlights,
   createHighlight,
   updateHighlight,
+  setHighlightLink,
   deleteHighlight,
   linkHighlightsToMedia,
   exportHighlightToReadwise,
@@ -112,6 +113,17 @@ export function useUpdateHighlight() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, highlightData }) => updateHighlight(id, highlightData),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: highlightKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: highlightKeys.detail(variables.id) });
+    },
+  });
+}
+
+export function useSetHighlightLink() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, articleId = null, bookId = null }) => setHighlightLink(id, { articleId, bookId }),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: highlightKeys.lists() });
       queryClient.invalidateQueries({ queryKey: highlightKeys.detail(variables.id) });

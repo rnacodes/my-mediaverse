@@ -119,7 +119,7 @@ namespace MyMediaVerse.Application.Services
             return highlight;
         }
 
-        public async Task<Highlight> UpdateHighlightAsync(Guid id, CreateHighlightDto dto)
+        public async Task<Highlight> UpdateHighlightAsync(Guid id, UpdateHighlightDto dto)
         {
             var highlight = await _context.Highlights
                 .Include(h => h.Article)
@@ -130,12 +130,37 @@ namespace MyMediaVerse.Application.Services
                 throw new InvalidOperationException($"Highlight with ID {id} not found");
             }
 
-            // Clean text to prevent CSS/HTML contamination
-            highlight.Text = HtmlTextCleaner.Clean(dto.Text);
-            highlight.Note = dto.Note;
-            highlight.Tags = dto.Tags != null ? string.Join(",", dto.Tags.Select(t => t.ToLowerInvariant())) : null;
-            highlight.ArticleId = dto.ArticleId;
-            highlight.BookId = dto.BookId;
+            // Null = leave unchanged; empty string = clear the optional field.
+            if (dto.Text != null)
+            {
+                if (string.IsNullOrWhiteSpace(dto.Text))
+                {
+                    throw new ArgumentException("Highlight text cannot be empty.");
+                }
+                // Clean text to prevent CSS/HTML contamination
+                highlight.Text = HtmlTextCleaner.Clean(dto.Text);
+            }
+
+            if (dto.Note != null) highlight.Note = EmptyToNull(dto.Note);
+            if (dto.Title != null) highlight.Title = EmptyToNull(dto.Title);
+            if (dto.Author != null) highlight.Author = EmptyToNull(dto.Author);
+            if (dto.Category != null) highlight.Category = EmptyToNull(dto.Category)?.ToLowerInvariant();
+            if (dto.SourceUrl != null) highlight.SourceUrl = EmptyToNull(dto.SourceUrl);
+            if (dto.LocationType != null) highlight.LocationType = EmptyToNull(dto.LocationType);
+            if (dto.Color != null) highlight.Color = EmptyToNull(dto.Color);
+            if (dto.Location.HasValue) highlight.Location = dto.Location;
+            if (dto.HighlightedAt.HasValue) highlight.HighlightedAt = dto.HighlightedAt;
+            if (dto.IsFavorite.HasValue) highlight.IsFavorite = dto.IsFavorite.Value;
+
+            if (dto.Tags != null)
+            {
+                var cleanedTags = dto.Tags
+                    .Select(t => t.Trim().ToLowerInvariant())
+                    .Where(t => t.Length > 0)
+                    .ToList();
+                highlight.Tags = cleanedTags.Count > 0 ? string.Join(",", cleanedTags) : null;
+            }
+
             highlight.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
@@ -144,6 +169,60 @@ namespace MyMediaVerse.Application.Services
 
             return highlight;
         }
+
+        public async Task<Highlight> SetHighlightLinkAsync(Guid id, Guid? articleId, Guid? bookId)
+        {
+            if (articleId.HasValue && bookId.HasValue)
+            {
+                throw new ArgumentException("A highlight can link to an article or a book, not both.");
+            }
+
+            var highlight = await _context.Highlights
+                .Include(h => h.Article)
+                .Include(h => h.Book)
+                .FirstOrDefaultAsync(h => h.Id == id);
+            if (highlight == null)
+            {
+                throw new InvalidOperationException($"Highlight with ID {id} not found");
+            }
+
+            if (articleId.HasValue)
+            {
+                var article = await _context.Articles.FirstOrDefaultAsync(a => a.Id == articleId.Value)
+                    ?? throw new InvalidOperationException($"Article with ID {articleId} not found");
+                highlight.ArticleId = article.Id;
+                highlight.Article = article;
+                highlight.BookId = null;
+                highlight.Book = null;
+            }
+            else if (bookId.HasValue)
+            {
+                var book = await _context.Books.FirstOrDefaultAsync(b => b.Id == bookId.Value)
+                    ?? throw new InvalidOperationException($"Book with ID {bookId} not found");
+                highlight.BookId = book.Id;
+                highlight.Book = book;
+                highlight.ArticleId = null;
+                highlight.Article = null;
+            }
+            else
+            {
+                highlight.ArticleId = null;
+                highlight.Article = null;
+                highlight.BookId = null;
+                highlight.Book = null;
+            }
+
+            highlight.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Updated media link for highlight {HighlightId}", highlight.Id);
+
+            return highlight;
+        }
+
+        private static string? EmptyToNull(string value) =>
+            string.IsNullOrWhiteSpace(value) ? null : value;
 
         public async Task<bool> DeleteHighlightAsync(Guid id)
         {

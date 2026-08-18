@@ -241,8 +241,11 @@ namespace MyMediaVerse.Web.API.Controllers
         }
 
         // PUT: api/highlight/{id}
+        // Partial update: null fields are left unchanged, empty strings clear
+        // optional fields, an empty tag list clears tags. Links are managed via
+        // PUT {id}/link.
         [HttpPut("{id}")]
-        public async Task<ActionResult<HighlightResponseDto>> UpdateHighlight(Guid id, [FromBody] CreateHighlightDto dto)
+        public async Task<ActionResult<HighlightResponseDto>> UpdateHighlight(Guid id, [FromBody] UpdateHighlightDto dto)
         {
             try
             {
@@ -254,6 +257,10 @@ namespace MyMediaVerse.Web.API.Controllers
                 var highlight = await _highlightService.UpdateHighlightAsync(id, dto);
                 return Ok(MapToResponseDto(highlight));
             }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
             catch (InvalidOperationException ex)
             {
                 _logger.LogWarning(ex, "Highlight {Id} not found for update", id);
@@ -263,6 +270,37 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 _logger.LogError(ex, "Error updating highlight {Id}", id);
                 return StatusCode(500, new { error = "Failed to update highlight", details = ex.Message });
+            }
+        }
+
+        // PUT: api/highlight/{id}/link
+        // Sets the highlight's media link: article, book, or neither (unlink).
+        [HttpPut("{id}/link")]
+        public async Task<ActionResult<HighlightResponseDto>> SetHighlightLink(Guid id, [FromBody] HighlightLinkDto dto)
+        {
+            try
+            {
+                if (dto == null)
+                {
+                    return BadRequest(new { error = "Link data is required" });
+                }
+
+                var highlight = await _highlightService.SetHighlightLinkAsync(id, dto.ArticleId, dto.BookId);
+                return Ok(MapToResponseDto(highlight));
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Highlight {Id} or link target not found", id);
+                return NotFound(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error setting link for highlight {Id}", id);
+                return StatusCode(500, new { error = "Failed to set highlight link", details = ex.Message });
             }
         }
 

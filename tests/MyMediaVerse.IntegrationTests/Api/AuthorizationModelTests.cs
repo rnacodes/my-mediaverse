@@ -125,6 +125,7 @@ namespace MyMediaVerse.IntegrationTests.Api
                 ["Highlight.GetHighlightsByTag"] = Unclassified,
                 ["Highlight.GetUnlinkedHighlights"] = Unclassified,
                 ["Highlight.LinkHighlightsToMedia"] = Unclassified,
+                ["Highlight.SetHighlightLink"] = Unclassified,
                 ["Highlight.SyncHighlights"] = Unclassified,
                 ["Highlight.UpdateHighlight"] = Unclassified,
                 ["Highlight.ValidateConnection"] = Unclassified,

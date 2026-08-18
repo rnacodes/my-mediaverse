@@ -116,15 +116,101 @@ namespace MyMediaVerse.IntegrationTests.Api
             var createResponse = await _client.PostAsJsonAsync("/api/highlight", dto);
             var created = await createResponse.Content.ReadFromJsonAsync<HighlightResponseDto>(_jsonOptions);
 
-            var updateDto = CreateValidHighlightDto("updated");
-            updateDto.Note = "Updated note";
+            var updateDto = new UpdateHighlightDto
+            {
+                Text = "Updated highlight text",
+                Note = "Updated note"
+            };
 
-            var response = await _client.PutAsJsonAsync($"/api/highlight/{created!.id}", updateDto);
+            var response = await _client.PutAsJsonAsync($"/api/highlight/{created!.id}", updateDto, _jsonOptions);
 
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             var updated = await response.Content.ReadFromJsonAsync<HighlightResponseDto>(_jsonOptions);
             updated.Should().NotBeNull();
-            updated!.text.Should().Be(updateDto.Text);
+            updated!.text.Should().Be("Updated highlight text");
+            updated.note.Should().Be("Updated note");
+        }
+
+        [Fact]
+        public async Task UpdateHighlight_PartialUpdate_ShouldLeaveOmittedFieldsUnchanged()
+        {
+            var dto = CreateValidHighlightDto();
+            var createResponse = await _client.PostAsJsonAsync("/api/highlight", dto);
+            var created = await createResponse.Content.ReadFromJsonAsync<HighlightResponseDto>(_jsonOptions);
+
+            // Only the note is sent (nulls are omitted by _jsonOptions);
+            // text, title, and author must survive the update.
+            var updateDto = new UpdateHighlightDto { Note = "Only the note changed" };
+
+            var response = await _client.PutAsJsonAsync($"/api/highlight/{created!.id}", updateDto, _jsonOptions);
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var updated = await response.Content.ReadFromJsonAsync<HighlightResponseDto>(_jsonOptions);
+            updated!.note.Should().Be("Only the note changed");
+            updated.text.Should().Be(dto.Text);
+            updated.title.Should().Be(dto.Title);
+            updated.author.Should().Be(dto.Author);
+        }
+
+        [Fact]
+        public async Task UpdateHighlight_EmptyText_ShouldReturnBadRequest()
+        {
+            var dto = CreateValidHighlightDto();
+            var createResponse = await _client.PostAsJsonAsync("/api/highlight", dto);
+            var created = await createResponse.Content.ReadFromJsonAsync<HighlightResponseDto>(_jsonOptions);
+
+            var updateDto = new UpdateHighlightDto { Text = "   " };
+
+            var response = await _client.PutAsJsonAsync($"/api/highlight/{created!.id}", updateDto, _jsonOptions);
+
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
+
+        #endregion
+
+        #region SetHighlightLink
+
+        [Fact]
+        public async Task SetHighlightLink_BothTargets_ShouldReturnBadRequest()
+        {
+            var dto = CreateValidHighlightDto();
+            var createResponse = await _client.PostAsJsonAsync("/api/highlight", dto);
+            var created = await createResponse.Content.ReadFromJsonAsync<HighlightResponseDto>(_jsonOptions);
+
+            var linkDto = new HighlightLinkDto { ArticleId = Guid.NewGuid(), BookId = Guid.NewGuid() };
+
+            var response = await _client.PutAsJsonAsync($"/api/highlight/{created!.id}/link", linkDto, _jsonOptions);
+
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
+
+        [Fact]
+        public async Task SetHighlightLink_MissingTarget_ShouldReturnNotFound()
+        {
+            var dto = CreateValidHighlightDto();
+            var createResponse = await _client.PostAsJsonAsync("/api/highlight", dto);
+            var created = await createResponse.Content.ReadFromJsonAsync<HighlightResponseDto>(_jsonOptions);
+
+            var linkDto = new HighlightLinkDto { BookId = Guid.NewGuid() };
+
+            var response = await _client.PutAsJsonAsync($"/api/highlight/{created!.id}/link", linkDto, _jsonOptions);
+
+            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        }
+
+        [Fact]
+        public async Task SetHighlightLink_NoTargets_ShouldUnlink()
+        {
+            var dto = CreateValidHighlightDto();
+            var createResponse = await _client.PostAsJsonAsync("/api/highlight", dto);
+            var created = await createResponse.Content.ReadFromJsonAsync<HighlightResponseDto>(_jsonOptions);
+
+            var response = await _client.PutAsJsonAsync($"/api/highlight/{created!.id}/link", new HighlightLinkDto(), _jsonOptions);
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var updated = await response.Content.ReadFromJsonAsync<HighlightResponseDto>(_jsonOptions);
+            updated!.articleId.Should().BeNull();
+            updated.bookId.Should().BeNull();
         }
 
         #endregion

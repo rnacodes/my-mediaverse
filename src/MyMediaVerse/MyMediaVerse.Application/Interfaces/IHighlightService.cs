@@ -12,7 +12,19 @@ namespace MyMediaVerse.Application.Interfaces
         Task<IEnumerable<Highlight>> GetHighlightsByTagAsync(string tag);
         Task<IEnumerable<Highlight>> GetUnlinkedHighlightsAsync();
         Task<Highlight> CreateHighlightAsync(CreateHighlightDto dto);
-        Task<Highlight> UpdateHighlightAsync(Guid id, CreateHighlightDto dto);
+
+        /// <summary>
+        /// Partially updates a highlight. Null DTO fields are left unchanged;
+        /// empty strings clear optional fields, an empty tag list clears tags.
+        /// </summary>
+        Task<Highlight> UpdateHighlightAsync(Guid id, UpdateHighlightDto dto);
+
+        /// <summary>
+        /// Sets the highlight's media link to an article, a book, or nothing.
+        /// Providing both targets is invalid; both null unlinks.
+        /// </summary>
+        Task<Highlight> SetHighlightLinkAsync(Guid id, Guid? articleId, Guid? bookId);
+
         Task<bool> DeleteHighlightAsync(Guid id);
         
         /// <summary>

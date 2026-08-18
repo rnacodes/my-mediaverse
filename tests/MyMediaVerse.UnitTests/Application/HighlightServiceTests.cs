@@ -164,7 +164,7 @@ namespace MyMediaVerse.UnitTests.Application
             Context.Highlights.Add(existingHighlight);
             await Context.SaveChangesAsync();
 
-            var updateDto = new CreateHighlightDto
+            var updateDto = new UpdateHighlightDto
             {
                 Text = "Updated text",
                 Note = "Updated note"
@@ -177,10 +177,163 @@ namespace MyMediaVerse.UnitTests.Application
             result.Should().NotBeNull();
             result.Text.Should().Be("Updated text");
             result.Note.Should().Be("Updated note");
-            
+
             var dbHighlight = await Context.Highlights.FindAsync(highlightId);
             dbHighlight.Should().NotBeNull();
             dbHighlight.Text.Should().Be("Updated text");
+        }
+
+        [Fact]
+        public async Task UpdateHighlightAsync_PartialUpdate_LeavesOmittedFieldsUnchanged()
+        {
+            // Arrange
+            var highlightId = Guid.NewGuid();
+            var articleId = Guid.NewGuid();
+            Context.Highlights.Add(new Highlight
+            {
+                Id = highlightId,
+                Text = "Original text",
+                Note = "Original note",
+                Title = "Original Title",
+                Author = "Original Author",
+                Tags = "philosophy,stoicism",
+                ArticleId = articleId,
+                ReadwiseId = 123
+            });
+            await Context.SaveChangesAsync();
+
+            // Act — only the note is sent; everything else must survive
+            var result = await _service.UpdateHighlightAsync(highlightId, new UpdateHighlightDto
+            {
+                Note = "New note"
+            });
+
+            // Assert
+            result.Note.Should().Be("New note");
+            result.Text.Should().Be("Original text");
+            result.Title.Should().Be("Original Title");
+            result.Author.Should().Be("Original Author");
+            result.Tags.Should().Be("philosophy,stoicism");
+            result.ArticleId.Should().Be(articleId);
+        }
+
+        [Fact]
+        public async Task UpdateHighlightAsync_EmptyTagList_ClearsTags()
+        {
+            // Arrange
+            var highlightId = Guid.NewGuid();
+            Context.Highlights.Add(new Highlight
+            {
+                Id = highlightId,
+                Text = "Text",
+                Tags = "philosophy,stoicism"
+            });
+            await Context.SaveChangesAsync();
+
+            // Act
+            var result = await _service.UpdateHighlightAsync(highlightId, new UpdateHighlightDto
+            {
+                Tags = new List<string>()
+            });
+
+            // Assert
+            result.Tags.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task UpdateHighlightAsync_EmptyText_Throws()
+        {
+            // Arrange
+            var highlightId = Guid.NewGuid();
+            Context.Highlights.Add(new Highlight { Id = highlightId, Text = "Text" });
+            await Context.SaveChangesAsync();
+
+            // Act & Assert
+            await _service.Invoking(s => s.UpdateHighlightAsync(highlightId, new UpdateHighlightDto { Text = "   " }))
+                .Should().ThrowAsync<ArgumentException>();
+        }
+
+        [Fact]
+        public async Task UpdateHighlightAsync_MetadataFields_AreUpdatedAndNormalized()
+        {
+            // Arrange
+            var highlightId = Guid.NewGuid();
+            Context.Highlights.Add(new Highlight { Id = highlightId, Text = "Text" });
+            await Context.SaveChangesAsync();
+
+            // Act
+            var result = await _service.UpdateHighlightAsync(highlightId, new UpdateHighlightDto
+            {
+                Title = "New Title",
+                Author = "New Author",
+                Category = "Books",
+                Tags = new List<string> { " Philosophy ", "STOICISM" }
+            });
+
+            // Assert
+            result.Title.Should().Be("New Title");
+            result.Author.Should().Be("New Author");
+            result.Category.Should().Be("books");
+            result.Tags.Should().Be("philosophy,stoicism");
+        }
+
+        [Fact]
+        public async Task SetHighlightLinkAsync_ToBook_SetsBookAndClearsArticle()
+        {
+            // Arrange
+            var article = new Article { Id = Guid.NewGuid(), Title = "Article" };
+            var book = new Book { Id = Guid.NewGuid(), Title = "Book", Author = "Author" };
+            var highlightId = Guid.NewGuid();
+            Context.Articles.Add(article);
+            Context.Books.Add(book);
+            Context.Highlights.Add(new Highlight { Id = highlightId, Text = "Text", ArticleId = article.Id });
+            await Context.SaveChangesAsync();
+
+            // Act
+            var result = await _service.SetHighlightLinkAsync(highlightId, null, book.Id);
+
+            // Assert
+            result.BookId.Should().Be(book.Id);
+            result.ArticleId.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task SetHighlightLinkAsync_BothTargets_Throws()
+        {
+            // Act & Assert
+            await _service.Invoking(s => s.SetHighlightLinkAsync(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid()))
+                .Should().ThrowAsync<ArgumentException>();
+        }
+
+        [Fact]
+        public async Task SetHighlightLinkAsync_NoTargets_Unlinks()
+        {
+            // Arrange
+            var article = new Article { Id = Guid.NewGuid(), Title = "Article" };
+            var highlightId = Guid.NewGuid();
+            Context.Articles.Add(article);
+            Context.Highlights.Add(new Highlight { Id = highlightId, Text = "Text", ArticleId = article.Id });
+            await Context.SaveChangesAsync();
+
+            // Act
+            var result = await _service.SetHighlightLinkAsync(highlightId, null, null);
+
+            // Assert
+            result.ArticleId.Should().BeNull();
+            result.BookId.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task SetHighlightLinkAsync_MissingTarget_Throws()
+        {
+            // Arrange
+            var highlightId = Guid.NewGuid();
+            Context.Highlights.Add(new Highlight { Id = highlightId, Text = "Text" });
+            await Context.SaveChangesAsync();
+
+            // Act & Assert
+            await _service.Invoking(s => s.SetHighlightLinkAsync(highlightId, null, Guid.NewGuid()))
+                .Should().ThrowAsync<InvalidOperationException>();
         }
 
         [Fact]

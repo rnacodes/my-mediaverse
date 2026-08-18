@@ -159,6 +159,21 @@ export const updateHighlight = async (id, highlightData) => {
 };
 
 /**
+ * Sets a highlight's media link (article OR book, or neither to unlink)
+ * @param {string} id - The highlight ID
+ * @param {{ articleId?: string|null, bookId?: string|null }} link - The link target
+ */
+export const setHighlightLink = async (id, { articleId = null, bookId = null } = {}) => {
+    try {
+        const response = await apiClient.put(`/highlight/${id}/link`, { articleId, bookId });
+        return response.data;
+    } catch (error) {
+        console.error('Error setting highlight link:', error);
+        throw error;
+    }
+};
+
+/**
  * Deletes a highlight
  * @param {string} id - The highlight ID
  */
