@@ -14,15 +14,22 @@ const getItemPath = (item) => {
     return `/media/${item.id}`;
 };
 
+// Layout constants used to line the overlay checkbox up with its in-flow spacer.
+const CARD_PADDING_PX = 20;      // CardContent p: 2.5
+const CHECKBOX_TOP_OFFSET_PX = 4; // header row mt: 0.5
+const CHECKBOX_SIZE_PX = 20;      // size="small" with p: 0
+const MIXLIST_THUMB_HEIGHT_PX = 140;
+
 export const SearchResultCard = React.memo(({ item, isSelected = false, onToggleSelect, showCheckbox = false }) => {
-    // Handle checkbox click
-    const handleCheckboxChange = (event) => {
-        event.stopPropagation();
+    const handleCheckboxChange = () => {
         if (onToggleSelect) {
             onToggleSelect(item.id);
         }
     };
-    
+
+    const hasThumbnail = Boolean(item.isMixlist && item.thumbnail);
+    const checkboxTop = (hasThumbnail ? MIXLIST_THUMB_HEIGHT_PX : 0) + CARD_PADDING_PX + CHECKBOX_TOP_OFFSET_PX;
+
     // Helper function to get the primary creator/author/maker
     const getPrimaryCredit = () => {
         switch (item.mediaType) {
@@ -93,7 +100,33 @@ export const SearchResultCard = React.memo(({ item, isSelected = false, onToggle
     };
     
     return (
-        <Link to={getItemPath(item)} style={{ textDecoration: 'none', color: 'inherit' }}>
+        // The checkbox is rendered as a sibling of the Link rather than inside it: a
+        // checkbox nested in an anchor needs preventDefault() to stop navigation, and
+        // cancelling a checkbox click makes the browser revert the toggle.
+        <Box
+            sx={{
+                position: 'relative',
+                height: '100%',
+                transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                '&:hover': { transform: 'translateY(-4px)' }
+            }}
+        >
+        {showCheckbox && (
+            <Checkbox
+                checked={isSelected}
+                onChange={handleCheckboxChange}
+                inputProps={{ 'aria-label': `Select ${item.title}` }}
+                sx={{
+                    p: 0,
+                    position: 'absolute',
+                    top: checkboxTop,
+                    left: CARD_PADDING_PX,
+                    zIndex: 1
+                }}
+                size="small"
+            />
+        )}
+        <Link to={getItemPath(item)} style={{ textDecoration: 'none', color: 'inherit', display: 'block', height: '100%' }}>
         <Card
             sx={{
                 height: '100%',
@@ -101,16 +134,15 @@ export const SearchResultCard = React.memo(({ item, isSelected = false, onToggle
                 flexDirection: 'column',
                 cursor: 'pointer',
                 '&:hover': {
-                    transform: 'translateY(-4px)',
                     boxShadow: 8,
                     '& .card-title': {
                         color: 'primary.main'
                     }
                 },
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                transition: 'box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
             }}
         >
-        {item.isMixlist && item.thumbnail && (
+        {hasThumbnail && (
             <CardMedia
                 component="img"
                 image={item.thumbnail}
@@ -123,13 +155,8 @@ export const SearchResultCard = React.memo(({ item, isSelected = false, onToggle
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
                 <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, flex: 1 }}>
                     {showCheckbox && (
-                        <Checkbox
-                            checked={isSelected}
-                            onChange={handleCheckboxChange}
-                            onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
-                            sx={{ p: 0, mt: 0.5 }}
-                            size="small"
-                        />
+                        // Spacer reserving the overlay checkbox's slot in the header row.
+                        <Box sx={{ width: CHECKBOX_SIZE_PX, height: CHECKBOX_SIZE_PX, mt: 0.5, flexShrink: 0 }} aria-hidden="true" />
                     )}
                     <Typography
                         variant="h6"
@@ -258,6 +285,7 @@ export const SearchResultCard = React.memo(({ item, isSelected = false, onToggle
         </CardContent>
     </Card>
     </Link>
+    </Box>
     );
 });
 

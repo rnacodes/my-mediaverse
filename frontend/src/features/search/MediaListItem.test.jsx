@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { useLocation } from 'react-router-dom';
 import { renderWithProviders, screen } from '@/test/test-utils';
 import { MediaListItem } from './MediaListItem';
@@ -21,10 +21,10 @@ const baseItem = {
   topics: [],
 };
 
-const renderRow = (overrides = {}) =>
+const renderRow = (overrides = {}, props = {}) =>
   renderWithProviders(
     <>
-      <MediaListItem item={{ ...baseItem, ...overrides }} />
+      <MediaListItem item={{ ...baseItem, ...overrides }} {...props} />
       <LocationProbe />
     </>,
   );
@@ -56,5 +56,31 @@ describe('MediaListItem navigation', () => {
     await clickRow(user);
 
     expect(screen.getByTestId('location')).toHaveTextContent('/media/abc-123');
+  });
+});
+
+describe('MediaListItem selection', () => {
+  it('does not render a checkbox unless showCheckbox is set', () => {
+    renderRow();
+
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+  });
+
+  it('calls onToggleSelect with the item id when the checkbox is clicked, without navigating', async () => {
+    const onToggleSelect = vi.fn();
+    const { user } = renderRow({}, { showCheckbox: true, onToggleSelect });
+
+    await user.click(screen.getByRole('checkbox'));
+
+    expect(onToggleSelect).toHaveBeenCalledTimes(1);
+    expect(onToggleSelect).toHaveBeenCalledWith('abc-123');
+    expect(screen.getByTestId('location')).toHaveTextContent('/');
+    expect(screen.getByTestId('location')).not.toHaveTextContent('/media/');
+  });
+
+  it('reflects the isSelected prop', () => {
+    renderRow({}, { showCheckbox: true, isSelected: true, onToggleSelect: vi.fn() });
+
+    expect(screen.getByRole('checkbox')).toBeChecked();
   });
 });
