@@ -16,6 +16,7 @@ namespace MyMediaVerse.DTOs
         public int HighlightsCreated { get; set; }
         public int HighlightsUpdated { get; set; }
         public int HighlightsLinked { get; set; }
+        public int HighlightsDeleted { get; set; }  // Removed because Readwise reported them deleted/discarded
 
         public string? ErrorMessage { get; set; }
         public string? WarningMessage { get; set; }  // Non-fatal issues surfaced by either sync step

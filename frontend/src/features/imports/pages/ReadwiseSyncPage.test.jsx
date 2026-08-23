@@ -79,6 +79,7 @@ describe('ReadwiseSyncPage', () => {
           highlightsCreated: 1,
           highlightsUpdated: 0,
           highlightsLinked: 0,
+          highlightsDeleted: 2,
           syncedSince: '2026-08-01T00:00:00Z',
           syncWindowSource: 'cursor',
           cursorAdvanced: true,
@@ -94,6 +95,31 @@ describe('ReadwiseSyncPage', () => {
     expect(requestedUrl).toContain('incremental=true');
     expect(screen.getByText(/since last successful sync/)).toBeInTheDocument();
     expect(screen.getByText(/checkpoint saved/)).toBeInTheDocument();
+    expect(screen.getByText('Highlights Deleted:')).toBeInTheDocument();
+  });
+
+  it('hides the deleted-highlights row when nothing was deleted', async () => {
+    mockMount();
+    server.use(
+      http.post(`${API_BASE}/readwise/sync`, () =>
+        HttpResponse.json({
+          success: true,
+          articlesCreated: 0,
+          articlesUpdated: 0,
+          highlightsCreated: 0,
+          highlightsUpdated: 0,
+          highlightsLinked: 0,
+          highlightsDeleted: 0,
+        }),
+      ),
+    );
+
+    const { user } = renderWithProviders(<ReadwiseSyncPage />, { route: '/readwise-sync' });
+
+    await user.click(screen.getByRole('button', { name: 'Full Sync' }));
+
+    expect(await screen.findByText('Sync Results')).toBeInTheDocument();
+    expect(screen.queryByText('Highlights Deleted:')).not.toBeInTheDocument();
   });
 
   it('shows an error alert when a sync fails', async () => {

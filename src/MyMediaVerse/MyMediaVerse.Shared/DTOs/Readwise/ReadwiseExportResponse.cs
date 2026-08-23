@@ -31,6 +31,8 @@ namespace MyMediaVerse.Shared.DTOs.Readwise
         public string? document_note { get; set; }
         public string? summary { get; set; }
         public string? readwise_url { get; set; }
+        /// <summary>True when the whole source was deleted in Readwise (tombstone).</summary>
+        public bool is_deleted { get; set; }
         public List<ReadwiseExportHighlightDto> highlights { get; set; } = new();
     }
 
@@ -51,6 +53,8 @@ namespace MyMediaVerse.Shared.DTOs.Readwise
         public List<ReadwiseExportTagDto>? tags { get; set; }
         public bool is_favorite { get; set; }
         public bool is_discard { get; set; }
+        /// <summary>True when the highlight was deleted in Readwise (tombstone).</summary>
+        public bool is_deleted { get; set; }
     }
 
     /// <summary>

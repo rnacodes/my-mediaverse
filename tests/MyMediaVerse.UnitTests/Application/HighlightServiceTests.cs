@@ -481,6 +481,148 @@ namespace MyMediaVerse.UnitTests.Application
             saved.BookId.Should().Be(book.Id);
         }
 
+        private static ReadwiseExportResponse SinglePage(params ReadwiseExportBookDto[] books) =>
+            new() { nextPageCursor = null, results = books.ToList() };
+
+        [Fact]
+        public async Task SyncHighlights_DeletedInReadwise_RemovesExistingRow()
+        {
+            // Arrange — we already imported ReadwiseId 42; Readwise now reports it deleted
+            _service.ExportPageDelayMs = 0;
+            Context.Highlights.Add(new Highlight { Id = Guid.NewGuid(), ReadwiseId = 42, Text = "Old copy" });
+            await Context.SaveChangesAsync();
+
+            var page = SinglePage(new ReadwiseExportBookDto
+            {
+                user_book_id = 7,
+                title = "Sync Book",
+                highlights = new List<ReadwiseExportHighlightDto>
+                {
+                    new ReadwiseExportHighlightDto { id = 42, text = "Old copy", is_deleted = true }
+                }
+            });
+            _mockReadwiseClient.GetExportAsync(Arg.Any<string?>(), Arg.Any<string?>()).Returns(page);
+
+            // Act
+            var result = await _service.SyncHighlightsFromReadwiseAsync();
+
+            // Assert
+            result.Success.Should().BeTrue();
+            result.DeletedCount.Should().Be(1);
+            result.CreatedCount.Should().Be(0);
+            result.UpdatedCount.Should().Be(0);
+            (await Context.Highlights.AnyAsync(h => h.ReadwiseId == 42)).Should().BeFalse();
+        }
+
+        [Fact]
+        public async Task SyncHighlights_DiscardedInReadwise_RemovesExistingRow()
+        {
+            // Arrange
+            _service.ExportPageDelayMs = 0;
+            Context.Highlights.Add(new Highlight { Id = Guid.NewGuid(), ReadwiseId = 43, Text = "Discarded copy" });
+            await Context.SaveChangesAsync();
+
+            var page = SinglePage(new ReadwiseExportBookDto
+            {
+                user_book_id = 7,
+                title = "Sync Book",
+                highlights = new List<ReadwiseExportHighlightDto>
+                {
+                    new ReadwiseExportHighlightDto { id = 43, text = "Discarded copy", is_discard = true }
+                }
+            });
+            _mockReadwiseClient.GetExportAsync(Arg.Any<string?>(), Arg.Any<string?>()).Returns(page);
+
+            // Act
+            var result = await _service.SyncHighlightsFromReadwiseAsync();
+
+            // Assert
+            result.DeletedCount.Should().Be(1);
+            (await Context.Highlights.AnyAsync(h => h.ReadwiseId == 43)).Should().BeFalse();
+        }
+
+        [Fact]
+        public async Task SyncHighlights_TombstoneForUnknownHighlight_IsIgnoredWithoutCreating()
+        {
+            // Arrange — deleted in Readwise, never imported here
+            _service.ExportPageDelayMs = 0;
+            var page = SinglePage(new ReadwiseExportBookDto
+            {
+                user_book_id = 7,
+                title = "Sync Book",
+                highlights = new List<ReadwiseExportHighlightDto>
+                {
+                    new ReadwiseExportHighlightDto { id = 44, text = "Never imported", is_deleted = true }
+                }
+            });
+            _mockReadwiseClient.GetExportAsync(Arg.Any<string?>(), Arg.Any<string?>()).Returns(page);
+
+            // Act
+            var result = await _service.SyncHighlightsFromReadwiseAsync();
+
+            // Assert
+            result.Success.Should().BeTrue();
+            result.CreatedCount.Should().Be(0);
+            result.DeletedCount.Should().Be(0);
+            (await Context.Highlights.CountAsync()).Should().Be(0);
+        }
+
+        [Fact]
+        public async Task SyncHighlights_BookDeletedInReadwise_RemovesItsHighlights()
+        {
+            // Arrange — the whole source is tombstoned; nested highlights go with it
+            _service.ExportPageDelayMs = 0;
+            Context.Highlights.Add(new Highlight { Id = Guid.NewGuid(), ReadwiseId = 45, Text = "From deleted book" });
+            Context.Highlights.Add(new Highlight { Id = Guid.NewGuid(), ReadwiseId = 46, Text = "Also from deleted book" });
+            await Context.SaveChangesAsync();
+
+            var page = SinglePage(new ReadwiseExportBookDto
+            {
+                user_book_id = 8,
+                title = "Deleted Book",
+                is_deleted = true,
+                highlights = new List<ReadwiseExportHighlightDto>
+                {
+                    new ReadwiseExportHighlightDto { id = 45, text = "From deleted book" },
+                    new ReadwiseExportHighlightDto { id = 46, text = "Also from deleted book" }
+                }
+            });
+            _mockReadwiseClient.GetExportAsync(Arg.Any<string?>(), Arg.Any<string?>()).Returns(page);
+
+            // Act
+            var result = await _service.SyncHighlightsFromReadwiseAsync();
+
+            // Assert
+            result.DeletedCount.Should().Be(2);
+            (await Context.Highlights.CountAsync()).Should().Be(0);
+        }
+
+        [Fact]
+        public async Task SyncHighlights_LiveHighlightAlongsideTombstone_IsStillSynced()
+        {
+            // Arrange — one live, one deleted in the same source
+            _service.ExportPageDelayMs = 0;
+            var page = SinglePage(new ReadwiseExportBookDto
+            {
+                user_book_id = 7,
+                title = "Sync Book",
+                highlights = new List<ReadwiseExportHighlightDto>
+                {
+                    new ReadwiseExportHighlightDto { id = 47, text = "Still alive" },
+                    new ReadwiseExportHighlightDto { id = 48, text = "Gone", is_deleted = true }
+                }
+            });
+            _mockReadwiseClient.GetExportAsync(Arg.Any<string?>(), Arg.Any<string?>()).Returns(page);
+
+            // Act
+            var result = await _service.SyncHighlightsFromReadwiseAsync();
+
+            // Assert
+            result.CreatedCount.Should().Be(1);
+            result.DeletedCount.Should().Be(0);
+            (await Context.Highlights.SingleAsync()).ReadwiseId.Should().Be(47);
+        }
+
         [Fact]
         public async Task BulkCreateHighlightsAsync_AutoLinksBookByTitleAndAuthor()
         {

@@ -79,6 +79,7 @@ namespace MyMediaVerse.Application.Services
             result.HighlightsCreated = highlightResult.CreatedCount;
             result.HighlightsUpdated = highlightResult.UpdatedCount;
             result.HighlightsLinked = highlightResult.LinkedCount;
+            result.HighlightsDeleted = highlightResult.DeletedCount;
             result.WarningMessage = highlightResult.WarningMessage;
             result.Success = true;
 

@@ -314,8 +314,8 @@ namespace MyMediaVerse.Application.Services
                 result.CompletedAt = DateTime.UtcNow;
                 result.Success = true;
 
-                _logger.LogInformation("Completed highlight sync. Created: {Created}, Updated: {Updated}, Linked: {Linked}",
-                    result.CreatedCount, result.UpdatedCount, result.LinkedCount);
+                _logger.LogInformation("Completed highlight sync. Created: {Created}, Updated: {Updated}, Linked: {Linked}, Deleted: {Deleted}",
+                    result.CreatedCount, result.UpdatedCount, result.LinkedCount, result.DeletedCount);
             }
             catch (Exception ex)
             {
@@ -338,6 +338,23 @@ namespace MyMediaVerse.Application.Services
         {
             foreach (var highlightDto in bookDto.highlights)
             {
+                // Tombstones: Readwise marks deleted sources/highlights with is_deleted
+                // (and hidden ones with is_discard) instead of omitting them.
+                if (bookDto.is_deleted || highlightDto.is_deleted || highlightDto.is_discard)
+                {
+                    var doomed = await _context.Highlights
+                        .FirstOrDefaultAsync(h => h.ReadwiseId == highlightDto.id);
+                    if (doomed != null)
+                    {
+                        _context.Remove(doomed);
+                        result.DeletedCount++;
+                        _logger.LogInformation(
+                            "Deleted highlight {HighlightId} (ReadwiseId {ReadwiseId}): removed or discarded in Readwise",
+                            doomed.Id, highlightDto.id);
+                    }
+                    continue;
+                }
+
                 // Clean HTML/CSS from highlight text
                 var cleanedText = HtmlTextCleaner.Clean(highlightDto.text);
 
