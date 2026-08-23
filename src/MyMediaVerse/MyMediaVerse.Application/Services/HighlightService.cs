@@ -14,6 +14,7 @@ namespace MyMediaVerse.Application.Services
 
         private readonly IApplicationDbContext _context;
         private readonly IReadwiseApiClient _readwiseClient;
+        private readonly ITypesenseService _typesenseService;
         private readonly ILogger<HighlightService> _logger;
 
         // Delay between export pages to respect Readwise rate limits (20 req/min for
@@ -23,11 +24,29 @@ namespace MyMediaVerse.Application.Services
         public HighlightService(
             IApplicationDbContext context,
             IReadwiseApiClient readwiseClient,
+            ITypesenseService typesenseService,
             ILogger<HighlightService> logger)
         {
             _context = context;
             _readwiseClient = readwiseClient;
+            _typesenseService = typesenseService;
             _logger = logger;
+        }
+
+        /// <summary>
+        /// Best-effort removal of a highlight's search document. Failures are logged and
+        /// swallowed — the bulk reindex's ID-diff reconcile is the backstop.
+        /// </summary>
+        private async Task TryRemoveFromSearchIndexAsync(Guid highlightId)
+        {
+            try
+            {
+                await _typesenseService.DeleteHighlightAsync(highlightId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to remove highlight {Id} from the search index; it will be removed on the next reindex", highlightId);
+            }
         }
 
         public async Task<IEnumerable<Highlight>> GetAllHighlightsAsync()
@@ -238,6 +257,8 @@ namespace MyMediaVerse.Application.Services
 
             _logger.LogInformation("Deleted highlight {HighlightId}", id);
 
+            await TryRemoveFromSearchIndexAsync(id);
+
             return true;
         }
 
@@ -336,6 +357,8 @@ namespace MyMediaVerse.Application.Services
             Shared.DTOs.Readwise.ReadwiseExportBookDto bookDto,
             HighlightSyncResultDto result)
         {
+            var removedFromDb = new List<Guid>();
+
             foreach (var highlightDto in bookDto.highlights)
             {
                 // Tombstones: Readwise marks deleted sources/highlights with is_deleted
@@ -348,6 +371,7 @@ namespace MyMediaVerse.Application.Services
                     {
                         _context.Remove(doomed);
                         result.DeletedCount++;
+                        removedFromDb.Add(doomed.Id);
                         _logger.LogInformation(
                             "Deleted highlight {HighlightId} (ReadwiseId {ReadwiseId}): removed or discarded in Readwise",
                             doomed.Id, highlightDto.id);
@@ -447,6 +471,13 @@ namespace MyMediaVerse.Application.Services
             }
 
             await _context.SaveChangesAsync();
+
+            // Best-effort search index cleanup for tombstoned rows, after the DB delete has
+            // committed; the next bulk reindex reconciles any misses.
+            foreach (var id in removedFromDb)
+            {
+                await TryRemoveFromSearchIndexAsync(id);
+            }
         }
 
         /// <summary>
@@ -461,25 +492,52 @@ namespace MyMediaVerse.Application.Services
 
             try
             {
-                var highlights = await _context.Highlights.ToListAsync();
+                // Page the table instead of loading it whole; save per page so a large
+                // cleanup never holds the full table (or one giant change set) in memory.
+                const int pageSize = 200;
 
-                foreach (var highlight in highlights)
+                for (var skip = 0; ; skip += pageSize)
                 {
-                    if (HtmlTextCleaner.ContainsHtmlOrCss(highlight.Text))
+                    var highlights = await _context.Highlights
+                        .OrderBy(h => h.Id)
+                        .Skip(skip)
+                        .Take(pageSize)
+                        .ToListAsync();
+
+                    if (highlights.Count == 0)
                     {
-                        var cleanedText = HtmlTextCleaner.Clean(highlight.Text);
-                        if (cleanedText != highlight.Text)
+                        break;
+                    }
+
+                    var pageCleaned = 0;
+                    foreach (var highlight in highlights)
+                    {
+                        if (HtmlTextCleaner.ContainsHtmlOrCss(highlight.Text))
                         {
-                            highlight.Text = cleanedText;
-                            highlight.UpdatedAt = DateTime.UtcNow;
-                            cleanedCount++;
+                            var cleanedText = HtmlTextCleaner.Clean(highlight.Text);
+                            if (cleanedText != highlight.Text)
+                            {
+                                highlight.Text = cleanedText;
+                                highlight.UpdatedAt = DateTime.UtcNow;
+                                pageCleaned++;
+                            }
                         }
+                    }
+
+                    if (pageCleaned > 0)
+                    {
+                        await _context.SaveChangesAsync();
+                        cleanedCount += pageCleaned;
+                    }
+
+                    if (highlights.Count < pageSize)
+                    {
+                        break;
                     }
                 }
 
                 if (cleanedCount > 0)
                 {
-                    await _context.SaveChangesAsync();
                     _logger.LogInformation("Cleaned HTML/CSS from {Count} highlights", cleanedCount);
                 }
                 else

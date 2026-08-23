@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using System.Threading.Tasks;
 using AwesomeAssertions;
 using Microsoft.EntityFrameworkCore;
@@ -23,15 +24,17 @@ namespace MyMediaVerse.UnitTests.Application
     public class HighlightServiceTests : InMemoryDbTestBase
     {
         private readonly IReadwiseApiClient _mockReadwiseClient;
+        private readonly ITypesenseService _mockTypesenseService;
         private readonly ILogger<HighlightService> _mockLogger;
         private readonly HighlightService _service;
 
         public HighlightServiceTests()
         {
             _mockReadwiseClient = Substitute.For<IReadwiseApiClient>();
+            _mockTypesenseService = Substitute.For<ITypesenseService>();
             _mockLogger = Substitute.For<ILogger<HighlightService>>();
 
-            _service = new HighlightService(Context, _mockReadwiseClient, _mockLogger);
+            _service = new HighlightService(Context, _mockReadwiseClient, _mockTypesenseService, _mockLogger);
         }
 
         [Fact]
@@ -368,6 +371,64 @@ namespace MyMediaVerse.UnitTests.Application
 
             // Assert
             result.Should().BeFalse();
+            await _mockTypesenseService.DidNotReceive().DeleteHighlightAsync(Arg.Any<Guid>());
+        }
+
+        [Fact]
+        public async Task DeleteHighlightAsync_RemovesSearchDocumentBestEffort()
+        {
+            // Arrange
+            var highlightId = Guid.NewGuid();
+            Context.Highlights.Add(new Highlight { Id = highlightId, Text = "Indexed", ReadwiseId = 124 });
+            await Context.SaveChangesAsync();
+
+            // Act
+            await _service.DeleteHighlightAsync(highlightId);
+
+            // Assert
+            await _mockTypesenseService.Received(1).DeleteHighlightAsync(highlightId);
+        }
+
+        [Fact]
+        public async Task DeleteHighlightAsync_SearchIndexFailure_StillDeletesRow()
+        {
+            // Arrange — Typesense being down must not block the DB delete
+            var highlightId = Guid.NewGuid();
+            Context.Highlights.Add(new Highlight { Id = highlightId, Text = "Indexed", ReadwiseId = 125 });
+            await Context.SaveChangesAsync();
+            _mockTypesenseService.DeleteHighlightAsync(Arg.Any<Guid>())
+                .ThrowsAsync(new HttpRequestException("typesense unreachable"));
+
+            // Act
+            var result = await _service.DeleteHighlightAsync(highlightId);
+
+            // Assert
+            result.Should().BeTrue();
+            (await Context.Highlights.FindAsync(highlightId)).Should().BeNull();
+        }
+
+        [Fact]
+        public async Task CleanAllHighlightTextAsync_PagesThroughTheWholeTable()
+        {
+            // Arrange — more rows than one 200-row page, dirty rows scattered across pages
+            for (var i = 0; i < 205; i++)
+            {
+                Context.Highlights.Add(new Highlight
+                {
+                    Id = Guid.NewGuid(),
+                    ReadwiseId = 1000 + i,
+                    Text = i % 100 == 0 ? "<div>dirty text</div>" : $"clean text {i}"
+                });
+            }
+            await Context.SaveChangesAsync();
+
+            // Act
+            var cleanedCount = await _service.CleanAllHighlightTextAsync();
+
+            // Assert — rows 0, 100, and 200 were dirty; 200 sits on the second page
+            cleanedCount.Should().Be(3);
+            (await Context.Highlights.CountAsync(h => h.Text.Contains("<div>"))).Should().Be(0);
+            (await Context.Highlights.CountAsync()).Should().Be(205);
         }
 
         [Fact]
@@ -512,6 +573,7 @@ namespace MyMediaVerse.UnitTests.Application
             result.CreatedCount.Should().Be(0);
             result.UpdatedCount.Should().Be(0);
             (await Context.Highlights.AnyAsync(h => h.ReadwiseId == 42)).Should().BeFalse();
+            await _mockTypesenseService.Received(1).DeleteHighlightAsync(Arg.Any<Guid>());
         }
 
         [Fact]

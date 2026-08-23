@@ -2060,79 +2060,90 @@ namespace MyMediaVerse.Infrastructure.Services.Search
             {
                 _logger.LogInformation("Starting bulk re-index of all highlights...");
 
-                var highlights = await _context.Highlights
-                    .Include(h => h.Article)
-                    .Include(h => h.Book)
-                    .AsNoTracking()
-                    .ToListAsync();
-
-                var documents = highlights.Select(highlight =>
-                {
-                    // Determine linked media
-                    string? linkedMediaId = null;
-                    string? linkedMediaTitle = null;
-                    string? linkedMediaType = null;
-
-                    if (highlight.ArticleId.HasValue && highlight.Article != null)
-                    {
-                        linkedMediaId = highlight.ArticleId.Value.ToString();
-                        linkedMediaTitle = highlight.Article.Title;
-                        linkedMediaType = "article";
-                    }
-                    else if (highlight.BookId.HasValue && highlight.Book != null)
-                    {
-                        linkedMediaId = highlight.BookId.Value.ToString();
-                        linkedMediaTitle = highlight.Book.Title;
-                        linkedMediaType = "book";
-                    }
-
-                    // Parse tags from comma-separated string
-                    var tags = string.IsNullOrWhiteSpace(highlight.Tags)
-                        ? new List<string>()
-                        : highlight.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                            .Select(t => t.Trim())
-                            .Where(t => !string.IsNullOrWhiteSpace(t))
-                            .ToList();
-
-                    return new HighlightDocument
-                    {
-                        Id = highlight.Id.ToString(),
-                        Text = highlight.Text,
-                        Note = highlight.Note,
-                        Title = highlight.Title,
-                        Author = highlight.Author,
-                        Category = highlight.Category,
-                        Tags = tags,
-                        SourceUrl = highlight.SourceUrl,
-                        SourceType = highlight.SourceType,
-                        IsFavorite = highlight.IsFavorite,
-                        HighlightedAt = highlight.HighlightedAt.HasValue
-                            ? ((DateTimeOffset)highlight.HighlightedAt.Value).ToUnixTimeSeconds()
-                            : null,
-                        CreatedAt = ((DateTimeOffset)highlight.CreatedAt).ToUnixTimeSeconds(),
-                        ArticleId = highlight.ArticleId?.ToString(),
-                        BookId = highlight.BookId?.ToString(),
-                        LinkedMediaId = linkedMediaId,
-                        LinkedMediaTitle = linkedMediaTitle,
-                        LinkedMediaType = linkedMediaType,
-                        Location = highlight.Location,
-                        ImageUrl = highlight.ImageUrl
-                    };
-                }).ToList();
-
                 // Ensure the collection exists without dropping it. Upsert-in-place keeps the live
                 // index searchable throughout and lets Typesense skip re-embedding unchanged docs
                 // (the embedding_source text is stable). Rows deleted in Postgres are reconciled
                 // away below; use the explicit reset endpoint for a destructive full rebuild.
                 await EnsureHighlightsCollectionExistsAsync();
 
+                // Highlight tables grow fast, so page the table instead of loading it whole.
+                const int pageSize = 200;
                 var successCount = 0;
-                if (documents.Count == 0)
+                var failureCount = 0;
+                var indexedDocIds = new List<string>();
+
+                for (var skip = 0; ; skip += pageSize)
                 {
-                    _logger.LogInformation("No highlights found to index.");
-                }
-                else
-                {
+                    var highlights = await _context.Highlights
+                        .Include(h => h.Article)
+                        .Include(h => h.Book)
+                        .AsNoTracking()
+                        .OrderBy(h => h.Id)
+                        .Skip(skip)
+                        .Take(pageSize)
+                        .ToListAsync();
+
+                    if (highlights.Count == 0)
+                    {
+                        break;
+                    }
+
+                    var documents = highlights.Select(highlight =>
+                    {
+                        // Determine linked media
+                        string? linkedMediaId = null;
+                        string? linkedMediaTitle = null;
+                        string? linkedMediaType = null;
+
+                        if (highlight.ArticleId.HasValue && highlight.Article != null)
+                        {
+                            linkedMediaId = highlight.ArticleId.Value.ToString();
+                            linkedMediaTitle = highlight.Article.Title;
+                            linkedMediaType = "article";
+                        }
+                        else if (highlight.BookId.HasValue && highlight.Book != null)
+                        {
+                            linkedMediaId = highlight.BookId.Value.ToString();
+                            linkedMediaTitle = highlight.Book.Title;
+                            linkedMediaType = "book";
+                        }
+
+                        // Parse tags from comma-separated string
+                        var tags = string.IsNullOrWhiteSpace(highlight.Tags)
+                            ? new List<string>()
+                            : highlight.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                .Select(t => t.Trim())
+                                .Where(t => !string.IsNullOrWhiteSpace(t))
+                                .ToList();
+
+                        return new HighlightDocument
+                        {
+                            Id = highlight.Id.ToString(),
+                            Text = highlight.Text,
+                            Note = highlight.Note,
+                            Title = highlight.Title,
+                            Author = highlight.Author,
+                            Category = highlight.Category,
+                            Tags = tags,
+                            SourceUrl = highlight.SourceUrl,
+                            SourceType = highlight.SourceType,
+                            IsFavorite = highlight.IsFavorite,
+                            HighlightedAt = highlight.HighlightedAt.HasValue
+                                ? ((DateTimeOffset)highlight.HighlightedAt.Value).ToUnixTimeSeconds()
+                                : null,
+                            CreatedAt = ((DateTimeOffset)highlight.CreatedAt).ToUnixTimeSeconds(),
+                            ArticleId = highlight.ArticleId?.ToString(),
+                            BookId = highlight.BookId?.ToString(),
+                            LinkedMediaId = linkedMediaId,
+                            LinkedMediaTitle = linkedMediaTitle,
+                            LinkedMediaType = linkedMediaType,
+                            Location = highlight.Location,
+                            ImageUrl = highlight.ImageUrl
+                        };
+                    }).ToList();
+
+                    indexedDocIds.AddRange(documents.Select(d => d.Id));
+
                     // Upsert so existing docs are updated in place; unchanged docs avoid a needless re-embed.
                     var importResults = await _typesenseClient.ImportDocuments<HighlightDocument>(
                         _highlightsCollectionName,
@@ -2141,9 +2152,21 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                         ImportType.Upsert
                     );
 
-                    successCount = importResults.Count(r => r.Success);
-                    var failureCount = importResults.Count(r => !r.Success);
+                    successCount += importResults.Count(r => r.Success);
+                    failureCount += importResults.Count(r => !r.Success);
 
+                    if (highlights.Count < pageSize)
+                    {
+                        break;
+                    }
+                }
+
+                if (indexedDocIds.Count == 0)
+                {
+                    _logger.LogInformation("No highlights found to index.");
+                }
+                else
+                {
                     _logger.LogInformation(
                         "Bulk re-index of highlights complete. Success: {SuccessCount}, Failures: {FailureCount}",
                         successCount,
@@ -2153,7 +2176,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
 
                 // Remove any indexed documents whose source rows no longer exist in Postgres so
                 // deleted highlights stop appearing as ghost search hits.
-                await ReconcileDeletedDocumentsAsync(_highlightsCollectionName, documents.Select(d => d.Id));
+                await ReconcileDeletedDocumentsAsync(_highlightsCollectionName, indexedDocIds);
 
                 return successCount;
             }
