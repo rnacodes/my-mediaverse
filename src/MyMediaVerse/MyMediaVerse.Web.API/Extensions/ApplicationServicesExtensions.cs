@@ -45,6 +45,8 @@ public static class ApplicationServicesExtensions
         services.AddScoped<IHighlightService, HighlightService>();
         services.AddScoped<IReadwiseService, ReadwiseService>();
         services.AddScoped<IReaderService, ReaderService>();
+        services.AddScoped<ISyncStateService, SyncStateService>();
+        services.AddScoped<IReadwiseSyncService, ReadwiseSyncService>();
 
         services.AddScoped<IOpenLibraryService, OpenLibraryService>();
         services.AddScoped<IGoogleBooksService, GoogleBooksService>();

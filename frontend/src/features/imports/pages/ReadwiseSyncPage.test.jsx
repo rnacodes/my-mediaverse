@@ -63,6 +63,37 @@ describe('ReadwiseSyncPage', () => {
     expect(await screen.findByText('Sync Results')).toBeInTheDocument();
     expect(screen.getByText('✅ Success')).toBeInTheDocument();
     expect(screen.getByText('Articles Created:')).toBeInTheDocument();
+    expect(screen.getByText('Full sync')).toBeInTheDocument();
+  });
+
+  it('runs an incremental sync and reports the window and checkpoint', async () => {
+    mockMount();
+    let requestedUrl;
+    server.use(
+      http.post(`${API_BASE}/readwise/sync`, ({ request }) => {
+        requestedUrl = request.url;
+        return HttpResponse.json({
+          success: true,
+          articlesCreated: 0,
+          articlesUpdated: 0,
+          highlightsCreated: 1,
+          highlightsUpdated: 0,
+          highlightsLinked: 0,
+          syncedSince: '2026-08-01T00:00:00Z',
+          syncWindowSource: 'cursor',
+          cursorAdvanced: true,
+        });
+      }),
+    );
+
+    const { user } = renderWithProviders(<ReadwiseSyncPage />, { route: '/readwise-sync' });
+
+    await user.click(screen.getByRole('button', { name: 'Sync Recent Changes' }));
+
+    expect(await screen.findByText('Sync Results')).toBeInTheDocument();
+    expect(requestedUrl).toContain('incremental=true');
+    expect(screen.getByText(/since last successful sync/)).toBeInTheDocument();
+    expect(screen.getByText(/checkpoint saved/)).toBeInTheDocument();
   });
 
   it('shows an error alert when a sync fails', async () => {

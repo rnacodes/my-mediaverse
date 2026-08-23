@@ -22,6 +22,13 @@ namespace MyMediaVerse.DTOs
         public DateTime StartedAt { get; set; }
         public DateTime? CompletedAt { get; set; }
 
+        // Window actually used: null for a full sync, otherwise the "updated after" cutoff.
+        public DateTime? SyncedSince { get; set; }
+        // "cursor" (persisted last-success time), "default" (no cursor yet), or "full".
+        public string SyncWindowSource { get; set; } = "full";
+        // True when the persisted cursor was advanced to StartedAt (fully successful, untruncated run).
+        public bool CursorAdvanced { get; set; }
+
         public int TotalArticlesProcessed => ArticlesCreated + ArticlesUpdated;
         public int TotalHighlightsProcessed => HighlightsCreated + HighlightsUpdated;
 

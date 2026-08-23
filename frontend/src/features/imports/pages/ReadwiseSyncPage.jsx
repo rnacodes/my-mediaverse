@@ -65,6 +65,18 @@ const ReadwiseSyncPage = () => {
     });
   };
 
+  // Describes which slice of Readwise the run covered and whether the saved
+  // checkpoint moved forward (it only does after a complete, untruncated run).
+  const formatSyncWindow = (result) => {
+    if (!result.syncedSince) return 'Full sync';
+    const since = new Date(result.syncedSince).toLocaleString();
+    const source = result.syncWindowSource === 'cursor' ? 'since last successful sync' : 'default 7-day window';
+    const checkpoint = result.success
+      ? (result.cursorAdvanced ? 'checkpoint saved' : 'checkpoint not moved')
+      : '';
+    return `${since} (${source})${checkpoint ? ` — ${checkpoint}` : ''}`;
+  };
+
   const formatDuration = (duration) => {
     if (!duration) return 'N/A';
     const match = duration.match(/(\d+):(\d+):(\d+)/);
@@ -140,12 +152,13 @@ const ReadwiseSyncPage = () => {
             disabled={loading}
             className="btn btn-secondary"
           >
-            {loading ? 'Syncing...' : 'Sync Last 7 Days'}
+            {loading ? 'Syncing...' : 'Sync Recent Changes'}
           </button>
         </div>
 
         <div className="info-note">
-          Use this regularly to keep your library in sync. Fast and lightweight.
+          Use this regularly to keep your library in sync. Fast and lightweight &mdash; it picks up
+          where the last successful sync left off (or the last 7 days until one has run).
         </div>
 
         {syncResult && (
@@ -184,6 +197,10 @@ const ReadwiseSyncPage = () => {
                   <span className="result-value">{formatDuration(syncResult.duration)}</span>
                 </div>
               )}
+              <div className="result-item">
+                <span className="result-label">Window:</span>
+                <span className="result-value">{formatSyncWindow(syncResult)}</span>
+              </div>
             </div>
             {syncResult.errorMessage && (
               <div className="alert alert-error" style={{ marginTop: '1rem', marginBottom: 0 }}>

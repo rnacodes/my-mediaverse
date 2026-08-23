@@ -28,6 +28,7 @@ namespace MyMediaVerse.Application.Interfaces
         IQueryable<MediaItemRelation> MediaItemRelations { get; }
         IQueryable<TvShowEpisode> TvShowEpisodes { get; }
         IQueryable<TraktToken> TraktTokens { get; }
+        IQueryable<SyncState> SyncStates { get; }
 
         // Basic operations
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
