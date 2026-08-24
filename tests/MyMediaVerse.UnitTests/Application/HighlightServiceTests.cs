@@ -130,6 +130,55 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         [Fact]
+        public async Task GetHighlightsByTagAsync_MatchesWholeTagsOnly_NotSubstrings()
+        {
+            // Arrange — "art" must not match "articles" or "cart"
+            Context.Highlights.AddRange(
+                new Highlight { Id = Guid.NewGuid(), Text = "Substring trap", Tags = "articles", ReadwiseId = 10 },
+                new Highlight { Id = Guid.NewGuid(), Text = "Suffix trap", Tags = "cart,design", ReadwiseId = 11 },
+                new Highlight { Id = Guid.NewGuid(), Text = "Exact match", Tags = "art", ReadwiseId = 12 });
+            await Context.SaveChangesAsync();
+
+            // Act
+            var result = await _service.GetHighlightsByTagAsync("art");
+
+            // Assert
+            result.Should().ContainSingle().Which.Text.Should().Be("Exact match");
+        }
+
+        [Theory]
+        [InlineData("first", "first,middle,last")]  // first position
+        [InlineData("middle", "first,middle,last")] // middle position
+        [InlineData("last", "first,middle,last")]   // last position
+        [InlineData("only", "only")]                // single tag
+        public async Task GetHighlightsByTagAsync_MatchesTagInAnyPosition(string tag, string storedTags)
+        {
+            // Arrange
+            Context.Highlights.Add(new Highlight { Id = Guid.NewGuid(), Text = "Positional", Tags = storedTags, ReadwiseId = 20 });
+            await Context.SaveChangesAsync();
+
+            // Act
+            var result = await _service.GetHighlightsByTagAsync(tag);
+
+            // Assert
+            result.Should().ContainSingle();
+        }
+
+        [Fact]
+        public async Task GetHighlightsByTagAsync_NormalizesCaseAndWhitespace()
+        {
+            // Arrange — stored tags are lowercase; lookups may arrive messy
+            Context.Highlights.Add(new Highlight { Id = Guid.NewGuid(), Text = "Cased", Tags = "stoicism", ReadwiseId = 21 });
+            await Context.SaveChangesAsync();
+
+            // Act
+            var result = await _service.GetHighlightsByTagAsync("  Stoicism ");
+
+            // Assert
+            result.Should().ContainSingle();
+        }
+
+        [Fact]
         public async Task CreateHighlightAsync_ValidData_CreatesHighlight()
         {
             // Arrange

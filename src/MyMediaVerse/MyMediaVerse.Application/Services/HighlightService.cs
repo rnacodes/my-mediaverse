@@ -90,10 +90,12 @@ namespace MyMediaVerse.Application.Services
 
         public async Task<IEnumerable<Highlight>> GetHighlightsByTagAsync(string tag)
         {
-            var normalizedTag = tag.ToLowerInvariant();
+            // Tags are stored as a comma-joined string (trimmed + lowercased on every write
+            // path).
+            var wrappedTag = "," + tag.Trim().ToLowerInvariant() + ",";
             return await _context.Highlights
                 .AsNoTracking()
-                .Where(h => h.Tags != null && h.Tags.Contains(normalizedTag))
+                .Where(h => h.Tags != null && ("," + h.Tags + ",").Contains(wrappedTag))
                 .OrderByDescending(h => h.HighlightedAt ?? h.CreatedAt)
                 .ToListAsync();
         }
@@ -521,8 +523,7 @@ namespace MyMediaVerse.Application.Services
 
             try
             {
-                // Page the table instead of loading it whole; save per page so a large
-                // cleanup never holds the full table (or one giant change set) in memory.
+                // Page the table instead of loading it whole
                 const int pageSize = 200;
 
                 for (var skip = 0; ; skip += pageSize)
