@@ -13,6 +13,7 @@ import {
   updateHighlight,
   setHighlightLink,
   deleteHighlight,
+  bulkDeleteHighlights,
   linkHighlightsToMedia,
   exportHighlightToReadwise,
   cleanHighlightText,
@@ -138,6 +139,19 @@ export function useDeleteHighlight() {
     onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: highlightKeys.lists() });
       queryClient.removeQueries({ queryKey: highlightKeys.detail(id) });
+    },
+  });
+}
+
+export function useBulkDeleteHighlights() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (ids) => bulkDeleteHighlights(ids),
+    onSuccess: (_data, ids) => {
+      queryClient.invalidateQueries({ queryKey: highlightKeys.lists() });
+      ids.forEach((id) => {
+        queryClient.removeQueries({ queryKey: highlightKeys.detail(id) });
+      });
     },
   });
 }

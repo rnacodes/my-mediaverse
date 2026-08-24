@@ -6,6 +6,7 @@ import {
   createNote,
   updateNote,
   deleteNote,
+  bulkDeleteNotes,
   linkNoteToMedia,
   unlinkNoteFromMedia,
   getMediaForNote,
@@ -128,6 +129,19 @@ export function useDeleteNote() {
     onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: noteKeys.lists() });
       queryClient.removeQueries({ queryKey: noteKeys.detail(id) });
+    },
+  });
+}
+
+export function useBulkDeleteNotes() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (ids) => bulkDeleteNotes(ids),
+    onSuccess: (_data, ids) => {
+      queryClient.invalidateQueries({ queryKey: noteKeys.lists() });
+      ids.forEach((id) => {
+        queryClient.removeQueries({ queryKey: noteKeys.detail(id) });
+      });
     },
   });
 }

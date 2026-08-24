@@ -365,6 +365,52 @@ namespace MyMediaVerse.UnitTests.Application
                 () => _service.DeleteAsync(Guid.NewGuid()));
         }
 
+        [Fact]
+        public async Task BulkDeleteAsync_DeletesOnlyMatchingIds_AndCleansIndex()
+        {
+            // Arrange — two to delete, one unknown id, one bystander
+            var keep = CreateTestNote("keep-me", "Keep Me");
+            var doomedA = CreateTestNote("doomed-a", "Doomed A");
+            var doomedB = CreateTestNote("doomed-b", "Doomed B");
+            Context.Notes.AddRange(keep, doomedA, doomedB);
+            await Context.SaveChangesAsync();
+
+            // Act — unknown ids are skipped, not errors
+            var deletedCount = await _service.BulkDeleteAsync(
+                new List<Guid> { doomedA.Id, doomedB.Id, Guid.NewGuid() });
+
+            // Assert
+            deletedCount.Should().Be(2);
+            Context.Notes.Should().ContainSingle(n => n.Id == keep.Id);
+            await _mockTypesenseService.Received(1).DeleteNoteAsync(doomedA.Id);
+            await _mockTypesenseService.Received(1).DeleteNoteAsync(doomedB.Id);
+            await _mockTypesenseService.DidNotReceive().DeleteNoteAsync(keep.Id);
+        }
+
+        [Fact]
+        public async Task BulkDeleteAsync_NoMatches_ReturnsZero()
+        {
+            var deletedCount = await _service.BulkDeleteAsync(new List<Guid> { Guid.NewGuid() });
+
+            deletedCount.Should().Be(0);
+            await _mockTypesenseService.DidNotReceive().DeleteNoteAsync(Arg.Any<Guid>());
+        }
+
+        [Fact]
+        public async Task BulkDeleteAsync_SearchIndexFailure_StillDeletesRows()
+        {
+            var doomed = CreateTestNote("doomed", "Doomed");
+            Context.Notes.Add(doomed);
+            await Context.SaveChangesAsync();
+            _mockTypesenseService.DeleteNoteAsync(Arg.Any<Guid>())
+                .ThrowsAsync(new HttpRequestException("typesense unreachable"));
+
+            var deletedCount = await _service.BulkDeleteAsync(new List<Guid> { doomed.Id });
+
+            deletedCount.Should().Be(1);
+            Context.Notes.Should().BeEmpty();
+        }
+
         #endregion
     }
 }

@@ -262,6 +262,35 @@ namespace MyMediaVerse.Application.Services
             return true;
         }
 
+        public async Task<int> BulkDeleteHighlightsAsync(List<Guid> ids)
+        {
+            var highlights = await _context.Highlights
+                .Where(h => ids.Contains(h.Id))
+                .ToListAsync();
+
+            if (highlights.Count == 0)
+            {
+                return 0;
+            }
+
+            foreach (var highlight in highlights)
+            {
+                _context.Remove(highlight);
+            }
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Bulk deleted {Count} highlights", highlights.Count);
+
+            // Best-effort search index cleanup after the DB delete has committed; the
+            // bulk reindex's ID-diff reconcile is the backstop.
+            foreach (var highlight in highlights)
+            {
+                await TryRemoveFromSearchIndexAsync(highlight.Id);
+            }
+
+            return highlights.Count;
+        }
+
         public async Task<HighlightSyncResultDto> SyncHighlightsFromReadwiseAsync()
         {
             return await SyncHighlightsUsingExportAsync(null);

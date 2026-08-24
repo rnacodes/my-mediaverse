@@ -91,6 +91,23 @@ export const deleteNote = async (id) => {
     }
 };
 
+/**
+ * Deletes multiple notes; unknown IDs are skipped by the server.
+ * @param {string[]} ids - The note IDs
+ * @returns {Promise<{message: string, deletedCount: number}>}
+ */
+export const bulkDeleteNotes = async (ids) => {
+    try {
+        const response = await apiClient.delete('/note/bulk', {
+            data: { ids }
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error bulk deleting notes:', error);
+        throw error;
+    }
+};
+
 // ============================================
 // Note Linking Operations
 // ============================================

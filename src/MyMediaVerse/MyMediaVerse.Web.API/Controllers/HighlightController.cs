@@ -324,6 +324,37 @@ namespace MyMediaVerse.Web.API.Controllers
             }
         }
 
+        // DELETE: api/highlight/bulk
+        [HttpDelete("bulk")]
+        public async Task<IActionResult> BulkDeleteHighlights([FromBody] BulkDeleteRequest request)
+        {
+            try
+            {
+                if (request.Ids == null || !request.Ids.Any())
+                {
+                    return BadRequest(new { error = "No highlight IDs provided for deletion." });
+                }
+
+                var deletedCount = await _highlightService.BulkDeleteHighlightsAsync(request.Ids);
+
+                if (deletedCount == 0)
+                {
+                    return NotFound(new { error = "No highlights found with the provided IDs." });
+                }
+
+                return Ok(new
+                {
+                    message = $"Successfully deleted {deletedCount} highlight{(deletedCount != 1 ? "s" : "")}",
+                    deletedCount
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error bulk deleting highlights");
+                return StatusCode(500, new { error = "Failed to bulk delete highlights", details = ex.Message });
+            }
+        }
+
         // POST: api/highlight/clean-text
         [HttpPost("clean-text")]
         public async Task<ActionResult<object>> CleanHighlightText()

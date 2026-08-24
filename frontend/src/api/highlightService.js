@@ -187,6 +187,23 @@ export const deleteHighlight = async (id) => {
 };
 
 /**
+ * Deletes multiple highlights; unknown IDs are skipped by the server.
+ * @param {string[]} ids - The highlight IDs
+ * @returns {Promise<{message: string, deletedCount: number}>}
+ */
+export const bulkDeleteHighlights = async (ids) => {
+    try {
+        const response = await apiClient.delete('/highlight/bulk', {
+            data: { ids }
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error bulk deleting highlights:', error);
+        throw error;
+    }
+};
+
+/**
  * Links highlights to media items
  */
 export const linkHighlightsToMedia = async () => {

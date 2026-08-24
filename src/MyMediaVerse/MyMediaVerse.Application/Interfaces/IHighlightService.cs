@@ -26,6 +26,12 @@ namespace MyMediaVerse.Application.Interfaces
         Task<Highlight> SetHighlightLinkAsync(Guid id, Guid? articleId, Guid? bookId);
 
         Task<bool> DeleteHighlightAsync(Guid id);
+
+        /// <summary>
+        /// Deletes every highlight whose ID is in the list; unknown IDs are skipped.
+        /// Returns the number actually deleted.
+        /// </summary>
+        Task<int> BulkDeleteHighlightsAsync(List<Guid> ids);
         
         /// <summary>
         /// Syncs all highlights from Readwise API

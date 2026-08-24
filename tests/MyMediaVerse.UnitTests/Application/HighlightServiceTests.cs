@@ -375,6 +375,53 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         [Fact]
+        public async Task BulkDeleteHighlightsAsync_DeletesOnlyMatchingIds_AndCleansIndex()
+        {
+            // Arrange — two to delete, one unknown id, one bystander
+            var keep = new Highlight { Id = Guid.NewGuid(), Text = "Keep me", ReadwiseId = 200 };
+            var doomedA = new Highlight { Id = Guid.NewGuid(), Text = "Doomed A", ReadwiseId = 201 };
+            var doomedB = new Highlight { Id = Guid.NewGuid(), Text = "Doomed B", ReadwiseId = 202 };
+            Context.Highlights.AddRange(keep, doomedA, doomedB);
+            await Context.SaveChangesAsync();
+
+            // Act — unknown ids are skipped, not errors
+            var deletedCount = await _service.BulkDeleteHighlightsAsync(
+                new List<Guid> { doomedA.Id, doomedB.Id, Guid.NewGuid() });
+
+            // Assert
+            deletedCount.Should().Be(2);
+            (await Context.Highlights.CountAsync()).Should().Be(1);
+            (await Context.Highlights.SingleAsync()).Id.Should().Be(keep.Id);
+            await _mockTypesenseService.Received(1).DeleteHighlightAsync(doomedA.Id);
+            await _mockTypesenseService.Received(1).DeleteHighlightAsync(doomedB.Id);
+            await _mockTypesenseService.DidNotReceive().DeleteHighlightAsync(keep.Id);
+        }
+
+        [Fact]
+        public async Task BulkDeleteHighlightsAsync_NoMatches_ReturnsZero()
+        {
+            var deletedCount = await _service.BulkDeleteHighlightsAsync(new List<Guid> { Guid.NewGuid() });
+
+            deletedCount.Should().Be(0);
+            await _mockTypesenseService.DidNotReceive().DeleteHighlightAsync(Arg.Any<Guid>());
+        }
+
+        [Fact]
+        public async Task BulkDeleteHighlightsAsync_SearchIndexFailure_StillDeletesRows()
+        {
+            var doomed = new Highlight { Id = Guid.NewGuid(), Text = "Doomed", ReadwiseId = 203 };
+            Context.Highlights.Add(doomed);
+            await Context.SaveChangesAsync();
+            _mockTypesenseService.DeleteHighlightAsync(Arg.Any<Guid>())
+                .ThrowsAsync(new HttpRequestException("typesense unreachable"));
+
+            var deletedCount = await _service.BulkDeleteHighlightsAsync(new List<Guid> { doomed.Id });
+
+            deletedCount.Should().Be(1);
+            (await Context.Highlights.CountAsync()).Should().Be(0);
+        }
+
+        [Fact]
         public async Task DeleteHighlightAsync_RemovesSearchDocumentBestEffort()
         {
             // Arrange
