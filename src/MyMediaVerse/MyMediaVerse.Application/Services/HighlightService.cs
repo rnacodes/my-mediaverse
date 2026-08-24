@@ -583,15 +583,73 @@ namespace MyMediaVerse.Application.Services
             return cleanedCount;
         }
 
+        /// <summary>Dedup key for imported highlights: case-insensitive title + cleaned text.</summary>
+        private static (string TitleKey, string Text) ImportKey(string? title, string cleanedText) =>
+            ((title ?? string.Empty).Trim().ToLowerInvariant(), cleanedText);
+
         public async Task<BulkHighlightResultDto> BulkCreateHighlightsAsync(List<CreateHighlightDto> dtos)
         {
             var result = new BulkHighlightResultDto();
+
+            // Match-by-key upsert: re-uploading the same file must update rows in place,
+            // never duplicate them.
+            var titleKeys = dtos
+                .Select(d => (d.Title ?? string.Empty).Trim().ToLowerInvariant())
+                .Distinct()
+                .ToList();
+            var candidates = await _context.Highlights
+                .Where(h => titleKeys.Contains((h.Title ?? string.Empty).Trim().ToLower()))
+                .ToListAsync();
+            var existingByKey = new Dictionary<(string, string), Highlight>();
+            foreach (var candidate in candidates)
+            {
+                existingByKey.TryAdd(ImportKey(candidate.Title, candidate.Text), candidate);
+            }
+
+            var seenThisBatch = new HashSet<(string, string)>();
 
             foreach (var dto in dtos)
             {
                 try
                 {
                     var cleanedText = HtmlTextCleaner.Clean(dto.Text);
+                    var key = ImportKey(dto.Title, cleanedText);
+
+                    // The same highlight twice in one upload: import the first, skip the rest.
+                    if (!seenThisBatch.Add(key))
+                    {
+                        result.Skipped++;
+                        continue;
+                    }
+
+                    if (existingByKey.TryGetValue(key, out var existing))
+                    {
+                        // Update in place. Only fields the upload actually carries are
+                        // touched; links and ReadwiseId are left alone unless an explicit
+                        // link was supplied.
+                        if (dto.Note != null) existing.Note = dto.Note;
+                        if (dto.Author != null) existing.Author = dto.Author;
+                        if (dto.Category != null) existing.Category = dto.Category.ToLowerInvariant();
+                        if (dto.SourceUrl != null) existing.SourceUrl = dto.SourceUrl;
+                        if (dto.Tags != null) existing.Tags = string.Join(",", dto.Tags.Select(t => t.ToLowerInvariant()));
+                        if (dto.Location.HasValue) existing.Location = dto.Location;
+                        if (dto.LocationType != null) existing.LocationType = dto.LocationType;
+                        if (dto.HighlightedAt.HasValue) existing.HighlightedAt = dto.HighlightedAt;
+                        if (dto.ArticleId.HasValue)
+                        {
+                            existing.ArticleId = dto.ArticleId;
+                            existing.BookId = null;
+                        }
+                        else if (dto.BookId.HasValue)
+                        {
+                            existing.BookId = dto.BookId;
+                            existing.ArticleId = null;
+                        }
+                        existing.UpdatedAt = DateTime.UtcNow;
+
+                        result.Updated++;
+                        continue;
+                    }
 
                     var highlight = new Highlight
                     {
@@ -657,8 +715,8 @@ namespace MyMediaVerse.Application.Services
                 return result;
             }
 
-            _logger.LogInformation("Bulk created {Created} highlights, linked {Linked}, errors {Errors}",
-                result.Created, result.Linked, result.Errors.Count);
+            _logger.LogInformation("Bulk import: created {Created}, updated {Updated}, skipped {Skipped}, linked {Linked}, errors {Errors}",
+                result.Created, result.Updated, result.Skipped, result.Linked, result.Errors.Count);
 
             return result;
         }

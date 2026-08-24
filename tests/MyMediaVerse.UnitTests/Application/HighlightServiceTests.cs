@@ -793,6 +793,95 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         [Fact]
+        public async Task BulkCreateHighlightsAsync_ReUpload_UpdatesInPlaceInsteadOfDuplicating()
+        {
+            // Arrange — the same file uploaded twice, the second time with an edited note
+            var dtos = new List<CreateHighlightDto>
+            {
+                new CreateHighlightDto { Text = "First highlight", Title = "Some Book", Note = "v1" },
+                new CreateHighlightDto { Text = "Second highlight", Title = "Some Book" }
+            };
+            await _service.BulkCreateHighlightsAsync(dtos);
+
+            dtos[0].Note = "v2";
+
+            // Act
+            var result = await _service.BulkCreateHighlightsAsync(dtos);
+
+            // Assert — no new rows; the note edit landed
+            result.Created.Should().Be(0);
+            result.Updated.Should().Be(2);
+            (await Context.Highlights.CountAsync()).Should().Be(2);
+            (await Context.Highlights.SingleAsync(h => h.Text == "First highlight")).Note.Should().Be("v2");
+        }
+
+        [Fact]
+        public async Task BulkCreateHighlightsAsync_DuplicateWithinBatch_ImportsFirstAndSkipsRest()
+        {
+            var dtos = new List<CreateHighlightDto>
+            {
+                new CreateHighlightDto { Text = "Same text", Title = "Same Book" },
+                new CreateHighlightDto { Text = "Same text", Title = "Same Book" },
+                new CreateHighlightDto { Text = "Same text", Title = "Same Book" }
+            };
+
+            var result = await _service.BulkCreateHighlightsAsync(dtos);
+
+            result.Created.Should().Be(1);
+            result.Skipped.Should().Be(2);
+            (await Context.Highlights.CountAsync()).Should().Be(1);
+        }
+
+        [Fact]
+        public async Task BulkCreateHighlightsAsync_MatchesReadwiseRow_PreservesReadwiseIdAndLink()
+        {
+            // Arrange — the highlight already exists from a Readwise sync, linked to a book
+            var book = new Book { Id = Guid.NewGuid(), Title = "Meditations", Author = "Marcus Aurelius" };
+            Context.Books.Add(book);
+            Context.Highlights.Add(new Highlight
+            {
+                Id = Guid.NewGuid(),
+                ReadwiseId = 555,
+                Text = "Memento mori",
+                Title = "Meditations",
+                BookId = book.Id
+            });
+            await Context.SaveChangesAsync();
+
+            var dtos = new List<CreateHighlightDto>
+            {
+                new CreateHighlightDto { Text = "Memento mori", Title = "MEDITATIONS", Note = "from markdown" }
+            };
+
+            // Act — title matching is case-insensitive
+            var result = await _service.BulkCreateHighlightsAsync(dtos);
+
+            // Assert — one row, still Readwise-owned, still linked, note added
+            result.Created.Should().Be(0);
+            result.Updated.Should().Be(1);
+            var saved = await Context.Highlights.SingleAsync();
+            saved.ReadwiseId.Should().Be(555);
+            saved.BookId.Should().Be(book.Id);
+            saved.Note.Should().Be("from markdown");
+        }
+
+        [Fact]
+        public async Task BulkCreateHighlightsAsync_SameTitleDifferentText_CreatesNewRow()
+        {
+            Context.Highlights.Add(new Highlight { Id = Guid.NewGuid(), Text = "Old text", Title = "Some Book" });
+            await Context.SaveChangesAsync();
+
+            var result = await _service.BulkCreateHighlightsAsync(new List<CreateHighlightDto>
+            {
+                new CreateHighlightDto { Text = "New text", Title = "Some Book" }
+            });
+
+            result.Created.Should().Be(1);
+            result.Updated.Should().Be(0);
+            (await Context.Highlights.CountAsync()).Should().Be(2);
+        }
+
+        [Fact]
         public async Task SyncHighlightsFromReadwiseAsync_PageCapReached_SurfacesWarning()
         {
             // Arrange — every page reports another page after it, so the sync

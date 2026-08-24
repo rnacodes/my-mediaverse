@@ -596,6 +596,12 @@ function HighlightUploadTab() {
                 <Alert severity="success" sx={{ mb: 3 }}>
                     <Typography variant="body1">
                         Successfully created <strong>{uploadResult.created}</strong> highlights
+                        {uploadResult.updated > 0 && (
+                            <>, updated <strong>{uploadResult.updated}</strong> existing</>
+                        )}
+                        {uploadResult.skipped > 0 && (
+                            <>, skipped <strong>{uploadResult.skipped}</strong> duplicate{uploadResult.skipped !== 1 ? 's' : ''} in the file</>
+                        )}
                         {uploadResult.linked > 0 && (
                             <> and auto-linked <strong>{uploadResult.linked}</strong> to existing media</>
                         )}!
