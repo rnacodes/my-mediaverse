@@ -3,7 +3,7 @@ import { makeMedia, makeBook } from '../factories/media';
 import { makeMixlist } from '../factories/mixlist';
 import { makePodcastSeries } from '../factories/podcast';
 import { makeYouTubeChannel, makeYouTubePlaylist } from '../factories/youtube';
-import { makeNote, makeHighlight } from '../factories/note';
+import { makeNote } from '../factories/note';
 
 // Must match VITE_API_URL injected by vitest.config.js. The axios client uses
 // this absolute base, so handlers register against absolute URLs.
@@ -67,7 +67,6 @@ export const handlers = [
   ),
 
   // --- Highlights / Notes ---
-  http.get(`${API_BASE}/highlights`, () => HttpResponse.json([makeHighlight()])),
   http.get(`${API_BASE}/notes`, () => HttpResponse.json([makeNote()])),
   http.get(`${API_BASE}/notes/:id`, ({ params }) =>
     HttpResponse.json(makeNote({ id: params.id })),

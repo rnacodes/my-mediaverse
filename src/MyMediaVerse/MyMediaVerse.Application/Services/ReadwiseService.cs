@@ -28,71 +28,6 @@ namespace MyMediaVerse.Application.Services
             return await _readwiseClient.ValidateTokenAsync();
         }
 
-        public async Task<ReadwiseSyncResultDto> SyncBooksAsync(string? category = null)
-        {
-            var result = new ReadwiseSyncResultDto
-            {
-                StartedAt = DateTime.UtcNow
-            };
-
-            try
-            {
-                _logger.LogInformation("Starting book sync from Readwise (category: {Category})", 
-                    category ?? "all");
-
-                var page = 1;
-                var hasMore = true;
-
-                while (hasMore)
-                {
-                    _logger.LogInformation("Fetching books page {Page}", page);
-
-                    var response = await _readwiseClient.GetBooksAsync(
-                        category: category,
-                        page: page);
-                    
-                    if (response.results.Count == 0)
-                    {
-                        hasMore = false;
-                        break;
-                    }
-
-                    foreach (var bookDto in response.results)
-                    {
-                        await ProcessBookDto(bookDto, result);
-                    }
-
-                    hasMore = !string.IsNullOrEmpty(response.next);
-                    page++;
-
-                    // Safety check
-                    if (page > 1000)
-                    {
-                        _logger.LogWarning("Stopped book sync after 1000 pages");
-                        break;
-                    }
-
-                    // Small delay to respect rate limits (20 req/min for books)
-                    await Task.Delay(3000);
-                }
-
-                result.CompletedAt = DateTime.UtcNow;
-                result.Success = true;
-
-                _logger.LogInformation("Completed book sync. Created: {Created}, Updated: {Updated}",
-                    result.BooksCreated, result.BooksUpdated);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error syncing books from Readwise");
-                result.Success = false;
-                result.ErrorMessage = ex.Message;
-                result.CompletedAt = DateTime.UtcNow;
-            }
-
-            return result;
-        }
-
         public async Task<int> LinkHighlightsToMediaAsync()
         {
             _logger.LogInformation("Starting to link highlights to media items");
@@ -187,41 +122,6 @@ namespace MyMediaVerse.Application.Services
                 _logger.LogError(ex, "Error exporting highlight {HighlightId} to Readwise", highlightId);
                 return false;
             }
-        }
-
-        private async Task ProcessBookDto(
-            MyMediaVerse.Shared.DTOs.Readwise.ReadwiseBookDto bookDto,
-            ReadwiseSyncResultDto result)
-        {
-            // This method primarily tracks book metadata for linking purposes
-            // We don't create Book entities automatically, but we could update existing ones
-            
-            // Check if we have a book that matches by title and author
-            if (!string.IsNullOrEmpty(bookDto.title) && !string.IsNullOrEmpty(bookDto.author))
-            {
-                var existingBook = await _context.Books
-                    .FirstOrDefaultAsync(b => 
-                        b.Title.ToLower() == bookDto.title.ToLower() &&
-                        b.Author.ToLower() == bookDto.author.ToLower());
-
-                if (existingBook != null)
-                {
-                    // Update the ReadwiseBookId if not already set
-                    if (existingBook.ReadwiseBookId != bookDto.id)
-                    {
-                        existingBook.ReadwiseBookId = bookDto.id;
-                        existingBook.LastReadwiseSync = DateTime.UtcNow;
-                        result.BooksUpdated++;
-                        await _context.SaveChangesAsync();
-                        
-                        _logger.LogInformation("Updated book {BookId} with Readwise ID {ReadwiseId}",
-                            existingBook.Id, bookDto.id);
-                    }
-                }
-            }
-
-            // Note: We intentionally don't auto-create books here to avoid cluttering
-            // the library with books the user may not want to track
         }
     }
 }

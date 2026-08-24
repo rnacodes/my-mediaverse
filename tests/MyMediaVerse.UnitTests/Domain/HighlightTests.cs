@@ -37,7 +37,6 @@ namespace MyMediaVerse.UnitTests.Domain
             highlight.SourceType.Should().BeNull();
             highlight.IsFavorite.Should().BeFalse();
             highlight.Color.Should().BeNull();
-            highlight.Metadata.Should().BeNull();
         }
 
         #endregion
@@ -75,7 +74,6 @@ namespace MyMediaVerse.UnitTests.Domain
             highlight.SourceType = "kindle";
             highlight.IsFavorite = true;
             highlight.Color = "yellow";
-            highlight.Metadata = "{\"key\": \"value\"}";
 
             // Assert
             highlight.ReadwiseId.Should().Be(42);
@@ -98,7 +96,6 @@ namespace MyMediaVerse.UnitTests.Domain
             highlight.SourceType.Should().Be("kindle");
             highlight.IsFavorite.Should().BeTrue();
             highlight.Color.Should().Be("yellow");
-            highlight.Metadata.Should().Be("{\"key\": \"value\"}");
         }
 
         [Theory]

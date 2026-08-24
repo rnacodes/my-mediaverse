@@ -122,20 +122,5 @@ export const getMediaForNote = async (noteId, limit = 10, mediaType = null) => {
     }
 };
 
-/**
- * Gets notes related to a media item based on embeddings
- * @param {string} mediaItemId - The media item ID
- * @param {number} limit - Optional result limit (default 10)
- * @param {string} vault - Optional vault filter
- */
-export const getNotesForMedia = async (mediaItemId, limit = 10, vault = null) => {
-    try {
-        const params = { count: limit };
-        if (vault) params.vault = vault;
-        const response = await apiClient.get(`/recommendation/notes-for-media/${mediaItemId}`, { params });
-        return response.data.notes || [];
-    } catch (error) {
-        console.error('Error getting notes for media:', error);
-        throw error;
-    }
-};
+// The symmetric /recommendation/notes-for-media/{id} endpoint exists server-side but has
+// no UI yet; add a wrapper here when a media-profile "related notes by vibe" section lands.

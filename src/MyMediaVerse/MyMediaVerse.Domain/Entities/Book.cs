@@ -65,17 +65,6 @@ namespace MyMediaVerse.Domain.Entities
         public List<string> GoodreadsTags { get; set; } = new List<string>();
 
         /// <summary>
-        /// External ID from Readwise API (book.id)
-        /// Used for syncing book metadata
-        /// </summary>
-        public int? ReadwiseBookId { get; set; }
-
-        /// <summary>
-        /// Last synced from Readwise
-        /// </summary>
-        public DateTime? LastReadwiseSync { get; set; }
-
-        /// <summary>
         /// UTC timestamp of the last successful metadata enrichment (Google Books).
         /// Set only when enrichment actually populated a previously-empty field; enrichment
         /// is fill-gaps-only and never overwrites user-edited/populated values.

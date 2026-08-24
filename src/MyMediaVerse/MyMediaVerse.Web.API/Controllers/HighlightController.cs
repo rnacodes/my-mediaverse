@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.DTOs;
 
@@ -11,18 +10,15 @@ namespace MyMediaVerse.Web.API.Controllers
     {
         private readonly IHighlightService _highlightService;
         private readonly IReadwiseService _readwiseService;
-        private readonly IApplicationDbContext _context;
         private readonly ILogger<HighlightController> _logger;
 
         public HighlightController(
             IHighlightService highlightService,
             IReadwiseService readwiseService,
-            IApplicationDbContext context,
             ILogger<HighlightController> logger)
         {
             _highlightService = highlightService;
             _readwiseService = readwiseService;
-            _context = context;
             _logger = logger;
         }
 
@@ -172,34 +168,6 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 _logger.LogError(ex, "Error bulk creating highlights");
                 return StatusCode(500, new { error = "Failed to bulk create highlights", details = ex.Message });
-            }
-        }
-
-        // POST: api/highlight/sync
-        [HttpPost("sync")]
-        public async Task<ActionResult<HighlightSyncResultDto>> SyncHighlights([FromQuery] DateTime? lastSync = null)
-        {
-            try
-            {
-                _logger.LogInformation("Starting highlight sync from Readwise (lastSync: {LastSync})", 
-                    lastSync?.ToString() ?? "full");
-                
-                HighlightSyncResultDto result;
-                if (lastSync.HasValue)
-                {
-                    result = await _highlightService.SyncHighlightsIncrementalAsync(lastSync.Value);
-                }
-                else
-                {
-                    result = await _highlightService.SyncHighlightsFromReadwiseAsync();
-                }
-
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error syncing highlights");
-                return StatusCode(500, new { error = "Failed to sync highlights", details = ex.Message });
             }
         }
 
@@ -376,151 +344,6 @@ namespace MyMediaVerse.Web.API.Controllers
             }
         }
 
-        // GET: api/highlight/validate-connection
-        [HttpGet("validate-connection")]
-        public async Task<ActionResult<object>> ValidateConnection()
-        {
-            try
-            {
-                var isValid = await _readwiseService.ValidateConnectionAsync();
-                return Ok(new { 
-                    connected = isValid,
-                    message = isValid 
-                        ? "Readwise API connection is valid ✓" 
-                        : "Readwise API connection failed"
-                });
-            }
-            catch (InvalidOperationException ex)
-            {
-                _logger.LogWarning(ex, "Readwise API not configured");
-                return Ok(new { 
-                    connected = false,
-                    message = "Readwise API not configured",
-                    details = ex.Message 
-                });
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                _logger.LogWarning(ex, "Readwise API token invalid");
-                return Ok(new { 
-                    connected = false,
-                    message = "Invalid API token",
-                    details = ex.Message 
-                });
-            }
-            catch (HttpRequestException ex)
-            {
-                _logger.LogError(ex, "Network error validating Readwise connection");
-                return Ok(new { 
-                    connected = false,
-                    message = "Network error",
-                    details = ex.Message 
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error validating Readwise connection");
-                return Ok(new { 
-                    connected = false,
-                    message = "Connection validation failed",
-                    details = ex.Message 
-                });
-            }
-        }
-
-        // GET: api/highlight/diagnose-linking
-        /// <summary>
-        /// Diagnoses why highlights aren't linking to articles.
-        /// Shows unlinked highlights with their source URLs and potential matches.
-        /// </summary>
-        [HttpGet("diagnose-linking")]
-        public async Task<ActionResult<object>> DiagnoseLinking([FromQuery] int limit = 10)
-        {
-            try
-            {
-                var unlinkedHighlights = (await _highlightService.GetUnlinkedHighlightsAsync())
-                    .Where(h => !string.IsNullOrEmpty(h.SourceUrl) && h.Category?.ToLowerInvariant() == "articles")
-                    .Take(limit)
-                    .ToList();
-
-                var diagnostics = new List<object>();
-
-                // Get unique titles from highlights to search for matching articles
-                var uniqueTitles = unlinkedHighlights
-                    .Select(h => h.Title)
-                    .Where(t => !string.IsNullOrEmpty(t))
-                    .Distinct()
-                    .ToList();
-
-                foreach (var highlight in unlinkedHighlights)
-                {
-                    var normalizedUrl = MyMediaVerse.Application.Utilities.UrlNormalizer.Normalize(highlight.SourceUrl);
-                    var urlWithoutProtocol = normalizedUrl
-                        .Replace("https://", "")
-                        .Replace("http://", "");
-
-                    // Search for potential matching articles by URL
-                    var potentialMatch = await _context.Articles
-                        .Where(a => a.Link != null && (
-                            EF.Functions.ILike(a.Link, normalizedUrl) ||
-                            EF.Functions.ILike(a.Link, $"%{urlWithoutProtocol}") ||
-                            EF.Functions.ILike(a.Link, $"%{urlWithoutProtocol}/")))
-                        .Select(a => new { a.Id, a.Title, a.Link })
-                        .FirstOrDefaultAsync();
-
-                    // Also try to find by title if no URL match
-                    object? titleMatch = null;
-                    if (potentialMatch == null && !string.IsNullOrEmpty(highlight.Title))
-                    {
-                        titleMatch = await _context.Articles
-                            .Where(a => EF.Functions.ILike(a.Title, highlight.Title))
-                            .Select(a => new { a.Id, a.Title, a.Link })
-                            .FirstOrDefaultAsync();
-                    }
-
-                    diagnostics.Add(new
-                    {
-                        highlightId = highlight.Id,
-                        highlightTitle = highlight.Title,
-                        originalSourceUrl = highlight.SourceUrl,
-                        normalizedSourceUrl = normalizedUrl,
-                        category = highlight.Category,
-                        matchingArticleByUrl = potentialMatch,
-                        matchingArticleByTitle = titleMatch,
-                        reason = potentialMatch == null && titleMatch == null
-                            ? "No matching article found in database - article may not have been imported from Reader"
-                            : (potentialMatch != null ? "URL match found but linking failed" : "Title match found but URLs don't match")
-                    });
-                }
-
-                // Get total article count for context
-                var totalArticles = await _context.Articles.CountAsync();
-
-                // Get sample article Links for comparison
-                var sampleArticleLinks = await _context.Articles
-                    .Where(a => a.Link != null)
-                    .Take(5)
-                    .Select(a => new { a.Title, a.Link })
-                    .ToListAsync();
-
-                return Ok(new
-                {
-                    totalUnlinkedArticleHighlights = (await _highlightService.GetUnlinkedHighlightsAsync())
-                        .Count(h => h.Category?.ToLowerInvariant() == "articles"),
-                    totalArticlesInDatabase = totalArticles,
-                    sampleDiagnostics = diagnostics,
-                    sampleArticleLinks,
-                    suggestion = "If 'matchingArticleByUrl' is null for all highlights, the articles haven't been imported from Reader. " +
-                                 "Run 'POST /api/readwise/import-by-location?location=archive' to import archived articles, then run 'POST /api/highlight/link' to link them."
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error diagnosing highlight linking");
-                return StatusCode(500, new { error = "Failed to diagnose linking", details = ex.Message });
-            }
-        }
-
         private static HighlightResponseDto MapToResponseDto(Domain.Entities.Highlight highlight)
         {
             return new HighlightResponseDto
@@ -532,6 +355,7 @@ namespace MyMediaVerse.Web.API.Controllers
                 author = highlight.Author,
                 category = highlight.Category,
                 sourceUrl = highlight.SourceUrl,
+                highlightUrl = highlight.HighlightUrl,
                 imageUrl = highlight.ImageUrl,
                 articleId = highlight.ArticleId,
                 articleTitle = highlight.Article?.Title,

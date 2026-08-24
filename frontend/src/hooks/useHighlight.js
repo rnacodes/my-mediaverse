@@ -1,7 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  validateReadwiseConnection,
-  syncHighlightsFromReadwise,
   getAllHighlights,
   getHighlightById,
   getHighlightsByArticle,
@@ -69,24 +67,6 @@ export function useUnlinkedHighlights(options = {}) {
     queryKey: [...highlightKeys.lists(), 'unlinked'],
     queryFn: () => getUnlinkedHighlights(),
     ...options,
-  });
-}
-
-export function useValidateHighlightReadwiseConnection(options = {}) {
-  return useQuery({
-    queryKey: [...highlightKeys.all, 'validateConnection'],
-    queryFn: async () => (await validateReadwiseConnection()).data,
-    ...options,
-  });
-}
-
-export function useSyncHighlightsFromReadwise() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (lastSync) => syncHighlightsFromReadwise(lastSync),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: highlightKeys.all });
-    },
   });
 }
 

@@ -1,36 +1,6 @@
 import { apiClient } from './apiClient';
 
-// ============================================
-// Readwise & Reader API Methods
-// ============================================
-
-/**
- * Validates the Readwise API connection
- */
-export const validateReadwiseConnection = async () => {
-    try {
-        const response = await apiClient.get('/highlight/validate-connection');
-        return response;
-    } catch (error) {
-        console.error('Error validating Readwise connection:', error);
-        throw error;
-    }
-};
-
-/**
- * Syncs highlights from Readwise API
- * @param {Date|null} lastSync - Optional date for incremental sync
- */
-export const syncHighlightsFromReadwise = async (lastSync = null) => {
-    try {
-        const params = lastSync ? { lastSync: lastSync.toISOString() } : {};
-        const response = await apiClient.post('/highlight/sync', null, { params });
-        return response;
-    } catch (error) {
-        console.error('Error syncing highlights from Readwise:', error);
-        throw error;
-    }
-};
+// Readwise validate/sync live in readwiseService.js (/api/readwise/*)
 
 /**
  * Gets all highlights

@@ -277,26 +277,6 @@ export const searchNotesByVault = async (vault, query, page = 1, perPage = 20) =
 };
 
 /**
- * Multi-search across media items, mixlists, and notes
- * @param {string} query - The search query
- * @param {string} filter - Optional filter string
- * @param {number} page - Page number (default 1)
- * @param {number} perPage - Results per page (default 20)
- */
-export const multiSearch = async (query, filter = null, page = 1, perPage = 20) => {
-    try {
-        const params = { q: query, page, per_page: perPage };
-        if (filter) params.filter = filter;
-
-        const response = await apiClient.get('/search/all', { params });
-        return response.data;
-    } catch (error) {
-        console.error('Error performing multi-search:', error);
-        throw error;
-    }
-};
-
-/**
  * Reindexes all notes in Typesense
  */
 export const reindexNotes = async () => {

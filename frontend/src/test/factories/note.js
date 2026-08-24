@@ -24,7 +24,7 @@ export const makeHighlight = (overrides = {}) => ({
   highlightedAt: '2024-01-16T12:00:00Z',
   location: 100,
   tags: [],
-  url: 'https://readwise.io/highlights/1',
+  highlightUrl: 'https://readwise.io/open/1',
   linkedMediaId: null,
   linkedMediaTitle: null,
   ...overrides,

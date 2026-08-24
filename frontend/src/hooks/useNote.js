@@ -16,7 +16,6 @@ import {
   getSyncStatus,
   searchNotes,
   searchNotesByVault,
-  multiSearch,
   reindexNotes,
   resetNotesCollection,
 } from '../api/noteService';
@@ -80,15 +79,6 @@ export function useNotesByVaultSearch(vault, query, page = 1, perPage = 20, opti
     queryKey: [...noteKeys.all, 'searchByVault', vault, query, { page, perPage }],
     queryFn: () => searchNotesByVault(vault, query, page, perPage),
     enabled: !!vault && !!query,
-    ...options,
-  });
-}
-
-export function useMultiSearch(query, filter = null, page = 1, perPage = 20, options = {}) {
-  return useQuery({
-    queryKey: ['multiSearch', query, { filter, page, perPage }],
-    queryFn: () => multiSearch(query, filter, page, perPage),
-    enabled: !!query && query.length > 0,
     ...options,
   });
 }

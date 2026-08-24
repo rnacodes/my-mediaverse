@@ -9,6 +9,8 @@ namespace MyMediaVerse.DTOs
         public string? author { get; set; }
         public string? category { get; set; }
         public string? sourceUrl { get; set; }
+        // Deep link to this highlight in Readwise (populated by the Readwise sync).
+        public string? highlightUrl { get; set; }
         public string? imageUrl { get; set; }
         public Guid? articleId { get; set; }
         public string? articleTitle { get; set; }
