@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.DTOs;
@@ -172,6 +173,7 @@ namespace MyMediaVerse.Web.API.Controllers
         }
 
         // POST: api/highlight/link
+        [Authorize] // Library-wide linking backfill; operator-only, like the search reindex endpoints.
         [HttpPost("link")]
         public async Task<ActionResult<object>> LinkHighlightsToMedia()
         {
@@ -189,6 +191,7 @@ namespace MyMediaVerse.Web.API.Controllers
         }
 
         // POST: api/highlight/{id}/export
+        [Authorize] // Writes to the owner's Readwise account via the app-wide token; never a visitor action.
         [HttpPost("{id}/export")]
         public async Task<ActionResult<object>> ExportHighlight(Guid id)
         {
@@ -324,6 +327,7 @@ namespace MyMediaVerse.Web.API.Controllers
         }
 
         // POST: api/highlight/clean-text
+        [Authorize] // Library-wide text rewrite; operator-only maintenance.
         [HttpPost("clean-text")]
         public async Task<ActionResult<object>> CleanHighlightText()
         {
