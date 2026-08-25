@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Container, Box, Typography, Grid, Button, ButtonGroup, Collapse, CircularProgress, Paper, Alert, Toolbar, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Snackbar, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { Container, Box, Typography, Grid, Button, ButtonGroup, Collapse, CircularProgress, Paper, Alert, Toolbar, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Snackbar, FormControl, InputLabel, Select, MenuItem, Tooltip } from '@mui/material';
 import { SearchBarSection } from '../SearchBarSection';
 import { SearchFilterSidebar } from '../SearchFilterSidebar';
 import { Search as SearchIcon, Delete, CheckBox, CheckBoxOutlineBlank, PlaylistAdd } from '@mui/icons-material';
@@ -11,8 +11,10 @@ import { MediaListItem } from '../MediaListItem';
 import { typesenseAdvancedSearch, typesenseAdvancedSearchMixlists, searchHighlights } from '@/api/typesenseService';
 import { searchNotes } from '@/api/noteService';
 import { useAllTopics, useAllGenres } from '@/hooks/useTopicGenre';
-import { useAllMixlists, useAddMediaToMixlist } from '@/hooks/useMixlist';
+import { useAllMixlists, useAddMediaToMixlist, useLinkNoteToMixlist } from '@/hooks/useMixlist';
 import { useBulkDeleteMedia } from '@/hooks/useMedia';
+import { useBulkDeleteHighlights } from '@/hooks/useHighlight';
+import { useBulkDeleteNotes } from '@/hooks/useNote';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 
 
@@ -70,7 +72,9 @@ export default function Search({ defaultMediaTypes = [] }) {
     const [viewMode, setViewMode] = useState('card');
     const [sortBy, setSortBy] = useState('relevance');
     const [searchMode, setSearchMode] = useState('media'); // 'media', 'mixlists', or 'notes'
-    const [selectedItems, setSelectedItems] = useState(new Set());
+    // Selection maps each id to its kind ('media' | 'highlight' | 'note' | 'mixlist') so
+    // bulk actions can route ids to the right endpoints, even across result pages.
+    const [selectedItems, setSelectedItems] = useState(new Map());
     const [selectedMediaTypes, setSelectedMediaTypes] = useState(defaultMediaTypes); // Empty = show "please select" message
     const [selectedTopics, setSelectedTopics] = useState([]);
     const [selectedGenres, setSelectedGenres] = useState([]);
@@ -87,78 +91,131 @@ export default function Search({ defaultMediaTypes = [] }) {
     const debouncedSearchQuery = useDebouncedValue(searchQuery);
 
     // Bulk selection handlers
+    const getItemKind = (item) => {
+        if (item.isHighlight) return 'highlight';
+        if (item.isNote) return 'note';
+        if (item.isMixlist) return 'mixlist';
+        return 'media';
+    };
+
     const handleToggleSelect = (itemId) => {
         setSelectedItems(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(itemId)) {
-                newSet.delete(itemId);
+            const next = new Map(prev);
+            if (next.has(itemId)) {
+                next.delete(itemId);
             } else {
-                newSet.add(itemId);
+                // The item is on the current page when it's toggled, so its kind can be
+                // captured here and survives paging away.
+                const item = searchResults.find(r => r.id === itemId);
+                next.set(itemId, item ? getItemKind(item) : 'media');
             }
-            return newSet;
+            return next;
         });
     };
 
     const handleSelectAll = () => {
-        const allIds = new Set(searchResults.map(item => item.id));
-        setSelectedItems(allIds);
+        setSelectedItems(new Map(searchResults.map(item => [item.id, getItemKind(item)])));
     };
 
     const handleDeselectAll = () => {
-        setSelectedItems(new Set());
+        setSelectedItems(new Map());
+    };
+
+    const selectedIdsOfKind = (kind) =>
+        Array.from(selectedItems).filter(([, k]) => k === kind).map(([id]) => id);
+
+    const selectedHighlightCount = selectedIdsOfKind('highlight').length;
+
+    // "3 media items, 5 highlights, 1 note" — for the dialogs and snackbars.
+    const describeSelection = () => {
+        const parts = [];
+        const mediaCount = selectedIdsOfKind('media').length;
+        const noteCount = selectedIdsOfKind('note').length;
+        if (mediaCount > 0) parts.push(`${mediaCount} media item${mediaCount !== 1 ? 's' : ''}`);
+        if (selectedHighlightCount > 0) parts.push(`${selectedHighlightCount} highlight${selectedHighlightCount !== 1 ? 's' : ''}`);
+        if (noteCount > 0) parts.push(`${noteCount} note${noteCount !== 1 ? 's' : ''}`);
+        return parts.length > 0 ? parts.join(', ') : `${selectedItems.size} item${selectedItems.size !== 1 ? 's' : ''}`;
     };
 
     // Mutations
     const bulkDeleteMutation = useBulkDeleteMedia();
+    const bulkDeleteHighlightsMutation = useBulkDeleteHighlights();
+    const bulkDeleteNotesMutation = useBulkDeleteNotes();
     const addMediaToMixlistMutation = useAddMediaToMixlist();
+    const linkNoteToMixlistMutation = useLinkNoteToMixlist();
 
-    // Bulk delete handler
+    // Bulk delete handler — media, highlights, and notes live in different tables behind
+    // different endpoints, so the selection fans out to one call per kind.
     const handleBulkDelete = async () => {
-        const idsArray = Array.from(selectedItems);
-        try {
-            await bulkDeleteMutation.mutateAsync(idsArray);
+        const kinds = [
+            { label: 'media', ids: selectedIdsOfKind('media'), run: (ids) => bulkDeleteMutation.mutateAsync(ids) },
+            { label: 'highlights', ids: selectedIdsOfKind('highlight'), run: (ids) => bulkDeleteHighlightsMutation.mutateAsync(ids) },
+            { label: 'notes', ids: selectedIdsOfKind('note'), run: (ids) => bulkDeleteNotesMutation.mutateAsync(ids) },
+        ].filter(k => k.ids.length > 0);
 
+        const outcomes = await Promise.allSettled(kinds.map(k => k.run(k.ids)));
+
+        const deletedParts = [];
+        const failedParts = [];
+        outcomes.forEach((outcome, i) => {
+            const { label, ids } = kinds[i];
+            if (outcome.status === 'fulfilled') {
+                deletedParts.push(`${ids.length} ${label}`);
+            } else {
+                console.error(`Failed to delete ${label}:`, outcome.reason);
+                failedParts.push(label);
+            }
+        });
+
+        if (failedParts.length === 0) {
             setSnackbar({
                 open: true,
-                message: `Successfully deleted ${idsArray.length} item${idsArray.length !== 1 ? 's' : ''}!`,
+                message: `Successfully deleted ${deletedParts.join(', ')}!`,
                 severity: 'success'
             });
-
-            // Refresh the search results
-            performSearch();
-            setSelectedItems(new Set());
-        } catch (error) {
-            console.error('Failed to delete items:', error);
+        } else {
             setSnackbar({
                 open: true,
-                message: error.response?.data?.error || 'Failed to delete items',
+                message: `${deletedParts.length > 0 ? `Deleted ${deletedParts.join(', ')}, but ` : ''}deleting ${failedParts.join(' and ')} failed`,
                 severity: 'error'
             });
-        } finally {
-            setDeleteDialogOpen(false);
         }
+
+        // Refresh the search results either way; keep only failed kinds selected.
+        performSearch();
+        const failedKinds = new Set(failedParts.map(label => label === 'media' ? 'media' : label.slice(0, -1)));
+        setSelectedItems(prev => new Map(Array.from(prev).filter(([, kind]) => failedKinds.has(kind))));
+        setDeleteDialogOpen(false);
     };
 
-    // Add to mixlist handler
+    // Add to mixlist handler. Mixlists hold media items and notes; highlights have no
+    // mixlist relationship, so the toolbar disables this action when any are selected.
     const handleAddToMixlist = async () => {
         if (!selectedMixlistForAdd) return;
 
-        const idsArray = Array.from(selectedItems);
+        const mediaIds = selectedIdsOfKind('media');
+        const noteIds = selectedIdsOfKind('note');
         try {
-            for (const mediaId of idsArray) {
+            for (const mediaId of mediaIds) {
                 await addMediaToMixlistMutation.mutateAsync({
                     mixlistId: selectedMixlistForAdd,
                     mediaItemId: mediaId,
                 });
             }
+            for (const noteId of noteIds) {
+                await linkNoteToMixlistMutation.mutateAsync({
+                    mixlistId: selectedMixlistForAdd,
+                    noteId,
+                });
+            }
 
             setSnackbar({
                 open: true,
-                message: `Successfully added ${idsArray.length} item${idsArray.length !== 1 ? 's' : ''} to mixlist!`,
+                message: `Successfully added ${describeSelection()} to mixlist!`,
                 severity: 'success'
             });
 
-            setSelectedItems(new Set());
+            setSelectedItems(new Map());
             setSelectedMixlistForAdd('');
         } catch (error) {
             console.error('Failed to add items to mixlist:', error);
@@ -201,8 +258,11 @@ export default function Search({ defaultMediaTypes = [] }) {
     const mixlistsQuery = useAllMixlists({ enabled: addToMixlistDialogOpen });
     const availableMixlists = mixlistsQuery.data ?? [];
 
-    const deleting = bulkDeleteMutation.isPending;
-    const addingToMixlist = addMediaToMixlistMutation.isPending;
+    const deleting = bulkDeleteMutation.isPending
+        || bulkDeleteHighlightsMutation.isPending
+        || bulkDeleteNotesMutation.isPending;
+    const addingToMixlist = addMediaToMixlistMutation.isPending
+        || linkNoteToMixlistMutation.isPending;
 
     // Load URL parameters on mount
     useEffect(() => {
@@ -784,21 +844,29 @@ export default function Search({ defaultMediaTypes = [] }) {
                                     gap: 1,
                                     width: { xs: '100%', sm: 'auto' }
                                 }}>
-                                    <Button
-                                        variant="contained"
-                                        color="primary"
-                                        size="small"
-                                        onClick={openAddToMixlistDialog}
-                                        startIcon={<PlaylistAdd />}
-                                        disabled={selectedItems.size === 0}
-                                        sx={{
-                                            minHeight: '44px',
-                                            fontSize: { xs: '0.8rem', sm: '0.875rem' },
-                                            width: { xs: '100%', sm: 'auto' }
-                                        }}
+                                    <Tooltip
+                                        title={selectedHighlightCount > 0
+                                            ? 'Highlights cannot be added to mixlists — deselect them to enable this'
+                                            : ''}
                                     >
-                                        Add to Mixlist
-                                    </Button>
+                                        <span>
+                                            <Button
+                                                variant="contained"
+                                                color="primary"
+                                                size="small"
+                                                onClick={openAddToMixlistDialog}
+                                                startIcon={<PlaylistAdd />}
+                                                disabled={selectedItems.size === 0 || selectedHighlightCount > 0}
+                                                sx={{
+                                                    minHeight: '44px',
+                                                    fontSize: { xs: '0.8rem', sm: '0.875rem' },
+                                                    width: { xs: '100%', sm: 'auto' }
+                                                }}
+                                            >
+                                                Add to Mixlist
+                                            </Button>
+                                        </span>
+                                    </Tooltip>
                                     <Button
                                         variant="contained"
                                         color="error"
@@ -937,7 +1005,7 @@ export default function Search({ defaultMediaTypes = [] }) {
                 <DialogTitle>Confirm Bulk Delete</DialogTitle>
                 <DialogContent>
                     <DialogContentText>
-                        Are you sure you want to delete {selectedItems.size} item{selectedItems.size !== 1 ? 's' : ''}?
+                        Are you sure you want to delete {describeSelection()}?
                         This action cannot be undone.
                     </DialogContentText>
                 </DialogContent>
@@ -966,7 +1034,7 @@ export default function Search({ defaultMediaTypes = [] }) {
                 <DialogTitle>Add to Mixlist</DialogTitle>
                 <DialogContent>
                     <DialogContentText sx={{ mb: 2 }}>
-                        Select a mixlist to add {selectedItems.size} item{selectedItems.size !== 1 ? 's' : ''} to:
+                        Select a mixlist to add {describeSelection()} to:
                     </DialogContentText>
                     <FormControl fullWidth>
                         <InputLabel>Select Mixlist</InputLabel>

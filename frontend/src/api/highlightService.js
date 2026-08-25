@@ -1,36 +1,6 @@
 import { apiClient } from './apiClient';
 
-// ============================================
-// Readwise & Reader API Methods
-// ============================================
-
-/**
- * Validates the Readwise API connection
- */
-export const validateReadwiseConnection = async () => {
-    try {
-        const response = await apiClient.get('/highlight/validate-connection');
-        return response;
-    } catch (error) {
-        console.error('Error validating Readwise connection:', error);
-        throw error;
-    }
-};
-
-/**
- * Syncs highlights from Readwise API
- * @param {Date|null} lastSync - Optional date for incremental sync
- */
-export const syncHighlightsFromReadwise = async (lastSync = null) => {
-    try {
-        const params = lastSync ? { lastSync: lastSync.toISOString() } : {};
-        const response = await apiClient.post('/highlight/sync', null, { params });
-        return response;
-    } catch (error) {
-        console.error('Error syncing highlights from Readwise:', error);
-        throw error;
-    }
-};
+// Readwise validate/sync live in readwiseService.js (/api/readwise/*)
 
 /**
  * Gets all highlights
@@ -159,6 +129,21 @@ export const updateHighlight = async (id, highlightData) => {
 };
 
 /**
+ * Sets a highlight's media link (article OR book, or neither to unlink)
+ * @param {string} id - The highlight ID
+ * @param {{ articleId?: string|null, bookId?: string|null }} link - The link target
+ */
+export const setHighlightLink = async (id, { articleId = null, bookId = null } = {}) => {
+    try {
+        const response = await apiClient.put(`/highlight/${id}/link`, { articleId, bookId });
+        return response.data;
+    } catch (error) {
+        console.error('Error setting highlight link:', error);
+        throw error;
+    }
+};
+
+/**
  * Deletes a highlight
  * @param {string} id - The highlight ID
  */
@@ -167,6 +152,23 @@ export const deleteHighlight = async (id) => {
         await apiClient.delete(`/highlight/${id}`);
     } catch (error) {
         console.error('Error deleting highlight:', error);
+        throw error;
+    }
+};
+
+/**
+ * Deletes multiple highlights; unknown IDs are skipped by the server.
+ * @param {string[]} ids - The highlight IDs
+ * @returns {Promise<{message: string, deletedCount: number}>}
+ */
+export const bulkDeleteHighlights = async (ids) => {
+    try {
+        const response = await apiClient.delete('/highlight/bulk', {
+            data: { ids }
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error bulk deleting highlights:', error);
         throw error;
     }
 };

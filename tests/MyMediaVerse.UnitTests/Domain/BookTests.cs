@@ -31,8 +31,6 @@ namespace MyMediaVerse.UnitTests.Domain
             book.MyReview.Should().BeNull();
             book.Publisher.Should().BeNull();
             book.GoodreadsTags.Should().NotBeNull().And.BeEmpty();
-            book.ReadwiseBookId.Should().BeNull();
-            book.LastReadwiseSync.Should().BeNull();
             book.Highlights.Should().NotBeNull().And.BeEmpty();
             book.Topics.Should().NotBeNull().And.BeEmpty();
             book.Genres.Should().NotBeNull().And.BeEmpty();
@@ -65,8 +63,6 @@ namespace MyMediaVerse.UnitTests.Domain
             book.DateRead = testDate;
             book.MyReview = "A masterpiece of American literature.";
             book.Publisher = "Scribner";
-            book.ReadwiseBookId = 12345;
-            book.LastReadwiseSync = testDate;
 
             // Assert
             book.Title.Should().Be("The Great Gatsby");
@@ -83,8 +79,6 @@ namespace MyMediaVerse.UnitTests.Domain
             book.DateRead.Should().Be(testDate);
             book.MyReview.Should().Be("A masterpiece of American literature.");
             book.Publisher.Should().Be("Scribner");
-            book.ReadwiseBookId.Should().Be(12345);
-            book.LastReadwiseSync.Should().Be(testDate);
         }
 
         [Theory]

@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import {
     Box, Card, CardContent, Typography, Button, Chip, CircularProgress,
     Grid, Divider, Snackbar, Alert, Dialog, DialogTitle, DialogContent,
-    DialogContentText, DialogActions
+    DialogContentText, DialogActions, TextField
 } from '@mui/material';
 import {
     ArrowBack as ArrowBackIcon,
@@ -11,14 +11,19 @@ import {
     FormatQuote as QuoteIcon,
     Article as ArticleIcon,
     Book as BookIcon,
-    Delete as DeleteIcon
+    Delete as DeleteIcon,
+    Edit as EditIcon
 } from '@mui/icons-material';
-import { useHighlight, useDeleteHighlight } from '@/hooks/useHighlight';
-import { getMediaTypeColor } from '@/shared/DesignSystem';
+import { useHighlight, useDeleteHighlight, useUpdateHighlight } from '@/hooks/useHighlight';
+import { getMediaTypeColor, COLORS } from '@/shared/DesignSystem';
+
+const EMPTY_EDIT_FORM = { text: '', note: '', title: '', author: '', tags: '' };
 
 function HighlightProfilePage() {
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [editDialogOpen, setEditDialogOpen] = useState(false);
+    const [editForm, setEditForm] = useState(EMPTY_EDIT_FORM);
 
     const { id } = useParams();
     const navigate = useNavigate();
@@ -30,12 +35,52 @@ function HighlightProfilePage() {
     const deleteMutation = useDeleteHighlight();
     const deleting = deleteMutation.isPending;
 
+    const updateMutation = useUpdateHighlight();
+    const saving = updateMutation.isPending;
+
     // Surface fetch failures via snackbar (preserves prior UX).
     useEffect(() => {
         if (highlightQuery.error) {
             setSnackbar({ open: true, message: 'Failed to load highlight', severity: 'error' });
         }
     }, [highlightQuery.error]);
+
+    const openEditDialog = () => {
+        setEditForm({
+            text: highlight?.text || '',
+            note: highlight?.note || '',
+            title: highlight?.title || '',
+            author: highlight?.author || '',
+            tags: parseTags(highlight?.tags).join(', ')
+        });
+        setEditDialogOpen(true);
+    };
+
+    const handleEditFieldChange = (field) => (event) => {
+        setEditForm(prev => ({ ...prev, [field]: event.target.value }));
+    };
+
+    const handleEditSave = () => {
+        // The API treats null as "unchanged" and empty strings as "clear", so
+        // sending every dialog field (even blank ones) is the intended contract.
+        const highlightData = {
+            text: editForm.text,
+            note: editForm.note,
+            title: editForm.title,
+            author: editForm.author,
+            tags: editForm.tags.split(',').map(t => t.trim()).filter(Boolean)
+        };
+        updateMutation.mutate({ id, highlightData }, {
+            onSuccess: () => {
+                setSnackbar({ open: true, message: 'Highlight updated successfully', severity: 'success' });
+                setEditDialogOpen(false);
+            },
+            onError: (err) => {
+                const detail = err.response?.data?.error || 'Failed to update highlight';
+                setSnackbar({ open: true, message: detail, severity: 'error' });
+            },
+        });
+    };
 
     const handleDelete = () => {
         deleteMutation.mutate(id, {
@@ -118,6 +163,19 @@ function HighlightProfilePage() {
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                     <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} sx={{ color: 'white' }}>Back</Button>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Button
+                            startIcon={<EditIcon />}
+                            onClick={openEditDialog}
+                            variant="contained"
+                            size="small"
+                            sx={{
+                                backgroundColor: COLORS.primary.light,
+                                color: COLORS.primary.contrastText,
+                                '&:hover': { backgroundColor: COLORS.primary.main }
+                            }}
+                        >
+                            Edit
+                        </Button>
                         <Button
                             startIcon={<DeleteIcon />}
                             onClick={() => setDeleteDialogOpen(true)}
@@ -265,6 +323,67 @@ function HighlightProfilePage() {
                     </CardContent>
                 </Card>
             </Box>
+
+            <Dialog open={editDialogOpen} onClose={() => !saving && setEditDialogOpen(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>Edit Highlight</DialogTitle>
+                <DialogContent>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+                        <TextField
+                            label="Highlight Text"
+                            value={editForm.text}
+                            onChange={handleEditFieldChange('text')}
+                            multiline
+                            minRows={3}
+                            required
+                            fullWidth
+                            error={!editForm.text.trim()}
+                            helperText={!editForm.text.trim() ? 'Highlight text is required' : ''}
+                        />
+                        <TextField
+                            label="Note"
+                            value={editForm.note}
+                            onChange={handleEditFieldChange('note')}
+                            multiline
+                            minRows={2}
+                            fullWidth
+                        />
+                        <TextField
+                            label="Source Title"
+                            value={editForm.title}
+                            onChange={handleEditFieldChange('title')}
+                            fullWidth
+                        />
+                        <TextField
+                            label="Author"
+                            value={editForm.author}
+                            onChange={handleEditFieldChange('author')}
+                            fullWidth
+                        />
+                        <TextField
+                            label="Tags"
+                            value={editForm.tags}
+                            onChange={handleEditFieldChange('tags')}
+                            fullWidth
+                            helperText="Comma-separated, e.g. philosophy, stoicism"
+                        />
+                    </Box>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setEditDialogOpen(false)} disabled={saving}>Cancel</Button>
+                    <Button
+                        onClick={handleEditSave}
+                        variant="contained"
+                        disabled={saving || !editForm.text.trim()}
+                        sx={{
+                            backgroundColor: COLORS.primary.light,
+                            color: COLORS.primary.contrastText,
+                            '&:hover': { backgroundColor: COLORS.primary.main }
+                        }}
+                    >
+                        {saving ? 'Saving...' : 'Save'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
 
             <Dialog open={deleteDialogOpen} onClose={() => !deleting && setDeleteDialogOpen(false)}>
                 <DialogTitle>Delete Highlight</DialogTitle>

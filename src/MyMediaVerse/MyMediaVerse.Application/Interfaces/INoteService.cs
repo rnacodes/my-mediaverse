@@ -42,6 +42,12 @@ namespace MyMediaVerse.Application.Interfaces
         /// </summary>
         Task DeleteAsync(Guid id);
 
+        /// <summary>
+        /// Deletes every note whose ID is in the list; unknown IDs are skipped.
+        /// Returns the number actually deleted.
+        /// </summary>
+        Task<int> BulkDeleteAsync(List<Guid> ids);
+
         // ============================================
         // Linking Operations
         // ============================================

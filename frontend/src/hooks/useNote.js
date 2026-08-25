@@ -6,6 +6,7 @@ import {
   createNote,
   updateNote,
   deleteNote,
+  bulkDeleteNotes,
   linkNoteToMedia,
   unlinkNoteFromMedia,
   getMediaForNote,
@@ -15,7 +16,6 @@ import {
   getSyncStatus,
   searchNotes,
   searchNotesByVault,
-  multiSearch,
   reindexNotes,
   resetNotesCollection,
 } from '../api/noteService';
@@ -83,15 +83,6 @@ export function useNotesByVaultSearch(vault, query, page = 1, perPage = 20, opti
   });
 }
 
-export function useMultiSearch(query, filter = null, page = 1, perPage = 20, options = {}) {
-  return useQuery({
-    queryKey: ['multiSearch', query, { filter, page, perPage }],
-    queryFn: () => multiSearch(query, filter, page, perPage),
-    enabled: !!query && query.length > 0,
-    ...options,
-  });
-}
-
 export function useNoteSyncStatus(options = {}) {
   return useQuery({
     queryKey: [...noteKeys.all, 'syncStatus'],
@@ -128,6 +119,19 @@ export function useDeleteNote() {
     onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: noteKeys.lists() });
       queryClient.removeQueries({ queryKey: noteKeys.detail(id) });
+    },
+  });
+}
+
+export function useBulkDeleteNotes() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (ids) => bulkDeleteNotes(ids),
+    onSuccess: (_data, ids) => {
+      queryClient.invalidateQueries({ queryKey: noteKeys.lists() });
+      ids.forEach((id) => {
+        queryClient.removeQueries({ queryKey: noteKeys.detail(id) });
+      });
     },
   });
 }

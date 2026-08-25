@@ -151,6 +151,42 @@ namespace MyMediaVerse.Application.Services
             }
         }
 
+        public async Task<int> BulkDeleteAsync(List<Guid> ids)
+        {
+            var notes = await _context.Notes
+                .Where(n => ids.Contains(n.Id))
+                .ToListAsync();
+
+            if (notes.Count == 0)
+            {
+                return 0;
+            }
+
+            foreach (var note in notes)
+            {
+                _context.Remove(note);
+            }
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Bulk deleted {Count} notes", notes.Count);
+
+            // Best-effort search index cleanup, mirroring DeleteAsync; the next bulk reindex
+            // reconciles any misses.
+            foreach (var note in notes)
+            {
+                try
+                {
+                    await _typesenseService.DeleteNoteAsync(note.Id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to remove note {Id} from the search index; it will be removed on the next reindex", note.Id);
+                }
+            }
+
+            return notes.Count;
+        }
+
         // ============================================
         // Linking Operations
         // ============================================

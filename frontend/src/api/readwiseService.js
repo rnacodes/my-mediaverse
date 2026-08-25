@@ -20,7 +20,8 @@ export const validateReadwiseConnection = async () => {
 /**
  * Unified sync: syncs Reader documents and Readwise highlights in one operation.
  * Auto-links highlights to articles during import.
- * @param {boolean} incremental - If true (default), only syncs items from the last 7 days
+ * @param {boolean} incremental - If true (default), only syncs items changed since the last
+ *   successful sync (falling back to the last 7 days until one has been recorded)
  */
 export const syncAll = async (incremental = true) => {
     try {

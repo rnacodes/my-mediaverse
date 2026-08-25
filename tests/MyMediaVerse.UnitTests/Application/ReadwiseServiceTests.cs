@@ -59,75 +59,6 @@ namespace MyMediaVerse.UnitTests.Application
 
         #endregion
 
-        #region SyncBooksAsync
-
-        [Fact]
-        public async Task SyncBooksAsync_EmptyResponse_ReturnsZero()
-        {
-            _mockReadwiseClient.GetBooksAsync(
-                Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<int>(), Arg.Any<int>())
-                .Returns(new ReadwiseBooksResponse
-                {
-                    count = 0,
-                    results = new List<ReadwiseBookDto>(),
-                    next = null
-                });
-
-            var result = await _service.SyncBooksAsync();
-
-            result.Should().NotBeNull();
-            result.TotalProcessed.Should().Be(0);
-        }
-
-        [Fact]
-        public async Task SyncBooksAsync_WithBooks_ProcessesAndReturnsResult()
-        {
-            _mockReadwiseClient.GetBooksAsync(
-                Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<int>(), Arg.Any<int>())
-                .Returns(new ReadwiseBooksResponse
-                {
-                    count = 1,
-                    results = new List<ReadwiseBookDto>
-                    {
-                        new ReadwiseBookDto
-                        {
-                            id = 123,
-                            title = "Test Book from Readwise",
-                            author = "Test Author",
-                            category = "books",
-                            source = "kindle",
-                            num_highlights = 5
-                        }
-                    },
-                    next = null
-                });
-
-            var result = await _service.SyncBooksAsync();
-
-            result.Should().NotBeNull();
-            result.Success.Should().BeTrue();
-        }
-
-        [Fact]
-        public async Task SyncBooksAsync_WithCategoryFilter_PassesToClient()
-        {
-            _mockReadwiseClient.GetBooksAsync(
-                Arg.Any<string?>(), "books", Arg.Any<int>(), Arg.Any<int>())
-                .Returns(new ReadwiseBooksResponse
-                {
-                    count = 0,
-                    results = new List<ReadwiseBookDto>(),
-                    next = null
-                });
-
-            await _service.SyncBooksAsync(category: "books");
-
-            _mockReadwiseClient.Received(1).GetBooksAsync(
-                Arg.Any<string?>(), "books", Arg.Any<int>(), Arg.Any<int>());
-        }
-
-        #endregion
-
         #region LinkHighlightsToMediaAsync
 
         [Fact]
@@ -155,7 +86,33 @@ namespace MyMediaVerse.UnitTests.Application
 
             var result = await _service.LinkHighlightsToMediaAsync();
 
-            result.Should().BeGreaterThanOrEqualTo(0);
+            result.Should().Be(1);
+            var linked = await Context.Highlights.FindAsync(highlight.Id);
+            linked!.ArticleId.Should().Be(article.Id);
+        }
+
+        [Fact]
+        public async Task LinkHighlightsToMediaAsync_MatchesBookByTitleAndAuthor_CaseInsensitive()
+        {
+            var book = new Book { Id = Guid.NewGuid(), Title = "Meditations", Author = "Marcus Aurelius" };
+            Context.Books.Add(book);
+
+            var highlight = TestDataFactory.CreateHighlight("Memento mori");
+            highlight.Title = "MEDITATIONS";
+            highlight.Author = "marcus aurelius";
+            highlight.Category = "books";
+            highlight.SourceUrl = null;
+            highlight.ArticleId = null;
+            highlight.BookId = null;
+            Context.Highlights.Add(highlight);
+
+            await Context.SaveChangesAsync();
+
+            var result = await _service.LinkHighlightsToMediaAsync();
+
+            result.Should().Be(1);
+            var linked = await Context.Highlights.FindAsync(highlight.Id);
+            linked!.BookId.Should().Be(book.Id);
         }
 
         #endregion

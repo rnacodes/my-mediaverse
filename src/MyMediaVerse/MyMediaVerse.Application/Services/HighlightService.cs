@@ -10,18 +10,43 @@ namespace MyMediaVerse.Application.Services
 {
     public class HighlightService : IHighlightService
     {
+        private const int MaxExportPages = 100;
+
         private readonly IApplicationDbContext _context;
         private readonly IReadwiseApiClient _readwiseClient;
+        private readonly ITypesenseService _typesenseService;
         private readonly ILogger<HighlightService> _logger;
+
+        // Delay between export pages to respect Readwise rate limits (20 req/min for
+        // list endpoints).
+        internal int ExportPageDelayMs { get; set; } = 3000;
 
         public HighlightService(
             IApplicationDbContext context,
             IReadwiseApiClient readwiseClient,
+            ITypesenseService typesenseService,
             ILogger<HighlightService> logger)
         {
             _context = context;
             _readwiseClient = readwiseClient;
+            _typesenseService = typesenseService;
             _logger = logger;
+        }
+
+        /// <summary>
+        /// Best-effort removal of a highlight's search document. Failures are logged and
+        /// swallowed — the bulk reindex's ID-diff reconcile is the backstop.
+        /// </summary>
+        private async Task TryRemoveFromSearchIndexAsync(Guid highlightId)
+        {
+            try
+            {
+                await _typesenseService.DeleteHighlightAsync(highlightId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to remove highlight {Id} from the search index; it will be removed on the next reindex", highlightId);
+            }
         }
 
         public async Task<IEnumerable<Highlight>> GetAllHighlightsAsync()
@@ -65,10 +90,12 @@ namespace MyMediaVerse.Application.Services
 
         public async Task<IEnumerable<Highlight>> GetHighlightsByTagAsync(string tag)
         {
-            var normalizedTag = tag.ToLowerInvariant();
+            // Tags are stored as a comma-joined string (trimmed + lowercased on every write
+            // path).
+            var wrappedTag = "," + tag.Trim().ToLowerInvariant() + ",";
             return await _context.Highlights
                 .AsNoTracking()
-                .Where(h => h.Tags != null && h.Tags.Contains(normalizedTag))
+                .Where(h => h.Tags != null && ("," + h.Tags + ",").Contains(wrappedTag))
                 .OrderByDescending(h => h.HighlightedAt ?? h.CreatedAt)
                 .ToListAsync();
         }
@@ -113,7 +140,7 @@ namespace MyMediaVerse.Application.Services
             return highlight;
         }
 
-        public async Task<Highlight> UpdateHighlightAsync(Guid id, CreateHighlightDto dto)
+        public async Task<Highlight> UpdateHighlightAsync(Guid id, UpdateHighlightDto dto)
         {
             var highlight = await _context.Highlights
                 .Include(h => h.Article)
@@ -124,12 +151,37 @@ namespace MyMediaVerse.Application.Services
                 throw new InvalidOperationException($"Highlight with ID {id} not found");
             }
 
-            // Clean text to prevent CSS/HTML contamination
-            highlight.Text = HtmlTextCleaner.Clean(dto.Text);
-            highlight.Note = dto.Note;
-            highlight.Tags = dto.Tags != null ? string.Join(",", dto.Tags.Select(t => t.ToLowerInvariant())) : null;
-            highlight.ArticleId = dto.ArticleId;
-            highlight.BookId = dto.BookId;
+            // Null = leave unchanged; empty string = clear the optional field.
+            if (dto.Text != null)
+            {
+                if (string.IsNullOrWhiteSpace(dto.Text))
+                {
+                    throw new ArgumentException("Highlight text cannot be empty.");
+                }
+                // Clean text to prevent CSS/HTML contamination
+                highlight.Text = HtmlTextCleaner.Clean(dto.Text);
+            }
+
+            if (dto.Note != null) highlight.Note = EmptyToNull(dto.Note);
+            if (dto.Title != null) highlight.Title = EmptyToNull(dto.Title);
+            if (dto.Author != null) highlight.Author = EmptyToNull(dto.Author);
+            if (dto.Category != null) highlight.Category = EmptyToNull(dto.Category)?.ToLowerInvariant();
+            if (dto.SourceUrl != null) highlight.SourceUrl = EmptyToNull(dto.SourceUrl);
+            if (dto.LocationType != null) highlight.LocationType = EmptyToNull(dto.LocationType);
+            if (dto.Color != null) highlight.Color = EmptyToNull(dto.Color);
+            if (dto.Location.HasValue) highlight.Location = dto.Location;
+            if (dto.HighlightedAt.HasValue) highlight.HighlightedAt = dto.HighlightedAt;
+            if (dto.IsFavorite.HasValue) highlight.IsFavorite = dto.IsFavorite.Value;
+
+            if (dto.Tags != null)
+            {
+                var cleanedTags = dto.Tags
+                    .Select(t => t.Trim().ToLowerInvariant())
+                    .Where(t => t.Length > 0)
+                    .ToList();
+                highlight.Tags = cleanedTags.Count > 0 ? string.Join(",", cleanedTags) : null;
+            }
+
             highlight.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
@@ -138,6 +190,60 @@ namespace MyMediaVerse.Application.Services
 
             return highlight;
         }
+
+        public async Task<Highlight> SetHighlightLinkAsync(Guid id, Guid? articleId, Guid? bookId)
+        {
+            if (articleId.HasValue && bookId.HasValue)
+            {
+                throw new ArgumentException("A highlight can link to an article or a book, not both.");
+            }
+
+            var highlight = await _context.Highlights
+                .Include(h => h.Article)
+                .Include(h => h.Book)
+                .FirstOrDefaultAsync(h => h.Id == id);
+            if (highlight == null)
+            {
+                throw new InvalidOperationException($"Highlight with ID {id} not found");
+            }
+
+            if (articleId.HasValue)
+            {
+                var article = await _context.Articles.FirstOrDefaultAsync(a => a.Id == articleId.Value)
+                    ?? throw new InvalidOperationException($"Article with ID {articleId} not found");
+                highlight.ArticleId = article.Id;
+                highlight.Article = article;
+                highlight.BookId = null;
+                highlight.Book = null;
+            }
+            else if (bookId.HasValue)
+            {
+                var book = await _context.Books.FirstOrDefaultAsync(b => b.Id == bookId.Value)
+                    ?? throw new InvalidOperationException($"Book with ID {bookId} not found");
+                highlight.BookId = book.Id;
+                highlight.Book = book;
+                highlight.ArticleId = null;
+                highlight.Article = null;
+            }
+            else
+            {
+                highlight.ArticleId = null;
+                highlight.Article = null;
+                highlight.BookId = null;
+                highlight.Book = null;
+            }
+
+            highlight.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Updated media link for highlight {HighlightId}", highlight.Id);
+
+            return highlight;
+        }
+
+        private static string? EmptyToNull(string value) =>
+            string.IsNullOrWhiteSpace(value) ? null : value;
 
         public async Task<bool> DeleteHighlightAsync(Guid id)
         {
@@ -153,7 +259,38 @@ namespace MyMediaVerse.Application.Services
 
             _logger.LogInformation("Deleted highlight {HighlightId}", id);
 
+            await TryRemoveFromSearchIndexAsync(id);
+
             return true;
+        }
+
+        public async Task<int> BulkDeleteHighlightsAsync(List<Guid> ids)
+        {
+            var highlights = await _context.Highlights
+                .Where(h => ids.Contains(h.Id))
+                .ToListAsync();
+
+            if (highlights.Count == 0)
+            {
+                return 0;
+            }
+
+            foreach (var highlight in highlights)
+            {
+                _context.Remove(highlight);
+            }
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Bulk deleted {Count} highlights", highlights.Count);
+
+            // Best-effort search index cleanup after the DB delete has committed; the
+            // bulk reindex's ID-diff reconcile is the backstop.
+            foreach (var highlight in highlights)
+            {
+                await TryRemoveFromSearchIndexAsync(highlight.Id);
+            }
+
+            return highlights.Count;
         }
 
         public async Task<HighlightSyncResultDto> SyncHighlightsFromReadwiseAsync()
@@ -188,7 +325,7 @@ namespace MyMediaVerse.Application.Services
                 var hasMore = true;
                 var iteration = 0;
 
-                while (hasMore && iteration < 100) // Safety limit
+                while (hasMore && iteration < MaxExportPages)
                 {
                     _logger.LogInformation("Fetching export page {Iteration}", iteration + 1);
 
@@ -198,6 +335,7 @@ namespace MyMediaVerse.Application.Services
 
                     if (response.results.Count == 0)
                     {
+                        hasMore = false;
                         break;
                     }
 
@@ -211,15 +349,25 @@ namespace MyMediaVerse.Application.Services
                     pageCursor = response.nextPageCursor;
                     iteration++;
 
-                    // Small delay to respect rate limits (20 req/min for list endpoints)
-                    await Task.Delay(3000);
+                    // Pause between pages to respect rate limits; skipped after the last page
+                    if (hasMore && ExportPageDelayMs > 0)
+                    {
+                        await Task.Delay(ExportPageDelayMs);
+                    }
+                }
+
+                if (hasMore)
+                {
+                    result.WarningMessage =
+                        $"Sync stopped at the {MaxExportPages}-page safety limit before reaching the end of the Readwise export; some highlights were not synced.";
+                    _logger.LogWarning("Highlight sync hit the {MaxPages}-page safety limit with more export pages remaining", MaxExportPages);
                 }
 
                 result.CompletedAt = DateTime.UtcNow;
                 result.Success = true;
 
-                _logger.LogInformation("Completed highlight sync. Created: {Created}, Updated: {Updated}, Linked: {Linked}",
-                    result.CreatedCount, result.UpdatedCount, result.LinkedCount);
+                _logger.LogInformation("Completed highlight sync. Created: {Created}, Updated: {Updated}, Linked: {Linked}, Deleted: {Deleted}",
+                    result.CreatedCount, result.UpdatedCount, result.LinkedCount, result.DeletedCount);
             }
             catch (Exception ex)
             {
@@ -240,8 +388,28 @@ namespace MyMediaVerse.Application.Services
             Shared.DTOs.Readwise.ReadwiseExportBookDto bookDto,
             HighlightSyncResultDto result)
         {
+            var removedFromDb = new List<Guid>();
+
             foreach (var highlightDto in bookDto.highlights)
             {
+                // Tombstones: Readwise marks deleted sources/highlights with is_deleted
+                // (and hidden ones with is_discard) instead of omitting them.
+                if (bookDto.is_deleted || highlightDto.is_deleted || highlightDto.is_discard)
+                {
+                    var doomed = await _context.Highlights
+                        .FirstOrDefaultAsync(h => h.ReadwiseId == highlightDto.id);
+                    if (doomed != null)
+                    {
+                        _context.Remove(doomed);
+                        result.DeletedCount++;
+                        removedFromDb.Add(doomed.Id);
+                        _logger.LogInformation(
+                            "Deleted highlight {HighlightId} (ReadwiseId {ReadwiseId}): removed or discarded in Readwise",
+                            doomed.Id, highlightDto.id);
+                    }
+                    continue;
+                }
+
                 // Clean HTML/CSS from highlight text
                 var cleanedText = HtmlTextCleaner.Clean(highlightDto.text);
 
@@ -297,91 +465,35 @@ namespace MyMediaVerse.Application.Services
                         CreatedAt = DateTime.UtcNow
                     };
 
-                    // Auto-link to article by URL (using multiple matching strategies)
-                    // Try source_url first, then unique_url as fallback
-                    var urlsToTry = new List<string>();
-                    if (!string.IsNullOrEmpty(bookDto.source_url))
-                        urlsToTry.Add(bookDto.source_url);
-                    if (!string.IsNullOrEmpty(bookDto.unique_url) && bookDto.unique_url != bookDto.source_url)
-                        urlsToTry.Add(bookDto.unique_url);
+                    // Auto-link to source media: URL(s) first, then title/title+author
+                    var match = await HighlightLinkMatcher.ResolveAsync(
+                        _context,
+                        new[] { bookDto.source_url, bookDto.unique_url },
+                        bookDto.title,
+                        bookDto.author,
+                        bookDto.category);
 
-                    Article? article = null;
-                    foreach (var urlToTry in urlsToTry)
+                    if (match.Article != null)
                     {
-                        var normalizedUrl = UrlNormalizer.Normalize(urlToTry);
-
-                        // Try exact normalized match first
-                        article = await _context.Articles
-                            .FirstOrDefaultAsync(a =>
-                                a.Link != null &&
-                                EF.Functions.ILike(a.Link, normalizedUrl));
-
-                        // If no match, try partial URL match (without protocol)
-                        if (article == null)
-                        {
-                            var urlWithoutProtocol = normalizedUrl
-                                .Replace("https://", "")
-                                .Replace("http://", "");
-                            article = await _context.Articles
-                                .FirstOrDefaultAsync(a =>
-                                    a.Link != null &&
-                                    (EF.Functions.ILike(a.Link, $"%{urlWithoutProtocol}") ||
-                                     EF.Functions.ILike(a.Link, $"%{urlWithoutProtocol}/")));
-                        }
-
-                        if (article != null)
-                            break;
-                    }
-
-                    // Fallback: Try to match by title if URL matching failed
-                    if (article == null &&
-                        bookDto.category?.ToLowerInvariant() == "articles" &&
-                        !string.IsNullOrEmpty(bookDto.title))
-                    {
-                        article = await _context.Articles
-                            .FirstOrDefaultAsync(a =>
-                                EF.Functions.ILike(a.Title, bookDto.title));
-
-                        if (article != null)
-                        {
-                            _logger.LogDebug("Auto-linked highlight {HighlightId} to article {ArticleId} by title match (URL match failed)",
-                                highlight.Id, article.Id);
-                        }
-                    }
-
-                    if (article != null)
-                    {
-                        highlight.ArticleId = article.Id;
-                        highlight.Article = article;
+                        highlight.ArticleId = match.Article.Id;
+                        highlight.Article = match.Article;
                         result.LinkedCount++;
                         _logger.LogDebug("Auto-linked highlight {HighlightId} to article {ArticleId} (title: {Title})",
-                            highlight.Id, article.Id, article.Title);
+                            highlight.Id, match.Article.Id, match.Article.Title);
                     }
-                    else if ((urlsToTry.Count > 0 || !string.IsNullOrEmpty(bookDto.title)) && bookDto.category?.ToLowerInvariant() == "articles")
+                    else if (match.Book != null)
+                    {
+                        highlight.BookId = match.Book.Id;
+                        highlight.Book = match.Book;
+                        result.LinkedCount++;
+                        _logger.LogDebug("Auto-linked highlight {HighlightId} to book {BookId}",
+                            highlight.Id, match.Book.Id);
+                    }
+                    else if (bookDto.category?.ToLowerInvariant() == "articles")
                     {
                         // Log unlinked article highlights for debugging
                         _logger.LogDebug("Could not link highlight to article. Source URL: {SourceUrl}, Title: {Title}",
                             bookDto.source_url, bookDto.title);
-                    }
-
-                    // Auto-link to book by title and author if category is "books"
-                    if (highlight.ArticleId == null &&
-                        bookDto.category?.ToLowerInvariant() == "books" &&
-                        !string.IsNullOrEmpty(bookDto.title) &&
-                        !string.IsNullOrEmpty(bookDto.author))
-                    {
-                        var book = await _context.Books
-                            .FirstOrDefaultAsync(b =>
-                                b.Title.ToLower() == bookDto.title.ToLower() &&
-                                b.Author != null && b.Author.ToLower() == bookDto.author.ToLower());
-                        if (book != null)
-                        {
-                            highlight.BookId = book.Id;
-                            highlight.Book = book;
-                            result.LinkedCount++;
-                            _logger.LogDebug("Auto-linked highlight {HighlightId} to book {BookId}",
-                                highlight.Id, book.Id);
-                        }
                     }
 
                     _context.Add(highlight);
@@ -390,6 +502,13 @@ namespace MyMediaVerse.Application.Services
             }
 
             await _context.SaveChangesAsync();
+
+            // Best-effort search index cleanup for tombstoned rows, after the DB delete has
+            // committed; the next bulk reindex reconciles any misses.
+            foreach (var id in removedFromDb)
+            {
+                await TryRemoveFromSearchIndexAsync(id);
+            }
         }
 
         /// <summary>
@@ -404,25 +523,51 @@ namespace MyMediaVerse.Application.Services
 
             try
             {
-                var highlights = await _context.Highlights.ToListAsync();
+                // Page the table instead of loading it whole
+                const int pageSize = 200;
 
-                foreach (var highlight in highlights)
+                for (var skip = 0; ; skip += pageSize)
                 {
-                    if (HtmlTextCleaner.ContainsHtmlOrCss(highlight.Text))
+                    var highlights = await _context.Highlights
+                        .OrderBy(h => h.Id)
+                        .Skip(skip)
+                        .Take(pageSize)
+                        .ToListAsync();
+
+                    if (highlights.Count == 0)
                     {
-                        var cleanedText = HtmlTextCleaner.Clean(highlight.Text);
-                        if (cleanedText != highlight.Text)
+                        break;
+                    }
+
+                    var pageCleaned = 0;
+                    foreach (var highlight in highlights)
+                    {
+                        if (HtmlTextCleaner.ContainsHtmlOrCss(highlight.Text))
                         {
-                            highlight.Text = cleanedText;
-                            highlight.UpdatedAt = DateTime.UtcNow;
-                            cleanedCount++;
+                            var cleanedText = HtmlTextCleaner.Clean(highlight.Text);
+                            if (cleanedText != highlight.Text)
+                            {
+                                highlight.Text = cleanedText;
+                                highlight.UpdatedAt = DateTime.UtcNow;
+                                pageCleaned++;
+                            }
                         }
+                    }
+
+                    if (pageCleaned > 0)
+                    {
+                        await _context.SaveChangesAsync();
+                        cleanedCount += pageCleaned;
+                    }
+
+                    if (highlights.Count < pageSize)
+                    {
+                        break;
                     }
                 }
 
                 if (cleanedCount > 0)
                 {
-                    await _context.SaveChangesAsync();
                     _logger.LogInformation("Cleaned HTML/CSS from {Count} highlights", cleanedCount);
                 }
                 else
@@ -439,15 +584,73 @@ namespace MyMediaVerse.Application.Services
             return cleanedCount;
         }
 
+        /// <summary>Dedup key for imported highlights: case-insensitive title + cleaned text.</summary>
+        private static (string TitleKey, string Text) ImportKey(string? title, string cleanedText) =>
+            ((title ?? string.Empty).Trim().ToLowerInvariant(), cleanedText);
+
         public async Task<BulkHighlightResultDto> BulkCreateHighlightsAsync(List<CreateHighlightDto> dtos)
         {
             var result = new BulkHighlightResultDto();
+
+            // Match-by-key upsert: re-uploading the same file must update rows in place,
+            // never duplicate them.
+            var titleKeys = dtos
+                .Select(d => (d.Title ?? string.Empty).Trim().ToLowerInvariant())
+                .Distinct()
+                .ToList();
+            var candidates = await _context.Highlights
+                .Where(h => titleKeys.Contains((h.Title ?? string.Empty).Trim().ToLower()))
+                .ToListAsync();
+            var existingByKey = new Dictionary<(string, string), Highlight>();
+            foreach (var candidate in candidates)
+            {
+                existingByKey.TryAdd(ImportKey(candidate.Title, candidate.Text), candidate);
+            }
+
+            var seenThisBatch = new HashSet<(string, string)>();
 
             foreach (var dto in dtos)
             {
                 try
                 {
                     var cleanedText = HtmlTextCleaner.Clean(dto.Text);
+                    var key = ImportKey(dto.Title, cleanedText);
+
+                    // The same highlight twice in one upload: import the first, skip the rest.
+                    if (!seenThisBatch.Add(key))
+                    {
+                        result.Skipped++;
+                        continue;
+                    }
+
+                    if (existingByKey.TryGetValue(key, out var existing))
+                    {
+                        // Update in place. Only fields the upload actually carries are
+                        // touched; links and ReadwiseId are left alone unless an explicit
+                        // link was supplied.
+                        if (dto.Note != null) existing.Note = dto.Note;
+                        if (dto.Author != null) existing.Author = dto.Author;
+                        if (dto.Category != null) existing.Category = dto.Category.ToLowerInvariant();
+                        if (dto.SourceUrl != null) existing.SourceUrl = dto.SourceUrl;
+                        if (dto.Tags != null) existing.Tags = string.Join(",", dto.Tags.Select(t => t.ToLowerInvariant()));
+                        if (dto.Location.HasValue) existing.Location = dto.Location;
+                        if (dto.LocationType != null) existing.LocationType = dto.LocationType;
+                        if (dto.HighlightedAt.HasValue) existing.HighlightedAt = dto.HighlightedAt;
+                        if (dto.ArticleId.HasValue)
+                        {
+                            existing.ArticleId = dto.ArticleId;
+                            existing.BookId = null;
+                        }
+                        else if (dto.BookId.HasValue)
+                        {
+                            existing.BookId = dto.BookId;
+                            existing.ArticleId = null;
+                        }
+                        existing.UpdatedAt = DateTime.UtcNow;
+
+                        result.Updated++;
+                        continue;
+                    }
 
                     var highlight = new Highlight
                     {
@@ -467,67 +670,26 @@ namespace MyMediaVerse.Application.Services
                         CreatedAt = DateTime.UtcNow
                     };
 
-                    // Auto-link to article by URL if sourceUrl is provided and no articleId set
-                    if (highlight.ArticleId == null && !string.IsNullOrEmpty(dto.SourceUrl))
+                    // Auto-link only when the caller didn't supply an explicit link
+                    if (highlight.ArticleId == null && highlight.BookId == null)
                     {
-                        var normalizedUrl = UrlNormalizer.Normalize(dto.SourceUrl);
-                        var urlWithoutProtocol = normalizedUrl
-                            .Replace("https://", "")
-                            .Replace("http://", "");
+                        var match = await HighlightLinkMatcher.ResolveAsync(
+                            _context,
+                            new[] { dto.SourceUrl },
+                            dto.Title,
+                            dto.Author,
+                            dto.Category);
 
-                        var article = await _context.Articles
-                            .FirstOrDefaultAsync(a =>
-                                a.Link != null &&
-                                EF.Functions.ILike(a.Link, normalizedUrl));
-
-                        if (article == null)
+                        if (match.Article != null)
                         {
-                            article = await _context.Articles
-                                .FirstOrDefaultAsync(a =>
-                                    a.Link != null &&
-                                    (EF.Functions.ILike(a.Link, $"%{urlWithoutProtocol}") ||
-                                     EF.Functions.ILike(a.Link, $"%{urlWithoutProtocol}/")));
-                        }
-
-                        if (article != null)
-                        {
-                            highlight.ArticleId = article.Id;
-                            highlight.Article = article;
+                            highlight.ArticleId = match.Article.Id;
+                            highlight.Article = match.Article;
                             result.Linked++;
                         }
-                    }
-
-                    // Auto-link to book by title + author if category is "books" and no bookId set
-                    if (highlight.ArticleId == null && highlight.BookId == null &&
-                        dto.Category?.ToLowerInvariant() == "books" &&
-                        !string.IsNullOrEmpty(dto.Title) && !string.IsNullOrEmpty(dto.Author))
-                    {
-                        var book = await _context.Books
-                            .FirstOrDefaultAsync(b =>
-                                b.Title.ToLower() == dto.Title.ToLower() &&
-                                b.Author != null && b.Author.ToLower() == dto.Author.ToLower());
-
-                        if (book != null)
+                        else if (match.Book != null)
                         {
-                            highlight.BookId = book.Id;
-                            highlight.Book = book;
-                            result.Linked++;
-                        }
-                    }
-
-                    // Fallback: try title match for articles if no link yet
-                    if (highlight.ArticleId == null && highlight.BookId == null &&
-                        dto.Category?.ToLowerInvariant() == "articles" &&
-                        !string.IsNullOrEmpty(dto.Title))
-                    {
-                        var article = await _context.Articles
-                            .FirstOrDefaultAsync(a =>
-                                EF.Functions.ILike(a.Title, dto.Title));
-
-                        if (article != null)
-                        {
-                            highlight.ArticleId = article.Id;
-                            highlight.Article = article;
+                            highlight.BookId = match.Book.Id;
+                            highlight.Book = match.Book;
                             result.Linked++;
                         }
                     }
@@ -554,8 +716,8 @@ namespace MyMediaVerse.Application.Services
                 return result;
             }
 
-            _logger.LogInformation("Bulk created {Created} highlights, linked {Linked}, errors {Errors}",
-                result.Created, result.Linked, result.Errors.Count);
+            _logger.LogInformation("Bulk import: created {Created}, updated {Updated}, skipped {Skipped}, linked {Linked}, errors {Errors}",
+                result.Created, result.Updated, result.Skipped, result.Linked, result.Errors.Count);
 
             return result;
         }

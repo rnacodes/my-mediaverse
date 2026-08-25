@@ -7,8 +7,10 @@ using Testcontainers.PostgreSql;
 namespace MyMediaVerse.IntegrationTests.Fixtures
 {
     /// <summary>
-    /// Standalone Postgres + pgvector fixture for non-HTTP infrastructure tests
-    /// (repositories, EF behaviour, vector search, jsonb queries).
+    /// Standalone Postgres fixture for non-HTTP infrastructure tests
+    /// (repositories, EF behaviour, jsonb queries). Uses the pgvector image only because
+    /// migration replay needs it: the initial migration runs CREATE EXTENSION vector
+    /// (later dropped), which fails on a plain postgres image.
     ///
     /// Use via <c>[Collection("Database")]</c> + constructor injection so the same container
     /// is shared across the run. Reset between tests with <see cref="ResetAsync"/>.

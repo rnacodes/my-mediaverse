@@ -32,6 +32,7 @@ namespace MyMediaVerse.Infrastructure.Data
         public DbSet<MediaItemRelation> MediaItemRelations { get; set; }
         public DbSet<TvShowEpisode> TvShowEpisodes { get; set; }
         public DbSet<TraktToken> TraktTokens { get; set; }
+        public DbSet<SyncState> SyncStates { get; set; }
 
         // IApplicationDbContext interface implementations
         IQueryable<BaseMediaItem> IApplicationDbContext.MediaItems => MediaItems;
@@ -57,6 +58,7 @@ namespace MyMediaVerse.Infrastructure.Data
         IQueryable<MediaItemRelation> IApplicationDbContext.MediaItemRelations => MediaItemRelations;
         IQueryable<TvShowEpisode> IApplicationDbContext.TvShowEpisodes => TvShowEpisodes;
         IQueryable<TraktToken> IApplicationDbContext.TraktTokens => TraktTokens;
+        IQueryable<SyncState> IApplicationDbContext.SyncStates => SyncStates;
 
 
         public MediaLibraryDbContext(DbContextOptions<MediaLibraryDbContext> options) : base(options) { }
@@ -369,6 +371,23 @@ namespace MyMediaVerse.Infrastructure.Data
 
                 entity.Property(e => e.TraktUsername)
                     .HasMaxLength(200);
+            });
+
+            // Configure SyncState table (per-source sync bookkeeping, standalone table)
+            modelBuilder.Entity<SyncState>(entity =>
+            {
+                entity.ToTable("SyncStates");
+                entity.HasKey(e => e.Key);
+
+                entity.Property(e => e.Key)
+                    .HasMaxLength(100)
+                    .IsRequired();
+
+                entity.Property(e => e.Value)
+                    .HasMaxLength(4000);
+
+                entity.Property(e => e.UpdatedAt)
+                    .IsRequired();
             });
 
             // Configure Book specific properties

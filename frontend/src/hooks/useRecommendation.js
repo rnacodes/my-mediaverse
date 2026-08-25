@@ -6,7 +6,6 @@ import {
   searchByVibe,
   getForYouRecommendations,
   getMediaForNote,
-  getNotesForMedia,
 } from '../api/recommendationService';
 import { recommendationKeys } from '../api/queryKeys';
 
@@ -62,11 +61,3 @@ export function useMediaForNoteByEmbedding(noteId, limit = 10, mediaType = null,
   });
 }
 
-export function useNotesForMediaByEmbedding(mediaItemId, limit = 10, vault = null, options = {}) {
-  return useQuery({
-    queryKey: [...recommendationKeys.all, 'notesForMedia', mediaItemId, { limit, vault }],
-    queryFn: () => getNotesForMedia(mediaItemId, limit, vault),
-    enabled: !!mediaItemId,
-    ...options,
-  });
-}

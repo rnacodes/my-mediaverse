@@ -88,113 +88,6 @@ namespace MyMediaVerse.Infrastructure.Clients.Readwise
             }
         }
 
-        public async Task<ReadwiseHighlightsResponse> GetHighlightsAsync(
-            string? updatedAfter = null,
-            int page = 1,
-            int pageSize = 1000)
-        {
-            try
-            {
-                var queryParams = new List<string>
-                {
-                    $"page={page}",
-                    $"page_size={Math.Min(pageSize, 1000)}"
-                };
-
-                if (!string.IsNullOrEmpty(updatedAfter))
-                {
-                    queryParams.Add($"updated__gt={Uri.EscapeDataString(updatedAfter)}");
-                }
-
-                var query = string.Join("&", queryParams);
-                var response = await _httpClient.GetAsync($"highlights/?{query}");
-                
-                response.EnsureSuccessStatusCode();
-                
-                var content = await response.Content.ReadAsStringAsync();
-                var result = JsonSerializer.Deserialize<ReadwiseHighlightsResponse>(content, 
-                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
-                _logger.LogInformation("Retrieved {Count} highlights from Readwise (page {Page})", 
-                    result?.results.Count ?? 0, page);
-
-                return result ?? new ReadwiseHighlightsResponse();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error fetching highlights from Readwise");
-                return new ReadwiseHighlightsResponse();
-            }
-        }
-
-        public async Task<ReadwiseBooksResponse> GetBooksAsync(
-            string? updatedAfter = null,
-            string? category = null,
-            int page = 1,
-            int pageSize = 1000)
-        {
-            try
-            {
-                var queryParams = new List<string>
-                {
-                    $"page={page}",
-                    $"page_size={Math.Min(pageSize, 1000)}"
-                };
-
-                if (!string.IsNullOrEmpty(updatedAfter))
-                {
-                    queryParams.Add($"updated__gt={Uri.EscapeDataString(updatedAfter)}");
-                }
-
-                if (!string.IsNullOrEmpty(category))
-                {
-                    queryParams.Add($"category={category}");
-                }
-
-                var query = string.Join("&", queryParams);
-                var response = await _httpClient.GetAsync($"books/?{query}");
-                
-                response.EnsureSuccessStatusCode();
-                
-                var content = await response.Content.ReadAsStringAsync();
-                var result = JsonSerializer.Deserialize<ReadwiseBooksResponse>(content,
-                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
-                _logger.LogInformation("Retrieved {Count} books from Readwise (page {Page})", 
-                    result?.results.Count ?? 0, page);
-
-                return result ?? new ReadwiseBooksResponse();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error fetching books from Readwise");
-                return new ReadwiseBooksResponse();
-            }
-        }
-
-        public async Task<ReadwiseBookDto?> GetBookByIdAsync(int bookId)
-        {
-            try
-            {
-                var response = await _httpClient.GetAsync($"books/{bookId}/");
-                
-                if (!response.IsSuccessStatusCode)
-                {
-                    _logger.LogWarning("Book {BookId} not found in Readwise", bookId);
-                    return null;
-                }
-                
-                var content = await response.Content.ReadAsStringAsync();
-                return JsonSerializer.Deserialize<ReadwiseBookDto>(content,
-                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error fetching book {BookId} from Readwise", bookId);
-                return null;
-            }
-        }
-
         public async Task<bool> CreateHighlightsAsync(List<CreateReadwiseHighlightDto> highlights)
         {
             try
@@ -220,40 +113,50 @@ namespace MyMediaVerse.Infrastructure.Clients.Readwise
 
         public async Task<ReadwiseExportResponse> GetExportAsync(string? updatedAfter = null, string? pageCursor = null)
         {
-            try
+            if (string.IsNullOrEmpty(_apiToken) || _apiToken == "READWISE_API_TOKEN")
             {
-                var queryParams = new List<string>();
-
-                if (!string.IsNullOrEmpty(updatedAfter))
-                {
-                    queryParams.Add($"updatedAfter={Uri.EscapeDataString(updatedAfter)}");
-                }
-
-                if (!string.IsNullOrEmpty(pageCursor))
-                {
-                    queryParams.Add($"pageCursor={Uri.EscapeDataString(pageCursor)}");
-                }
-
-                var query = queryParams.Count > 0 ? "?" + string.Join("&", queryParams) : "";
-                var response = await _httpClient.GetAsync($"export/{query}");
-
-                response.EnsureSuccessStatusCode();
-
-                var content = await response.Content.ReadAsStringAsync();
-                var result = JsonSerializer.Deserialize<ReadwiseExportResponse>(content,
-                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
-                var totalHighlights = result?.results.Sum(b => b.highlights.Count) ?? 0;
-                _logger.LogInformation("Retrieved {BookCount} books with {HighlightCount} highlights from Readwise export",
-                    result?.results.Count ?? 0, totalHighlights);
-
-                return result ?? new ReadwiseExportResponse();
+                _logger.LogWarning("Readwise API token not configured. Please set READWISE_API_KEY/READWISE_API_TOKEN environment variable or ApiKeys:Readwise in appsettings.json.");
+                throw new InvalidOperationException("Readwise API token not configured. Please configure your API key as environment variable (READWISE_API_KEY or READWISE_API_TOKEN) or in appsettings.json (ApiKeys:Readwise).");
             }
-            catch (Exception ex)
+
+            var queryParams = new List<string>();
+
+            if (!string.IsNullOrEmpty(updatedAfter))
             {
-                _logger.LogError(ex, "Error fetching export from Readwise");
-                return new ReadwiseExportResponse();
+                queryParams.Add($"updatedAfter={Uri.EscapeDataString(updatedAfter)}");
             }
+
+            if (!string.IsNullOrEmpty(pageCursor))
+            {
+                queryParams.Add($"pageCursor={Uri.EscapeDataString(pageCursor)}");
+            }
+
+            var query = queryParams.Count > 0 ? "?" + string.Join("&", queryParams) : "";
+            var response = await _httpClient.GetAsync($"export/{query}");
+
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                _logger.LogWarning("Readwise API token was rejected while fetching the export");
+                throw new UnauthorizedAccessException("Readwise API token is invalid or expired. Please check your API key.");
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Readwise export request failed: {StatusCode} - {Content}",
+                    response.StatusCode, errorContent);
+                throw new HttpRequestException($"Readwise export request failed with status {response.StatusCode}.");
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+            var result = JsonSerializer.Deserialize<ReadwiseExportResponse>(content,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            var totalHighlights = result?.results.Sum(b => b.highlights.Count) ?? 0;
+            _logger.LogInformation("Retrieved {BookCount} books with {HighlightCount} highlights from Readwise export",
+                result?.results.Count ?? 0, totalHighlights);
+
+            return result ?? new ReadwiseExportResponse();
         }
 
         private bool IsConfigured()

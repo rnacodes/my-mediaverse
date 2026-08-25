@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MyMediaVerse.Infrastructure.Data;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MyMediaVerse.Infrastructure.Migrations
 {
     [DbContext(typeof(MediaLibraryDbContext))]
-    partial class MediaLibraryDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260823185205_AddSyncStates")]
+    partial class AddSyncStates
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -224,6 +227,9 @@ namespace MyMediaVerse.Infrastructure.Migrations
                     b.Property<string>("LocationType")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Metadata")
+                        .HasColumnType("jsonb");
 
                     b.Property<string>("Note")
                         .HasMaxLength(8191)
@@ -723,6 +729,9 @@ namespace MyMediaVerse.Infrastructure.Migrations
                         .HasMaxLength(17)
                         .HasColumnType("character varying(17)");
 
+                    b.Property<DateTime?>("LastReadwiseSync")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("MyReview")
                         .HasMaxLength(10000)
                         .HasColumnType("character varying(10000)");
@@ -736,6 +745,9 @@ namespace MyMediaVerse.Infrastructure.Migrations
                     b.Property<string>("Publisher")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
+
+                    b.Property<int?>("ReadwiseBookId")
+                        .HasColumnType("integer");
 
                     b.Property<int?>("YearPublished")
                         .HasColumnType("integer");

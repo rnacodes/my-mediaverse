@@ -1,7 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  validateReadwiseConnection,
-  syncHighlightsFromReadwise,
   getAllHighlights,
   getHighlightById,
   getHighlightsByArticle,
@@ -11,7 +9,9 @@ import {
   bulkCreateHighlights,
   createHighlight,
   updateHighlight,
+  setHighlightLink,
   deleteHighlight,
+  bulkDeleteHighlights,
   linkHighlightsToMedia,
   exportHighlightToReadwise,
   cleanHighlightText,
@@ -70,24 +70,6 @@ export function useUnlinkedHighlights(options = {}) {
   });
 }
 
-export function useValidateHighlightReadwiseConnection(options = {}) {
-  return useQuery({
-    queryKey: [...highlightKeys.all, 'validateConnection'],
-    queryFn: async () => (await validateReadwiseConnection()).data,
-    ...options,
-  });
-}
-
-export function useSyncHighlightsFromReadwise() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (lastSync) => syncHighlightsFromReadwise(lastSync),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: highlightKeys.all });
-    },
-  });
-}
-
 export function useBulkCreateHighlights() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -119,6 +101,17 @@ export function useUpdateHighlight() {
   });
 }
 
+export function useSetHighlightLink() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, articleId = null, bookId = null }) => setHighlightLink(id, { articleId, bookId }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: highlightKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: highlightKeys.detail(variables.id) });
+    },
+  });
+}
+
 export function useDeleteHighlight() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -126,6 +119,19 @@ export function useDeleteHighlight() {
     onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: highlightKeys.lists() });
       queryClient.removeQueries({ queryKey: highlightKeys.detail(id) });
+    },
+  });
+}
+
+export function useBulkDeleteHighlights() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (ids) => bulkDeleteHighlights(ids),
+    onSuccess: (_data, ids) => {
+      queryClient.invalidateQueries({ queryKey: highlightKeys.lists() });
+      ids.forEach((id) => {
+        queryClient.removeQueries({ queryKey: highlightKeys.detail(id) });
+      });
     },
   });
 }

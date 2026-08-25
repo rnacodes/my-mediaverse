@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MyMediaVerse.Application.Interfaces;
-using MyMediaVerse.Application.Utilities;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Shared.Interfaces;
 
@@ -29,71 +28,6 @@ namespace MyMediaVerse.Application.Services
             return await _readwiseClient.ValidateTokenAsync();
         }
 
-        public async Task<ReadwiseSyncResultDto> SyncBooksAsync(string? category = null)
-        {
-            var result = new ReadwiseSyncResultDto
-            {
-                StartedAt = DateTime.UtcNow
-            };
-
-            try
-            {
-                _logger.LogInformation("Starting book sync from Readwise (category: {Category})", 
-                    category ?? "all");
-
-                var page = 1;
-                var hasMore = true;
-
-                while (hasMore)
-                {
-                    _logger.LogInformation("Fetching books page {Page}", page);
-
-                    var response = await _readwiseClient.GetBooksAsync(
-                        category: category,
-                        page: page);
-                    
-                    if (response.results.Count == 0)
-                    {
-                        hasMore = false;
-                        break;
-                    }
-
-                    foreach (var bookDto in response.results)
-                    {
-                        await ProcessBookDto(bookDto, result);
-                    }
-
-                    hasMore = !string.IsNullOrEmpty(response.next);
-                    page++;
-
-                    // Safety check
-                    if (page > 1000)
-                    {
-                        _logger.LogWarning("Stopped book sync after 1000 pages");
-                        break;
-                    }
-
-                    // Small delay to respect rate limits (20 req/min for books)
-                    await Task.Delay(3000);
-                }
-
-                result.CompletedAt = DateTime.UtcNow;
-                result.Success = true;
-
-                _logger.LogInformation("Completed book sync. Created: {Created}, Updated: {Updated}",
-                    result.BooksCreated, result.BooksUpdated);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error syncing books from Readwise");
-                result.Success = false;
-                result.ErrorMessage = ex.Message;
-                result.CompletedAt = DateTime.UtcNow;
-            }
-
-            return result;
-        }
-
         public async Task<int> LinkHighlightsToMediaAsync()
         {
             _logger.LogInformation("Starting to link highlights to media items");
@@ -111,75 +45,26 @@ namespace MyMediaVerse.Application.Services
 
                 foreach (var highlight in unlinkedHighlights)
                 {
-                    Domain.Entities.Article? article = null;
+                    var match = await HighlightLinkMatcher.ResolveAsync(
+                        _context,
+                        new[] { highlight.SourceUrl },
+                        highlight.Title,
+                        highlight.Author,
+                        highlight.Category);
 
-                    // Try to match by source URL first (for articles) - using multiple matching strategies
-                    if (!string.IsNullOrEmpty(highlight.SourceUrl))
+                    if (match.Article != null)
                     {
-                        var normalizedSourceUrl = UrlNormalizer.Normalize(highlight.SourceUrl);
-
-                        // Try exact normalized match first
-                        article = await _context.Articles
-                            .FirstOrDefaultAsync(a =>
-                                a.Link != null &&
-                                EF.Functions.ILike(a.Link, normalizedSourceUrl));
-
-                        // If no match, try partial URL match (without protocol)
-                        if (article == null)
-                        {
-                            var urlWithoutProtocol = normalizedSourceUrl
-                                .Replace("https://", "")
-                                .Replace("http://", "");
-                            article = await _context.Articles
-                                .FirstOrDefaultAsync(a =>
-                                    a.Link != null &&
-                                    (EF.Functions.ILike(a.Link, $"%{urlWithoutProtocol}") ||
-                                     EF.Functions.ILike(a.Link, $"%{urlWithoutProtocol}/")));
-                        }
-                    }
-
-                    // Fallback: Try to match by title for article highlights if URL match failed
-                    if (article == null &&
-                        highlight.Category?.ToLowerInvariant() == "articles" &&
-                        !string.IsNullOrEmpty(highlight.Title))
-                    {
-                        article = await _context.Articles
-                            .FirstOrDefaultAsync(a =>
-                                EF.Functions.ILike(a.Title, highlight.Title));
-
-                        if (article != null)
-                        {
-                            _logger.LogDebug("Linked highlight {HighlightId} to article {ArticleId} by title match (URL match failed)",
-                                highlight.Id, article.Id);
-                        }
-                    }
-
-                    if (article != null)
-                    {
-                        highlight.ArticleId = article.Id;
+                        highlight.ArticleId = match.Article.Id;
                         linkedCount++;
                         _logger.LogDebug("Linked highlight {HighlightId} to article {ArticleId}",
-                            highlight.Id, article.Id);
-                        continue;
+                            highlight.Id, match.Article.Id);
                     }
-
-                    // Try to match books by title and author
-                    if (!string.IsNullOrEmpty(highlight.Title) &&
-                        !string.IsNullOrEmpty(highlight.Author) &&
-                        highlight.Category == "books")
+                    else if (match.Book != null)
                     {
-                        var book = await _context.Books
-                            .FirstOrDefaultAsync(b =>
-                                b.Title.ToLower() == highlight.Title.ToLower() &&
-                                b.Author.ToLower() == highlight.Author.ToLower());
-
-                        if (book != null)
-                        {
-                            highlight.BookId = book.Id;
-                            linkedCount++;
-                            _logger.LogDebug("Linked highlight {HighlightId} to book {BookId} by title/author",
-                                highlight.Id, book.Id);
-                        }
+                        highlight.BookId = match.Book.Id;
+                        linkedCount++;
+                        _logger.LogDebug("Linked highlight {HighlightId} to book {BookId} by title/author",
+                            highlight.Id, match.Book.Id);
                     }
                 }
 
@@ -237,41 +122,6 @@ namespace MyMediaVerse.Application.Services
                 _logger.LogError(ex, "Error exporting highlight {HighlightId} to Readwise", highlightId);
                 return false;
             }
-        }
-
-        private async Task ProcessBookDto(
-            MyMediaVerse.Shared.DTOs.Readwise.ReadwiseBookDto bookDto,
-            ReadwiseSyncResultDto result)
-        {
-            // This method primarily tracks book metadata for linking purposes
-            // We don't create Book entities automatically, but we could update existing ones
-            
-            // Check if we have a book that matches by title and author
-            if (!string.IsNullOrEmpty(bookDto.title) && !string.IsNullOrEmpty(bookDto.author))
-            {
-                var existingBook = await _context.Books
-                    .FirstOrDefaultAsync(b => 
-                        b.Title.ToLower() == bookDto.title.ToLower() &&
-                        b.Author.ToLower() == bookDto.author.ToLower());
-
-                if (existingBook != null)
-                {
-                    // Update the ReadwiseBookId if not already set
-                    if (existingBook.ReadwiseBookId != bookDto.id)
-                    {
-                        existingBook.ReadwiseBookId = bookDto.id;
-                        existingBook.LastReadwiseSync = DateTime.UtcNow;
-                        result.BooksUpdated++;
-                        await _context.SaveChangesAsync();
-                        
-                        _logger.LogInformation("Updated book {BookId} with Readwise ID {ReadwiseId}",
-                            existingBook.Id, bookDto.id);
-                    }
-                }
-            }
-
-            // Note: We intentionally don't auto-create books here to avoid cluttering
-            // the library with books the user may not want to track
         }
     }
 }

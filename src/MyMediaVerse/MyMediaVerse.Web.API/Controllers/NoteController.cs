@@ -161,6 +161,40 @@ namespace MyMediaVerse.Web.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Deletes every note whose ID is in the request; unknown IDs are skipped.
+        /// DELETE /api/note/bulk
+        /// </summary>
+        [HttpDelete("bulk")]
+        public async Task<IActionResult> BulkDelete([FromBody] BulkDeleteRequest request)
+        {
+            try
+            {
+                if (request.Ids == null || !request.Ids.Any())
+                {
+                    return BadRequest(new { message = "No note IDs provided for deletion." });
+                }
+
+                var deletedCount = await _noteService.BulkDeleteAsync(request.Ids);
+
+                if (deletedCount == 0)
+                {
+                    return NotFound(new { message = "No notes found with the provided IDs." });
+                }
+
+                return Ok(new
+                {
+                    message = $"Successfully deleted {deletedCount} note{(deletedCount != 1 ? "s" : "")}",
+                    deletedCount
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error bulk deleting notes");
+                return StatusCode(500, new { message = "Error bulk deleting notes", error = ex.Message });
+            }
+        }
+
         // ============================================
         // Linking Operations
         // ============================================

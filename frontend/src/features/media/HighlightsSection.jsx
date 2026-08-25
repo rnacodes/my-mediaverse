@@ -215,9 +215,9 @@ function HighlightsSection({ mediaItem, highlights, highlightsLoading }) {
                               View Highlight
                             </Link>
                           )}
-                          {highlight.url && (
+                          {highlight.highlightUrl && (
                             <Link
-                              href={highlight.url}
+                              href={highlight.highlightUrl}
                               target="_blank"
                               rel="noopener noreferrer"
                               sx={{

@@ -62,36 +62,36 @@ namespace MyMediaVerse.UnitTests.Infrastructure
                 .WithMessage("Readwise API token is invalid or expired*");
         }
 
+
         [Fact]
-        public async Task GetHighlightsAsync_Success_ReturnsHighlights()
+        public async Task GetExportAsync_Success_ReturnsBooksWithNestedHighlights()
         {
             // Arrange
             var responseJson = @"{
-                ""count"": 2,
-                ""next"": null,
-                ""previous"": null,
+                ""count"": 1,
+                ""nextPageCursor"": ""cursor-2"",
                 ""results"": [
                     {
-                        ""id"": 1,
-                        ""text"": ""Highlight 1"",
-                        ""note"": ""Note 1"",
-                        ""location"": 100,
-                        ""location_type"": ""location"",
-                        ""highlighted_at"": ""2023-01-01T12:00:00Z"",
-                        ""url"": ""https://readwise.io/highlights/1"",
-                        ""book_id"": 123,
-                        ""tags"": [""important""]
-                    },
-                    {
-                        ""id"": 2,
-                        ""text"": ""Highlight 2"",
-                        ""note"": null,
-                        ""location"": 200,
-                        ""location_type"": ""page"",
-                        ""highlighted_at"": ""2023-01-02T12:00:00Z"",
-                        ""url"": ""https://readwise.io/highlights/2"",
-                        ""book_id"": 123,
-                        ""tags"": []
+                        ""user_book_id"": 123,
+                        ""title"": ""Test Book"",
+                        ""author"": ""Test Author"",
+                        ""category"": ""books"",
+                        ""source"": ""kindle"",
+                        ""cover_image_url"": ""https://example.com/cover.jpg"",
+                        ""highlights"": [
+                            {
+                                ""id"": 1,
+                                ""text"": ""Highlight 1"",
+                                ""note"": ""Note 1"",
+                                ""location"": 100,
+                                ""location_type"": ""location"",
+                                ""highlighted_at"": ""2023-01-01T12:00:00Z"",
+                                ""url"": ""https://readwise.io/open/1"",
+                                ""color"": ""yellow"",
+                                ""is_favorite"": false,
+                                ""tags"": [{ ""id"": 1, ""name"": ""Important"" }]
+                            }
+                        ]
                     }
                 ]
             }";
@@ -99,21 +99,23 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             SetupHttpResponse(HttpStatusCode.OK, responseJson);
 
             // Act
-            var result = await _client.GetHighlightsAsync();
+            var result = await _client.GetExportAsync();
 
             // Assert
             result.Should().NotBeNull();
-            result.count.Should().Be(2);
-            result.results.Should().HaveCount(2);
-            result.results[0].text.Should().Be("Highlight 1");
-            result.results[1].text.Should().Be("Highlight 2");
+            result.nextPageCursor.Should().Be("cursor-2");
+            result.results.Should().HaveCount(1);
+            result.results[0].title.Should().Be("Test Book");
+            result.results[0].user_book_id.Should().Be(123);
+            result.results[0].highlights.Should().HaveCount(1);
+            result.results[0].highlights[0].text.Should().Be("Highlight 1");
+            result.results[0].highlights[0].tags.Should().ContainSingle(t => t.name == "Important");
         }
 
         [Fact]
-        public async Task GetHighlightsAsync_WithUpdatedAfter_IncludesQueryParameter()
+        public async Task GetExportAsync_WithUpdatedAfterAndCursor_IncludesQueryParameters()
         {
             // Arrange
-            var updatedAfter = "2023-01-01";
             var responseJson = @"{""count"": 0, ""results"": []}";
 
             _mockHttpMessageHandler.OnSend = (req, ct) => Task.FromResult(new HttpResponseMessage
@@ -123,99 +125,39 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             });
 
             // Act
-            await _client.GetHighlightsAsync(updatedAfter);
+            await _client.GetExportAsync("2023-01-01T00:00:00Z", "abc123");
 
             // Assert
             var capturedRequest = _mockHttpMessageHandler.Requests.LastOrDefault();
             capturedRequest.Should().NotBeNull();
-            capturedRequest.RequestUri.Query.Should().Contain("updated__gt=2023-01-01");
+            capturedRequest.RequestUri.AbsolutePath.Should().EndWith("export/");
+            capturedRequest.RequestUri.Query.Should().Contain("updatedAfter=");
+            capturedRequest.RequestUri.Query.Should().Contain("pageCursor=abc123");
         }
 
         [Fact]
-        public async Task GetBooksAsync_Success_ReturnsBooks()
-        {
-            // Arrange
-            var responseJson = @"{
-                ""count"": 1,
-                ""next"": null,
-                ""previous"": null,
-                ""results"": [
-                    {
-                        ""id"": 123,
-                        ""title"": ""Test Book"",
-                        ""author"": ""Test Author"",
-                        ""category"": ""books"",
-                        ""source"": ""kindle"",
-                        ""num_highlights"": 5,
-                        ""last_highlight_at"": ""2023-01-01T12:00:00Z"",
-                        ""updated"": ""2023-01-01T12:00:00Z"",
-                        ""cover_image_url"": ""https://example.com/cover.jpg"",
-                        ""highlights_url"": ""https://readwise.io/api/v2/highlights/?book_id=123"",
-                        ""source_url"": ""https://amazon.com/book"",
-                        ""asin"": ""B000000000"",
-                        ""tags"": []
-                    }
-                ]
-            }";
-
-            SetupHttpResponse(HttpStatusCode.OK, responseJson);
-
-            // Act
-            var result = await _client.GetBooksAsync();
-
-            // Assert
-            result.Should().NotBeNull();
-            result.count.Should().Be(1);
-            result.results.Should().HaveCount(1);
-            result.results[0].title.Should().Be("Test Book");
-            result.results[0].author.Should().Be("Test Author");
-            result.results[0].num_highlights.Should().Be(5);
-        }
-
-        [Fact]
-        public async Task GetBookByIdAsync_Success_ReturnsBook()
-        {
-            // Arrange
-            var bookId = 123;
-            var responseJson = @"{
-                ""id"": 123,
-                ""title"": ""Test Book"",
-                ""author"": ""Test Author"",
-                ""category"": ""books"",
-                ""source"": ""kindle"",
-                ""num_highlights"": 5,
-                ""last_highlight_at"": ""2023-01-01T12:00:00Z"",
-                ""updated"": ""2023-01-01T12:00:00Z"",
-                ""cover_image_url"": ""https://example.com/cover.jpg"",
-                ""highlights_url"": ""https://readwise.io/api/v2/highlights/?book_id=123"",
-                ""source_url"": ""https://amazon.com/book"",
-                ""asin"": ""B000000000"",
-                ""tags"": []
-            }";
-
-            SetupHttpResponse(HttpStatusCode.OK, responseJson);
-
-            // Act
-            var result = await _client.GetBookByIdAsync(bookId);
-
-            // Assert
-            result.Should().NotBeNull();
-            result.id.Should().Be(123);
-            result.title.Should().Be("Test Book");
-        }
-
-        [Fact]
-        public async Task GetHighlightsAsync_Unauthorized_ReturnsEmptyResponse()
+        public async Task GetExportAsync_Unauthorized_ThrowsUnauthorizedAccessException()
         {
             // Arrange
             SetupHttpResponse(HttpStatusCode.Unauthorized, "Unauthorized");
 
-            // Act
-            var result = await _client.GetHighlightsAsync();
+            // Act & Assert — failures must propagate so a bad token can't
+            // masquerade as an empty (successful) sync
+            await _client.Invoking(c => c.GetExportAsync())
+                .Should().ThrowAsync<UnauthorizedAccessException>()
+                .WithMessage("Readwise API token is invalid or expired*");
+        }
 
-            // Assert
-            result.Should().NotBeNull();
-            result.results.Should().BeNullOrEmpty();
+        [Fact]
+        public async Task GetExportAsync_ServerError_ThrowsHttpRequestException()
+        {
+            // Arrange
+            SetupHttpResponse(HttpStatusCode.InternalServerError, "Server error");
+
+            // Act & Assert
+            await _client.Invoking(c => c.GetExportAsync())
+                .Should().ThrowAsync<HttpRequestException>()
+                .WithMessage("*failed with status*");
         }
 
         private void SetupHttpResponse(HttpStatusCode statusCode, string content)

@@ -1,5 +1,5 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.DTOs;
 
@@ -11,18 +11,15 @@ namespace MyMediaVerse.Web.API.Controllers
     {
         private readonly IHighlightService _highlightService;
         private readonly IReadwiseService _readwiseService;
-        private readonly IApplicationDbContext _context;
         private readonly ILogger<HighlightController> _logger;
 
         public HighlightController(
             IHighlightService highlightService,
             IReadwiseService readwiseService,
-            IApplicationDbContext context,
             ILogger<HighlightController> logger)
         {
             _highlightService = highlightService;
             _readwiseService = readwiseService;
-            _context = context;
             _logger = logger;
         }
 
@@ -175,35 +172,8 @@ namespace MyMediaVerse.Web.API.Controllers
             }
         }
 
-        // POST: api/highlight/sync
-        [HttpPost("sync")]
-        public async Task<ActionResult<HighlightSyncResultDto>> SyncHighlights([FromQuery] DateTime? lastSync = null)
-        {
-            try
-            {
-                _logger.LogInformation("Starting highlight sync from Readwise (lastSync: {LastSync})", 
-                    lastSync?.ToString() ?? "full");
-                
-                HighlightSyncResultDto result;
-                if (lastSync.HasValue)
-                {
-                    result = await _highlightService.SyncHighlightsIncrementalAsync(lastSync.Value);
-                }
-                else
-                {
-                    result = await _highlightService.SyncHighlightsFromReadwiseAsync();
-                }
-
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error syncing highlights");
-                return StatusCode(500, new { error = "Failed to sync highlights", details = ex.Message });
-            }
-        }
-
         // POST: api/highlight/link
+        [Authorize] // Library-wide linking backfill; operator-only, like the search reindex endpoints.
         [HttpPost("link")]
         public async Task<ActionResult<object>> LinkHighlightsToMedia()
         {
@@ -221,6 +191,7 @@ namespace MyMediaVerse.Web.API.Controllers
         }
 
         // POST: api/highlight/{id}/export
+        [Authorize] // Writes to the owner's Readwise account via the app-wide token; never a visitor action.
         [HttpPost("{id}/export")]
         public async Task<ActionResult<object>> ExportHighlight(Guid id)
         {
@@ -241,8 +212,11 @@ namespace MyMediaVerse.Web.API.Controllers
         }
 
         // PUT: api/highlight/{id}
+        // Partial update: null fields are left unchanged, empty strings clear
+        // optional fields, an empty tag list clears tags. Links are managed via
+        // PUT {id}/link.
         [HttpPut("{id}")]
-        public async Task<ActionResult<HighlightResponseDto>> UpdateHighlight(Guid id, [FromBody] CreateHighlightDto dto)
+        public async Task<ActionResult<HighlightResponseDto>> UpdateHighlight(Guid id, [FromBody] UpdateHighlightDto dto)
         {
             try
             {
@@ -254,6 +228,10 @@ namespace MyMediaVerse.Web.API.Controllers
                 var highlight = await _highlightService.UpdateHighlightAsync(id, dto);
                 return Ok(MapToResponseDto(highlight));
             }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
             catch (InvalidOperationException ex)
             {
                 _logger.LogWarning(ex, "Highlight {Id} not found for update", id);
@@ -263,6 +241,37 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 _logger.LogError(ex, "Error updating highlight {Id}", id);
                 return StatusCode(500, new { error = "Failed to update highlight", details = ex.Message });
+            }
+        }
+
+        // PUT: api/highlight/{id}/link
+        // Sets the highlight's media link: article, book, or neither (unlink).
+        [HttpPut("{id}/link")]
+        public async Task<ActionResult<HighlightResponseDto>> SetHighlightLink(Guid id, [FromBody] HighlightLinkDto dto)
+        {
+            try
+            {
+                if (dto == null)
+                {
+                    return BadRequest(new { error = "Link data is required" });
+                }
+
+                var highlight = await _highlightService.SetHighlightLinkAsync(id, dto.ArticleId, dto.BookId);
+                return Ok(MapToResponseDto(highlight));
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Highlight {Id} or link target not found", id);
+                return NotFound(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error setting link for highlight {Id}", id);
+                return StatusCode(500, new { error = "Failed to set highlight link", details = ex.Message });
             }
         }
 
@@ -286,7 +295,39 @@ namespace MyMediaVerse.Web.API.Controllers
             }
         }
 
+        // DELETE: api/highlight/bulk
+        [HttpDelete("bulk")]
+        public async Task<IActionResult> BulkDeleteHighlights([FromBody] BulkDeleteRequest request)
+        {
+            try
+            {
+                if (request.Ids == null || !request.Ids.Any())
+                {
+                    return BadRequest(new { error = "No highlight IDs provided for deletion." });
+                }
+
+                var deletedCount = await _highlightService.BulkDeleteHighlightsAsync(request.Ids);
+
+                if (deletedCount == 0)
+                {
+                    return NotFound(new { error = "No highlights found with the provided IDs." });
+                }
+
+                return Ok(new
+                {
+                    message = $"Successfully deleted {deletedCount} highlight{(deletedCount != 1 ? "s" : "")}",
+                    deletedCount
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error bulk deleting highlights");
+                return StatusCode(500, new { error = "Failed to bulk delete highlights", details = ex.Message });
+            }
+        }
+
         // POST: api/highlight/clean-text
+        [Authorize] // Library-wide text rewrite; operator-only maintenance.
         [HttpPost("clean-text")]
         public async Task<ActionResult<object>> CleanHighlightText()
         {
@@ -307,151 +348,6 @@ namespace MyMediaVerse.Web.API.Controllers
             }
         }
 
-        // GET: api/highlight/validate-connection
-        [HttpGet("validate-connection")]
-        public async Task<ActionResult<object>> ValidateConnection()
-        {
-            try
-            {
-                var isValid = await _readwiseService.ValidateConnectionAsync();
-                return Ok(new { 
-                    connected = isValid,
-                    message = isValid 
-                        ? "Readwise API connection is valid ✓" 
-                        : "Readwise API connection failed"
-                });
-            }
-            catch (InvalidOperationException ex)
-            {
-                _logger.LogWarning(ex, "Readwise API not configured");
-                return Ok(new { 
-                    connected = false,
-                    message = "Readwise API not configured",
-                    details = ex.Message 
-                });
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                _logger.LogWarning(ex, "Readwise API token invalid");
-                return Ok(new { 
-                    connected = false,
-                    message = "Invalid API token",
-                    details = ex.Message 
-                });
-            }
-            catch (HttpRequestException ex)
-            {
-                _logger.LogError(ex, "Network error validating Readwise connection");
-                return Ok(new { 
-                    connected = false,
-                    message = "Network error",
-                    details = ex.Message 
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error validating Readwise connection");
-                return Ok(new { 
-                    connected = false,
-                    message = "Connection validation failed",
-                    details = ex.Message 
-                });
-            }
-        }
-
-        // GET: api/highlight/diagnose-linking
-        /// <summary>
-        /// Diagnoses why highlights aren't linking to articles.
-        /// Shows unlinked highlights with their source URLs and potential matches.
-        /// </summary>
-        [HttpGet("diagnose-linking")]
-        public async Task<ActionResult<object>> DiagnoseLinking([FromQuery] int limit = 10)
-        {
-            try
-            {
-                var unlinkedHighlights = (await _highlightService.GetUnlinkedHighlightsAsync())
-                    .Where(h => !string.IsNullOrEmpty(h.SourceUrl) && h.Category?.ToLowerInvariant() == "articles")
-                    .Take(limit)
-                    .ToList();
-
-                var diagnostics = new List<object>();
-
-                // Get unique titles from highlights to search for matching articles
-                var uniqueTitles = unlinkedHighlights
-                    .Select(h => h.Title)
-                    .Where(t => !string.IsNullOrEmpty(t))
-                    .Distinct()
-                    .ToList();
-
-                foreach (var highlight in unlinkedHighlights)
-                {
-                    var normalizedUrl = MyMediaVerse.Application.Utilities.UrlNormalizer.Normalize(highlight.SourceUrl);
-                    var urlWithoutProtocol = normalizedUrl
-                        .Replace("https://", "")
-                        .Replace("http://", "");
-
-                    // Search for potential matching articles by URL
-                    var potentialMatch = await _context.Articles
-                        .Where(a => a.Link != null && (
-                            EF.Functions.ILike(a.Link, normalizedUrl) ||
-                            EF.Functions.ILike(a.Link, $"%{urlWithoutProtocol}") ||
-                            EF.Functions.ILike(a.Link, $"%{urlWithoutProtocol}/")))
-                        .Select(a => new { a.Id, a.Title, a.Link })
-                        .FirstOrDefaultAsync();
-
-                    // Also try to find by title if no URL match
-                    object? titleMatch = null;
-                    if (potentialMatch == null && !string.IsNullOrEmpty(highlight.Title))
-                    {
-                        titleMatch = await _context.Articles
-                            .Where(a => EF.Functions.ILike(a.Title, highlight.Title))
-                            .Select(a => new { a.Id, a.Title, a.Link })
-                            .FirstOrDefaultAsync();
-                    }
-
-                    diagnostics.Add(new
-                    {
-                        highlightId = highlight.Id,
-                        highlightTitle = highlight.Title,
-                        originalSourceUrl = highlight.SourceUrl,
-                        normalizedSourceUrl = normalizedUrl,
-                        category = highlight.Category,
-                        matchingArticleByUrl = potentialMatch,
-                        matchingArticleByTitle = titleMatch,
-                        reason = potentialMatch == null && titleMatch == null
-                            ? "No matching article found in database - article may not have been imported from Reader"
-                            : (potentialMatch != null ? "URL match found but linking failed" : "Title match found but URLs don't match")
-                    });
-                }
-
-                // Get total article count for context
-                var totalArticles = await _context.Articles.CountAsync();
-
-                // Get sample article Links for comparison
-                var sampleArticleLinks = await _context.Articles
-                    .Where(a => a.Link != null)
-                    .Take(5)
-                    .Select(a => new { a.Title, a.Link })
-                    .ToListAsync();
-
-                return Ok(new
-                {
-                    totalUnlinkedArticleHighlights = (await _highlightService.GetUnlinkedHighlightsAsync())
-                        .Count(h => h.Category?.ToLowerInvariant() == "articles"),
-                    totalArticlesInDatabase = totalArticles,
-                    sampleDiagnostics = diagnostics,
-                    sampleArticleLinks,
-                    suggestion = "If 'matchingArticleByUrl' is null for all highlights, the articles haven't been imported from Reader. " +
-                                 "Run 'POST /api/readwise/import-by-location?location=archive' to import archived articles, then run 'POST /api/highlight/link' to link them."
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error diagnosing highlight linking");
-                return StatusCode(500, new { error = "Failed to diagnose linking", details = ex.Message });
-            }
-        }
-
         private static HighlightResponseDto MapToResponseDto(Domain.Entities.Highlight highlight)
         {
             return new HighlightResponseDto
@@ -463,6 +359,7 @@ namespace MyMediaVerse.Web.API.Controllers
                 author = highlight.Author,
                 category = highlight.Category,
                 sourceUrl = highlight.SourceUrl,
+                highlightUrl = highlight.HighlightUrl,
                 imageUrl = highlight.ImageUrl,
                 articleId = highlight.ArticleId,
                 articleTitle = highlight.Article?.Title,
