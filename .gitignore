@@ -732,3 +732,4 @@ TESTING.md
 new 181.md
 deploy/mmv-stack/.env.example
 .cursorignore
+.tmp.driveupload/
