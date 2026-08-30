@@ -71,9 +71,22 @@ namespace MyMediaVerse.Infrastructure.Services.Sync
 
             foreach (var result in results)
             {
+                if (!result.Success)
+                {
+                    _logger.LogError(
+                        "Sync failed for vault '{VaultName}': {ErrorMessage}",
+                        result.VaultName, result.ErrorMessage);
+                    continue;
+                }
+
                 _logger.LogInformation(
-                    "Sync completed for vault '{VaultName}': {Imported} imported, {Updated} updated, {Unchanged} unchanged, {Failed} failed",
-                    result.VaultName, result.Imported, result.Updated, result.Unchanged, result.Failed);
+                    "Sync completed for vault '{VaultName}': {Created} created, {Updated} updated, {Skipped} unchanged, {Failed} failed",
+                    result.VaultName, result.CreatedCount, result.UpdatedCount, result.SkippedCount, result.FailedCount);
+
+                if (!string.IsNullOrEmpty(result.WarningMessage))
+                {
+                    _logger.LogWarning("Sync warning for vault '{VaultName}': {Warning}", result.VaultName, result.WarningMessage);
+                }
 
                 if (result.Errors.Any())
                 {

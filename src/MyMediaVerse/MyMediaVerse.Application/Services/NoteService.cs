@@ -292,14 +292,45 @@ namespace MyMediaVerse.Application.Services
 
         public async Task<NoteSyncResultDto> SyncFromQuartzVaultAsync(string vaultName, string vaultUrl, string? authToken = null, bool removeOrphans = false)
         {
+            var startedAt = DateTime.UtcNow;
             var result = new NoteSyncResultDto
             {
                 VaultName = vaultName.ToLower(),
-                SyncedAt = DateTime.UtcNow
+                StartedAt = startedAt,
+                SyncedAt = startedAt
             };
 
-             _logger.LogInformation("Starting sync for vault {VaultName} from {VaultUrl}", vaultName, vaultUrl);
+            _logger.LogInformation("Starting sync for vault {VaultName} from {VaultUrl}", vaultName, vaultUrl);
 
+            try
+            {
+                await SyncVaultCoreAsync(vaultName, vaultUrl, authToken, removeOrphans, result);
+                result.CompletedAt = DateTime.UtcNow;
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogError(ex, "Vault authentication failed while syncing vault {VaultName}", vaultName);
+                result.Success = false;
+                result.ErrorMessage = $"Vault authentication failed: {ex.Message}";
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogError(ex, "Failed to reach vault {VaultName}", vaultName);
+                result.Success = false;
+                result.ErrorMessage = $"Failed to reach the vault: {ex.Message}";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error syncing vault {VaultName}", vaultName);
+                result.Success = false;
+                result.ErrorMessage = ex.Message;
+            }
+
+            return result;
+        }
+
+        private async Task SyncVaultCoreAsync(string vaultName, string vaultUrl, string? authToken, bool removeOrphans, NoteSyncResultDto result)
+        {
             var contentIndex = await _quartzClient.GetContentIndexAsync(vaultUrl, authToken);
             result.TotalProcessed = contentIndex.Count;
 
@@ -341,7 +372,7 @@ namespace MyMediaVerse.Application.Services
                         _context.Add(note);
                         await _context.SaveChangesAsync();
 
-                        result.Imported++;
+                        result.CreatedCount++;
                     }
                     else if (existingNote.ContentHash != contentHash)
                     {
@@ -366,7 +397,7 @@ namespace MyMediaVerse.Application.Services
                         _context.Update(existingNote);
                         await _context.SaveChangesAsync();
 
-                        result.Updated++;
+                        result.UpdatedCount++;
                     }
                     else
                     {
@@ -383,28 +414,38 @@ namespace MyMediaVerse.Application.Services
                         }
                         existingNote.LastSyncedAt = DateTime.UtcNow;
                         _context.Update(existingNote);
-                        result.Unchanged++;
+                        result.SkippedCount++;
                     }
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error syncing note {Slug} from vault {VaultName}", slug, vaultName);
-                    result.Failed++;
+                    result.FailedCount++;
                     result.Errors.Add($"Failed to sync note '{slug}': {ex.Message}");
                 }
             }
 
             await _context.SaveChangesAsync();
             _logger.LogInformation(
-                "Sync completed for vault {VaultName}: {Imported} imported, {Updated} updated, {Unchanged} unchanged, {Failed} failed",
-                vaultName, result.Imported, result.Updated, result.Unchanged, result.Failed);
+                "Sync completed for vault {VaultName}: {Created} created, {Updated} updated, {Skipped} unchanged, {Failed} failed",
+                vaultName, result.CreatedCount, result.UpdatedCount, result.SkippedCount, result.FailedCount);
 
             if (removeOrphans)
             {
                 await RemoveOrphanedNotesAsync(vaultName.ToLower(), contentIndex.Keys, result);
             }
 
-            return result;
+            if (result.FailedCount > 0)
+            {
+                AppendWarning(result, $"{result.FailedCount} of {result.TotalProcessed} notes failed to sync; see errors for detail.");
+            }
+        }
+
+        private static void AppendWarning(NoteSyncResultDto result, string message)
+        {
+            result.WarningMessage = string.IsNullOrWhiteSpace(result.WarningMessage)
+                ? message
+                : $"{result.WarningMessage} {message}";
         }
 
         // Deletes notes whose slug is no longer present in the vault's published content index.
@@ -421,10 +462,12 @@ namespace MyMediaVerse.Application.Services
 
             if (publishedSet.Count == 0 && orphans.Count > 0)
             {
-                _logger.LogWarning(
+                // An empty published index while notes exist in the database usually means
+                // the vault publish itself is broken, so log at error level for alerting.
+                _logger.LogError(
                     "Orphan removal skipped for vault {VaultName}: content index is empty but {Count} notes exist in the database",
                     vaultName, orphans.Count);
-                result.Errors.Add($"Orphan removal skipped: the published content index is empty but {orphans.Count} notes exist in the database. Check the vault publish.");
+                AppendWarning(result, $"Orphan removal skipped: the published content index is empty but {orphans.Count} notes exist in the database. Check the vault publish.");
                 return;
             }
 
@@ -470,7 +513,7 @@ namespace MyMediaVerse.Application.Services
 
             if (!string.IsNullOrEmpty(generalVaultUrl))
             {
-                var result = await SyncFromQuartzVaultAsync("general", generalVaultUrl, generalVaultAuth, removeOrphans);
+                var result = await SyncVaultGuardedAsync("general", generalVaultUrl, generalVaultAuth, removeOrphans);
                 results.Add(result);
             }
 
@@ -481,11 +524,34 @@ namespace MyMediaVerse.Application.Services
 
             if (!string.IsNullOrEmpty(programmingVaultUrl))
             {
-                var result = await SyncFromQuartzVaultAsync("programming", programmingVaultUrl, programmingVaultAuth, removeOrphans);
+                var result = await SyncVaultGuardedAsync("programming", programmingVaultUrl, programmingVaultAuth, removeOrphans);
                 results.Add(result);
             }
 
             return results;
+        }
+
+        // Guards the sync-all loop: a failure in one vault is reported in that vault's
+        // result instead of aborting the sync of the remaining vaults.
+        private async Task<NoteSyncResultDto> SyncVaultGuardedAsync(string vaultName, string vaultUrl, string? authToken, bool removeOrphans)
+        {
+            try
+            {
+                return await SyncFromQuartzVaultAsync(vaultName, vaultUrl, authToken, removeOrphans);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error syncing vault {VaultName}", vaultName);
+                var startedAt = DateTime.UtcNow;
+                return new NoteSyncResultDto
+                {
+                    VaultName = vaultName.ToLower(),
+                    Success = false,
+                    ErrorMessage = ex.Message,
+                    StartedAt = startedAt,
+                    SyncedAt = startedAt
+                };
+            }
         }
 
         public async Task<NoteSyncStatusDto> GetSyncStatusAsync()

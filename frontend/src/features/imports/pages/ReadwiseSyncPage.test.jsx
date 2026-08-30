@@ -139,6 +139,38 @@ describe('ReadwiseSyncPage', () => {
     consoleError.mockRestore();
   });
 
+  it('renders the results panel when a fatal sync returns the standard result body', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockMount();
+    server.use(
+      http.post(`${API_BASE}/readwise/sync`, () =>
+        HttpResponse.json(
+          {
+            success: false,
+            operation: 'readwise-sync',
+            articlesCreated: 0,
+            articlesUpdated: 0,
+            highlightsCreated: 0,
+            highlightsUpdated: 0,
+            highlightsLinked: 0,
+            errorMessage: 'Readwise API returned 401',
+            startedAt: '2026-08-29T00:00:00Z',
+          },
+          { status: 500 },
+        ),
+      ),
+    );
+
+    const { user } = renderWithProviders(<ReadwiseSyncPage />, { route: '/readwise-sync' });
+
+    await user.click(screen.getByRole('button', { name: 'Full Sync' }));
+
+    expect(await screen.findByText('Sync Results')).toBeInTheDocument();
+    expect(screen.getByText('❌ Failed')).toBeInTheDocument();
+    expect(screen.getByText('Readwise API returned 401')).toBeInTheDocument();
+    consoleError.mockRestore();
+  });
+
   it('fetches article content and renders the fetch results', async () => {
     mockMount();
     server.use(

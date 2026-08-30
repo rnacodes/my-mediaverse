@@ -38,10 +38,16 @@ namespace MyMediaVerse.UnitTests.Application
             var result = await _service.SyncFromQuartzVaultAsync("general", "https://vault.example.com");
 
             // Assert
-            result.Imported.Should().Be(1);
-            result.Updated.Should().Be(0);
-            result.Unchanged.Should().Be(0);
+            result.CreatedCount.Should().Be(1);
+            result.UpdatedCount.Should().Be(0);
+            result.SkippedCount.Should().Be(0);
             result.VaultName.Should().Be("general");
+            result.Success.Should().BeTrue();
+            result.Operation.Should().Be("notes-sync");
+            result.ErrorMessage.Should().BeNull();
+            result.WarningMessage.Should().BeNull();
+            result.CompletedAt.Should().NotBeNull();
+            result.Duration.Should().NotBeNull();
             Context.Notes.Should().HaveCount(1);
             Context.Notes.First().VaultName.Should().Be("general");
         }
@@ -72,8 +78,8 @@ namespace MyMediaVerse.UnitTests.Application
             var result = await _service.SyncFromQuartzVaultAsync("general", "https://vault.example.com");
 
             // Assert
-            result.Imported.Should().Be(0);
-            result.Updated.Should().Be(1);
+            result.CreatedCount.Should().Be(0);
+            result.UpdatedCount.Should().Be(1);
         }
 
         [Fact]
@@ -233,16 +239,67 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         [Fact]
-        public async Task SyncFromQuartzVaultAsync_WhenAuthError_ShouldPropagate()
+        public async Task SyncFromQuartzVaultAsync_WhenAuthError_ShouldReturnFatalResult()
         {
-            // Arrange — a total failure must reach the API layer so it can return a real
-            // error status instead of a 200 that looks like a successful empty sync
+            // Arrange — a total failure is reported in the result itself so the API layer
+            // can return a real error status with the same body shape as a success
             _mockQuartzClient.GetContentIndexAsync(Arg.Any<string>(), Arg.Any<string?>())
                 .Throws(new UnauthorizedAccessException("Invalid token"));
 
-            // Act & Assert
-            await Assert.ThrowsAsync<UnauthorizedAccessException>(
-                () => _service.SyncFromQuartzVaultAsync("general", "https://vault.example.com", "bad-token"));
+            // Act
+            var result = await _service.SyncFromQuartzVaultAsync("general", "https://vault.example.com", "bad-token");
+
+            // Assert
+            result.Success.Should().BeFalse();
+            result.ErrorMessage.Should().Contain("authentication failed");
+            result.CompletedAt.Should().BeNull();
+            result.VaultName.Should().Be("general");
+        }
+
+        [Fact]
+        public async Task SyncFromQuartzVaultAsync_WhenVaultUnreachable_ShouldReturnFatalResult()
+        {
+            // Arrange
+            _mockQuartzClient.GetContentIndexAsync(Arg.Any<string>(), Arg.Any<string?>())
+                .Throws(new HttpRequestException("Connection refused"));
+
+            // Act
+            var result = await _service.SyncFromQuartzVaultAsync("general", "https://vault.example.com");
+
+            // Assert
+            result.Success.Should().BeFalse();
+            result.ErrorMessage.Should().Contain("Failed to reach the vault");
+            result.CompletedAt.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task SyncFromQuartzVaultAsync_WhenSomeNotesFail_ShouldWarnButStaySuccessful()
+        {
+            // Arrange — one processable note and one malformed entry that throws mid-loop
+            var contentIndex = new Dictionary<string, QuartzNoteDto>
+            {
+                ["philosophy/stoicism"] = new QuartzNoteDto
+                {
+                    Title = "Stoicism",
+                    Content = "Content about stoicism",
+                    Tags = new List<string> { "philosophy" }
+                },
+                ["philosophy/broken"] = null!
+            };
+
+            _mockQuartzClient.GetContentIndexAsync(Arg.Any<string>(), Arg.Any<string?>())
+                .Returns(contentIndex);
+
+            // Act
+            var result = await _service.SyncFromQuartzVaultAsync("general", "https://vault.example.com");
+
+            // Assert — per-item failures never flip Success; they surface as a warning
+            result.Success.Should().BeTrue();
+            result.CreatedCount.Should().Be(1);
+            result.FailedCount.Should().Be(1);
+            result.Errors.Should().ContainSingle(e => e.Contains("philosophy/broken"));
+            result.WarningMessage.Should().Contain("1 of 2 notes failed");
+            result.CompletedAt.Should().NotBeNull();
         }
 
         [Fact]
@@ -297,8 +354,8 @@ namespace MyMediaVerse.UnitTests.Application
             var result = await _service.SyncFromQuartzVaultAsync("general", "https://vault.example.com");
 
             // Assert
-            result.Imported.Should().Be(0);
-            result.Updated.Should().Be(1);
+            result.CreatedCount.Should().Be(0);
+            result.UpdatedCount.Should().Be(1);
             Context.Notes.Should().HaveCount(1);
         }
 
@@ -377,9 +434,11 @@ namespace MyMediaVerse.UnitTests.Application
             // Act
             var result = await _service.SyncFromQuartzVaultAsync("general", "https://vault.example.com", removeOrphans: true);
 
-            // Assert
+            // Assert — the skip is a warning (suspect run), not a per-item error or a failure
             result.OrphansRemoved.Should().Be(0);
-            result.Errors.Should().ContainSingle(e => e.Contains("Orphan removal skipped"));
+            result.Success.Should().BeTrue();
+            result.Errors.Should().BeEmpty();
+            result.WarningMessage.Should().Contain("Orphan removal skipped");
             Context.Notes.Should().HaveCount(1);
         }
 
@@ -425,7 +484,7 @@ namespace MyMediaVerse.UnitTests.Application
 
             // Assert
             result.TotalProcessed.Should().Be(0);
-            result.Imported.Should().Be(0);
+            result.CreatedCount.Should().Be(0);
         }
 
         #endregion

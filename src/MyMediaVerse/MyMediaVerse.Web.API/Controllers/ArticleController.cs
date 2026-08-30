@@ -283,6 +283,12 @@ namespace MyMediaVerse.Web.API.Controllers
 
                 _logger.LogInformation("Starting Reader document sync (location: {Location})", location ?? "all");
                 var result = await _readerService.SyncDocumentsAsync(location);
+
+                if (!result.Success)
+                {
+                    return StatusCode(500, result);
+                }
+
                 return Ok(result);
             }
             catch (Exception ex)

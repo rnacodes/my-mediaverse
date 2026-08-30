@@ -52,7 +52,14 @@ const ReadwiseSyncPage = () => {
     setSyncResult(null);
     syncMutation.mutate(incremental, {
       onSuccess: (response) => setSyncResult(response.data),
-      onError: (err) => setError(`Sync failed: ${err.response?.data?.details || err.message}`),
+      onError: (err) => {
+        const body = err.response?.data;
+        if (body && typeof body.success === 'boolean') {
+          setSyncResult(body);
+        } else {
+          setError(`Sync failed: ${body?.details || err.message}`);
+        }
+      },
     });
   };
 

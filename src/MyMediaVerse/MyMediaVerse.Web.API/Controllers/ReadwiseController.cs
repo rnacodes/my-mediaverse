@@ -94,6 +94,12 @@ namespace MyMediaVerse.Web.API.Controllers
             try
             {
                 var result = await _readwiseSyncService.SyncAllAsync(incremental);
+
+                if (!result.Success)
+                {
+                    return StatusCode(500, result);
+                }
+
                 return Ok(result);
             }
             catch (Exception ex)

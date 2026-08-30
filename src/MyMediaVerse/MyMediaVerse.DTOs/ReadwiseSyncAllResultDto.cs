@@ -8,6 +8,9 @@ namespace MyMediaVerse.DTOs
     {
         public bool Success { get; set; }
 
+        // Stable identifier of the operation for sync-state records and notifications.
+        public string Operation { get; set; } = "readwise-sync";
+
         // Article sync results
         public int ArticlesCreated { get; set; }
         public int ArticlesUpdated { get; set; }
