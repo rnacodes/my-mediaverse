@@ -14,6 +14,9 @@ builder.WebHost.UseSentry(o =>
     o.Environment = builder.Environment.EnvironmentName;
     // Performance/tracing is handled in a later milestone; keep it off for now.
     o.TracesSampleRate = 0.0;
+    // Every LogError creates an event, lower levels are breadcrumbs attached to it.
+    o.MinimumEventLevel = LogLevel.Error;
+    o.MinimumBreadcrumbLevel = LogLevel.Information;
 });
 
 // Bootstrap logger for startup code (registration runs before app.Services is built).

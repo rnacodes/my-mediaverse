@@ -3,6 +3,9 @@ namespace MyMediaVerse.DTOs
     public class ReaderSyncResultDto
     {
         public bool Success { get; set; }
+
+        // Stable identifier of the operation for sync-state records and notifications.
+        public string Operation { get; set; } = "reader-sync";
         public int CreatedCount { get; set; }
         public int UpdatedCount { get; set; }
         public string? ErrorMessage { get; set; }

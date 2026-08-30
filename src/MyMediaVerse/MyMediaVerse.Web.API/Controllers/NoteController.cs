@@ -328,17 +328,13 @@ namespace MyMediaVerse.Web.API.Controllers
                 }
 
                 var result = await _noteService.SyncFromQuartzVaultAsync(vault, vaultUrl, token, removeOrphans);
+
+                if (!result.Success)
+                {
+                    return StatusCode(500, result);
+                }
+
                 return Ok(result);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                _logger.LogError(ex, "Vault authentication failed while syncing vault {Vault}", vault);
-                return StatusCode(502, new { message = "Vault authentication failed", error = ex.Message });
-            }
-            catch (HttpRequestException ex)
-            {
-                _logger.LogError(ex, "Failed to reach vault {Vault}", vault);
-                return StatusCode(502, new { message = "Failed to reach the vault", error = ex.Message });
             }
             catch (Exception ex)
             {
@@ -357,17 +353,13 @@ namespace MyMediaVerse.Web.API.Controllers
             try
             {
                 var results = await _noteService.SyncAllVaultsAsync(removeOrphans);
-                return Ok(new { results });
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                _logger.LogError(ex, "Vault authentication failed while syncing all vaults");
-                return StatusCode(502, new { message = "Vault authentication failed", error = ex.Message });
-            }
-            catch (HttpRequestException ex)
-            {
-                _logger.LogError(ex, "Failed to reach a vault while syncing all vaults");
-                return StatusCode(502, new { message = "Failed to reach a vault", error = ex.Message });
+
+                // Top-level success = every vault succeeded, so automation can check
+                // a single field (or just the HTTP status) instead of scanning results.
+                var success = results.All(r => r.Success);
+                var envelope = new { success, results };
+
+                return success ? Ok(envelope) : StatusCode(500, envelope);
             }
             catch (Exception ex)
             {

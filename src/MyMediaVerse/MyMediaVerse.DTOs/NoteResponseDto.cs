@@ -188,30 +188,39 @@ namespace MyMediaVerse.DTOs
     }
 
     /// <summary>
-    /// DTO for note sync operation results.
+    /// DTO for note sync operation results. Follows the standard sync/import
+    /// reporting shape: Success is a fatal-only flag (per-note failures are
+    /// reported via FailedCount/Errors and a WarningMessage instead).
     /// </summary>
     public class NoteSyncResultDto
     {
+        [JsonPropertyName("success")]
+        public bool Success { get; set; } = true;
+
+        [JsonPropertyName("operation")]
+        public string Operation { get; set; } = "notes-sync";
+
         [JsonPropertyName("totalProcessed")]
         public int TotalProcessed { get; set; }
 
-        [JsonPropertyName("imported")]
-        public int Imported { get; set; }
+        [JsonPropertyName("createdCount")]
+        public int CreatedCount { get; set; }
 
-        [JsonPropertyName("updated")]
-        public int Updated { get; set; }
+        [JsonPropertyName("updatedCount")]
+        public int UpdatedCount { get; set; }
 
-        [JsonPropertyName("unchanged")]
-        public int Unchanged { get; set; }
+        [JsonPropertyName("skippedCount")]
+        public int SkippedCount { get; set; }
 
-        [JsonPropertyName("failed")]
-        public int Failed { get; set; }
+        [JsonPropertyName("failedCount")]
+        public int FailedCount { get; set; }
 
         /// <summary>
         /// Combined count of notes imported or updated by this sync.
+        /// Kept for backward compatibility with existing consumers.
         /// </summary>
         [JsonPropertyName("importedCount")]
-        public int ImportedCount => Imported + Updated;
+        public int ImportedCount => CreatedCount + UpdatedCount;
 
         /// <summary>
         /// Notes deleted because they no longer exist in the published vault
@@ -223,12 +232,45 @@ namespace MyMediaVerse.DTOs
         [JsonPropertyName("removedSlugs")]
         public List<string> RemovedSlugs { get; set; } = new();
 
+        /// <summary>
+        /// Per-note failure detail. Non-fatal conditions belong in WarningMessage.
+        /// </summary>
         [JsonPropertyName("errors")]
         public List<string> Errors { get; set; } = new();
+
+        /// <summary>
+        /// The fatal reason; non-null only when Success is false.
+        /// </summary>
+        [JsonPropertyName("errorMessage")]
+        public string? ErrorMessage { get; set; }
+
+        /// <summary>
+        /// Non-fatal problem (partial coverage, safety check skipped work).
+        /// A non-empty warning means the run is incomplete or suspect.
+        /// </summary>
+        [JsonPropertyName("warningMessage")]
+        public string? WarningMessage { get; set; }
 
         [JsonPropertyName("vaultName")]
         public string VaultName { get; set; } = string.Empty;
 
+        [JsonPropertyName("startedAt")]
+        public DateTime StartedAt { get; set; }
+
+        /// <summary>
+        /// Null when the run aborted before completing.
+        /// </summary>
+        [JsonPropertyName("completedAt")]
+        public DateTime? CompletedAt { get; set; }
+
+        [JsonPropertyName("duration")]
+        public TimeSpan? Duration => CompletedAt.HasValue
+            ? CompletedAt.Value - StartedAt
+            : null;
+
+        /// <summary>
+        /// Kept for backward compatibility with existing consumers; mirrors StartedAt.
+        /// </summary>
         [JsonPropertyName("syncedAt")]
         public DateTime SyncedAt { get; set; }
     }

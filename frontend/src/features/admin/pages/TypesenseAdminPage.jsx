@@ -100,7 +100,13 @@ const TypesenseAdminPage = () => {
   const syncNotesMutation = useSyncAllVaults();
   const syncingNotes = syncNotesMutation.isPending;
   const syncNotesResult = syncNotesMutation.data ?? null;
-  const syncNotesError = errMsg(syncNotesMutation.error, 'Failed to sync notes from vaults');
+  const syncNotesError = syncNotesMutation.error
+    ? (syncNotesMutation.error.response?.data?.results
+        ?.filter((r) => !r.success)
+        .map((r) => `${r.vaultName || 'vault'}: ${r.errorMessage || 'sync failed'}`)
+        .join('; ')
+      || errMsg(syncNotesMutation.error, 'Failed to sync notes from vaults'))
+    : null;
   const handleSyncNotes = () => syncNotesMutation.mutate();
 
   const reindexNotesMutation = useTypesenseReindexNotes();
