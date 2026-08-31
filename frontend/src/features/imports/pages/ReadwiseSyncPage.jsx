@@ -29,10 +29,17 @@ const ReadwiseSyncPage = () => {
   const cleaningHighlights = cleanMutation.isPending;
   const cleanResult = cleanMutation.data;
 
+  // Sync/import endpoints return the standard result shape on failure (500 + body with
+  // errorMessage); older endpoints still return {details}/{message}/{error}.
+  const extractError = (err) => {
+    const body = err.response?.data;
+    return body?.errorMessage || body?.details || body?.message || body?.error || err.message;
+  };
+
   const handleCleanHighlightText = () => {
     setError(null);
     cleanMutation.mutate(undefined, {
-      onError: (err) => setError(`Cleanup failed: ${err.response?.data?.details || err.message}`),
+      onError: (err) => setError(`Cleanup failed: ${extractError(err)}`),
     });
   };
 
@@ -40,8 +47,7 @@ const ReadwiseSyncPage = () => {
     setError(null);
     const result = await validateQuery.refetch();
     if (result.error) {
-      const errorDetails = result.error.response?.data?.details || result.error.response?.data?.message || result.error.message;
-      setError(`Connection validation failed: ${errorDetails}`);
+      setError(`Connection validation failed: ${extractError(result.error)}`);
     } else if (result.data && !result.data.connected && result.data.details) {
       setError(result.data.details);
     }
@@ -57,7 +63,7 @@ const ReadwiseSyncPage = () => {
         if (body && typeof body.success === 'boolean') {
           setSyncResult(body);
         } else {
-          setError(`Sync failed: ${body?.details || err.message}`);
+          setError(`Sync failed: ${extractError(err)}`);
         }
       },
     });
@@ -68,7 +74,14 @@ const ReadwiseSyncPage = () => {
     setFetchResult(null);
     fetchMutation.mutate({ batchSize, recentOnly }, {
       onSuccess: (response) => setFetchResult(response.data),
-      onError: (err) => setError(`Content fetch failed: ${err.response?.data?.details || err.message}`),
+      onError: (err) => {
+        const body = err.response?.data;
+        if (body && typeof body.success === 'boolean') {
+          setFetchResult(body);
+        } else {
+          setError(`Content fetch failed: ${extractError(err)}`);
+        }
+      },
     });
   };
 
@@ -271,17 +284,34 @@ const ReadwiseSyncPage = () => {
         </div>
 
         {fetchResult && (
-          <div className={`sync-result ${fetchResult.fetchedCount > 0 ? 'success' : ''}`}>
+          <div className={`sync-result ${fetchResult.success === false ? 'error' : fetchResult.updatedCount > 0 ? 'success' : ''}`}>
             <h3>Fetch Results</h3>
             <div className="result-grid">
+              {fetchResult.errorMessage && (
+                <div className="result-item full-width">
+                  <span className="result-label">Error:</span>
+                  <span className="result-value">{fetchResult.errorMessage}</span>
+                </div>
+              )}
               <div className="result-item">
                 <span className="result-label">Fetched:</span>
-                <span className="result-value">{fetchResult.fetchedCount} article{fetchResult.fetchedCount === 1 ? '' : 's'}</span>
+                <span className="result-value">{fetchResult.updatedCount ?? 0} article{fetchResult.updatedCount === 1 ? '' : 's'}</span>
               </div>
-              {fetchResult.message && (
+              {fetchResult.skippedCount > 0 && (
+                <div className="result-item">
+                  <span className="result-label">No content available:</span>
+                  <span className="result-value">{fetchResult.skippedCount}</span>
+                </div>
+              )}
+              {fetchResult.warningMessage && (
                 <div className="result-item full-width">
-                  <span className="result-label">Message:</span>
-                  <span className="result-value">{fetchResult.message}</span>
+                  <span className="result-label">Warning:</span>
+                  <span className="result-value">{fetchResult.warningMessage}</span>
+                </div>
+              )}
+              {fetchResult.updatedCount === 0 && !fetchResult.skippedCount && (
+                <div className="result-item full-width">
+                  <span className="result-value">No archived articles without content were found. Sync from Readwise Reader first.</span>
                 </div>
               )}
             </div>

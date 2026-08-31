@@ -4,7 +4,6 @@ import {
   getArticleById,
   createArticle,
   updateArticle,
-  deleteArticle,
   scrapeArticlePreview,
   findDuplicateArticles,
   deduplicateArticles,
@@ -57,18 +56,6 @@ export function useUpdateArticle() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: articleKeys.lists() });
       queryClient.invalidateQueries({ queryKey: articleKeys.detail(variables.id) });
-      queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
-    },
-  });
-}
-
-export function useDeleteArticle() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id) => deleteArticle(id),
-    onSuccess: (_data, id) => {
-      queryClient.invalidateQueries({ queryKey: articleKeys.lists() });
-      queryClient.removeQueries({ queryKey: articleKeys.detail(id) });
       queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
     },
   });

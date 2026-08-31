@@ -1,13 +1,16 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.DTOs;
+using MyMediaVerse.Shared.Interfaces;
 using MyMediaVerse.Web.API.Conventions;
 
 namespace MyMediaVerse.Web.API.Controllers
 {
     /// <summary>
-    /// Controller for Readwise and Reader sync operations.
-    /// Provides a unified sync endpoint that syncs both Reader documents and Readwise highlights.
+    /// Cross-cutting Readwise operations: connection validation and the unified sync
+    /// that runs the Reader (documents) and Readwise (highlights) steps together.
+    /// Article-specific Reader operations live on ArticleController.
     /// </summary>
     // Proxies the owner's personal Readwise/Reader library via an app-wide API token,
     // so these endpoints exist only on hosts the owner uses.
@@ -16,26 +19,28 @@ namespace MyMediaVerse.Web.API.Controllers
     [Route("api/[controller]")]
     public class ReadwiseController : ControllerBase
     {
-        private readonly IReaderService _readerService;
         private readonly IReadwiseService _readwiseService;
         private readonly IReadwiseSyncService _readwiseSyncService;
+        private readonly IImportReindexService _importReindexService;
         private readonly ILogger<ReadwiseController> _logger;
 
         public ReadwiseController(
-            IReaderService readerService,
             IReadwiseService readwiseService,
             IReadwiseSyncService readwiseSyncService,
+            IImportReindexService importReindexService,
             ILogger<ReadwiseController> logger)
         {
-            _readerService = readerService;
             _readwiseService = readwiseService;
             _readwiseSyncService = readwiseSyncService;
+            _importReindexService = importReindexService;
             _logger = logger;
         }
 
         /// <summary>
-        /// Validates Readwise API connection
+        /// Validates the Readwise API token (highlights API).
         /// </summary>
+        // Exercises the owner's API token; diagnostic, operator-only.
+        [Authorize]
         [HttpGet("validate")]
         public async Task<ActionResult<object>> ValidateConnection()
         {
@@ -81,19 +86,26 @@ namespace MyMediaVerse.Web.API.Controllers
         }
 
         /// <summary>
-        /// Unified sync operation: syncs Reader documents and Readwise highlights.
-        /// Auto-links highlights to articles during import.
+        /// Unified sync: Reader documents, then Readwise highlights. The two steps run
+        /// independently with their own cursors; a failure in either is reported as a
+        /// failed run (500 with the result body) but never stops the other step.
         /// </summary>
         /// <param name="incremental">
-        /// If true (default), only syncs items updated since the last fully-successful run
+        /// If true (default), each step only syncs items updated since its last fully-successful run
         /// (falling back to the last 7 days until one has been recorded).
         /// </param>
+        // Writes to the library from the owner's Readwise/Reader accounts via the app-wide token; never a visitor action.
+        [Authorize]
         [HttpPost("sync")]
         public async Task<ActionResult<ReadwiseSyncAllResultDto>> SyncAll([FromQuery] bool incremental = true)
         {
             try
             {
                 var result = await _readwiseSyncService.SyncAllAsync(incremental);
+
+                // Articles index into the media collection; highlights maintain their own index.
+                await _importReindexService.ReindexAfterImportAsync(result.TotalArticlesProcessed, "Readwise sync");
+                result.ReindexTriggered = result.TotalArticlesProcessed > 0;
 
                 if (!result.Success)
                 {
@@ -114,170 +126,5 @@ namespace MyMediaVerse.Web.API.Controllers
                 });
             }
         }
-
-        /// <summary>
-        /// Fetch full HTML content for archived articles.
-        /// Only fetches content for articles with Status = Completed.
-        /// </summary>
-        /// <param name="batchSize">Number of articles to fetch (default 50)</param>
-        /// <param name="recentOnly">If true, only fetch articles synced in the last 7 days</param>
-        [HttpPost("fetch-content")]
-        public async Task<ActionResult<object>> FetchArticleContent(
-            [FromQuery] int batchSize = 50,
-            [FromQuery] bool recentOnly = false)
-        {
-            try
-            {
-                _logger.LogInformation("Starting article content fetch (batchSize: {BatchSize}, recentOnly: {RecentOnly})",
-                    batchSize, recentOnly);
-
-                DateTime? updatedAfter = recentOnly ? DateTime.UtcNow.AddDays(-7) : null;
-                var fetchedCount = await _readerService.BulkFetchArticleContentsAsync(batchSize, updatedAfter);
-
-                return Ok(new
-                {
-                    fetchedCount,
-                    message = fetchedCount > 0
-                        ? $"Successfully fetched content for {fetchedCount} archived article(s)"
-                        : "No archived articles without content found to fetch"
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error fetching article content");
-                return StatusCode(500, new { error = "Failed to fetch article content", details = ex.Message });
-            }
-        }
-
-        /// <summary>
-        /// Test endpoint: Fetches a document directly from Reader API by its document ID.
-        /// Returns detailed information about what the API returns, useful for debugging.
-        /// </summary>
-        /// <param name="documentId">The Readwise Reader document ID (found in article.ReadwiseDocumentId)</param>
-        /// <param name="includeHtml">Whether to request HTML content (default true)</param>
-        [HttpGet("test-fetch/{documentId}")]
-        public async Task<ActionResult<ReaderDocumentTestResultDto>> TestFetchDocument(
-            string documentId,
-            [FromQuery] bool includeHtml = true)
-        {
-            try
-            {
-                _logger.LogInformation("Testing fetch for document {DocumentId}", documentId);
-                var result = await _readerService.TestFetchDocumentByIdAsync(documentId, includeHtml);
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error testing fetch for document {DocumentId}", documentId);
-                return StatusCode(500, new { error = "Test fetch failed", details = ex.Message });
-            }
-        }
-
-        /// <summary>
-        /// Fetch and store content for a specific article using its Reader document ID.
-        /// Bypasses status checks, allowing you to fetch content for any article.
-        /// </summary>
-        /// <param name="documentId">The Readwise Reader document ID</param>
-        [HttpPost("fetch-by-document-id/{documentId}")]
-        public async Task<ActionResult<object>> FetchByDocumentId(string documentId)
-        {
-            try
-            {
-                _logger.LogInformation("Fetching content by Reader document ID: {DocumentId}", documentId);
-                var (success, message, contentLength) = await _readerService.FetchContentByReaderDocumentIdAsync(documentId);
-
-                return Ok(new
-                {
-                    success,
-                    message,
-                    contentLength
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error fetching content by document ID {DocumentId}", documentId);
-                return StatusCode(500, new { error = "Fetch failed", details = ex.Message });
-            }
-        }
-
-        /// <summary>
-        /// Lists articles that have Reader document IDs. Useful for finding articles to test with.
-        /// Queries the LOCAL DATABASE.
-        /// </summary>
-        /// <param name="limit">Maximum number of articles to return (default 20)</param>
-        /// <param name="onlyWithoutContent">If true, only returns articles without stored content</param>
-        /// <param name="status">Filter by article status (e.g., "Completed" for archived, "Uncharted" for unread)</param>
-        [HttpGet("articles-with-document-ids")]
-        public async Task<ActionResult<IEnumerable<ReaderArticleSummaryDto>>> GetArticlesWithDocumentIds(
-            [FromQuery] int limit = 20,
-            [FromQuery] bool onlyWithoutContent = false,
-            [FromQuery] string? status = null)
-        {
-            try
-            {
-                var articles = await _readerService.GetArticlesWithReaderDocumentIdsAsync(limit, onlyWithoutContent, status);
-                return Ok(articles);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error retrieving articles with document IDs");
-                return StatusCode(500, new { error = "Failed to retrieve articles", details = ex.Message });
-            }
-        }
-
-        /// <summary>
-        /// Fetches documents directly from the Readwise Reader API (NOT the local database).
-        /// Useful for seeing what's in your Reader library.
-        /// </summary>
-        /// <param name="location">Filter by Reader location: "new", "later", "archive", "feed" (default: all)</param>
-        /// <param name="limit">Maximum number of documents to return (default 50)</param>
-        [HttpGet("reader-api/documents")]
-        public async Task<ActionResult<IEnumerable<ReaderArticleSummaryDto>>> GetDocumentsFromReaderApi(
-            [FromQuery] string? location = null,
-            [FromQuery] int limit = 50)
-        {
-            try
-            {
-                _logger.LogInformation("Fetching documents from Reader API (location: {Location}, limit: {Limit})",
-                    location ?? "all", limit);
-                var documents = await _readerService.FetchDocumentsFromReaderApiAsync(location, limit);
-                return Ok(documents);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error fetching documents from Reader API");
-                return StatusCode(500, new { error = "Failed to fetch from Reader API", details = ex.Message });
-            }
-        }
-
-        /// <summary>
-        /// Imports documents from the Reader API filtered by location and saves them to the database.
-        /// Use this to selectively sync only archived articles, new articles, etc.
-        /// </summary>
-        /// <param name="location">Filter by Reader location: "new", "later", "archive", "feed" (required)</param>
-        /// <param name="limit">Maximum number of documents to import (default 50)</param>
-        [HttpPost("import-by-location")]
-        public async Task<ActionResult<ReaderSyncResultDto>> ImportByLocation(
-            [FromQuery] string location,
-            [FromQuery] int limit = 50)
-        {
-            if (string.IsNullOrEmpty(location))
-            {
-                return BadRequest(new { error = "Location parameter is required. Use: new, later, archive, or feed" });
-            }
-
-            try
-            {
-                _logger.LogInformation("Importing {Limit} documents from Reader with location: {Location}", limit, location);
-                var result = await _readerService.SyncDocumentsByLocationAsync(location, limit);
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error importing documents by location");
-                return StatusCode(500, new { error = "Failed to import documents", details = ex.Message });
-            }
-        }
-
     }
 }

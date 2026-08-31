@@ -1,5 +1,7 @@
 using System.Globalization;
+using System.Text.Json;
 using AwesomeAssertions;
+using MyMediaVerse.Infrastructure.Services.Search;
 using Typesense;
 
 namespace MyMediaVerse.UnitTests.Infrastructure
@@ -59,6 +61,42 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             var query = BuildLikeService(new[] { 0.1f, 0.2f }, id: null, limit: 25, distanceThreshold: 0.3).ToQuery();
 
             query.Should().Contain("distance_threshold:0.3");
+        }
+
+        [Fact]
+        public void HybridForm_EmitsEmptyVectorWithKCoveringRequestedPage_AndThreshold()
+        {
+            // Hybrid search: the empty vector makes Typesense embed the query text itself; k must
+            // reach the last requested result (page 2 of 20 = 40) and the threshold drops
+            // dissimilar documents so a nonsense query no longer returns the whole collection.
+            var query = TypesenseService.BuildHybridVectorQuery(perPage: 20, page: 2, distanceThreshold: 0.65).ToQuery();
+
+            query.Should().Be("embedding:([],k:40,distance_threshold:0.65)");
+        }
+
+        [Fact]
+        public void HybridForm_ClampsNonPositivePagingToOne()
+        {
+            var query = TypesenseService.BuildHybridVectorQuery(perPage: 0, page: -1, distanceThreshold: TypesenseService.DefaultHybridDistanceThreshold).ToQuery();
+
+            query.Should().Be("embedding:([],k:1,distance_threshold:0.65)");
+        }
+
+        [Fact]
+        public void HybridForm_SerializesThroughClientConverter_WithoutPlaceholderId()
+        {
+            // The multi_search request body is what actually reaches Typesense; the client's
+            // VectorQueryJsonConverter must pick up the overridden ToQuery() rather than the
+            // placeholder id used to satisfy the base constructor.
+            var parameters = new MultiSearchParameters("obsidian_notes", "smart notes", "title,embedding")
+            {
+                VectorQuery = TypesenseService.BuildHybridVectorQuery(perPage: 20, page: 1, distanceThreshold: 0.65)
+            };
+
+            var json = JsonSerializer.Serialize(parameters);
+
+            json.Should().Contain("\"vector_query\":\"embedding:([],k:20,distance_threshold:0.65)\"");
+            json.Should().NotContain("id:");
         }
     }
 }

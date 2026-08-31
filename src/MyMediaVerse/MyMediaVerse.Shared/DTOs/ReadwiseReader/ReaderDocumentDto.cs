@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace MyMediaVerse.Shared.DTOs.ReadwiseReader
 {
     /// <summary>
@@ -6,35 +8,83 @@ namespace MyMediaVerse.Shared.DTOs.ReadwiseReader
     /// </summary>
     public class ReaderDocumentDto
     {
-        public string id { get; set; } = string.Empty;
+        [JsonPropertyName("id")]
+        public string Id { get; set; } = string.Empty;
+
         /// <summary>
         /// The Readwise Reader URL (e.g., https://read.readwise.io/read/...)
         /// </summary>
-        public string? url { get; set; }
+        [JsonPropertyName("url")]
+        public string? Url { get; set; }
+
         /// <summary>
         /// The original source URL of the article (e.g., https://example.com/article)
         /// </summary>
-        public string? source_url { get; set; }
-        public string? title { get; set; }
-        public string? author { get; set; }
-        public string? source { get; set; }
-        public string? category { get; set; }
-        public string location { get; set; } = "new";
-        public Dictionary<string, object>? tags { get; set; }
-        public string? site_name { get; set; }
-        public int? word_count { get; set; }
-        public string? created_at { get; set; }
-        public string? updated_at { get; set; }
-        public string? published_date { get; set; }
-        public string? summary { get; set; }
-        public string? image_url { get; set; }
-        public string? content { get; set; }
-        public string? html { get; set; }
-        public string? html_content { get; set; }
-        public double? reading_progress { get; set; }
-        public bool? favorite { get; set; }
-        public string? parent_id { get; set; }
-        public string? notes { get; set; }
+        [JsonPropertyName("source_url")]
+        public string? SourceUrl { get; set; }
+
+        [JsonPropertyName("title")]
+        public string? Title { get; set; }
+
+        [JsonPropertyName("author")]
+        public string? Author { get; set; }
+
+        [JsonPropertyName("source")]
+        public string? Source { get; set; }
+
+        [JsonPropertyName("category")]
+        public string? Category { get; set; }
+
+        [JsonPropertyName("location")]
+        public string Location { get; set; } = "new";
+
+        /// <summary>
+        /// Reader returns tags as a JSON object keyed by tag name (not an array);
+        /// the keys are the tag names, the values are metadata objects.
+        /// </summary>
+        [JsonPropertyName("tags")]
+        public Dictionary<string, object>? Tags { get; set; }
+
+        [JsonPropertyName("site_name")]
+        public string? SiteName { get; set; }
+
+        [JsonPropertyName("word_count")]
+        public int? WordCount { get; set; }
+
+        [JsonPropertyName("created_at")]
+        public string? CreatedAt { get; set; }
+
+        [JsonPropertyName("updated_at")]
+        public string? UpdatedAt { get; set; }
+
+        [JsonPropertyName("published_date")]
+        public string? PublishedDate { get; set; }
+
+        [JsonPropertyName("summary")]
+        public string? Summary { get; set; }
+
+        [JsonPropertyName("image_url")]
+        public string? ImageUrl { get; set; }
+
+        [JsonPropertyName("content")]
+        public string? Content { get; set; }
+
+        [JsonPropertyName("html")]
+        public string? Html { get; set; }
+
+        [JsonPropertyName("html_content")]
+        public string? HtmlContent { get; set; }
+
+        [JsonPropertyName("reading_progress")]
+        public double? ReadingProgress { get; set; }
+
+        [JsonPropertyName("favorite")]
+        public bool? Favorite { get; set; }
+
+        [JsonPropertyName("parent_id")]
+        public string? ParentId { get; set; }
+
+        [JsonPropertyName("notes")]
+        public string? Notes { get; set; }
     }
 }
-

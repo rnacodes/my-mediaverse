@@ -1,17 +1,26 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Shared.Interfaces;
+using MyMediaVerse.Web.API.Extensions;
 
 namespace MyMediaVerse.Web.API.Controllers
 {
+    /// <summary>
+    /// All article operations, including the Readwise Reader import/sync surface.
+    /// Reader-backed actions are operator-only: they act on the owner's Reader library
+    /// through the app-wide API token.
+    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     public partial class ArticleController : ControllerBase
     {
         private readonly IArticleService _articleService;
         private readonly IArticleMappingService _articleMappingService;
+        private readonly IImportReindexService _importReindexService;
         private readonly IReaderService? _readerService;
         private readonly IArticleDeduplicationService? _deduplicationService;
         private readonly IWebsiteScraperService? _websiteScraperService;
@@ -20,6 +29,7 @@ namespace MyMediaVerse.Web.API.Controllers
         public ArticleController(
             IArticleService articleService,
             IArticleMappingService articleMappingService,
+            IImportReindexService importReindexService,
             ILogger<ArticleController> logger,
             IReaderService? readerService = null,
             IArticleDeduplicationService? deduplicationService = null,
@@ -27,6 +37,7 @@ namespace MyMediaVerse.Web.API.Controllers
         {
             _articleService = articleService;
             _articleMappingService = articleMappingService;
+            _importReindexService = importReindexService;
             _logger = logger;
             _readerService = readerService;
             _deduplicationService = deduplicationService;
@@ -270,86 +281,10 @@ namespace MyMediaVerse.Web.API.Controllers
             }
         }
 
-        // POST: api/article/sync-reader
-        [HttpPost("sync-reader")]
-        public async Task<ActionResult<ReaderSyncResultDto>> SyncFromReader([FromQuery] string? location = null)
-        {
-            try
-            {
-                if (_readerService == null)
-                {
-                    return StatusCode(500, new { error = "Reader service not configured" });
-                }
-
-                _logger.LogInformation("Starting Reader document sync (location: {Location})", location ?? "all");
-                var result = await _readerService.SyncDocumentsAsync(location);
-
-                if (!result.Success)
-                {
-                    return StatusCode(500, result);
-                }
-
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error syncing from Reader");
-                return StatusCode(500, new { error = "Failed to sync from Reader", details = ex.Message });
-            }
-        }
-
-        // POST: api/article/{id}/fetch-content
-        [HttpPost("{id}/fetch-content")]
-        public async Task<IActionResult> FetchArticleContent(Guid id)
-        {
-            try
-            {
-                if (_readerService == null)
-                {
-                    return StatusCode(500, new { error = "Reader service not configured" });
-                }
-
-                var success = await _readerService.FetchAndStoreArticleContentAsync(id);
-                if (!success)
-                {
-                    return NotFound(new { error = "Article not found or content unavailable" });
-                }
-                return Ok(new { message = "Content fetched and stored successfully" });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error fetching content for article {Id}", id);
-                return StatusCode(500, new { error = "Failed to fetch content", details = ex.Message });
-            }
-        }
-
-        // POST: api/article/bulk-fetch-content
-        [HttpPost("bulk-fetch-content")]
-        public async Task<IActionResult> BulkFetchContent([FromQuery] int batchSize = 50)
-        {
-            try
-            {
-                if (_readerService == null)
-                {
-                    return StatusCode(500, new { error = "Reader service not configured" });
-                }
-
-                var count = await _readerService.BulkFetchArticleContentsAsync(batchSize);
-                
-                var message = count > 0 
-                    ? $"Successfully fetched content for {count} article{(count == 1 ? "" : "s")}"
-                    : "No articles found to fetch content for. Sync documents from Readwise Reader first.";
-                    
-                return Ok(new { fetchedCount = count, message = message });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error in bulk content fetch");
-                return StatusCode(500, new { error = "Failed to bulk fetch content", details = ex.Message });
-            }
-        }
-
         // POST: api/article/scrape-preview
+        // Fetches an arbitrary URL server-side; operator-only to keep the app from acting as an open proxy.
+        [Authorize]
+        [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
         [HttpPost("scrape-preview")]
         public async Task<IActionResult> ScrapePreview([FromBody] ArticleScrapeRequestDto dto)
         {
@@ -385,7 +320,6 @@ namespace MyMediaVerse.Web.API.Controllers
                 return StatusCode(500, new { error = "Failed to scrape article metadata", details = ex.Message });
             }
         }
-
     }
 
     // Helper DTOs for specific endpoints
@@ -403,11 +337,270 @@ namespace MyMediaVerse.Web.API.Controllers
         public bool IsArchived { get; set; }
         public bool IsStarred { get; set; }
     }
-    
-    // Deduplication endpoints added at the end of ArticleController
+
+    // Readwise Reader import/sync surface
+    public partial class ArticleController
+    {
+        /// <summary>
+        /// Syncs documents from Readwise Reader into the library.
+        /// Completed runs (including runs with a warning) return 200; aborted runs return 500
+        /// with the same result shape.
+        /// </summary>
+        /// <param name="location">Optional Reader location filter: "new", "later", "archive", "feed"</param>
+        /// <param name="limit">Optional cap on documents to sync (requires <paramref name="location"/>)</param>
+        // Writes to the library from the owner's Reader account via the app-wide token; never a visitor action.
+        [Authorize]
+        [HttpPost("sync-reader")]
+        public async Task<ActionResult<ReaderSyncResultDto>> SyncFromReader(
+            [FromQuery] string? location = null,
+            [FromQuery] int? limit = null)
+        {
+            try
+            {
+                if (_readerService == null)
+                {
+                    return StatusCode(500, new { error = "Reader service not configured" });
+                }
+
+                if (limit.HasValue && string.IsNullOrEmpty(location))
+                {
+                    return BadRequest(new { error = "A location is required when limit is specified. Use: new, later, archive, or feed" });
+                }
+
+                _logger.LogInformation("Starting Reader document sync (location: {Location}, limit: {Limit})",
+                    location ?? "all", limit?.ToString() ?? "none");
+
+                var result = limit.HasValue
+                    ? await _readerService.SyncDocumentsByLocationAsync(location!, limit.Value)
+                    : await _readerService.SyncDocumentsAsync(location);
+
+                if (!result.Success)
+                {
+                    return StatusCode(500, result);
+                }
+
+                await _importReindexService.ReindexAfterImportAsync(result.TotalProcessed, "Reader sync");
+                result.ReindexTriggered = result.TotalProcessed > 0;
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error syncing from Reader");
+                return StatusCode(500, new ReaderSyncResultDto
+                {
+                    Success = false,
+                    ErrorMessage = ex.Message,
+                    StartedAt = DateTime.UtcNow,
+                    CompletedAt = DateTime.UtcNow
+                });
+            }
+        }
+
+        // POST: api/article/{id}/fetch-content
+        // Pulls full text from the owner's Reader account for one article.
+        [Authorize]
+        [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
+        [HttpPost("{id}/fetch-content")]
+        public async Task<IActionResult> FetchArticleContent(Guid id)
+        {
+            try
+            {
+                if (_readerService == null)
+                {
+                    return StatusCode(500, new { error = "Reader service not configured" });
+                }
+
+                var success = await _readerService.FetchAndStoreArticleContentAsync(id);
+                if (!success)
+                {
+                    return NotFound(new { error = "Article not found or content unavailable" });
+                }
+                return Ok(new { message = "Content fetched and stored successfully" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching content for article {Id}", id);
+                return StatusCode(500, new { error = "Failed to fetch content", details = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Fetches full HTML content for archived articles that don't have it yet.
+        /// Content is not indexed for search, so this never triggers a reindex.
+        /// </summary>
+        /// <param name="batchSize">Number of articles to fetch (default 50)</param>
+        /// <param name="recentOnly">If true, only fetch articles synced in the last 7 days</param>
+        // Bulk pull from the owner's Reader account; operator-only.
+        [Authorize]
+        [HttpPost("bulk-fetch-content")]
+        public async Task<ActionResult<ReaderSyncResultDto>> BulkFetchContent(
+            [FromQuery] int batchSize = 50,
+            [FromQuery] bool recentOnly = false)
+        {
+            try
+            {
+                if (_readerService == null)
+                {
+                    return StatusCode(500, new { error = "Reader service not configured" });
+                }
+
+                _logger.LogInformation("Starting article content fetch (batchSize: {BatchSize}, recentOnly: {RecentOnly})",
+                    batchSize, recentOnly);
+
+                DateTime? updatedAfter = recentOnly ? DateTime.UtcNow.AddDays(-7) : null;
+                var result = await _readerService.BulkFetchArticleContentsAsync(batchSize, updatedAfter);
+
+                if (!result.Success)
+                {
+                    return StatusCode(500, result);
+                }
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in bulk content fetch");
+                return StatusCode(500, new ReaderSyncResultDto
+                {
+                    Operation = "reader-bulk-fetch-content",
+                    Success = false,
+                    ErrorMessage = ex.Message,
+                    StartedAt = DateTime.UtcNow,
+                    CompletedAt = DateTime.UtcNow
+                });
+            }
+        }
+
+        /// <summary>
+        /// Fetches and stores content for the article matching a Reader document ID,
+        /// regardless of the article's status.
+        /// </summary>
+        // Writes content pulled from the owner's Reader account; operator-only.
+        [Authorize]
+        [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
+        [HttpPost("reader/fetch-by-document-id/{documentId}")]
+        public async Task<ActionResult<object>> FetchByReaderDocumentId(string documentId)
+        {
+            try
+            {
+                _logger.LogInformation("Fetching content by Reader document ID: {DocumentId}", documentId);
+
+                if (_readerService == null)
+                {
+                    return StatusCode(500, new { error = "Reader service not configured" });
+                }
+
+                var (success, message, contentLength) = await _readerService.FetchContentByReaderDocumentIdAsync(documentId);
+
+                return Ok(new
+                {
+                    success,
+                    message,
+                    contentLength
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching content by document ID {DocumentId}", documentId);
+                return StatusCode(500, new { error = "Fetch failed", details = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Diagnostic: fetches a document directly from the Reader API and reports what came back.
+        /// </summary>
+        // Reads the owner's Reader account; diagnostic, operator-only.
+        [Authorize]
+        [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
+        [HttpGet("reader/test-fetch/{documentId}")]
+        public async Task<ActionResult<ReaderDocumentTestResultDto>> TestFetchReaderDocument(
+            string documentId,
+            [FromQuery] bool includeHtml = true)
+        {
+            try
+            {
+                if (_readerService == null)
+                {
+                    return StatusCode(500, new { error = "Reader service not configured" });
+                }
+
+                _logger.LogInformation("Testing fetch for document {DocumentId}", documentId);
+                var result = await _readerService.TestFetchDocumentByIdAsync(documentId, includeHtml);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error testing fetch for document {DocumentId}", documentId);
+                return StatusCode(500, new { error = "Test fetch failed", details = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Lists articles in the library that carry a Reader document ID.
+        /// </summary>
+        // Admin-shaped listing used to pick test targets; operator-only.
+        [Authorize]
+        [HttpGet("with-reader-document-ids")]
+        public async Task<ActionResult<IEnumerable<ReaderArticleSummaryDto>>> GetArticlesWithReaderDocumentIds(
+            [FromQuery] int limit = 20,
+            [FromQuery] bool onlyWithoutContent = false,
+            [FromQuery] string? status = null)
+        {
+            try
+            {
+                if (_readerService == null)
+                {
+                    return StatusCode(500, new { error = "Reader service not configured" });
+                }
+
+                var articles = await _readerService.GetArticlesWithReaderDocumentIdsAsync(limit, onlyWithoutContent, status);
+                return Ok(articles);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving articles with document IDs");
+                return StatusCode(500, new { error = "Failed to retrieve articles", details = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Lists documents straight from the Reader API (not the library).
+        /// </summary>
+        // Proxies the owner's Reader library; operator-only.
+        [Authorize]
+        [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
+        [HttpGet("reader/documents")]
+        public async Task<ActionResult<IEnumerable<ReaderArticleSummaryDto>>> GetReaderDocuments(
+            [FromQuery] string? location = null,
+            [FromQuery] int limit = 50)
+        {
+            try
+            {
+                if (_readerService == null)
+                {
+                    return StatusCode(500, new { error = "Reader service not configured" });
+                }
+
+                _logger.LogInformation("Fetching documents from Reader API (location: {Location}, limit: {Limit})",
+                    location ?? "all", limit);
+                var documents = await _readerService.FetchDocumentsFromReaderApiAsync(location, limit);
+                return Ok(documents);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching documents from Reader API");
+                return StatusCode(500, new { error = "Failed to fetch from Reader API", details = ex.Message });
+            }
+        }
+    }
+
+    // Deduplication endpoints
     public partial class ArticleController
     {
         // POST: api/article/deduplicate
+        // Library-wide merge that deletes rows; operator-only maintenance.
+        [Authorize]
         [HttpPost("deduplicate")]
         public async Task<ActionResult<DeduplicationResultDto>> DeduplicateArticles()
         {
@@ -423,7 +616,7 @@ namespace MyMediaVerse.Web.API.Controllers
 
                 if (result.Success)
                 {
-                    _logger.LogInformation("Deduplication completed successfully. Merged {Count} articles", 
+                    _logger.LogInformation("Deduplication completed successfully. Merged {Count} articles",
                         result.MergedCount);
                     return Ok(result);
                 }
@@ -436,14 +629,16 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during article deduplication");
-                return StatusCode(500, new { 
-                    error = "Failed to deduplicate articles", 
-                    details = ex.Message 
+                return StatusCode(500, new {
+                    error = "Failed to deduplicate articles",
+                    details = ex.Message
                 });
             }
         }
 
         // GET: api/article/duplicates
+        // Library-wide scan; operator-only maintenance.
+        [Authorize]
         [HttpGet("duplicates")]
         public async Task<ActionResult<FindDuplicatesResultDto>> FindDuplicates()
         {
@@ -467,9 +662,9 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error finding duplicate articles");
-                return StatusCode(500, new { 
-                    error = "Failed to find duplicates", 
-                    details = ex.Message 
+                return StatusCode(500, new {
+                    error = "Failed to find duplicates",
+                    details = ex.Message
                 });
             }
         }

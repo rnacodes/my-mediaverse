@@ -38,12 +38,13 @@ export const syncAll = async (incremental = true) => {
 /**
  * Fetches full HTML content for archived articles.
  * Only fetches content for articles with Status = Completed.
+ * Returns the standard sync result: updatedCount = fetched, skippedCount = no content available.
  * @param {number} batchSize - Number of articles to fetch (default 50)
  * @param {boolean} recentOnly - If true, only fetch articles synced in the last 7 days
  */
 export const fetchArticleContent = async (batchSize = 50, recentOnly = false) => {
     try {
-        const response = await apiClient.post('/readwise/fetch-content', null, {
+        const response = await apiClient.post('/article/bulk-fetch-content', null, {
             params: { batchSize, recentOnly }
         });
         return response;

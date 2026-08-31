@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace MyMediaVerse.Shared.DTOs.ReadwiseReader
 {
     /// <summary>
@@ -5,9 +7,13 @@ namespace MyMediaVerse.Shared.DTOs.ReadwiseReader
     /// </summary>
     public class ReaderDocumentsResponse
     {
-        public int count { get; set; }
-        public string? nextPageCursor { get; set; }
-        public List<ReaderDocumentDto> results { get; set; } = new();
+        [JsonPropertyName("count")]
+        public int Count { get; set; }
+
+        [JsonPropertyName("nextPageCursor")]
+        public string? NextPageCursor { get; set; }
+
+        [JsonPropertyName("results")]
+        public List<ReaderDocumentDto> Results { get; set; } = new();
     }
 }
-

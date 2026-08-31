@@ -10,19 +10,20 @@ namespace MyMediaVerse.Application.Interfaces
         /// <param name="location">Filter by location (archive, new, later, feed)</param>
         /// <param name="updatedAfter">Only sync documents updated after this date (for incremental sync)</param>
         Task<ReaderSyncResultDto> SyncDocumentsAsync(string? location = null, DateTime? updatedAfter = null);
-        
+
         /// <summary>
         /// Fetches and stores full HTML content for an article
         /// </summary>
         Task<bool> FetchAndStoreArticleContentAsync(Guid articleId);
-        
+
         /// <summary>
         /// Bulk fetch content for archived articles missing FullTextContent.
         /// Only fetches Completed (archived) articles for archival purposes.
+        /// Reports fetched articles as UpdatedCount and articles with no content available as SkippedCount.
         /// </summary>
         /// <param name="batchSize">Number of articles to fetch</param>
         /// <param name="updatedAfter">Only fetch articles synced after this date (for 7-day incremental)</param>
-        Task<int> BulkFetchArticleContentsAsync(int batchSize = 50, DateTime? updatedAfter = null);
+        Task<ReaderSyncResultDto> BulkFetchArticleContentsAsync(int batchSize = 50, DateTime? updatedAfter = null);
 
         /// <summary>
         /// Test endpoint: Fetches a document directly from Reader API by its document ID.
@@ -56,12 +57,10 @@ namespace MyMediaVerse.Application.Interfaces
         Task<IEnumerable<ReaderArticleSummaryDto>> FetchDocumentsFromReaderApiAsync(string? location = null, int limit = 50);
 
         /// <summary>
-        /// Syncs documents from the Reader API filtered by location.
-        /// Unlike SyncDocumentsAsync, this allows filtering by location (e.g., only archived articles).
+        /// Syncs documents from the Reader API filtered by location, capped at <paramref name="limit"/> documents.
         /// </summary>
         /// <param name="location">Filter by location: "new", "later", "archive", "feed"</param>
         /// <param name="limit">Maximum number of documents to sync</param>
         Task<ReaderSyncResultDto> SyncDocumentsByLocationAsync(string location, int limit = 50);
     }
 }
-

@@ -174,8 +174,8 @@ describe('ReadwiseSyncPage', () => {
   it('fetches article content and renders the fetch results', async () => {
     mockMount();
     server.use(
-      http.post(`${API_BASE}/readwise/fetch-content`, () =>
-        HttpResponse.json({ fetchedCount: 3, message: 'Fetched 3 articles' }),
+      http.post(`${API_BASE}/article/bulk-fetch-content`, () =>
+        HttpResponse.json({ success: true, operation: 'reader-bulk-fetch-content', updatedCount: 3, skippedCount: 0 }),
       ),
     );
 
