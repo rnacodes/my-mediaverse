@@ -163,12 +163,26 @@ namespace MyMediaVerse.Web.API.Controllers
 
                 _logger.LogInformation("Bulk creating {Count} highlights", dtos.Count);
                 var result = await _highlightService.BulkCreateHighlightsAsync(dtos);
+
+                // Fatal (batch save failed) returns 500 with the same result shape;
+                // per-item failures ride the errors list on a 200.
+                if (!result.Success)
+                {
+                    return StatusCode(500, result);
+                }
+
                 return Ok(result);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error bulk creating highlights");
-                return StatusCode(500, new { error = "Failed to bulk create highlights", details = ex.Message });
+                return StatusCode(500, new BulkHighlightResultDto
+                {
+                    Success = false,
+                    ErrorMessage = ex.Message,
+                    StartedAt = DateTime.UtcNow,
+                    CompletedAt = DateTime.UtcNow
+                });
             }
         }
 
@@ -186,7 +200,7 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error linking highlights");
-                return StatusCode(500, new { error = "Failed to link highlights", details = ex.Message });
+                return StatusCode(500, new { success = false, operation = "highlight-link", errorMessage = ex.Message });
             }
         }
 
@@ -344,7 +358,29 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error cleaning highlight text");
-                return StatusCode(500, new { error = "Failed to clean highlight text", details = ex.Message });
+                return StatusCode(500, new { success = false, operation = "highlight-clean-text", errorMessage = ex.Message });
+            }
+        }
+
+        // POST: api/highlight/backfill-topics
+        [Authorize] // Library-wide rewrite deriving Topic links from tags; operator-only maintenance.
+        [HttpPost("backfill-topics")]
+        public async Task<ActionResult<object>> BackfillHighlightTopics()
+        {
+            try
+            {
+                _logger.LogInformation("Starting highlight topic backfill from stored tags");
+                var updatedCount = await _highlightService.BackfillHighlightTopicsAsync();
+                return Ok(new
+                {
+                    updatedCount,
+                    message = $"Derived topics for {updatedCount} highlight{(updatedCount != 1 ? "s" : "")}"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error backfilling highlight topics");
+                return StatusCode(500, new { success = false, operation = "highlight-backfill-topics", errorMessage = ex.Message });
             }
         }
 

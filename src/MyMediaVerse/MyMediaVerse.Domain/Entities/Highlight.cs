@@ -148,6 +148,12 @@ namespace MyMediaVerse.Domain.Entities
         /// </summary>
         [StringLength(50)]
         public string? Color { get; set; }
+
+        /// <summary>
+        /// Topic entities derived from <see cref="Tags"/>. Topics only — a highlight
+        /// deliberately has no genres; its genre is its linked media item's.
+        /// </summary>
+        public ICollection<Topic> Topics { get; set; } = new List<Topic>();
     }
 }
 

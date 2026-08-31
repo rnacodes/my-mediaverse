@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using MyMediaVerse.Application.Interfaces;
+using MyMediaVerse.Application.Utilities;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Shared.Interfaces;
@@ -83,11 +84,13 @@ namespace MyMediaVerse.Application.Services
                 Description = dto.Description,
                 VaultName = dto.VaultName.ToLower(),
                 SourceUrl = dto.SourceUrl,
-                Tags = dto.Tags ?? new List<string>(),
+                Tags = NormalizeTags(dto.Tags),
                 NoteDate = dto.NoteDate,
                 DateImported = DateTime.UtcNow,
                 ContentHash = ComputeContentHash(dto.Content)
             };
+
+            await ReconcileTopicsAsync(note, note.Tags, new TopicResolver(_context));
 
             _context.Add(note);
             await _context.SaveChangesAsync();
@@ -98,7 +101,9 @@ namespace MyMediaVerse.Application.Services
 
         public async Task<Note> UpdateAsync(Guid id, UpdateNoteDto dto)
         {
-            var note = await _context.Notes.FirstOrDefaultAsync(n => n.Id == id);
+            var note = await _context.Notes
+                .Include(n => n.Topics)
+                .FirstOrDefaultAsync(n => n.Id == id);
             if (note == null)
             {
                 throw new KeyNotFoundException($"Note with ID {id} not found.");
@@ -116,7 +121,11 @@ namespace MyMediaVerse.Application.Services
                 // Mark as manually edited so AI won't overwrite during sync
                 note.IsDescriptionManual = true;
             }
-            if (dto.Tags != null) note.Tags = dto.Tags;
+            if (dto.Tags != null)
+            {
+                note.Tags = NormalizeTags(dto.Tags);
+                await ReconcileTopicsAsync(note, note.Tags, new TopicResolver(_context));
+            }
             if (dto.NoteDate.HasValue) note.NoteDate = dto.NoteDate;
 
             note.LastSyncedAt = DateTime.UtcNow;
@@ -141,14 +150,7 @@ namespace MyMediaVerse.Application.Services
 
             _logger.LogInformation("Deleted note {Id}", id);
 
-         try
-            {
-                await _typesenseService.DeleteNoteAsync(id);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to remove note {Id} from the search index; it will be removed on the next reindex", id);
-            }
+            await SearchIndexCleanup.TryDeleteAsync(() => _typesenseService.DeleteNoteAsync(id), _logger, "note", id);
         }
 
         public async Task<int> BulkDeleteAsync(List<Guid> ids)
@@ -174,14 +176,7 @@ namespace MyMediaVerse.Application.Services
             // reconciles any misses.
             foreach (var note in notes)
             {
-                try
-                {
-                    await _typesenseService.DeleteNoteAsync(note.Id);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to remove note {Id} from the search index; it will be removed on the next reindex", note.Id);
-                }
+                await SearchIndexCleanup.TryDeleteAsync(() => _typesenseService.DeleteNoteAsync(note.Id), _logger, "note", note.Id);
             }
 
             return notes.Count;
@@ -334,6 +329,9 @@ namespace MyMediaVerse.Application.Services
             var contentIndex = await _quartzClient.GetContentIndexAsync(vaultUrl, authToken);
             result.TotalProcessed = contentIndex.Count;
 
+            // One resolver per run so a new tag shared by many notes maps to one Topic.
+            var topicResolver = new TopicResolver(_context);
+
             foreach (var (slug, noteDto) in contentIndex)
             {
                 try
@@ -347,6 +345,7 @@ namespace MyMediaVerse.Application.Services
                     var normalizedSlug = slug.ToLowerInvariant();
 
                     var existingNote = await _context.Notes
+                        .Include(n => n.Topics)
                         .FirstOrDefaultAsync(n => n.Slug == normalizedSlug && n.VaultName == vaultName.ToLower());
 
                     var contentHash = ComputeContentHash(noteDto.Content);
@@ -369,6 +368,8 @@ namespace MyMediaVerse.Application.Services
                             ContentHash = contentHash
                         };
 
+                        await ReconcileTopicsAsync(note, note.Tags, topicResolver);
+
                         _context.Add(note);
                         await _context.SaveChangesAsync();
 
@@ -380,6 +381,7 @@ namespace MyMediaVerse.Application.Services
                         existingNote.Title = noteDto.Title;
                         existingNote.Content = noteDto.Content;
                         existingNote.Tags = NormalizeTags(noteDto.Tags);
+                        await ReconcileTopicsAsync(existingNote, existingNote.Tags, topicResolver);
                         existingNote.NoteDate = ParseDate(noteDto.Date);
                         existingNote.LastSyncedAt = DateTime.UtcNow;
                         existingNote.ContentHash = contentHash;
@@ -412,6 +414,9 @@ namespace MyMediaVerse.Application.Services
                                 string.Join(", ", normalizedTags));
                             existingNote.Tags = normalizedTags;
                         }
+                        // Reconcile even when tags are unchanged: derive-on-sync is what
+                        // populates topic links on notes that predate the topics migration.
+                        await ReconcileTopicsAsync(existingNote, normalizedTags, topicResolver);
                         existingNote.LastSyncedAt = DateTime.UtcNow;
                         _context.Update(existingNote);
                         result.SkippedCount++;
@@ -489,14 +494,7 @@ namespace MyMediaVerse.Application.Services
             // Best-effort search index cleanup, mirroring DeleteAsync; the next bulk reindex reconciles any misses.
             foreach (var orphan in orphans)
             {
-                try
-                {
-                    await _typesenseService.DeleteNoteAsync(orphan.Id);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to remove orphaned note {Id} from the search index; it will be removed on the next reindex", orphan.Id);
-                }
+                await SearchIndexCleanup.TryDeleteAsync(() => _typesenseService.DeleteNoteAsync(orphan.Id), _logger, "orphaned note", orphan.Id);
             }
 
             _logger.LogInformation("Removed {Count} orphaned note(s) from vault {VaultName}", orphans.Count, vaultName);
@@ -638,15 +636,29 @@ namespace MyMediaVerse.Application.Services
         /// Normalizes frontmatter tags to MMV's lowercase-tags invariant: trims, lowercases,
         /// drops blanks, and de-duplicates. Owned here rather than inherited from Quartz's slugTag.
         /// </summary>
-        private static List<string> NormalizeTags(IEnumerable<string>? tags)
-        {
-            if (tags == null) return new List<string>();
+        private static List<string> NormalizeTags(IEnumerable<string>? tags) =>
+            TagNormalizer.NormalizeList(tags);
 
-            return tags
-                .Where(t => !string.IsNullOrWhiteSpace(t))
-                .Select(t => t.Trim().ToLower())
-                .Distinct()
-                .ToList();
+        /// <summary>
+        /// Mirrors a note's normalized tags onto its Topic links (topics only — a note's
+        /// genre is its linked media item's).
+        /// </summary>
+        private static async Task ReconcileTopicsAsync(Note note, List<string> normalizedTags, TopicResolver topics)
+        {
+            foreach (var stale in note.Topics.Where(t => !normalizedTags.Contains(t.Name)).ToList())
+            {
+                note.Topics.Remove(stale);
+            }
+
+            foreach (var name in normalizedTags)
+            {
+                if (note.Topics.Any(t => t.Name == name))
+                    continue;
+
+                var topic = await topics.GetOrCreateAsync(name);
+                if (topic != null)
+                    note.Topics.Add(topic);
+            }
         }
 
         private static bool TagsAreEqual(List<string>? tags1, List<string>? tags2)

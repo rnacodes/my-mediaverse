@@ -101,5 +101,11 @@ namespace MyMediaVerse.Domain.Entities
         /// Navigation property for many-to-many relationship with mixlists.
         /// </summary>
         public ICollection<MixlistNote> MixlistNotes { get; set; } = new List<MixlistNote>();
+
+        /// <summary>
+        /// Topic entities derived from <see cref="Tags"/> on every sync (Obsidian is
+        /// the source of truth). Topics only — a note deliberately has no genres.
+        /// </summary>
+        public ICollection<Topic> Topics { get; set; } = new List<Topic>();
     }
 }

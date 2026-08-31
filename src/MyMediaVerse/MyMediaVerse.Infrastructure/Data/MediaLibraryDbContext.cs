@@ -199,6 +199,50 @@ namespace MyMediaVerse.Infrastructure.Data
                         j.ToTable("MediaItemGenres");
                     });
 
+            // Configure many-to-many relationship between Highlight and Topic
+            modelBuilder.Entity<Highlight>()
+                .HasMany(h => h.Topics)
+                .WithMany(t => t.Highlights)
+                .UsingEntity<Dictionary<string, object>>(
+                    "HighlightTopics",
+                    j => j
+                        .HasOne<Topic>()
+                        .WithMany()
+                        .HasForeignKey("TopicId")
+                        .OnDelete(DeleteBehavior.Cascade),
+                    j => j
+                        .HasOne<Highlight>()
+                        .WithMany()
+                        .HasForeignKey("HighlightId")
+                        .OnDelete(DeleteBehavior.Cascade),
+                    j =>
+                    {
+                        j.HasKey("HighlightId", "TopicId");
+                        j.ToTable("HighlightTopics");
+                    });
+
+            // Configure many-to-many relationship between Note and Topic
+            modelBuilder.Entity<Note>()
+                .HasMany(n => n.Topics)
+                .WithMany(t => t.Notes)
+                .UsingEntity<Dictionary<string, object>>(
+                    "NoteTopics",
+                    j => j
+                        .HasOne<Topic>()
+                        .WithMany()
+                        .HasForeignKey("TopicId")
+                        .OnDelete(DeleteBehavior.Cascade),
+                    j => j
+                        .HasOne<Note>()
+                        .WithMany()
+                        .HasForeignKey("NoteId")
+                        .OnDelete(DeleteBehavior.Cascade),
+                    j =>
+                    {
+                        j.HasKey("NoteId", "TopicId");
+                        j.ToTable("NoteTopics");
+                    });
+
             // Configure many-to-many relationship between Mixlist and Topic
             modelBuilder.Entity<Mixlist>()
                 .HasMany(m => m.Topics)

@@ -15,5 +15,11 @@ namespace MyMediaVerse.Domain.Entities
 
         // Navigation property for many-to-many relationship with mixlists
         public ICollection<Mixlist> Mixlists { get; set; } = new List<Mixlist>();
+
+        // Navigation property for many-to-many relationship with highlights
+        public ICollection<Highlight> Highlights { get; set; } = new List<Highlight>();
+
+        // Navigation property for many-to-many relationship with notes
+        public ICollection<Note> Notes { get; set; } = new List<Note>();
     }
 }

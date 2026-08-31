@@ -50,6 +50,9 @@ export const MediaListItem = React.memo(({ item, isSelected = false, onToggleSel
                 return item.channel || item.platform;
             case 'Podcast':
                 return item.publisher;
+            case 'Highlight':
+                // Show the linked media title if available, otherwise the source title
+                return item.linkedMediaTitle || (item.author ? `From: ${item.author}` : null);
             case 'Mixlist':
                 return null;
             default:

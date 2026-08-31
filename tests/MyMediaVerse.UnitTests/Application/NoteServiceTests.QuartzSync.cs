@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
@@ -508,6 +509,107 @@ namespace MyMediaVerse.UnitTests.Application
             // Assert
             result.TotalNotesGeneral.Should().Be(2);
             result.TotalNotesProgramming.Should().Be(1);
+        }
+
+        #endregion
+
+        #region Tags → Topics (retro pass, derive-on-sync)
+
+        [Fact]
+        public async Task SyncFromQuartzVaultAsync_NewNote_DerivesTopicsFromTags()
+        {
+            // Arrange
+            var contentIndex = new Dictionary<string, QuartzNoteDto>
+            {
+                ["philosophy/stoicism"] = new QuartzNoteDto
+                {
+                    Title = "Stoicism",
+                    Content = "Content",
+                    Tags = new List<string> { " Philosophy ", "STOICISM" }
+                }
+            };
+            _mockQuartzClient.GetContentIndexAsync(Arg.Any<string>(), Arg.Any<string?>())
+                .Returns(contentIndex);
+
+            // Act
+            await _service.SyncFromQuartzVaultAsync("general", "https://vault.example.com");
+
+            // Assert — topic links mirror the normalized tags
+            var note = await Context.Notes.Include(n => n.Topics).SingleAsync();
+            note.Tags.Should().BeEquivalentTo(new[] { "philosophy", "stoicism" });
+            note.Topics.Select(t => t.Name).Should().BeEquivalentTo(new[] { "philosophy", "stoicism" });
+        }
+
+        [Fact]
+        public async Task SyncFromQuartzVaultAsync_UnchangedNote_StillDerivesTopics()
+        {
+            // Arrange — same content hash, so the unchanged branch runs; this is the
+            // branch that backfills topic links on notes that predate the migration
+            var existingNote = CreateTestNote("philosophy/stoicism", "Stoicism", "general");
+            existingNote.Content = "Content";
+            existingNote.Tags = new List<string> { "philosophy" };
+            Context.Notes.Add(existingNote);
+            await Context.SaveChangesAsync();
+
+            var dto = new QuartzNoteDto
+            {
+                Title = "Stoicism",
+                Content = "Content",
+                Tags = new List<string> { "philosophy" }
+            };
+            // Make the stored hash match what the sync will compute so the note is "unchanged"
+            existingNote.ContentHash = ComputeHashForTest(dto.Content);
+            await Context.SaveChangesAsync();
+
+            _mockQuartzClient.GetContentIndexAsync(Arg.Any<string>(), Arg.Any<string?>())
+                .Returns(new Dictionary<string, QuartzNoteDto> { ["philosophy/stoicism"] = dto });
+
+            // Act
+            var result = await _service.SyncFromQuartzVaultAsync("general", "https://vault.example.com");
+
+            // Assert
+            result.SkippedCount.Should().Be(1);
+            var note = await Context.Notes.Include(n => n.Topics).SingleAsync();
+            note.Topics.Select(t => t.Name).Should().BeEquivalentTo(new[] { "philosophy" });
+        }
+
+        [Fact]
+        public async Task SyncFromQuartzVaultAsync_TagRemovedInObsidian_RemovesTopicLink()
+        {
+            // Arrange — Obsidian is source of truth: a removed tag drops its topic link
+            var existingNote = CreateTestNote("philosophy/stoicism", "Stoicism", "general");
+            existingNote.ContentHash = "old-hash";
+            existingNote.Tags = new List<string> { "philosophy", "removed" };
+            existingNote.Topics.Add(new Topic { Name = "philosophy" });
+            existingNote.Topics.Add(new Topic { Name = "removed" });
+            Context.Notes.Add(existingNote);
+            await Context.SaveChangesAsync();
+
+            _mockQuartzClient.GetContentIndexAsync(Arg.Any<string>(), Arg.Any<string?>())
+                .Returns(new Dictionary<string, QuartzNoteDto>
+                {
+                    ["philosophy/stoicism"] = new QuartzNoteDto
+                    {
+                        Title = "Stoicism",
+                        Content = "New content",
+                        Tags = new List<string> { "philosophy" }
+                    }
+                });
+
+            // Act
+            await _service.SyncFromQuartzVaultAsync("general", "https://vault.example.com");
+
+            // Assert — link removed, Topic entity itself survives
+            var note = await Context.Notes.Include(n => n.Topics).SingleAsync();
+            note.Topics.Select(t => t.Name).Should().BeEquivalentTo(new[] { "philosophy" });
+            Context.Topics.Any(t => t.Name == "removed").Should().BeTrue();
+        }
+
+        private static string ComputeHashForTest(string content)
+        {
+            using var sha256 = System.Security.Cryptography.SHA256.Create();
+            var bytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(content));
+            return Convert.ToHexString(bytes);
         }
 
         #endregion

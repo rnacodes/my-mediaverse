@@ -55,10 +55,10 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         [Fact]
-        public async Task ResolveAsync_ProtocolMismatch_MatchesBySuffix()
+        public async Task ResolveAsync_ProtocolMismatch_StillMatches()
         {
-            // Stored with http, highlight arrives with https — the
-            // protocol-stripped suffix pass must still find it
+            // Stored with http, highlight arrives with https — the anchored
+            // variant list must still find it
             var article = AddArticle("Test Article", "http://example.com/post");
             await Context.SaveChangesAsync();
 
@@ -67,6 +67,35 @@ namespace MyMediaVerse.UnitTests.Application
 
             match.Article.Should().NotBeNull();
             match.Article!.Id.Should().Be(article.Id);
+        }
+
+        [Fact]
+        public async Task ResolveAsync_LegacyWwwAndTrailingSlash_StillMatches()
+        {
+            // Links stored before write-time normalization can carry www. and a
+            // trailing slash — both are legitimate stored forms of the same key
+            var article = AddArticle("Test Article", "https://www.example.com/post/");
+            await Context.SaveChangesAsync();
+
+            var match = await HighlightLinkMatcher.ResolveAsync(
+                Context, new[] { "http://example.com/post" }, null, null, null);
+
+            match.Article.Should().NotBeNull();
+            match.Article!.Id.Should().Be(article.Id);
+        }
+
+        [Fact]
+        public async Task ResolveAsync_SuffixOfDifferentDomain_DoesNotMatch()
+        {
+            // The old unanchored EndsWith would let a lookalike domain claim the
+            // highlight; the anchored variant list must not
+            AddArticle("Evil Twin", "https://evil-example.com/post");
+            await Context.SaveChangesAsync();
+
+            var match = await HighlightLinkMatcher.ResolveAsync(
+                Context, new[] { "https://example.com/post" }, null, null, null);
+
+            match.HasMatch.Should().BeFalse();
         }
 
         [Fact]

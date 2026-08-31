@@ -361,7 +361,13 @@ namespace MyMediaVerse.Application.Services
                 var existingTopic = await _context.Topics
                     .FirstOrDefaultAsync(t => t.Name == topicName);
 
-                article.Topics.Add(existingTopic ?? new Topic { Name = topicName });
+                if (existingTopic == null)
+                {
+                    existingTopic = new Topic { Name = topicName };
+                    _context.Add(existingTopic);
+                }
+
+                article.Topics.Add(existingTopic);
             }
         }
 

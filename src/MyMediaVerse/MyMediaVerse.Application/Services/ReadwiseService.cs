@@ -28,54 +28,49 @@ namespace MyMediaVerse.Application.Services
             return await _readwiseClient.ValidateTokenAsync();
         }
 
+        // Failures propagate to the caller: the returned count must only ever describe
+        // links that were actually persisted.
         public async Task<int> LinkHighlightsToMediaAsync()
         {
             _logger.LogInformation("Starting to link highlights to media items");
 
             var linkedCount = 0;
 
-            try
+            // Get all highlights that don't have ArticleId or BookId set yet
+            var unlinkedHighlights = await _context.Highlights
+                .Where(h => h.ArticleId == null && h.BookId == null)
+                .ToListAsync();
+
+            _logger.LogInformation("Found {Count} unlinked highlights", unlinkedHighlights.Count);
+
+            foreach (var highlight in unlinkedHighlights)
             {
-                // Get all highlights that don't have ArticleId or BookId set yet
-                var unlinkedHighlights = await _context.Highlights
-                    .Where(h => h.ArticleId == null && h.BookId == null)
-                    .ToListAsync();
+                var match = await HighlightLinkMatcher.ResolveAsync(
+                    _context,
+                    new[] { highlight.SourceUrl },
+                    highlight.Title,
+                    highlight.Author,
+                    highlight.Category);
 
-                _logger.LogInformation("Found {Count} unlinked highlights", unlinkedHighlights.Count);
-
-                foreach (var highlight in unlinkedHighlights)
+                if (match.Article != null)
                 {
-                    var match = await HighlightLinkMatcher.ResolveAsync(
-                        _context,
-                        new[] { highlight.SourceUrl },
-                        highlight.Title,
-                        highlight.Author,
-                        highlight.Category);
-
-                    if (match.Article != null)
-                    {
-                        highlight.ArticleId = match.Article.Id;
-                        linkedCount++;
-                        _logger.LogDebug("Linked highlight {HighlightId} to article {ArticleId}",
-                            highlight.Id, match.Article.Id);
-                    }
-                    else if (match.Book != null)
-                    {
-                        highlight.BookId = match.Book.Id;
-                        linkedCount++;
-                        _logger.LogDebug("Linked highlight {HighlightId} to book {BookId} by title/author",
-                            highlight.Id, match.Book.Id);
-                    }
+                    highlight.ArticleId = match.Article.Id;
+                    linkedCount++;
+                    _logger.LogDebug("Linked highlight {HighlightId} to article {ArticleId}",
+                        highlight.Id, match.Article.Id);
                 }
-
-                await _context.SaveChangesAsync();
-
-                _logger.LogInformation("Successfully linked {Count} highlights to media items", linkedCount);
+                else if (match.Book != null)
+                {
+                    highlight.BookId = match.Book.Id;
+                    linkedCount++;
+                    _logger.LogDebug("Linked highlight {HighlightId} to book {BookId} by title/author",
+                        highlight.Id, match.Book.Id);
+                }
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error linking highlights to media");
-            }
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Successfully linked {Count} highlights to media items", linkedCount);
 
             return linkedCount;
         }

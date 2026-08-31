@@ -34,20 +34,100 @@ namespace MyMediaVerse.Application.Services
         }
 
         /// <summary>
-        /// Best-effort removal of a highlight's search document. Failures are logged and
-        /// swallowed — the bulk reindex's ID-diff reconcile is the backstop.
+        /// Writes a highlight's tags and mirrors them onto its Topic links. Tags stay the
+        /// user-facing field; topic links are the derived, queryable form of the same data
+        /// (topics only — a highlight's genre is its linked media item's).
         /// </summary>
-        private async Task TryRemoveFromSearchIndexAsync(Guid highlightId)
+        private async Task ApplyTagsAsync(Highlight highlight, IEnumerable<string?>? rawTags, TopicResolver topics)
         {
-            try
+            var normalized = TagNormalizer.NormalizeList(rawTags);
+            highlight.Tags = normalized.Count > 0 ? string.Join(",", normalized) : null;
+
+            foreach (var stale in highlight.Topics.Where(t => !normalized.Contains(t.Name)).ToList())
             {
-                await _typesenseService.DeleteHighlightAsync(highlightId);
+                highlight.Topics.Remove(stale);
             }
-            catch (Exception ex)
+
+            foreach (var name in normalized)
             {
-                _logger.LogWarning(ex, "Failed to remove highlight {Id} from the search index; it will be removed on the next reindex", highlightId);
+                if (highlight.Topics.Any(t => t.Name == name))
+                    continue;
+
+                var topic = await topics.GetOrCreateAsync(name);
+                if (topic != null)
+                    highlight.Topics.Add(topic);
             }
         }
+
+        /// <summary>
+        /// One-shot (idempotent) backfill: derives Topic links from every stored tags
+        /// string and re-normalizes the string itself (legacy rows can carry untrimmed
+        /// tags written before normalization was consistent). Returns how many
+        /// highlights changed.
+        /// </summary>
+        public async Task<int> BackfillHighlightTopicsAsync()
+        {
+            const int pageSize = 200;
+            var topics = new TopicResolver(_context);
+            var updated = 0;
+            var lastId = Guid.Empty;
+
+            while (true)
+            {
+                var page = await _context.Highlights
+                    .Include(h => h.Topics)
+                    .Where(h => h.Tags != null && h.Id.CompareTo(lastId) > 0)
+                    .OrderBy(h => h.Id)
+                    .Take(pageSize)
+                    .ToListAsync();
+
+                if (page.Count == 0)
+                    break;
+
+                foreach (var highlight in page)
+                {
+                    var tagsBefore = highlight.Tags;
+                    var topicCountBefore = highlight.Topics.Count;
+
+                    await ApplyTagsAsync(highlight, TagNormalizer.SplitStored(highlight.Tags), topics);
+
+                    if (highlight.Tags != tagsBefore || highlight.Topics.Count != topicCountBefore)
+                        updated++;
+                }
+
+                await _context.SaveChangesAsync();
+                lastId = page[^1].Id;
+
+                if (page.Count < pageSize)
+                    break;
+            }
+
+            _logger.LogInformation("Topic backfill complete: {Count} highlights updated", updated);
+            return updated;
+        }
+
+        // A malformed date is not worth failing the highlight (or the run) over; store
+        // null and move on. Same policy as the Reader article sync's published_date.
+        private DateTime? ParseHighlightedAt(string? value, int readwiseId)
+        {
+            if (string.IsNullOrEmpty(value))
+                return null;
+
+            if (DateTime.TryParse(value, null, System.Globalization.DateTimeStyles.RoundtripKind, out var parsed))
+                return parsed.ToUniversalTime();
+
+            _logger.LogWarning("Could not parse highlighted_at '{Value}' for Readwise highlight {ReadwiseId}; storing null",
+                value, readwiseId);
+            return null;
+        }
+
+        /// <summary>
+        /// Best-effort removal of a highlight's search document via the shared
+        /// eager-delete helper — the bulk reindex's ID-diff reconcile is the backstop.
+        /// </summary>
+        private Task TryRemoveFromSearchIndexAsync(Guid highlightId) =>
+            SearchIndexCleanup.TryDeleteAsync(
+                () => _typesenseService.DeleteHighlightAsync(highlightId), _logger, "highlight", highlightId);
 
         public async Task<IEnumerable<Highlight>> GetAllHighlightsAsync()
         {
@@ -125,12 +205,13 @@ namespace MyMediaVerse.Application.Services
                 SourceUrl = dto.SourceUrl,
                 ArticleId = dto.ArticleId,
                 BookId = dto.BookId,
-                Tags = dto.Tags != null ? string.Join(",", dto.Tags.Select(t => t.ToLowerInvariant())) : null,
                 Location = dto.Location,
                 LocationType = dto.LocationType,
                 HighlightedAt = dto.HighlightedAt,
                 CreatedAt = DateTime.UtcNow
             };
+
+            await ApplyTagsAsync(highlight, dto.Tags, new TopicResolver(_context));
 
             _context.Add(highlight);
             await _context.SaveChangesAsync();
@@ -145,6 +226,7 @@ namespace MyMediaVerse.Application.Services
             var highlight = await _context.Highlights
                 .Include(h => h.Article)
                 .Include(h => h.Book)
+                .Include(h => h.Topics)
                 .FirstOrDefaultAsync(h => h.Id == id);
             if (highlight == null)
             {
@@ -175,11 +257,8 @@ namespace MyMediaVerse.Application.Services
 
             if (dto.Tags != null)
             {
-                var cleanedTags = dto.Tags
-                    .Select(t => t.Trim().ToLowerInvariant())
-                    .Where(t => t.Length > 0)
-                    .ToList();
-                highlight.Tags = cleanedTags.Count > 0 ? string.Join(",", cleanedTags) : null;
+                // Empty list = clear tags (and their derived topic links).
+                await ApplyTagsAsync(highlight, dto.Tags, new TopicResolver(_context));
             }
 
             highlight.UpdatedAt = DateTime.UtcNow;
@@ -389,6 +468,7 @@ namespace MyMediaVerse.Application.Services
             HighlightSyncResultDto result)
         {
             var removedFromDb = new List<Guid>();
+            var topics = new TopicResolver(_context);
 
             foreach (var highlightDto in bookDto.highlights)
             {
@@ -417,6 +497,7 @@ namespace MyMediaVerse.Application.Services
                 var existing = await _context.Highlights
                     .Include(h => h.Article)
                     .Include(h => h.Book)
+                    .Include(h => h.Topics)
                     .FirstOrDefaultAsync(h => h.ReadwiseId == highlightDto.id);
 
                 if (existing != null)
@@ -428,9 +509,7 @@ namespace MyMediaVerse.Application.Services
                     existing.LocationType = highlightDto.location_type;
                     existing.Color = highlightDto.color;
                     existing.IsFavorite = highlightDto.is_favorite;
-                    existing.Tags = highlightDto.tags != null
-                        ? string.Join(",", highlightDto.tags.Select(t => t.name.ToLowerInvariant()))
-                        : null;
+                    await ApplyTagsAsync(existing, highlightDto.tags?.Select(t => t.name), topics);
                     existing.UpdatedAt = DateTime.UtcNow;
 
                     result.UpdatedCount++;
@@ -452,18 +531,15 @@ namespace MyMediaVerse.Application.Services
                         HighlightUrl = highlightDto.url,
                         Location = highlightDto.location,
                         LocationType = highlightDto.location_type,
-                        HighlightedAt = !string.IsNullOrEmpty(highlightDto.highlighted_at)
-                            ? DateTime.Parse(highlightDto.highlighted_at, null, System.Globalization.DateTimeStyles.RoundtripKind).ToUniversalTime()
-                            : null,
+                        HighlightedAt = ParseHighlightedAt(highlightDto.highlighted_at, highlightDto.id),
                         ReadwiseBookId = bookDto.user_book_id,
-                        Tags = highlightDto.tags != null
-                            ? string.Join(",", highlightDto.tags.Select(t => t.name.ToLowerInvariant()))
-                            : null,
                         Color = highlightDto.color,
                         IsFavorite = highlightDto.is_favorite,
                         SourceType = bookDto.source,
                         CreatedAt = DateTime.UtcNow
                     };
+
+                    await ApplyTagsAsync(highlight, highlightDto.tags?.Select(t => t.name), topics);
 
                     // Auto-link to source media: URL(s) first, then title/title+author
                     var match = await HighlightLinkMatcher.ResolveAsync(
@@ -590,7 +666,10 @@ namespace MyMediaVerse.Application.Services
 
         public async Task<BulkHighlightResultDto> BulkCreateHighlightsAsync(List<CreateHighlightDto> dtos)
         {
-            var result = new BulkHighlightResultDto();
+            var result = new BulkHighlightResultDto
+            {
+                StartedAt = DateTime.UtcNow
+            };
 
             // Match-by-key upsert: re-uploading the same file must update rows in place,
             // never duplicate them.
@@ -599,8 +678,10 @@ namespace MyMediaVerse.Application.Services
                 .Distinct()
                 .ToList();
             var candidates = await _context.Highlights
+                .Include(h => h.Topics)
                 .Where(h => titleKeys.Contains((h.Title ?? string.Empty).Trim().ToLower()))
                 .ToListAsync();
+            var topics = new TopicResolver(_context);
             var existingByKey = new Dictionary<(string, string), Highlight>();
             foreach (var candidate in candidates)
             {
@@ -632,7 +713,7 @@ namespace MyMediaVerse.Application.Services
                         if (dto.Author != null) existing.Author = dto.Author;
                         if (dto.Category != null) existing.Category = dto.Category.ToLowerInvariant();
                         if (dto.SourceUrl != null) existing.SourceUrl = dto.SourceUrl;
-                        if (dto.Tags != null) existing.Tags = string.Join(",", dto.Tags.Select(t => t.ToLowerInvariant()));
+                        if (dto.Tags != null) await ApplyTagsAsync(existing, dto.Tags, topics);
                         if (dto.Location.HasValue) existing.Location = dto.Location;
                         if (dto.LocationType != null) existing.LocationType = dto.LocationType;
                         if (dto.HighlightedAt.HasValue) existing.HighlightedAt = dto.HighlightedAt;
@@ -663,12 +744,13 @@ namespace MyMediaVerse.Application.Services
                         SourceUrl = dto.SourceUrl,
                         ArticleId = dto.ArticleId,
                         BookId = dto.BookId,
-                        Tags = dto.Tags != null ? string.Join(",", dto.Tags.Select(t => t.ToLowerInvariant())) : null,
                         Location = dto.Location,
                         LocationType = dto.LocationType,
                         HighlightedAt = dto.HighlightedAt,
                         CreatedAt = DateTime.UtcNow
                     };
+
+                    await ApplyTagsAsync(highlight, dto.Tags, topics);
 
                     // Auto-link only when the caller didn't supply an explicit link
                     if (highlight.ArticleId == null && highlight.BookId == null)
@@ -711,10 +793,16 @@ namespace MyMediaVerse.Application.Services
             }
             catch (Exception ex)
             {
+                // Fatal: nothing from this batch was persisted, whatever the counters say.
                 _logger.LogError(ex, "Failed to save bulk highlights to database");
-                result.Errors.Add($"Database save failed: {ex.Message}");
+                result.Success = false;
+                result.ErrorMessage = $"Database save failed: {ex.Message}";
+                result.CompletedAt = DateTime.UtcNow;
                 return result;
             }
+
+            result.Success = true;
+            result.CompletedAt = DateTime.UtcNow;
 
             _logger.LogInformation("Bulk import: created {Created}, updated {Updated}, skipped {Skipped}, linked {Linked}, errors {Errors}",
                 result.Created, result.Updated, result.Skipped, result.Linked, result.Errors.Count);

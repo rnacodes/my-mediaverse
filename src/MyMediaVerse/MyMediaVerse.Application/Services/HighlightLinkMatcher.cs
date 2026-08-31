@@ -7,10 +7,11 @@ namespace MyMediaVerse.Application.Services
 {
     /// <summary>
     /// The single shared strategy for matching a highlight to its source media.
-    /// Order: source URL(s) — exact normalized match, then protocol-stripped
-    /// suffix match — then title for article highlights, then title+author for
-    /// book highlights. All comparisons are case-insensitive. Returns at most
-    /// one match (article wins over book, mirroring the two FK columns).
+    /// Order: source URL(s) — anchored equality against every stored form of the
+    /// normalized comparison key (scheme/www/trailing-slash variants) — then title
+    /// for article highlights, then title+author for book highlights. All
+    /// comparisons are case-insensitive. Returns at most one match (article wins
+    /// over book, mirroring the two FK columns).
     /// </summary>
     public static class HighlightLinkMatcher
     {
@@ -73,29 +74,22 @@ namespace MyMediaVerse.Application.Services
         {
             foreach (var url in candidateUrls.Where(u => !string.IsNullOrEmpty(u)).Distinct())
             {
-                // Normalize already lowercases; lower again defensively so the
-                // comparisons below stay case-insensitive regardless.
-                var normalizedUrl = UrlNormalizer.Normalize(url).ToLower();
-                if (normalizedUrl.Length == 0)
+                // The comparison key is scheme-less, www-less, lowercase, no trailing slash.
+                var key = UrlNormalizer.GetComparisonKey(url);
+                if (key.Length == 0)
                 {
                     continue;
                 }
 
-                var article = await context.Articles
-                    .FirstOrDefaultAsync(a => a.Link != null && a.Link.ToLower() == normalizedUrl);
-
-                // Fall back to a protocol-agnostic suffix match so http/https
-                // (and stored-with-www) variants of the same page still hit
-                if (article == null)
+                var storedForms = new List<string>();
+                foreach (var prefix in new[] { "", "http://", "https://", "http://www.", "https://www." })
                 {
-                    var urlWithoutProtocol = normalizedUrl
-                        .Replace("https://", "")
-                        .Replace("http://", "");
-                    article = await context.Articles
-                        .FirstOrDefaultAsync(a => a.Link != null &&
-                            (a.Link.ToLower().EndsWith(urlWithoutProtocol) ||
-                             a.Link.ToLower().EndsWith(urlWithoutProtocol + "/")));
+                    storedForms.Add(prefix + key);
+                    storedForms.Add(prefix + key + "/");
                 }
+
+                var article = await context.Articles
+                    .FirstOrDefaultAsync(a => a.Link != null && storedForms.Contains(a.Link.ToLower()));
 
                 if (article != null)
                 {
