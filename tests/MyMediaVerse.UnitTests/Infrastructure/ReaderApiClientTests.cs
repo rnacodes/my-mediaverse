@@ -100,10 +100,16 @@ namespace MyMediaVerse.UnitTests.Infrastructure
 
             // Assert
             result.Should().NotBeNull();
-            result.count.Should().Be(2);
-            result.results.Should().HaveCount(2);
-            result.results[0].title.Should().Be("Test Article 1");
-            result.results[1].title.Should().Be("Test Article 2");
+            result.Count.Should().Be(2);
+            result.Results.Should().HaveCount(2);
+            result.Results[0].Title.Should().Be("Test Article 1");
+            result.Results[0].SourceUrl.Should().Be("https://example.com/article1");
+            result.Results[0].SiteName.Should().Be("Example Site");
+            result.Results[0].WordCount.Should().Be(1000);
+            result.Results[0].ReadingProgress.Should().Be(0.5);
+            result.Results[0].Tags.Should().ContainKey("tech");
+            result.Results[1].Title.Should().Be("Test Article 2");
+            result.Results[1].Tags.Should().BeEmpty();
         }
 
         [Fact]
@@ -151,6 +157,17 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         }
 
         [Fact]
+        public async Task GetDocumentsAsync_PagedResponse_ExposesNextPageCursor()
+        {
+            var responseJson = @"{""count"": 0, ""nextPageCursor"": ""abc123"", ""results"": []}";
+            SetupHttpResponse(HttpStatusCode.OK, responseJson);
+
+            var result = await _client.GetDocumentsAsync();
+
+            result.NextPageCursor.Should().Be("abc123");
+        }
+
+        [Fact]
         public async Task GetDocumentByIdAsync_Success_ReturnsDocument()
         {
             // Arrange
@@ -190,23 +207,30 @@ namespace MyMediaVerse.UnitTests.Infrastructure
 
             // Assert
             result.Should().NotBeNull();
-            result.id.Should().Be("doc-123");
-            result.title.Should().Be("Test Article");
-            result.content.Should().NotBeNullOrEmpty();
+            result.Id.Should().Be("doc-123");
+            result.Title.Should().Be("Test Article");
+            result.Content.Should().NotBeNullOrEmpty();
         }
 
         [Fact]
-        public async Task GetDocumentsAsync_Unauthorized_ReturnsEmptyResponse()
+        public async Task GetDocumentByIdAsync_NotFound_ReturnsNull()
         {
-            // Arrange
+            SetupHttpResponse(HttpStatusCode.NotFound, "Not found");
+
+            var result = await _client.GetDocumentByIdAsync("missing");
+
+            result.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task GetDocumentsAsync_Unauthorized_Throws()
+        {
+            // An API failure must surface as an error, never as an empty page.
             SetupHttpResponse(HttpStatusCode.Unauthorized, "Unauthorized");
 
-            // Act
-            var result = await _client.GetDocumentsAsync();
+            Func<Task> act = () => _client.GetDocumentsAsync();
 
-            // Assert
-            result.Should().NotBeNull();
-            result.results.Should().BeEmpty();
+            await act.Should().ThrowAsync<HttpRequestException>();
         }
 
         private void SetupHttpResponse(HttpStatusCode statusCode, string content)
@@ -219,4 +243,3 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         }
     }
 }
-

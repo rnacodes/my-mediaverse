@@ -31,6 +31,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
         // `embedding` field that Typesense populates by calling OpenAI on write, and search becomes
         // hybrid (keyword + vector). With no key, collections and search stay keyword-only.
         private readonly bool _autoEmbeddingEnabled;
+        private readonly double _hybridDistanceThreshold;
         private readonly string? _openAiApiKey;
         private readonly string _embeddingModelName;
         private readonly int _embeddingDimensions;
@@ -73,6 +74,11 @@ namespace MyMediaVerse.Infrastructure.Services.Search
             var dimensionsSetting = ResolveSetting(configuration, "Typesense:EmbeddingDimensions", "TYPESENSE_EMBEDDING_DIMENSIONS");
             _embeddingDimensions = int.TryParse(dimensionsSetting, out var dims) ? dims : 3072;
             _autoEmbeddingEnabled = !string.IsNullOrEmpty(_openAiApiKey);
+
+            var thresholdSetting = ResolveSetting(configuration, "Typesense:HybridDistanceThreshold", "TYPESENSE_HYBRID_DISTANCE_THRESHOLD");
+            _hybridDistanceThreshold = double.TryParse(thresholdSetting, NumberStyles.Float, CultureInfo.InvariantCulture, out var threshold)
+                ? threshold
+                : DefaultHybridDistanceThreshold;
 
             if (_autoEmbeddingEnabled)
             {
@@ -132,6 +138,71 @@ namespace MyMediaVerse.Infrastructure.Services.Search
         /// </summary>
         private string BuildQueryBy(string keywordFields) =>
             _autoEmbeddingEnabled ? $"{keywordFields},embedding" : keywordFields;
+
+        /// <summary>
+        /// Default maximum cosine distance (0 = identical) for a document to count as a vector match
+        /// in hybrid search. Without a cutoff, the vector leg of a hybrid query returns the nearest
+        /// neighbours of <em>every</em> query, so even a nonsense term surfaces the whole collection.
+        /// Calibrated against OpenAI text embeddings: genuine matches score roughly 0.45-0.65,
+        /// unrelated documents 0.75 and up. Override with Typesense:HybridDistanceThreshold.
+        /// </summary>
+        internal const double DefaultHybridDistanceThreshold = 0.65;
+
+        /// <summary>
+        /// Builds the <c>vector_query</c> for a hybrid search: an empty vector tells Typesense to embed
+        /// the query text itself, <c>k</c> covers every result up to the requested page, and the
+        /// distance threshold drops documents that are not actually similar to the query.
+        /// </summary>
+        internal static VectorQuery BuildHybridVectorQuery(int perPage, int page, double distanceThreshold) =>
+            new HybridVectorQuery(EmbeddingFieldName, k: Math.Max(1, perPage) * Math.Max(1, page), distanceThreshold);
+
+        /// <summary>
+        /// Applies the options every hybrid (keyword + vector) search needs. Returns the parameters
+        /// unchanged when auto-embedding is disabled and the search is keyword-only.
+        /// </summary>
+        private MultiSearchParameters ApplyHybridSearchOptions(MultiSearchParameters searchParameters, int perPage, int page)
+        {
+            if (!_autoEmbeddingEnabled)
+                return searchParameters;
+
+            return searchParameters with
+            {
+                // Never return the raw embedding vector to callers - it's large and not displayable.
+                ExcludeFields = EmbeddingFieldName,
+                // Remote embedders (OpenAI auto-embedding) reject prefix search; it must be
+                // disabled explicitly or every hybrid query fails with a 400.
+                Prefix = false,
+                // Bound the vector leg so only genuinely similar documents are fused into the results.
+                VectorQuery = BuildHybridVectorQuery(perPage, page, _hybridDistanceThreshold)
+            };
+        }
+
+        /// <summary>
+        /// Executes a collection search. The client only sends <c>vector_query</c> on multi-search
+        /// requests, so a hybrid search (one carrying a vector query) goes through
+        /// <c>multi_search</c>; keyword-only searches keep the plain search endpoint. Both payloads
+        /// serialize to the same JSON shape (<c>found</c>, <c>hits</c>, ...), so callers can pass
+        /// either straight through to the API response.
+        /// </summary>
+        private async Task<(object Payload, int Found, IReadOnlyList<Hit<T>> Hits)> RunSearchAsync<T>(MultiSearchParameters searchParameters)
+        {
+            if (searchParameters.VectorQuery is null)
+            {
+                var result = await _typesenseClient.Search<T>(searchParameters.Collection, searchParameters);
+                return (result, result.Found, result.Hits);
+            }
+
+            var multiResult = await _typesenseClient.MultiSearch<T>(searchParameters);
+            if (multiResult.ErrorCode is not null)
+            {
+                // multi_search reports per-search failures inline with HTTP 200; surface them
+                // instead of silently returning an empty page.
+                throw new InvalidOperationException(
+                    $"Typesense multi_search against '{searchParameters.Collection}' failed ({multiResult.ErrorCode}): {multiResult.ErrorMessage}");
+            }
+
+            return (multiResult, multiResult.Found ?? 0, multiResult.Hits ?? Array.Empty<Hit<T>>());
+        }
 
         /// <summary>
         /// Minimal projection used to list the IDs currently in a collection without pulling whole
@@ -437,7 +508,8 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 var resolvedSort = ResolveSortBy(sortBy, "_text_match:desc,date_added:desc", MediaSortableFields);
 
                 // Create search parameters with query and queryBy fields
-                var searchParameters = new SearchParameters(
+                var searchParameters = new MultiSearchParameters(
+                    _mediaCollectionName,
                     query,
                     // Search across these fields (plus the embedding field when hybrid search is enabled)
                     BuildQueryBy("title,description,author,director,creator,publisher")
@@ -448,14 +520,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     SortBy = resolvedSort
                 };
 
-                // Never return the raw embedding vector to callers - it's large and not displayable
-                if (_autoEmbeddingEnabled)
-                {
-                    searchParameters.ExcludeFields = "embedding";
-                    // Remote embedders (OpenAI auto-embedding) reject prefix search; it must be
-                    // disabled explicitly or every hybrid query fails with a 400.
-                    searchParameters.Prefix = false;
-                }
+                searchParameters = ApplyHybridSearchOptions(searchParameters, perPage, page);
 
                 // Add filters if provided (e.g., "media_type:=Book")
                 if (!string.IsNullOrEmpty(filters))
@@ -463,9 +528,9 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     searchParameters.FilterBy = filters;
                 }
 
-                var searchResult = await _typesenseClient.Search<MediaItemDocument>(_mediaCollectionName, searchParameters);
+                var (searchResult, found, _) = await RunSearchAsync<MediaItemDocument>(searchParameters);
                 
-                _logger.LogDebug("Search for '{Query}' returned {Count} results.", query, searchResult.Found);
+                _logger.LogDebug("Search for '{Query}' returned {Count} results.", query, found);
                 
                 return searchResult;
             }
@@ -860,7 +925,8 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 var resolvedSort = ResolveSortBy(sortBy, "_text_match:desc,date_created:desc", MixlistSortableFields);
 
                 // Create search parameters with query and queryBy fields
-                var searchParameters = new SearchParameters(
+                var searchParameters = new MultiSearchParameters(
+                    _mixlistCollectionName,
                     query,
                     // Search across these fields (plus the embedding field when hybrid search is enabled)
                     BuildQueryBy("name,description,media_item_titles")
@@ -871,14 +937,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     SortBy = resolvedSort
                 };
 
-                // Never return the raw embedding vector to callers - it's large and not displayable
-                if (_autoEmbeddingEnabled)
-                {
-                    searchParameters.ExcludeFields = "embedding";
-                    // Remote embedders (OpenAI auto-embedding) reject prefix search; it must be
-                    // disabled explicitly or every hybrid query fails with a 400.
-                    searchParameters.Prefix = false;
-                }
+                searchParameters = ApplyHybridSearchOptions(searchParameters, perPage, page);
 
                 // Add filters if provided (e.g., "topics:=productivity")
                 if (!string.IsNullOrEmpty(filters))
@@ -886,9 +945,9 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     searchParameters.FilterBy = filters;
                 }
 
-                var searchResult = await _typesenseClient.Search<MixlistDocument>(_mixlistCollectionName, searchParameters);
+                var (searchResult, found, _) = await RunSearchAsync<MixlistDocument>(searchParameters);
                 
-                _logger.LogDebug("Mixlist search for '{Query}' returned {Count} results.", query, searchResult.Found);
+                _logger.LogDebug("Mixlist search for '{Query}' returned {Count} results.", query, found);
                 
                 return searchResult;
             }
@@ -1227,7 +1286,8 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 // Default: relevance first, then recency. An explicit, allowlisted sortBy overrides it.
                 var resolvedSort = ResolveSortBy(sortBy, "_text_match:desc,date_imported:desc", NotesSortableFields);
 
-                var searchParameters = new SearchParameters(
+                var searchParameters = new MultiSearchParameters(
+                    _notesCollectionName,
                     query,
                     BuildQueryBy("title,content,description,tags")
                 )
@@ -1237,21 +1297,15 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     SortBy = resolvedSort
                 };
 
-                if (_autoEmbeddingEnabled)
-                {
-                    searchParameters.ExcludeFields = "embedding";
-                    // Remote embedders (OpenAI auto-embedding) reject prefix search; it must be
-                    // disabled explicitly or every hybrid query fails with a 400.
-                    searchParameters.Prefix = false;
-                }
+                searchParameters = ApplyHybridSearchOptions(searchParameters, perPage, page);
 
                 if (!string.IsNullOrEmpty(filters))
                 {
                     searchParameters.FilterBy = filters;
                 }
 
-                var searchResult = await _typesenseClient.Search<ObsidianNoteDocument>(_notesCollectionName, searchParameters);
-                _logger.LogDebug("Notes search for '{Query}' returned {Count} results.", query, searchResult.Found);
+                var (searchResult, found, _) = await RunSearchAsync<ObsidianNoteDocument>(searchParameters);
+                _logger.LogDebug("Notes search for '{Query}' returned {Count} results.", query, found);
                 return searchResult;
             }
             catch (Exception ex)
@@ -1466,7 +1520,8 @@ namespace MyMediaVerse.Infrastructure.Services.Search
         {
             try
             {
-                var searchParameters = new SearchParameters(
+                var searchParameters = new MultiSearchParameters(
+                    _mediaCollectionName,
                     query,
                     BuildQueryBy("title,description,author,director,creator,publisher")
                 )
@@ -1476,23 +1531,17 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     SortBy = "_text_match:desc,date_added:desc"
                 };
 
-                if (_autoEmbeddingEnabled)
-                {
-                    searchParameters.ExcludeFields = "embedding";
-                    // Remote embedders (OpenAI auto-embedding) reject prefix search; it must be
-                    // disabled explicitly or every hybrid query fails with a 400.
-                    searchParameters.Prefix = false;
-                }
+                searchParameters = ApplyHybridSearchOptions(searchParameters, perPage, page);
 
                 if (!string.IsNullOrEmpty(filters))
                 {
                     searchParameters.FilterBy = filters;
                 }
 
-                var searchResult = await _typesenseClient.Search<MediaItemDocument>(_mediaCollectionName, searchParameters);
+                var (searchResult, found, _) = await RunSearchAsync<MediaItemDocument>(searchParameters);
 
                 _logger.LogDebug("Media hybrid search for '{Query}' returned {Count} results (hybrid: {Hybrid}).",
-                    query, searchResult.Found, _autoEmbeddingEnabled);
+                    query, found, _autoEmbeddingEnabled);
 
                 return searchResult;
             }
@@ -1516,7 +1565,8 @@ namespace MyMediaVerse.Infrastructure.Services.Search
         {
             try
             {
-                var searchParameters = new SearchParameters(
+                var searchParameters = new MultiSearchParameters(
+                    _notesCollectionName,
                     query,
                     BuildQueryBy("title,content,description,tags")
                 )
@@ -1526,23 +1576,17 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     SortBy = "_text_match:desc,date_imported:desc"
                 };
 
-                if (_autoEmbeddingEnabled)
-                {
-                    searchParameters.ExcludeFields = "embedding";
-                    // Remote embedders (OpenAI auto-embedding) reject prefix search; it must be
-                    // disabled explicitly or every hybrid query fails with a 400.
-                    searchParameters.Prefix = false;
-                }
+                searchParameters = ApplyHybridSearchOptions(searchParameters, perPage, page);
 
                 if (!string.IsNullOrEmpty(filters))
                 {
                     searchParameters.FilterBy = filters;
                 }
 
-                var searchResult = await _typesenseClient.Search<ObsidianNoteDocument>(_notesCollectionName, searchParameters);
+                var (searchResult, found, _) = await RunSearchAsync<ObsidianNoteDocument>(searchParameters);
 
                 _logger.LogDebug("Notes hybrid search for '{Query}' returned {Count} results (hybrid: {Hybrid}).",
-                    query, searchResult.Found, _autoEmbeddingEnabled);
+                    query, found, _autoEmbeddingEnabled);
 
                 return searchResult;
             }
@@ -1747,7 +1791,8 @@ namespace MyMediaVerse.Infrastructure.Services.Search
 
             try
             {
-                var searchParameters = new SearchParameters(
+                var searchParameters = new MultiSearchParameters(
+                    _mediaCollectionName,
                     query,
                     BuildQueryBy("title,description,author,director,creator,publisher"))
                 {
@@ -1755,18 +1800,13 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     SortBy = "_text_match:desc,date_added:desc"
                 };
 
-                if (_autoEmbeddingEnabled)
-                {
-                    searchParameters.ExcludeFields = EmbeddingFieldName;
-                    // Remote embedders (OpenAI auto-embedding) reject prefix search.
-                    searchParameters.Prefix = false;
-                }
+                searchParameters = ApplyHybridSearchOptions(searchParameters, limit, page: 1);
 
                 if (!string.IsNullOrEmpty(filters))
                     searchParameters.FilterBy = filters;
 
-                var result = await _typesenseClient.Search<MediaItemDocument>(_mediaCollectionName, searchParameters);
-                return MapMediaHits(result.Hits);
+                var (_, _, hits) = await RunSearchAsync<MediaItemDocument>(searchParameters);
+                return MapMediaHits(hits);
             }
             catch (Exception ex)
             {
@@ -2016,7 +2056,8 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     resolvedSort += ",created_at:asc";
                 }
 
-                var searchParameters = new SearchParameters(
+                var searchParameters = new MultiSearchParameters(
+                    _highlightsCollectionName,
                     query,
                     BuildQueryBy("text,note,title,author,tags")
                 )
@@ -2026,21 +2067,15 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     SortBy = resolvedSort
                 };
 
-                if (_autoEmbeddingEnabled)
-                {
-                    searchParameters.ExcludeFields = "embedding";
-                    // Remote embedders (OpenAI auto-embedding) reject prefix search; it must be
-                    // disabled explicitly or every hybrid query fails with a 400.
-                    searchParameters.Prefix = false;
-                }
+                searchParameters = ApplyHybridSearchOptions(searchParameters, perPage, page);
 
                 if (!string.IsNullOrEmpty(filters))
                 {
                     searchParameters.FilterBy = filters;
                 }
 
-                var searchResult = await _typesenseClient.Search<HighlightDocument>(_highlightsCollectionName, searchParameters);
-                _logger.LogDebug("Highlights search for '{Query}' returned {Count} results.", query, searchResult.Found);
+                var (searchResult, found, _) = await RunSearchAsync<HighlightDocument>(searchParameters);
+                _logger.LogDebug("Highlights search for '{Query}' returned {Count} results.", query, found);
                 return searchResult;
             }
             catch (Exception ex)

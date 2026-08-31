@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Infrastructure.Data;
 using MyMediaVerse.Application.Interfaces;
+using MyMediaVerse.Application.Utilities;
 using MyMediaVerse.Shared.Interfaces;
 using MyMediaVerse.DTOs;
 using System.Globalization;
@@ -243,6 +244,8 @@ namespace MyMediaVerse.Web.API.Controllers
 
                 var results = new List<object>();
                 var errors = new List<string>();
+                var skipped = new List<string>();
+                var skippedCount = 0;
                 var importedItems = new List<object>();
                 int successCount = 0;
                 int errorCount = 0;
@@ -329,6 +332,12 @@ namespace MyMediaVerse.Web.API.Controllers
                                 break;
                             case MediaType.Article:
                                 mediaItem = await ProcessArticleRow(csv);
+                                if (mediaItem == null)
+                                {
+                                    skipped.Add($"Row {csv.CurrentIndex}: an article with this URL already exists; skipped");
+                                    skippedCount++;
+                                    continue;
+                                }
                                 break;
                             case MediaType.Video:
                                 mediaItem = await ProcessVideoRow(csv);
@@ -489,10 +498,12 @@ namespace MyMediaVerse.Web.API.Controllers
                 var result = new
                 {
                     Success = true,
-                    Message = $"Processed {successCount + errorCount} rows. {successCount} successful, {errorCount} errors.",
+                    Message = $"Processed {successCount + errorCount + skippedCount} rows. {successCount} successful, {skippedCount} skipped, {errorCount} errors.",
                     SuccessCount = successCount,
+                    SkippedCount = skippedCount,
                     ErrorCount = errorCount,
                     Errors = errors,
+                    Skipped = skipped,
                     ImportedItems = importedItems
                 };
 
@@ -781,8 +792,20 @@ namespace MyMediaVerse.Web.API.Controllers
             return Task.FromResult<TvShow?>(tvShow);
         }
 
-        private Task<Article?> ProcessArticleRow(CsvReader csv)
+        // Returns null when an article with the row's URL already exists.
+        private async Task<Article?> ProcessArticleRow(CsvReader csv)
         {
+            var rawLink = GetCsvValue(csv, "Url") ?? GetCsvValue(csv, "Link"); // Support both column names
+            var normalizedLink = string.IsNullOrWhiteSpace(rawLink) ? rawLink : UrlNormalizer.Normalize(rawLink);
+
+            var existing = await ArticleDuplicateFinder.FindExistingAsync(_context.Articles, null, rawLink);
+            if (existing != null)
+            {
+                _logger.LogInformation("CSV row {RowIndex}: article already exists for {Url} (ID: {Id}); skipping",
+                    csv.CurrentIndex, normalizedLink, existing.Id);
+                return null;
+            }
+
             var article = new Article
             {
                 Title = GetCsvValue(csv, "Title") ?? "Unknown Title",
@@ -793,7 +816,7 @@ namespace MyMediaVerse.Web.API.Controllers
 
             // Optional fields
             article.Description = GetCsvValue(csv, "Description");
-            article.Link = GetCsvValue(csv, "Url") ?? GetCsvValue(csv, "Link"); // Support both column names
+            article.Link = normalizedLink;
             article.Notes = GetCsvValue(csv, "Notes");
             article.RelatedNotes = GetCsvValue(csv, "RelatedNotes");
             article.Thumbnail = GetCsvValue(csv, "Thumbnail");
@@ -845,7 +868,7 @@ namespace MyMediaVerse.Web.API.Controllers
             if (!string.IsNullOrEmpty(ownershipStr) && Enum.TryParse<OwnershipStatus>(ownershipStr, true, out OwnershipStatus ownership))
                 article.OwnershipStatus = ownership;
 
-            return Task.FromResult<Article?>(article);
+            return article;
         }
 
         private Task<Video?> ProcessVideoRow(CsvReader csv)

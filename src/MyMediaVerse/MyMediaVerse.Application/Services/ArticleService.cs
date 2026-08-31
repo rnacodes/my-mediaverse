@@ -125,11 +125,10 @@ namespace MyMediaVerse.Application.Services
                     ? UrlNormalizer.Normalize(dto.Link)
                     : null;
 
-                // Check for existing article with same normalized URL
+                // Check for existing article with same URL (scheme-insensitive)
                 if (!string.IsNullOrWhiteSpace(normalizedUrl))
                 {
-                    var existingArticle = await _context.Articles
-                        .FirstOrDefaultAsync(a => a.Link != null && EF.Functions.ILike(a.Link, normalizedUrl));
+                    var existingArticle = await ArticleDuplicateFinder.FindExistingAsync(_context.Articles, null, dto.Link);
 
                     if (existingArticle != null)
                     {

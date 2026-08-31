@@ -36,7 +36,6 @@ import YouTubeCallback from './features/videos/pages/YouTubeCallback';
 import ReadwiseSyncPage from './features/imports/pages/ReadwiseSyncPage';
 import TraktSyncPage from './features/imports/pages/TraktSyncPage';
 import HighlightLinkingPage from './features/notes/pages/HighlightLinkingPage';
-import ArticlesPage from './features/imports/pages/ArticlesPage';
 import DocumentsPage from './features/imports/pages/DocumentsPage';
 import SourceDirectoryPage from './features/imports/pages/SourceDirectoryPage';
 import YouTubeChannelList from './features/videos/pages/YouTubeChannelList';
@@ -156,9 +155,6 @@ function RoutedContent() {
             } />
             <Route path="/highlight-linking" element={
               <ConditionalProtectedRoute><DemoRestrictedRoute><HighlightLinkingPage /></DemoRestrictedRoute></ConditionalProtectedRoute>
-            } />
-            <Route path="/articles" element={
-              <ConditionalProtectedRoute><ArticlesPage /></ConditionalProtectedRoute>
             } />
             <Route path="/documents" element={
               <ConditionalProtectedRoute><DocumentsPage /></ConditionalProtectedRoute>

@@ -44,16 +44,6 @@ export const updateArticle = async (id, articleData) => {
     }
 };
 
-export const deleteArticle = async (id) => {
-    try {
-        const response = await apiClient.delete(`/article/${id}`);
-        return response.data;
-    } catch (error) {
-        console.error('Error deleting article:', error);
-        throw error;
-    }
-};
-
 // ============================================
 // Article Metadata Scraping
 // ============================================

@@ -124,6 +124,16 @@ namespace MyMediaVerse.Application.Services
 
         public async Task<MediaItemResponseDto> CreateMediaItemAsync(CreateMediaItemDto dto)
         {
+            if (dto.MediaType == MediaType.Article)
+            {
+                var existingArticle = await ArticleDuplicateFinder.FindExistingAsync(_context.Articles, null, dto.Link);
+                if (existingArticle != null)
+                {
+                    throw new InvalidOperationException(
+                        $"An article with this URL already exists (ID: {existingArticle.Id}).");
+                }
+            }
+
             BaseMediaItem mediaItem = dto.MediaType switch
             {
                 MediaType.Article => CreateArticle(dto),
@@ -475,7 +485,7 @@ namespace MyMediaVerse.Application.Services
             {
                 Title = dto.Title,
                 MediaType = dto.MediaType,
-                Link = dto.Link,
+                Link = string.IsNullOrWhiteSpace(dto.Link) ? dto.Link : UrlNormalizer.Normalize(dto.Link),
                 Notes = dto.Notes,
                 Status = dto.Status,
                 DateAdded = DateTime.UtcNow,

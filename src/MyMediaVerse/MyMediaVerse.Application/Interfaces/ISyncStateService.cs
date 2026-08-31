@@ -22,8 +22,17 @@ namespace MyMediaVerse.Application.Interfaces
     /// </summary>
     public interface ISyncStateService
     {
-        /// <summary>Well-known key for the unified Readwise/Reader sync.</summary>
+        /// <summary>
+        /// Legacy key from when Reader documents and Readwise highlights shared one cursor.
+        /// Only read to seed the two per-source keys below on their first run.
+        /// </summary>
         const string ReadwiseKey = "readwise";
+
+        /// <summary>Cursor for the Readwise Reader (documents, v3 API) sync step.</summary>
+        const string ReadwiseReaderKey = "readwise-reader";
+
+        /// <summary>Cursor for the Readwise highlights (v2 API) sync step.</summary>
+        const string ReadwiseHighlightsKey = "readwise-highlights";
 
         /// <summary>Returns the last fully-successful run time for the source, or null if none.</summary>
         Task<DateTime?> GetLastSuccessfulSyncAsync(string key);

@@ -11,6 +11,8 @@ namespace MyMediaVerse.Infrastructure.Clients.Readwise
 {
     public class ReaderApiClient : IReaderApiClient
     {
+        private static readonly JsonSerializerOptions ReadOptions = new() { PropertyNameCaseInsensitive = true };
+
         private readonly HttpClient _httpClient;
         private readonly ILogger<ReaderApiClient> _logger;
         private readonly IConfiguration _configuration;
@@ -34,88 +36,100 @@ namespace MyMediaVerse.Infrastructure.Clients.Readwise
             {
                 _httpClient.BaseAddress = new Uri("https://readwise.io/api/v3/");
             }
-            
+
             if (!string.IsNullOrEmpty(_apiToken) && _httpClient.DefaultRequestHeaders.Authorization == null)
             {
-                _httpClient.DefaultRequestHeaders.Authorization = 
+                _httpClient.DefaultRequestHeaders.Authorization =
                     new AuthenticationHeaderValue("Token", _apiToken);
             }
         }
 
+        /// <summary>
+        /// Lists documents. Failures propagate as exceptions so a sync run reports them
+        /// as fatal instead of treating an outage as "no documents".
+        /// </summary>
         public async Task<ReaderDocumentsResponse> GetDocumentsAsync(
             string? updatedAfter = null,
             string? location = null,
             string? category = null,
             string? pageCursor = null)
         {
+            if (string.IsNullOrEmpty(_apiToken))
+            {
+                throw new InvalidOperationException(
+                    "Readwise API token is not configured (READWISE_API_KEY / READWISE_API_TOKEN / ApiKeys:Readwise).");
+            }
+
+            var queryParams = new List<string>();
+
+            if (!string.IsNullOrEmpty(updatedAfter))
+            {
+                queryParams.Add($"updatedAfter={Uri.EscapeDataString(updatedAfter)}");
+            }
+
+            if (!string.IsNullOrEmpty(location))
+            {
+                queryParams.Add($"location={location}");
+            }
+
+            if (!string.IsNullOrEmpty(category))
+            {
+                queryParams.Add($"category={category}");
+            }
+
+            if (!string.IsNullOrEmpty(pageCursor))
+            {
+                queryParams.Add($"pageCursor={Uri.EscapeDataString(pageCursor)}");
+            }
+
+            var query = queryParams.Count > 0 ? "?" + string.Join("&", queryParams) : "";
+
             try
             {
-                var queryParams = new List<string>();
-
-                if (!string.IsNullOrEmpty(updatedAfter))
-                {
-                    queryParams.Add($"updatedAfter={Uri.EscapeDataString(updatedAfter)}");
-                }
-
-                if (!string.IsNullOrEmpty(location))
-                {
-                    queryParams.Add($"location={location}");
-                }
-
-                if (!string.IsNullOrEmpty(category))
-                {
-                    queryParams.Add($"category={category}");
-                }
-
-                if (!string.IsNullOrEmpty(pageCursor))
-                {
-                    queryParams.Add($"pageCursor={Uri.EscapeDataString(pageCursor)}");
-                }
-
-                var query = queryParams.Count > 0 ? "?" + string.Join("&", queryParams) : "";
                 var response = await _httpClient.GetAsync($"list/{query}");
-                
                 response.EnsureSuccessStatusCode();
-                
-                var content = await response.Content.ReadAsStringAsync();
-                var result = JsonSerializer.Deserialize<ReaderDocumentsResponse>(content,
-                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
-                _logger.LogInformation("Retrieved {Count} documents from Reader", 
-                    result?.results.Count ?? 0);
+                var content = await response.Content.ReadAsStringAsync();
+                var result = JsonSerializer.Deserialize<ReaderDocumentsResponse>(content, ReadOptions);
+
+                _logger.LogInformation("Retrieved {Count} documents from Reader",
+                    result?.Results.Count ?? 0);
 
                 return result ?? new ReaderDocumentsResponse();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching documents from Reader");
-                return new ReaderDocumentsResponse();
+                throw;
             }
         }
 
+        /// <summary>
+        /// Fetches one document. Returns null when Reader reports it missing;
+        /// transport failures propagate as exceptions.
+        /// </summary>
         public async Task<ReaderDocumentDto?> GetDocumentByIdAsync(string documentId, bool includeHtml = true)
         {
             try
             {
                 var query = includeHtml ? "&withHtmlContent=true" : "";
                 var response = await _httpClient.GetAsync($"list/?id={documentId}{query}");
-                
+
                 if (!response.IsSuccessStatusCode)
                 {
                     _logger.LogWarning("Document {DocumentId} not found in Reader", documentId);
                     return null;
                 }
-                
-                var content = await response.Content.ReadAsStringAsync();
-                var result = JsonSerializer.Deserialize<ReaderDocumentsResponse>(content,
-                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
-                return result?.results.FirstOrDefault();
+                var content = await response.Content.ReadAsStringAsync();
+                var result = JsonSerializer.Deserialize<ReaderDocumentsResponse>(content, ReadOptions);
+
+                return result?.Results.FirstOrDefault();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching document {DocumentId} from Reader", documentId);
-                return null;
+                throw;
             }
         }
 
@@ -130,10 +144,9 @@ namespace MyMediaVerse.Infrastructure.Clients.Readwise
                 response.EnsureSuccessStatusCode();
 
                 var responseContent = await response.Content.ReadAsStringAsync();
-                var result = JsonSerializer.Deserialize<ReaderDocumentDto>(responseContent,
-                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                var result = JsonSerializer.Deserialize<ReaderDocumentDto>(responseContent, ReadOptions);
 
-                _logger.LogInformation("Successfully created document in Reader: {Url}", dto.url);
+                _logger.LogInformation("Successfully created document in Reader: {Url}", dto.Url);
 
                 return result;
             }
@@ -158,10 +171,10 @@ namespace MyMediaVerse.Infrastructure.Clients.Readwise
                 };
 
                 var response = await _httpClient.SendAsync(request);
-                
+
                 if (response.IsSuccessStatusCode)
                 {
-                    _logger.LogInformation("Updated document {DocumentId} location to {Location}", 
+                    _logger.LogInformation("Updated document {DocumentId} location to {Location}",
                         documentId, location);
                     return true;
                 }
@@ -176,4 +189,3 @@ namespace MyMediaVerse.Infrastructure.Clients.Readwise
         }
     }
 }
-
