@@ -1,12 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import {
-    Box, Card, CardContent, Typography, CircularProgress, Chip, Paper, Link, IconButton, Collapse
+    Box, Button, Card, CardContent, Typography, CircularProgress, Chip, Paper, Link, IconButton, Collapse
 } from '@mui/material';
 import { Notes, OpenInNew, ExpandMore, ExpandLess } from '@mui/icons-material';
 
+// Highlights render in pages of 10 like podcasts
+const HIGHLIGHTS_PAGE_SIZE = 10;
+
 function HighlightsSection({ mediaItem, highlights, highlightsLoading }) {
   const [expanded, setExpanded] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(HIGHLIGHTS_PAGE_SIZE);
+
+  // A different media item starts back at the first page.
+  useEffect(() => {
+    setVisibleCount(HIGHLIGHTS_PAGE_SIZE);
+  }, [mediaItem?.id]);
+
+  const visibleHighlights = highlights.slice(0, visibleCount);
+  const remainingCount = highlights.length - visibleHighlights.length;
 
   return (
     <React.Fragment>
@@ -74,7 +86,7 @@ function HighlightsSection({ mediaItem, highlights, highlightsLoading }) {
                   </Box>
                 ) : highlights.length > 0 ? (
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    {highlights.map((highlight, index) => (
+                    {visibleHighlights.map((highlight, index) => (
                       <Paper
                         key={highlight.id || index}
                         elevation={2}
@@ -238,6 +250,29 @@ function HighlightsSection({ mediaItem, highlights, highlightsLoading }) {
                         </Box>
                       </Paper>
                     ))}
+
+                    {remainingCount > 0 && (
+                      <Box sx={{ textAlign: 'center', mt: 1 }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                          Showing {visibleHighlights.length} of {highlights.length} highlights
+                        </Typography>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          onClick={() => setVisibleCount(count => count + HIGHLIGHTS_PAGE_SIZE)}
+                          sx={{
+                            color: '#FFD700',
+                            borderColor: 'rgba(255, 215, 0, 0.5)',
+                            '&:hover': {
+                              borderColor: '#FFD700',
+                              backgroundColor: 'rgba(255, 215, 0, 0.08)'
+                            }
+                          }}
+                        >
+                          Show More ({remainingCount} remaining)
+                        </Button>
+                      </Box>
+                    )}
                   </Box>
                 ) : (
                   <Box sx={{ textAlign: 'center', py: 3 }}>

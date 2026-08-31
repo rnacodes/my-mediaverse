@@ -68,6 +68,35 @@ describe('HighlightsSection', () => {
     expect(screen.getByText('Second insightful highlight.')).toBeInTheDocument();
   });
 
+  it('pages long highlight lists ten at a time behind a Show More button', async () => {
+    const highlights = Array.from({ length: 25 }, (_, i) =>
+      makeHighlight({ text: `Highlight number ${i + 1}.` }),
+    );
+
+    const { user } = renderWithProviders(
+      <HighlightsSection
+        mediaItem={{ mediaType: 'Article' }}
+        highlights={highlights}
+        highlightsLoading={false}
+      />,
+    );
+
+    await expandHeader(user);
+
+    // First page only — a heavily-highlighted article must not render everything at once.
+    expect(screen.getByText('Highlight number 10.')).toBeInTheDocument();
+    expect(screen.queryByText('Highlight number 11.')).not.toBeInTheDocument();
+    expect(screen.getByText('Showing 10 of 25 highlights')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /show more \(15 remaining\)/i }));
+    expect(screen.getByText('Highlight number 20.')).toBeInTheDocument();
+    expect(screen.queryByText('Highlight number 21.')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /show more \(5 remaining\)/i }));
+    expect(screen.getByText('Highlight number 25.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /show more/i })).not.toBeInTheDocument();
+  });
+
   it('shows the loading state (and no count chip) while highlights load', async () => {
     const { user } = renderWithProviders(
       <HighlightsSection

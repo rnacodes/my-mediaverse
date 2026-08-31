@@ -50,6 +50,13 @@ namespace MyMediaVerse.Application.Interfaces
         Task<int> CleanAllHighlightTextAsync();
 
         /// <summary>
+        /// One-shot (idempotent) backfill: derives Topic links from every stored tags
+        /// string and re-normalizes legacy tag values. Returns the number of highlights
+        /// that changed.
+        /// </summary>
+        Task<int> BackfillHighlightTopicsAsync();
+
+        /// <summary>
         /// Creates multiple highlights in a single transaction.
         /// Auto-links highlights to existing books/articles by title/author or URL.
         /// </summary>

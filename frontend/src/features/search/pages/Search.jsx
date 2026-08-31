@@ -769,8 +769,8 @@ export default function Search({ defaultMediaTypes = [] }) {
                             </Box>
                         )}
 
-                        {/* Bulk Actions Toolbar */}
-                        {searchResults.length > 0 && searchMode === 'media' && (
+                        {/* Bulk Actions Toolbar — media and notes modes*/}
+                        {searchResults.length > 0 && (searchMode === 'media' || searchMode === 'notes') && (
                             <Toolbar
                                 sx={{
                                     mb: 2,
@@ -942,7 +942,7 @@ export default function Search({ defaultMediaTypes = [] }) {
                                             item={item}
                                             isSelected={selectedItems.has(item.id)}
                                             onToggleSelect={handleToggleSelect}
-                                            showCheckbox={searchMode === 'media'}
+                                            showCheckbox={searchMode === 'media' || searchMode === 'notes'}
                                         />
                                     </Grid>
                                 ))}
@@ -955,7 +955,7 @@ export default function Search({ defaultMediaTypes = [] }) {
                                         item={item}
                                         isSelected={selectedItems.has(item.id)}
                                         onToggleSelect={handleToggleSelect}
-                                        showCheckbox={searchMode === 'media' || item.isMixlist}
+                                        showCheckbox={searchMode === 'media' || searchMode === 'notes' || item.isMixlist}
                                     />
                                 ))}
                             </Box>

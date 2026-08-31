@@ -116,6 +116,7 @@ namespace MyMediaVerse.IntegrationTests.Api
                 ["Health.Get"] = Anonymous,
                 ["Health.GetDetailed"] = Authorized,
                 ["Health.GetEnvironmentBanner"] = Authorized,
+                ["Highlight.BackfillHighlightTopics"] = Authorized,
                 ["Highlight.BulkCreateHighlights"] = Unclassified,
                 ["Highlight.BulkDeleteHighlights"] = Unclassified,
                 ["Highlight.CleanHighlightText"] = Authorized,

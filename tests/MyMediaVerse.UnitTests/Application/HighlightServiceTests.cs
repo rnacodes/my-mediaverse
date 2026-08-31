@@ -960,5 +960,223 @@ namespace MyMediaVerse.UnitTests.Application
             result.WarningMessage.Should().Contain("safety limit");
             await _mockReadwiseClient.Received(100).GetExportAsync(Arg.Any<string?>(), Arg.Any<string?>());
         }
+
+        #region Tags → Topics (retro pass)
+
+        private ReadwiseExportResponse SinglePageExport(params ReadwiseExportHighlightDto[] highlights) =>
+            new ReadwiseExportResponse
+            {
+                nextPageCursor = null,
+                results = new List<ReadwiseExportBookDto>
+                {
+                    new ReadwiseExportBookDto
+                    {
+                        user_book_id = 7,
+                        title = "Topic Book",
+                        author = "Topic Author",
+                        category = "books",
+                        highlights = highlights.ToList()
+                    }
+                }
+            };
+
+        [Fact]
+        public async Task SyncHighlights_NewHighlightWithTags_DerivesNormalizedTopics()
+        {
+            // Arrange — tags arrive untrimmed and mixed-case
+            _service.ExportPageDelayMs = 0;
+            _mockReadwiseClient.GetExportAsync(Arg.Any<string?>(), Arg.Any<string?>())
+                .Returns(SinglePageExport(new ReadwiseExportHighlightDto
+                {
+                    id = 42,
+                    text = "Text",
+                    tags = new List<ReadwiseExportTagDto>
+                    {
+                        new ReadwiseExportTagDto { name = " Philosophy " },
+                        new ReadwiseExportTagDto { name = "STOICISM" }
+                    }
+                }));
+
+            // Act
+            await _service.SyncHighlightsFromReadwiseAsync();
+
+            // Assert — tags string normalized, topic links mirror it
+            var saved = await Context.Highlights.Include(h => h.Topics).SingleAsync(h => h.ReadwiseId == 42);
+            saved.Tags.Should().Be("philosophy,stoicism");
+            saved.Topics.Select(t => t.Name).Should().BeEquivalentTo(new[] { "philosophy", "stoicism" });
+        }
+
+        [Fact]
+        public async Task SyncHighlights_ExistingHighlight_TopicsReplacedToMatchTags()
+        {
+            // Arrange — Readwise is source of truth for tags: a removed tag drops its topic link
+            var oldTopic = new Topic { Name = "oldtag" };
+            var highlight = new Highlight { Id = Guid.NewGuid(), ReadwiseId = 42, Text = "Text", Tags = "oldtag" };
+            highlight.Topics.Add(oldTopic);
+            Context.Highlights.Add(highlight);
+            await Context.SaveChangesAsync();
+
+            _service.ExportPageDelayMs = 0;
+            _mockReadwiseClient.GetExportAsync(Arg.Any<string?>(), Arg.Any<string?>())
+                .Returns(SinglePageExport(new ReadwiseExportHighlightDto
+                {
+                    id = 42,
+                    text = "Text",
+                    tags = new List<ReadwiseExportTagDto> { new ReadwiseExportTagDto { name = "newtag" } }
+                }));
+
+            // Act
+            await _service.SyncHighlightsFromReadwiseAsync();
+
+            // Assert — link replaced; the Topic entity itself survives
+            var saved = await Context.Highlights.Include(h => h.Topics).SingleAsync(h => h.ReadwiseId == 42);
+            saved.Tags.Should().Be("newtag");
+            saved.Topics.Select(t => t.Name).Should().BeEquivalentTo(new[] { "newtag" });
+            Context.Topics.Any(t => t.Name == "oldtag").Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task SyncHighlights_SharedNewTag_CreatesOneTopicAndReusesExisting()
+        {
+            // Arrange — one pre-existing topic, one brand-new tag shared by two highlights
+            Context.Topics.Add(new Topic { Name = "philosophy" });
+            await Context.SaveChangesAsync();
+
+            _service.ExportPageDelayMs = 0;
+            _mockReadwiseClient.GetExportAsync(Arg.Any<string?>(), Arg.Any<string?>())
+                .Returns(SinglePageExport(
+                    new ReadwiseExportHighlightDto
+                    {
+                        id = 1,
+                        text = "First",
+                        tags = new List<ReadwiseExportTagDto>
+                        {
+                            new ReadwiseExportTagDto { name = "philosophy" },
+                            new ReadwiseExportTagDto { name = "brand-new" }
+                        }
+                    },
+                    new ReadwiseExportHighlightDto
+                    {
+                        id = 2,
+                        text = "Second",
+                        tags = new List<ReadwiseExportTagDto> { new ReadwiseExportTagDto { name = "brand-new" } }
+                    }));
+
+            // Act
+            await _service.SyncHighlightsFromReadwiseAsync();
+
+            // Assert — no duplicate Topic rows for either name
+            Context.Topics.Count(t => t.Name == "philosophy").Should().Be(1);
+            Context.Topics.Count(t => t.Name == "brand-new").Should().Be(1);
+        }
+
+        [Fact]
+        public async Task SyncHighlights_MalformedHighlightedAt_StoresNullInsteadOfAborting()
+        {
+            // Arrange
+            _service.ExportPageDelayMs = 0;
+            _mockReadwiseClient.GetExportAsync(Arg.Any<string?>(), Arg.Any<string?>())
+                .Returns(SinglePageExport(new ReadwiseExportHighlightDto
+                {
+                    id = 42,
+                    text = "Text",
+                    highlighted_at = "not-a-date"
+                }));
+
+            // Act
+            var result = await _service.SyncHighlightsFromReadwiseAsync();
+
+            // Assert — the highlight imports; only the date is dropped
+            result.Success.Should().BeTrue();
+            result.CreatedCount.Should().Be(1);
+            var saved = await Context.Highlights.SingleAsync(h => h.ReadwiseId == 42);
+            saved.HighlightedAt.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task CreateHighlightAsync_Tags_NormalizedAndTopicsDerived()
+        {
+            // Act
+            var result = await _service.CreateHighlightAsync(new CreateHighlightDto
+            {
+                Text = "Text",
+                Tags = new List<string> { " Philosophy ", "STOICISM", "philosophy" }
+            });
+
+            // Assert
+            result.Tags.Should().Be("philosophy,stoicism");
+            var saved = await Context.Highlights.Include(h => h.Topics).SingleAsync(h => h.Id == result.Id);
+            saved.Topics.Select(t => t.Name).Should().BeEquivalentTo(new[] { "philosophy", "stoicism" });
+        }
+
+        [Fact]
+        public async Task UpdateHighlightAsync_Tags_ReconcileTopicLinks()
+        {
+            // Arrange
+            var highlightId = Guid.NewGuid();
+            var highlight = new Highlight { Id = highlightId, Text = "Text", Tags = "oldtag" };
+            highlight.Topics.Add(new Topic { Name = "oldtag" });
+            Context.Highlights.Add(highlight);
+            await Context.SaveChangesAsync();
+
+            // Act
+            await _service.UpdateHighlightAsync(highlightId, new UpdateHighlightDto
+            {
+                Tags = new List<string> { "newtag" }
+            });
+
+            // Assert
+            var saved = await Context.Highlights.Include(h => h.Topics).SingleAsync(h => h.Id == highlightId);
+            saved.Tags.Should().Be("newtag");
+            saved.Topics.Select(t => t.Name).Should().BeEquivalentTo(new[] { "newtag" });
+        }
+
+        [Fact]
+        public async Task BulkCreateHighlightsAsync_SetsContractFields_AndDerivesTopics()
+        {
+            // Act
+            var result = await _service.BulkCreateHighlightsAsync(new List<CreateHighlightDto>
+            {
+                new CreateHighlightDto { Text = "One", Title = "Bulk Source", Tags = new List<string> { " Shared " } },
+                new CreateHighlightDto { Text = "Two", Title = "Bulk Source", Tags = new List<string> { "shared" } }
+            });
+
+            // Assert — contract fields plus topic derivation across the batch
+            result.Success.Should().BeTrue();
+            result.Operation.Should().Be("highlight-bulk-import");
+            result.Created.Should().Be(2);
+            result.CompletedAt.Should().NotBeNull();
+            result.Duration.Should().NotBeNull();
+            result.TotalProcessed.Should().Be(2);
+            Context.Topics.Count(t => t.Name == "shared").Should().Be(1);
+            var saved = await Context.Highlights.Include(h => h.Topics).ToListAsync();
+            saved.Should().OnlyContain(h => h.Topics.Any(t => t.Name == "shared"));
+        }
+
+        [Fact]
+        public async Task BackfillHighlightTopicsAsync_NormalizesLegacyTagsAndDerivesTopics_Idempotently()
+        {
+            // Arrange — legacy rows written before trimming was consistent
+            Context.Highlights.AddRange(
+                new Highlight { Id = Guid.NewGuid(), Text = "A", Tags = " Philosophy ,stoicism" },
+                new Highlight { Id = Guid.NewGuid(), Text = "B", Tags = "philosophy" },
+                new Highlight { Id = Guid.NewGuid(), Text = "C", Tags = null });
+            await Context.SaveChangesAsync();
+
+            // Act
+            var firstRun = await _service.BackfillHighlightTopicsAsync();
+            var secondRun = await _service.BackfillHighlightTopicsAsync();
+
+            // Assert
+            firstRun.Should().Be(2);
+            secondRun.Should().Be(0);
+            Context.Topics.Count(t => t.Name == "philosophy").Should().Be(1);
+            var tagged = await Context.Highlights.Include(h => h.Topics).Where(h => h.Tags != null).ToListAsync();
+            tagged.Single(h => h.Text == "A").Tags.Should().Be("philosophy,stoicism");
+            tagged.Single(h => h.Text == "A").Topics.Should().HaveCount(2);
+            tagged.Single(h => h.Text == "B").Topics.Should().HaveCount(1);
+        }
+
+        #endregion
     }
 }

@@ -572,7 +572,9 @@ function HighlightUploadTab() {
 
         bulkMutation.mutate(highlightDtos, {
             onError: (err) => {
-                const msg = err.response?.data?.error || err.response?.data?.details || err.message;
+                // Contract shape first (errorMessage), then legacy shapes, then the transport error.
+                const body = err.response?.data;
+                const msg = body?.errorMessage || body?.error || body?.details || err.message;
                 setError(`Failed to upload highlights: ${msg}`);
             },
         });
