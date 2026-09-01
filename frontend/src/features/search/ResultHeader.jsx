@@ -47,6 +47,7 @@ export const ResultHeader = React.memo(({
                     {!searchQuery && searchMode === 'media' && 'Showing all media items'}
                     {!searchQuery && searchMode === 'mixlists' && 'Showing all mixlists'}
                     {!searchQuery && searchMode === 'notes' && 'Showing all notes'}
+                    {!searchQuery && searchMode === 'highlights' && 'Showing all highlights'}
                 </Typography>
             </Box>
 
@@ -92,40 +93,46 @@ export const ResultHeader = React.memo(({
                 />
             </Box>
             
-            {/* Active Filters Display */}
-            {(selectedTopics.length > 0 || selectedGenres.length > 0 || (selectedMediaTypes && !selectedMediaTypes.includes('all'))) && (
-                <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-                    <Typography variant="body2" color="text.secondary">
-                        Active filters:
-                    </Typography>
-                    {selectedTopics.map((topic) => (
-                        <Chip
-                            key={`filter-topic-${topic}`}
-                            label={topic}
-                            size="small"
-                            onDelete={() => handleTopicToggle(topic)}
-                            color="primary"
-                        />
-                    ))}
-                    {selectedGenres.map((genre) => (
-                        <Chip
-                            key={`filter-genre-${genre}`}
-                            label={genre}
-                            size="small"
-                            onDelete={() => handleGenreToggle(genre)}
-                            color="secondary"
-                        />
-                    ))}
-                    {(selectedMediaTypes && !selectedMediaTypes.includes('all')) && selectedMediaTypes.map((type) => (
-                        <Chip
-                            key={`filter-type-${type}`}
-                            label={mediaTypeOptions.find(o => o.value === type)?.label || type}
-                            size="small"
-                            onDelete={() => handleMediaTypeToggle(type)}
-                        />
-                    ))}
-                </Box>
-            )}
+            {/* Active Filters Display — only chips for filters the current mode actually applies
+                (genre/media-type state can linger after a mode switch) */}
+            {(() => {
+                const showGenreChips = (searchMode === 'media' || searchMode === 'mixlists') && selectedGenres.length > 0;
+                const showMediaTypeChips = searchMode === 'media' && selectedMediaTypes && !selectedMediaTypes.includes('all') && selectedMediaTypes.length > 0;
+                if (selectedTopics.length === 0 && !showGenreChips && !showMediaTypeChips) return null;
+                return (
+                    <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                        <Typography variant="body2" color="text.secondary">
+                            Active filters:
+                        </Typography>
+                        {selectedTopics.map((topic) => (
+                            <Chip
+                                key={`filter-topic-${topic}`}
+                                label={topic}
+                                size="small"
+                                onDelete={() => handleTopicToggle(topic)}
+                                color="primary"
+                            />
+                        ))}
+                        {showGenreChips && selectedGenres.map((genre) => (
+                            <Chip
+                                key={`filter-genre-${genre}`}
+                                label={genre}
+                                size="small"
+                                onDelete={() => handleGenreToggle(genre)}
+                                color="secondary"
+                            />
+                        ))}
+                        {showMediaTypeChips && selectedMediaTypes.map((type) => (
+                            <Chip
+                                key={`filter-type-${type}`}
+                                label={mediaTypeOptions.find(o => o.value === type)?.label || type}
+                                size="small"
+                                onDelete={() => handleMediaTypeToggle(type)}
+                            />
+                        ))}
+                    </Box>
+                );
+            })()}
         </Box>
     );
 });

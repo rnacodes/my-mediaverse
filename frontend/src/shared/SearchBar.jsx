@@ -324,6 +324,25 @@ const SearchBar = ({
                       />
                     </ListItem>
                   ))}
+                  <ListItem
+                    button
+                    component="a"
+                    href="/search?searchMode=mixlists"
+                    onClick={() => setShowSuggestionsPanel(false)}
+                    sx={{
+                      '&:hover': {
+                        backgroundColor: COLORS.background.elevated
+                      }
+                    }}
+                  >
+                    <ListItemText
+                      primary="View all mixlists →"
+                      primaryTypographyProps={{
+                        variant: 'body2',
+                        color: COLORS.primary.light
+                      }}
+                    />
+                  </ListItem>
                 </List>
               </Box>
             )}

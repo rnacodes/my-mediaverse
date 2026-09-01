@@ -1,6 +1,6 @@
 import React from 'react';
-import { Box, Typography, TextField, InputAdornment, Chip, Paper, IconButton, ToggleButtonGroup, ToggleButton } from '@mui/material';
-import { Search as SearchIcon, Clear } from '@mui/icons-material';
+import { Box, Typography, TextField, InputAdornment, Chip, Paper, IconButton, ToggleButtonGroup, ToggleButton, Button } from '@mui/material';
+import { Search as SearchIcon, Clear, PlaylistAdd } from '@mui/icons-material';
 
 export const SearchBarSection = React.memo(({
     searchQuery,
@@ -9,27 +9,27 @@ export const SearchBarSection = React.memo(({
     selectedTopics,
     handleTopicToggle,
     searchMode,
-    setSearchMode,
-    setCurrentPage
+    onSearchModeChange,
+    onCreateMixlist,
+    onViewAllMixlists
 }) => {
     return (
-        <Paper 
+        <Paper
             elevation={3}
-            sx={{ 
-                p: { xs: 2, sm: 3 }, 
+            sx={{
+                p: { xs: 2, sm: 3 },
                 mb: 4,
                 backgroundColor: 'background.paper',
                 borderRadius: 3
             }}
         >
-            <Box sx={{ mb: 2 }}>
+            <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2 }}>
                 <ToggleButtonGroup
                     value={searchMode}
                     exclusive
                     onChange={(e, newMode) => {
                         if (newMode !== null) {
-                            setSearchMode(newMode);
-                            setCurrentPage(1); // Reset to first page when switching modes
+                            onSearchModeChange(newMode);
                         }
                     }}
                     size="small"
@@ -52,7 +52,30 @@ export const SearchBarSection = React.memo(({
                     <ToggleButton value="notes">
                         Notes
                     </ToggleButton>
+                    <ToggleButton value="highlights">
+                        Highlights
+                    </ToggleButton>
                 </ToggleButtonGroup>
+                {searchMode === 'mixlists' && (
+                    <>
+                        <Button
+                            variant="contained"
+                            color="primary"
+                            startIcon={<PlaylistAdd />}
+                            onClick={onCreateMixlist}
+                            sx={{ minHeight: '44px' }}
+                        >
+                            Create Mixlist
+                        </Button>
+                        <Button
+                            variant="outlined"
+                            onClick={onViewAllMixlists}
+                            sx={{ minHeight: '44px' }}
+                        >
+                            View All Mixlists
+                        </Button>
+                    </>
+                )}
             </Box>
             <TextField
                 fullWidth

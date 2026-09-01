@@ -8,7 +8,7 @@ const mainMediaIcons = [
     { name: 'Books', icon: <Book sx={{ fontSize: 40 }} />, mediaType: 'Book', supported: true },
     { name: 'Courses', icon: <LocalLibrary sx={{ fontSize: 40 }} />, mediaType: 'Course', supported: false },
     { name: 'Documents', icon: <NoteAlt sx={{ fontSize: 40 }} />, mediaType: 'Document', supported: false },
-    { name: 'Highlights', icon: <FormatQuote sx={{ fontSize: 40 }} />, mediaType: 'Highlight', supported: true },
+    { name: 'Highlights', icon: <FormatQuote sx={{ fontSize: 40 }} />, path: '/search?searchMode=highlights&browseAll=true', supported: true },
     { name: 'Movies', icon: <Movie sx={{ fontSize: 40 }} />, mediaType: 'Movie', supported: true },
     { name: 'Music', icon: <LibraryMusic sx={{ fontSize: 40 }} />, mediaType: 'Music', supported: false },
     { name: 'Online Videos', icon: <YouTube sx={{ fontSize: 40 }} />, mediaType: 'Video,Channel,Playlist', supported: true },
@@ -19,12 +19,10 @@ const mainMediaIcons = [
 ];
 
 const specialMediaIcons = [
-    { name: 'Online Notebook', icon: <MenuBook sx={{ fontSize: 40 }} />, key: 'zk', mediaType: 'Note', supported: true },
+    { name: 'Online Notebook', icon: <MenuBook sx={{ fontSize: 40 }} />, key: 'zk', path: '/search?searchMode=notes&browseAll=true', supported: true },
     { name: 'Panorama', icon: <AutoAwesome sx={{ fontSize: 40 }} />, key: 'panorama', supported: false, caption: 'For everything else - coming soon!' },
 ];
 
-// The grid of media-type entry points: an alphabetized icon row plus two larger
-// "special" tiles below it. Each supported tile navigates to a filtered search.
 const MediaTypeNav = ({ navigate }) => (
   <>
     {/* Alphabetized Icons */}
@@ -35,7 +33,7 @@ const MediaTypeNav = ({ navigate }) => (
                 <Box
                     onClick={() => {
                         if (item.supported) {
-                            navigate(`/search?mediaType=${item.mediaType}`);
+                            navigate(item.path || `/search?mediaType=${item.mediaType}`);
                         }
                     }}
                     sx={{
@@ -100,8 +98,8 @@ const MediaTypeNav = ({ navigate }) => (
               <Grid item xs={6} sm={4} md={3} key={item.key} sx={{ display: 'flex', justifyContent: 'center' }}>
                   <Box
                       onClick={() => {
-                          if (item.supported && item.mediaType) {
-                              navigate(`/search?mediaType=${item.mediaType}`);
+                          if (item.supported && (item.path || item.mediaType)) {
+                              navigate(item.path || `/search?mediaType=${item.mediaType}`);
                           }
                       }}
                       sx={{

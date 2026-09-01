@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Container, Box, Typography, Grid, Button, ButtonGroup, Collapse, CircularProgress, Paper, Alert, Toolbar, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Snackbar, FormControl, InputLabel, Select, MenuItem, Tooltip } from '@mui/material';
+import { Container, Box, Typography, Grid, Button, ButtonGroup, Collapse, CircularProgress, Paper, Alert, Toolbar, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Snackbar, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import { SearchBarSection } from '../SearchBarSection';
 import { SearchFilterSidebar } from '../SearchFilterSidebar';
 import { Search as SearchIcon, Delete, CheckBox, CheckBoxOutlineBlank, PlaylistAdd } from '@mui/icons-material';
@@ -24,17 +24,11 @@ const mediaTypeOptions = [
     { value: 'Article', label: 'Articles' },
     { value: 'Book', label: 'Books' },
     { value: 'Channel', label: 'Channels' },
-    { value: 'Document', label: 'Documents' },
-    { value: 'Highlight', label: 'Highlights' },
     { value: 'Movie', label: 'Movies' },
-    { value: 'Music', label: 'Music' },
-    { value: 'Note', label: 'Notes' },
-    { value: 'Other', label: 'Other' },
     { value: 'Playlist', label: 'Playlists' },
     { value: 'Podcast', label: 'Podcasts' },
     { value: 'TVShow', label: 'TV Shows' },
     { value: 'Video', label: 'Videos' },
-    { value: 'VideoGame', label: 'Video Games' },
     { value: 'Website', label: 'Websites' }
 ];
 
@@ -64,6 +58,71 @@ const transformNoteHits = (hits) => hits.map(hit => {
     };
 });
 
+// Transform Typesense media hits into the shared result shape
+const transformMediaHits = (hits) => hits.map(hit => {
+    const doc = hit.document;
+    return {
+        id: doc.id,
+        title: doc.title,
+        mediaType: doc.media_type,
+        status: doc.status,
+        ratingType: doc.rating?.toLowerCase() || null,
+        topics: doc.topics || [],
+        genres: doc.genres || [],
+        dateAdded: new Date(doc.date_added * 1000).toISOString().split('T')[0],
+        notes: doc.description || '',
+        thumbnail: doc.thumbnail,
+        isMixlist: false,
+        isNote: false,
+        isHighlight: false,
+        author: doc.author || null,
+        director: doc.director || null,
+        creator: doc.creator || null,
+        publisher: doc.publisher || null,
+        channel: doc.channel_title || doc.channel || null,
+        platform: doc.platform || null,
+        goodreadsRating: doc.goodreads_rating || null,
+        tmdbRating: doc.tmdb_rating || null,
+        releaseYear: doc.release_year || null,
+        runtimeMinutes: doc.runtime_minutes || null,
+        lengthInSeconds: doc.length_in_seconds || null,
+        durationInSeconds: doc.duration_in_seconds || null,
+        seriesId: doc.series_id || null,
+        podcastType: doc.podcast_type || null,
+        publication: doc.publication || null,
+        estimatedReadingTimeMinutes: doc.estimated_reading_time_minutes || null,
+        wordCount: doc.word_count || null,
+        isStarred: doc.is_starred || false
+    };
+});
+
+// Transform Typesense highlight hits into the shared result shape
+const transformHighlightHits = (hits) => hits.map(hit => {
+    const doc = hit.document;
+    return {
+        id: doc.id,
+        title: doc.title || 'Untitled Highlight',
+        mediaType: 'Highlight',
+        status: null,
+        ratingType: null,
+        topics: doc.tags || [],
+        genres: [],
+        author: doc.author || null,
+        dateAdded: doc.created_at ? new Date(doc.created_at * 1000).toISOString().split('T')[0] : null,
+        notes: doc.text || '', // The highlight text
+        thumbnail: doc.image_url,
+        isMixlist: false,
+        isNote: false,
+        isHighlight: true,
+        highlightText: doc.text,
+        highlightNote: doc.note,
+        category: doc.category,
+        linkedMediaId: doc.linked_media_id,
+        linkedMediaTitle: doc.linked_media_title,
+        linkedMediaType: doc.linked_media_type
+    };
+});
+
 // MAIN COMPONENT
 export default function Search({ defaultMediaTypes = [] }) {
     const [searchParams] = useSearchParams();
@@ -71,7 +130,7 @@ export default function Search({ defaultMediaTypes = [] }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [viewMode, setViewMode] = useState('card');
     const [sortBy, setSortBy] = useState('relevance');
-    const [searchMode, setSearchMode] = useState('media'); // 'media', 'mixlists', or 'notes'
+    const [searchMode, setSearchMode] = useState('media'); // 'media', 'mixlists', 'notes', or 'highlights'
     // Selection maps each id to its kind ('media' | 'highlight' | 'note' | 'mixlist') so
     // bulk actions can route ids to the right endpoints, even across result pages.
     const [selectedItems, setSelectedItems] = useState(new Map());
@@ -87,6 +146,9 @@ export default function Search({ defaultMediaTypes = [] }) {
     const [showAllTopics, setShowAllTopics] = useState(false);
     const [showAllGenres, setShowAllGenres] = useState(false);
     const [urlParamsLoaded, setUrlParamsLoaded] = useState(false);
+    // Mixlists/notes/highlights modes start at a search prompt; browsing the whole
+    // collection is an opt-in ("View All Mixlists", nav links with ?browseAll=true).
+    const [browseAll, setBrowseAll] = useState(false);
 
     const debouncedSearchQuery = useDebouncedValue(searchQuery);
 
@@ -264,27 +326,42 @@ export default function Search({ defaultMediaTypes = [] }) {
     const addingToMixlist = addMediaToMixlistMutation.isPending
         || linkNoteToMixlistMutation.isPending;
 
-    // Load URL parameters on mount
+    // Sync URL parameters into state — The URL is the source of truth 
     useEffect(() => {
-        const loadUrlParams = () => {
-            const query = searchParams.get('q');
-            const mediaType = searchParams.get('mediaType');
-            const topics = searchParams.get('topics');
-            const genres = searchParams.get('genres');
-            const status = searchParams.get('status');
-            const mode = searchParams.get('searchMode');
+        const query = searchParams.get('q');
+        const mediaTypeParam = searchParams.get('mediaType');
+        const topics = searchParams.get('topics');
+        const genres = searchParams.get('genres');
+        const status = searchParams.get('status');
+        const mode = searchParams.get('searchMode');
 
-            if (query) setSearchQuery(query);
-            if (mediaType) setSelectedMediaTypes(mediaType.split(',').map(t => t.trim()));
-            if (topics) setSelectedTopics(topics.split(',').map(t => t.trim()));
-            if (genres) setSelectedGenres(genres.split(',').map(g => g.trim()));
-            if (status) setSelectedStatuses(status.split(',').map(s => s.trim()).filter(s => s && s !== 'all'));
-            if (mode === 'mixlists' || mode === 'notes') setSearchMode(mode);
+        let mediaTypes = mediaTypeParam ? mediaTypeParam.split(',').map(t => t.trim()) : [];
+        let resolvedMode = ['mixlists', 'notes', 'highlights'].includes(mode) ? mode : 'media';
+        let resolvedBrowseAll = searchParams.get('browseAll') === 'true';
 
-            setUrlParamsLoaded(true);
-        };
+        // Legacy deep links: ?mediaType=Note / ?mediaType=Highlight resolve to browse-all.
+        if (resolvedMode === 'media' && mediaTypes.length === 1 && mediaTypes[0] === 'Note') {
+            resolvedMode = 'notes';
+            resolvedBrowseAll = true;
+            mediaTypes = [];
+        } else if (resolvedMode === 'media' && mediaTypes.length === 1 && mediaTypes[0] === 'Highlight') {
+            resolvedMode = 'highlights';
+            resolvedBrowseAll = true;
+            mediaTypes = [];
+        } else {
+            mediaTypes = mediaTypes.filter(t => t !== 'Note' && t !== 'Highlight');
+        }
 
-        loadUrlParams();
+        setSearchQuery(query || '');
+        setSelectedMediaTypes(mediaTypes.length > 0 ? mediaTypes : defaultMediaTypes);
+        setSelectedTopics(topics ? topics.split(',').map(t => t.trim()) : []);
+        setSelectedGenres(genres ? genres.split(',').map(g => g.trim()) : []);
+        setSelectedStatuses(status ? status.split(',').map(s => s.trim()).filter(s => s && s !== 'all') : []);
+        setSearchMode(resolvedMode);
+        setBrowseAll(resolvedBrowseAll);
+
+        setUrlParamsLoaded(true);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchParams]);
 
     const searchCriteriaKey = JSON.stringify([
@@ -296,6 +373,7 @@ export default function Search({ defaultMediaTypes = [] }) {
         selectedStatuses,
         selectedRatings,
         sortBy,
+        browseAll,
     ]);
     const lastSearchCriteriaKey = useRef(searchCriteriaKey);
 
@@ -330,12 +408,20 @@ export default function Search({ defaultMediaTypes = [] }) {
     );
 
     const hasMixlistFilters = searchMode === 'mixlists' && (
+        browseAll ||
         debouncedSearchQuery.trim() !== '' ||
         selectedTopics.length > 0 ||
         selectedGenres.length > 0
     );
 
     const hasNotesFilters = searchMode === 'notes' && (
+        browseAll ||
+        debouncedSearchQuery.trim() !== '' ||
+        selectedTopics.length > 0
+    );
+
+    const hasHighlightsFilters = searchMode === 'highlights' && (
+        browseAll ||
         debouncedSearchQuery.trim() !== '' ||
         selectedTopics.length > 0
     );
@@ -345,7 +431,8 @@ export default function Search({ defaultMediaTypes = [] }) {
         // otherwise switching modes would dump the entire collection.
         if ((searchMode === 'media' && !hasMediaFilters) ||
             (searchMode === 'mixlists' && !hasMixlistFilters) ||
-            (searchMode === 'notes' && !hasNotesFilters)) {
+            (searchMode === 'notes' && !hasNotesFilters) ||
+            (searchMode === 'highlights' && !hasHighlightsFilters)) {
             setSearchResults([]);
             setTotalResults(0);
             setTotalPages(1);
@@ -404,206 +491,34 @@ export default function Search({ defaultMediaTypes = [] }) {
                 setSearchResults(transformedResults);
                 setTotalResults(response.found || 0);
                 setTotalPages(Math.ceil((response.found || 0) / perPage));
+            } else if (searchMode === 'highlights') {
+                // Search highlights only
+                const highlightFilter = selectedTopics.length > 0 ? `tags:=[${selectedTopics.map(t => `"${t}"`).join(',')}]` : null;
+                response = await searchHighlights(debouncedSearchQuery || '*', highlightFilter, currentPage, perPage, sortBy);
+                const transformedResults = transformHighlightHits(response.hits || []);
+                setSearchResults(transformedResults);
+                setTotalResults(response.found || 0);
+                setTotalPages(Math.ceil((response.found || 0) / perPage));
             } else {
-                // Search media items (and optionally notes/highlights)
-                const mediaTypesFiltered = selectedMediaTypes.filter(type => type !== 'all' && type !== 'Note' && type !== 'Highlight');
-                // Notes and highlights carry no genre, status, or rating, so any of those
-                // filters rules them out. Without this they come back unfiltered and a
-                // genre with no media reads as "the whole library".
-                const mediaOnlyFilters = selectedGenres.length > 0 || selectedStatuses.length > 0 || selectedRatings.length > 0;
-                const includeNotes = !mediaOnlyFilters && (selectedMediaTypes.includes('all') || selectedMediaTypes.includes('Note'));
-                const includeHighlights = !mediaOnlyFilters && (selectedMediaTypes.includes('all') || selectedMediaTypes.includes('Highlight'));
-                const onlyNotes = selectedMediaTypes.length === 1 && selectedMediaTypes[0] === 'Note';
-                const onlyHighlights = selectedMediaTypes.length === 1 && selectedMediaTypes[0] === 'Highlight';
+                // Search media items
+                const mediaTypesFiltered = selectedMediaTypes.filter(type => type !== 'all');
+                const searchOptions = {
+                    query: debouncedSearchQuery || '*',
+                    mediaTypes: selectedMediaTypes.includes('all') ? [] : mediaTypesFiltered,
+                    topics: selectedTopics,
+                    genres: selectedGenres,
+                    status: selectedStatuses,
+                    ratings: selectedRatings,
+                    page: currentPage,
+                    perPage: perPage,
+                    sortBy: sortBy
+                };
 
-                // Helper to transform media hits
-                const transformMediaHits = (hits) => hits.map(hit => {
-                    const doc = hit.document;
-                    return {
-                        id: doc.id,
-                        title: doc.title,
-                        mediaType: doc.media_type,
-                        status: doc.status,
-                        ratingType: doc.rating?.toLowerCase() || null,
-                        topics: doc.topics || [],
-                        genres: doc.genres || [],
-                        dateAdded: new Date(doc.date_added * 1000).toISOString().split('T')[0],
-                        notes: doc.description || '',
-                        thumbnail: doc.thumbnail,
-                        isMixlist: false,
-                        isNote: false,
-                        isHighlight: false,
-                        author: doc.author || null,
-                        director: doc.director || null,
-                        creator: doc.creator || null,
-                        publisher: doc.publisher || null,
-                        channel: doc.channel_title || doc.channel || null,
-                        platform: doc.platform || null,
-                        goodreadsRating: doc.goodreads_rating || null,
-                        tmdbRating: doc.tmdb_rating || null,
-                        releaseYear: doc.release_year || null,
-                        runtimeMinutes: doc.runtime_minutes || null,
-                        lengthInSeconds: doc.length_in_seconds || null,
-                        durationInSeconds: doc.duration_in_seconds || null,
-                        seriesId: doc.series_id || null,
-                        podcastType: doc.podcast_type || null,
-                        publication: doc.publication || null,
-                        estimatedReadingTimeMinutes: doc.estimated_reading_time_minutes || null,
-                        wordCount: doc.word_count || null,
-                        isStarred: doc.is_starred || false
-                    };
-                });
-
-                // Helper to transform highlight hits
-                const transformHighlightHits = (hits) => hits.map(hit => {
-                    const doc = hit.document;
-                    return {
-                        id: doc.id,
-                        title: doc.title || 'Untitled Highlight',
-                        mediaType: 'Highlight',
-                        status: null,
-                        ratingType: null,
-                        topics: doc.tags || [],
-                        genres: [],
-                        author: doc.author || null,
-                        dateAdded: doc.created_at ? new Date(doc.created_at * 1000).toISOString().split('T')[0] : null,
-                        notes: doc.text || '', // The highlight text
-                        thumbnail: doc.image_url,
-                        isMixlist: false,
-                        isNote: false,
-                        isHighlight: true,
-                        highlightText: doc.text,
-                        highlightNote: doc.note,
-                        category: doc.category,
-                        linkedMediaId: doc.linked_media_id,
-                        linkedMediaTitle: doc.linked_media_title,
-                        linkedMediaType: doc.linked_media_type
-                    };
-                });
-
-                if ((onlyNotes || onlyHighlights) && mediaOnlyFilters) {
-                    // An explicit notes/highlights search under a media-only filter can
-                    // never match, so don't run it.
-                    setSearchResults([]);
-                    setTotalResults(0);
-                    setTotalPages(1);
-                } else if (onlyNotes) {
-                    // Only searching notes
-                    const noteFilter = selectedTopics.length > 0 ? `tags:=[${selectedTopics.map(t => `"${t}"`).join(',')}]` : null;
-                    response = await searchNotes(debouncedSearchQuery || '*', noteFilter, currentPage, perPage, sortBy);
-                    const transformedResults = transformNoteHits(response.hits || []);
-                    setSearchResults(transformedResults);
-                    setTotalResults(response.found || 0);
-                    setTotalPages(Math.ceil((response.found || 0) / perPage));
-                } else if (onlyHighlights) {
-                    // Only searching highlights
-                    const highlightFilter = selectedTopics.length > 0 ? `tags:=[${selectedTopics.map(t => `"${t}"`).join(',')}]` : null;
-                    response = await searchHighlights(debouncedSearchQuery || '*', highlightFilter, currentPage, perPage, sortBy);
-                    const transformedResults = transformHighlightHits(response.hits || []);
-                    setSearchResults(transformedResults);
-                    setTotalResults(response.found || 0);
-                    setTotalPages(Math.ceil((response.found || 0) / perPage));
-                } else if ((includeNotes || includeHighlights) && (mediaTypesFiltered.length > 0 || selectedMediaTypes.includes('all'))) {
-                    // Search media and optionally notes/highlights in parallel
-                    const searchPromises = [];
-                    const resultTypes = [];
-
-                    // Calculate how to split results
-                    const numSearchTypes = 1 + (includeNotes ? 1 : 0) + (includeHighlights ? 1 : 0);
-                    const perPagePerType = Math.ceil(perPage / numSearchTypes);
-
-                    // Always search media
-                    const mediaSearchOptions = {
-                        query: debouncedSearchQuery || '*',
-                        mediaTypes: selectedMediaTypes.includes('all') ? [] : mediaTypesFiltered,
-                        topics: selectedTopics,
-                        genres: selectedGenres,
-                        status: selectedStatuses,
-                        ratings: selectedRatings,
-                        page: currentPage,
-                        perPage: perPagePerType,
-                        sortBy: sortBy
-                    };
-                    searchPromises.push(typesenseAdvancedSearch(mediaSearchOptions));
-                    resultTypes.push('media');
-
-                    // Optionally search notes
-                    if (includeNotes) {
-                        const noteFilter = selectedTopics.length > 0 ? `tags:=[${selectedTopics.map(t => `"${t}"`).join(',')}]` : null;
-                        searchPromises.push(searchNotes(debouncedSearchQuery || '*', noteFilter, currentPage, perPagePerType, sortBy));
-                        resultTypes.push('notes');
-                    }
-
-                    // Optionally search highlights
-                    if (includeHighlights) {
-                        const highlightFilter = selectedTopics.length > 0 ? `tags:=[${selectedTopics.map(t => `"${t}"`).join(',')}]` : null;
-                        searchPromises.push(searchHighlights(debouncedSearchQuery || '*', highlightFilter, currentPage, perPagePerType, sortBy));
-                        resultTypes.push('highlights');
-                    }
-
-                    // Run all searches in parallel
-                    const responses = await Promise.all(searchPromises);
-
-                    // Transform results
-                    const allResults = [];
-                    let totalFound = 0;
-
-                    responses.forEach((resp, idx) => {
-                        const type = resultTypes[idx];
-                        if (type === 'media') {
-                            allResults.push(...transformMediaHits(resp.hits || []));
-                        } else if (type === 'notes') {
-                            allResults.push(...transformNoteHits(resp.hits || []));
-                        } else if (type === 'highlights') {
-                            allResults.push(...transformHighlightHits(resp.hits || []));
-                        }
-                        totalFound += resp.found || 0;
-                    });
-
-                    let combinedResults;
-                    if (sortBy === 'title') {
-                        // A single alphabetical list reads better than interleaving when titles drive the order
-                        combinedResults = [...allResults].sort((a, b) =>
-                            (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' })
-                        );
-                    } else {
-                        // Interleave results by type for variety
-                        const mediaResults = allResults.filter(r => !r.isNote && !r.isHighlight);
-                        const noteResults = allResults.filter(r => r.isNote);
-                        const highlightResults = allResults.filter(r => r.isHighlight);
-
-                        combinedResults = [];
-                        const maxLen = Math.max(mediaResults.length, noteResults.length, highlightResults.length);
-                        for (let i = 0; i < maxLen; i++) {
-                            if (i < mediaResults.length) combinedResults.push(mediaResults[i]);
-                            if (i < noteResults.length) combinedResults.push(noteResults[i]);
-                            if (i < highlightResults.length) combinedResults.push(highlightResults[i]);
-                        }
-                    }
-
-                    setSearchResults(combinedResults);
-                    setTotalResults(totalFound);
-                    setTotalPages(Math.ceil(totalFound / perPage));
-                } else {
-                    // Only searching media items (no notes or highlights)
-                    const searchOptions = {
-                        query: debouncedSearchQuery || '*',
-                        mediaTypes: selectedMediaTypes.includes('all') ? [] : mediaTypesFiltered,
-                        topics: selectedTopics,
-                        genres: selectedGenres,
-                        status: selectedStatuses,
-                        ratings: selectedRatings,
-                        page: currentPage,
-                        perPage: perPage,
-                        sortBy: sortBy
-                    };
-
-                    response = await typesenseAdvancedSearch(searchOptions);
-                    const transformedResults = transformMediaHits(response.hits || []);
-                    setSearchResults(transformedResults);
-                    setTotalResults(response.found || 0);
-                    setTotalPages(Math.ceil((response.found || 0) / perPage));
-                }
+                response = await typesenseAdvancedSearch(searchOptions);
+                const transformedResults = transformMediaHits(response.hits || []);
+                setSearchResults(transformedResults);
+                setTotalResults(response.found || 0);
+                setTotalPages(Math.ceil((response.found || 0) / perPage));
             }
         } catch (err) {
             console.error('Search error:', err);
@@ -612,6 +527,21 @@ export default function Search({ defaultMediaTypes = [] }) {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleSearchModeChange = (newMode) => {
+        setSearchMode(newMode);
+        setCurrentPage(1);
+        setBrowseAll(false);
+        setSelectedItems(new Map());
+    };
+
+    const handleViewAllMixlists = () => {
+        setSearchQuery('');
+        setSelectedTopics([]);
+        setSelectedGenres([]);
+        setBrowseAll(true);
+        setCurrentPage(1);
     };
 
     const handleMediaTypeToggle = (value) => {
@@ -653,7 +583,8 @@ export default function Search({ defaultMediaTypes = [] }) {
         setShowAllTopics(false);
         setShowAllGenres(false);
         setCurrentPage(1);
-        setSelectedItems(new Set());
+        setBrowseAll(false);
+        setSelectedItems(new Map());
     };
 
     return (
@@ -673,10 +604,12 @@ export default function Search({ defaultMediaTypes = [] }) {
                     </Typography>
                     <Typography variant="body1" color="text.secondary">
                         {searchMode === 'media'
-                            ? 'Search across all your media and notes with powerful filters and instant results'
+                            ? 'Search across all your media with powerful filters and instant results'
                             : searchMode === 'mixlists'
                                 ? 'Search and discover curated mixlists by name, topics, or genres'
-                                : 'Search your Obsidian notes by title, content, or tags'}
+                                : searchMode === 'notes'
+                                    ? 'Search your Obsidian notes by title, content, or tags'
+                                    : 'Search your highlights by text, note, source, or tags'}
                     </Typography>
                     <SearchViewToggles
                         showSearchBar={showSearchBar}
@@ -696,8 +629,9 @@ export default function Search({ defaultMediaTypes = [] }) {
                         selectedTopics={selectedTopics}
                         handleTopicToggle={handleTopicToggle}
                         searchMode={searchMode}
-                        setSearchMode={setSearchMode}
-                        setCurrentPage={setCurrentPage}
+                        onSearchModeChange={handleSearchModeChange}
+                        onCreateMixlist={() => navigate('/create-mixlist', { state: { returnTo: '/search?searchMode=mixlists' } })}
+                        onViewAllMixlists={handleViewAllMixlists}
                     />
                 </Collapse>
 
@@ -754,23 +688,8 @@ export default function Search({ defaultMediaTypes = [] }) {
                             mediaTypeOptions={mediaTypeOptions}
                         />
 
-                        {/* Create Mixlist shortcut */}
-                        {searchMode === 'mixlists' && (
-                            <Box sx={{ mb: 2, display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' } }}>
-                                <Button
-                                    variant="contained"
-                                    color="primary"
-                                    startIcon={<PlaylistAdd />}
-                                    onClick={() => navigate('/create-mixlist', { state: { returnTo: '/search?searchMode=mixlists' } })}
-                                    sx={{ minHeight: '44px', width: { xs: '100%', sm: 'auto' } }}
-                                >
-                                    Create Mixlist
-                                </Button>
-                            </Box>
-                        )}
-
-                        {/* Bulk Actions Toolbar — media and notes modes*/}
-                        {searchResults.length > 0 && (searchMode === 'media' || searchMode === 'notes') && (
+                        {/* Bulk Actions Toolbar — every mode except mixlists */}
+                        {searchResults.length > 0 && searchMode !== 'mixlists' && (
                             <Toolbar
                                 sx={{
                                     mb: 2,
@@ -844,29 +763,24 @@ export default function Search({ defaultMediaTypes = [] }) {
                                     gap: 1,
                                     width: { xs: '100%', sm: 'auto' }
                                 }}>
-                                    <Tooltip
-                                        title={selectedHighlightCount > 0
-                                            ? 'Highlights cannot be added to mixlists — deselect them to enable this'
-                                            : ''}
-                                    >
-                                        <span>
-                                            <Button
-                                                variant="contained"
-                                                color="primary"
-                                                size="small"
-                                                onClick={openAddToMixlistDialog}
-                                                startIcon={<PlaylistAdd />}
-                                                disabled={selectedItems.size === 0 || selectedHighlightCount > 0}
-                                                sx={{
-                                                    minHeight: '44px',
-                                                    fontSize: { xs: '0.8rem', sm: '0.875rem' },
-                                                    width: { xs: '100%', sm: 'auto' }
-                                                }}
-                                            >
-                                                Add to Mixlist
-                                            </Button>
-                                        </span>
-                                    </Tooltip>
+                                    {/* Highlights have no mixlist relationship, so the action is hidden in that mode */}
+                                    {searchMode !== 'highlights' && (
+                                        <Button
+                                            variant="contained"
+                                            color="primary"
+                                            size="small"
+                                            onClick={openAddToMixlistDialog}
+                                            startIcon={<PlaylistAdd />}
+                                            disabled={selectedItems.size === 0}
+                                            sx={{
+                                                minHeight: '44px',
+                                                fontSize: { xs: '0.8rem', sm: '0.875rem' },
+                                                width: { xs: '100%', sm: 'auto' }
+                                            }}
+                                        >
+                                            Add to Mixlist
+                                        </Button>
+                                    )}
                                     <Button
                                         variant="contained"
                                         color="error"
@@ -914,6 +828,13 @@ export default function Search({ defaultMediaTypes = [] }) {
                                 <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                                     Enter a name in the search bar or select topics or genres to find mixlists
                                 </Typography>
+                                <Button
+                                    variant="outlined"
+                                    onClick={handleViewAllMixlists}
+                                    sx={{ mt: 3, minHeight: '44px' }}
+                                >
+                                    View All Mixlists
+                                </Button>
                             </Paper>
                         ) : searchMode === 'notes' && !hasNotesFilters ? (
                             <Paper sx={{ p: 8, textAlign: 'center' }}>
@@ -923,6 +844,16 @@ export default function Search({ defaultMediaTypes = [] }) {
                                 </Typography>
                                 <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                                     Enter a search term or select topics to find notes from your vaults
+                                </Typography>
+                            </Paper>
+                        ) : searchMode === 'highlights' && !hasHighlightsFilters ? (
+                            <Paper sx={{ p: 8, textAlign: 'center' }}>
+                                <SearchIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+                                <Typography variant="h6" color="text.secondary">
+                                    Search your highlights
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                                    Enter a search term or select topics to find highlights from your sources
                                 </Typography>
                             </Paper>
                         ) : searchResults.length === 0 ? (
@@ -942,7 +873,7 @@ export default function Search({ defaultMediaTypes = [] }) {
                                             item={item}
                                             isSelected={selectedItems.has(item.id)}
                                             onToggleSelect={handleToggleSelect}
-                                            showCheckbox={searchMode === 'media' || searchMode === 'notes'}
+                                            showCheckbox={searchMode !== 'mixlists'}
                                         />
                                     </Grid>
                                 ))}
@@ -955,7 +886,7 @@ export default function Search({ defaultMediaTypes = [] }) {
                                         item={item}
                                         isSelected={selectedItems.has(item.id)}
                                         onToggleSelect={handleToggleSelect}
-                                        showCheckbox={searchMode === 'media' || searchMode === 'notes' || item.isMixlist}
+                                        showCheckbox={searchMode !== 'mixlists'}
                                     />
                                 ))}
                             </Box>

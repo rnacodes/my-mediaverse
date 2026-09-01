@@ -220,8 +220,8 @@ export const SearchFilterSidebar = React.memo(({
                     </AccordionDetails>
                 </Accordion>
 
-                {/* Genres Filter - notes have no genres, so hide it in notes mode */}
-                {searchMode !== 'notes' && (
+                {/* Genres Filter - notes and highlights have no genres, so only media and mixlists show it */}
+                {(searchMode === 'media' || searchMode === 'mixlists') && (
                 <>
                 <Divider sx={{ my: 1 }} />
 
