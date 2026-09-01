@@ -109,8 +109,8 @@ export const MediaListItem = React.memo(({ item, isSelected = false, onToggleSel
     <Paper
         onClick={handleClick}
         sx={{
-            p: 2.5,
-            mb: 2,
+            p: 1.5,
+            mb: 1,
             cursor: 'pointer',
             border: item.isMixlist && isSelected ? '2px solid' : 'none',
             borderColor: 'primary.main',
@@ -120,7 +120,7 @@ export const MediaListItem = React.memo(({ item, isSelected = false, onToggleSel
             },
             transition: 'all 0.2s'
         }}>
-        <Grid container spacing={2} alignItems="center">
+        <Grid container spacing={1.5} alignItems="center">
             {showCheckbox && (
                 <Grid item>
                     <Checkbox

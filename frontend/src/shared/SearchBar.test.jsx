@@ -103,4 +103,16 @@ describe('SearchBar', () => {
     // Clearing is not a submit, so it must not trigger onSearch (navigation).
     expect(onSearch).not.toHaveBeenCalled();
   });
+
+  it('offers a View all mixlists link under the mixlist suggestions', async () => {
+    mockSearch({ mixlists: [{ id: 'mx1', name: 'Road Trip Mix', itemCount: 4 }] });
+
+    const { user } = renderWithProviders(<SearchBar />, { route: '/' });
+
+    await user.type(screen.getByRole('textbox'), 'mix');
+
+    expect(await screen.findByText('Road Trip Mix')).toBeInTheDocument();
+    const viewAll = screen.getByRole('link', { name: /view all mixlists/i });
+    expect(viewAll).toHaveAttribute('href', '/search?searchMode=mixlists');
+  });
 });
