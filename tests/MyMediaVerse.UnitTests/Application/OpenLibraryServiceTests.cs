@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using NSubstitute;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Services;
+using MyMediaVerse.Application.Utilities;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Shared.DTOs.OpenLibrary;
@@ -132,17 +133,13 @@ namespace MyMediaVerse.UnitTests.Application
                 .GetBookByOpenLibraryIdAsync("OL123W")
                 .Returns(workDto);
 
-            _mockBookService
-                .GetBookByTitleAndAuthorAsync("Test Book", Arg.Any<string>())
-                .Returns((Book?)null);
-
             _mockMappingService
                 .MapFromOpenLibraryAsync(Arg.Any<OpenLibraryBookDto>())
                 .Returns(mappedBook);
 
             _mockBookService
-                .CreateBookAsync(Arg.Any<CreateBookDto>())
-                .Returns(createdBook);
+                .CreateBookAsync(Arg.Any<CreateBookDto>(), Arg.Any<BookIdentity?>())
+                .Returns(new BookCreationResult(createdBook, Created: true));
 
             // Act
             var result = await _openLibraryService.ImportBookFromOpenLibraryKeyAsync(openLibraryKey);
@@ -150,9 +147,11 @@ namespace MyMediaVerse.UnitTests.Application
             // Assert
             Assert.Equal(createdBook, result);
             _mockApiClient.Received(1).GetBookByOpenLibraryIdAsync("OL123W");
-            _mockBookService.Received(1).GetBookByTitleAndAuthorAsync("Test Book", Arg.Any<string>());
             _mockMappingService.Received(1).MapFromOpenLibraryAsync(Arg.Any<OpenLibraryBookDto>());
-            _mockBookService.Received(1).CreateBookAsync(Arg.Any<CreateBookDto>());
+            // The Open Library key must ride along so dedup + persistence can use it
+            await _mockBookService.Received(1).CreateBookAsync(
+                Arg.Any<CreateBookDto>(),
+                Arg.Is<BookIdentity?>(i => i != null && i.OpenLibraryKey == "/works/OL123W"));
         }
 
         [Fact]
@@ -180,9 +179,21 @@ namespace MyMediaVerse.UnitTests.Application
                 .GetBookByOpenLibraryIdAsync("OL123W")
                 .Returns(workDto);
 
+            _mockMappingService
+                .MapFromOpenLibraryAsync(Arg.Any<OpenLibraryBookDto>())
+                .Returns(new Book
+                {
+                    Title = "Test Book",
+                    Author = "Test Author",
+                    MediaType = MediaType.Book,
+                    Status = Status.Uncharted,
+                    DateAdded = DateTime.UtcNow
+                });
+
+            // Dedup now happens inside CreateBookAsync, which reports the match
             _mockBookService
-                .GetBookByTitleAndAuthorAsync("Test Book", Arg.Any<string>())
-                .Returns(existingBook);
+                .CreateBookAsync(Arg.Any<CreateBookDto>(), Arg.Any<BookIdentity?>())
+                .Returns(new BookCreationResult(existingBook, Created: false));
 
             // Act
             var result = await _openLibraryService.ImportBookFromOpenLibraryKeyAsync(openLibraryKey);
@@ -190,9 +201,7 @@ namespace MyMediaVerse.UnitTests.Application
             // Assert
             Assert.Equal(existingBook, result);
             _mockApiClient.Received(1).GetBookByOpenLibraryIdAsync("OL123W");
-            _mockBookService.Received(1).GetBookByTitleAndAuthorAsync("Test Book", Arg.Any<string>());
-            _mockMappingService.DidNotReceive().MapFromOpenLibraryAsync(Arg.Any<OpenLibraryBookDto>());
-            _mockBookService.DidNotReceive().CreateBookAsync(Arg.Any<CreateBookDto>());
+            await _mockBookService.Received(1).CreateBookAsync(Arg.Any<CreateBookDto>(), Arg.Any<BookIdentity?>());
         }
 
         [Fact]
@@ -238,17 +247,13 @@ namespace MyMediaVerse.UnitTests.Application
                 .SearchBooksByISBNAsync(isbn)
                 .Returns(searchResult);
 
-            _mockBookService
-                .GetBookByTitleAndAuthorAsync("Test Book", Arg.Any<string>())
-                .Returns((Book?)null);
-
             _mockMappingService
                 .MapFromOpenLibraryAsync(Arg.Any<OpenLibraryBookDto>())
                 .Returns(mappedBook);
 
             _mockBookService
-                .CreateBookAsync(Arg.Any<CreateBookDto>())
-                .Returns(createdBook);
+                .CreateBookAsync(Arg.Any<CreateBookDto>(), Arg.Any<BookIdentity?>())
+                .Returns(new BookCreationResult(createdBook, Created: true));
 
             // Act
             var result = await _openLibraryService.ImportBookFromISBNAsync(isbn);
@@ -256,9 +261,8 @@ namespace MyMediaVerse.UnitTests.Application
             // Assert
             Assert.Equal(createdBook, result);
             _mockApiClient.Received(1).SearchBooksByISBNAsync(isbn);
-            _mockBookService.Received(1).GetBookByTitleAndAuthorAsync("Test Book", Arg.Any<string>());
             _mockMappingService.Received(1).MapFromOpenLibraryAsync(Arg.Any<OpenLibraryBookDto>());
-            _mockBookService.Received(1).CreateBookAsync(Arg.Any<CreateBookDto>());
+            await _mockBookService.Received(1).CreateBookAsync(Arg.Any<CreateBookDto>(), Arg.Any<BookIdentity?>());
         }
 
         [Fact]
@@ -326,17 +330,13 @@ namespace MyMediaVerse.UnitTests.Application
                 .SearchBooksAsync($"title:{title} author:{author}", null, 1)
                 .Returns(searchResult);
 
-            _mockBookService
-                .GetBookByTitleAndAuthorAsync(title, Arg.Any<string>())
-                .Returns((Book?)null);
-
             _mockMappingService
                 .MapFromOpenLibraryAsync(Arg.Any<OpenLibraryBookDto>())
                 .Returns(mappedBook);
 
             _mockBookService
-                .CreateBookAsync(Arg.Any<CreateBookDto>())
-                .Returns(createdBook);
+                .CreateBookAsync(Arg.Any<CreateBookDto>(), Arg.Any<BookIdentity?>())
+                .Returns(new BookCreationResult(createdBook, Created: true));
 
             // Act
             var result = await _openLibraryService.ImportBookFromTitleAndAuthorAsync(title, author);
@@ -388,17 +388,13 @@ namespace MyMediaVerse.UnitTests.Application
                 .SearchBooksByTitleAsync(title, null, 1)
                 .Returns(searchResult);
 
-            _mockBookService
-                .GetBookByTitleAndAuthorAsync(title, Arg.Any<string>())
-                .Returns((Book?)null);
-
             _mockMappingService
                 .MapFromOpenLibraryAsync(Arg.Any<OpenLibraryBookDto>())
                 .Returns(mappedBook);
 
             _mockBookService
-                .CreateBookAsync(Arg.Any<CreateBookDto>())
-                .Returns(createdBook);
+                .CreateBookAsync(Arg.Any<CreateBookDto>(), Arg.Any<BookIdentity?>())
+                .Returns(new BookCreationResult(createdBook, Created: true));
 
             // Act
             var result = await _openLibraryService.ImportBookFromTitleAndAuthorAsync(title);

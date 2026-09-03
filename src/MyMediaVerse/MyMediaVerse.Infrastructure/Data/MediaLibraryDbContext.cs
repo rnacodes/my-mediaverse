@@ -462,8 +462,29 @@ namespace MyMediaVerse.Infrastructure.Data
                 entity.Property(e => e.GoodreadsTags)
                     .HasColumnType("jsonb");
 
-                // Create index on ISBN for better query performance
+                entity.Property(e => e.GoogleVolumeId)
+                    .HasMaxLength(40);
+
+                entity.Property(e => e.OpenLibraryKey)
+                    .HasMaxLength(40);
+
                 entity.HasIndex(e => e.ISBN);
+
+                entity.HasIndex(e => e.ReadwiseBookId)
+                    .IsUnique()
+                    .HasFilter("\"ReadwiseBookId\" IS NOT NULL");
+
+                entity.HasIndex(e => e.GoodreadsBookId)
+                    .IsUnique()
+                    .HasFilter("\"GoodreadsBookId\" IS NOT NULL");
+
+                entity.HasIndex(e => e.GoogleVolumeId)
+                    .IsUnique()
+                    .HasFilter("\"GoogleVolumeId\" IS NOT NULL");
+
+                entity.HasIndex(e => e.OpenLibraryKey)
+                    .IsUnique()
+                    .HasFilter("\"OpenLibraryKey\" IS NOT NULL");
 
                 // Create index on Author for better query performance
                 entity.HasIndex(e => e.Author);

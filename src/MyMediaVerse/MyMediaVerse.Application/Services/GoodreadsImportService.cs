@@ -116,9 +116,10 @@ namespace MyMediaVerse.Application.Services
                 return;
             }
 
-            // Dedup on ISBN or ISBN13 (a book often carries only the latter), falling back to title+author.
-            var cleanIsbn = CleanIsbn(record.ISBN) ?? CleanIsbn(record.ISBN13);
-            var existingBook = dedup.Find(cleanIsbn, record.Title, record.Author);
+            // Dedup identity order: Goodreads Book Id (stable even when the export has a blank
+            // ISBN, common for Kindle editions) → normalized ISBN/ISBN13 → title+author.
+            var normalizedIsbn = NormalizeIsbn(record);
+            var existingBook = dedup.Find(record.GoodreadsBookId, normalizedIsbn, record.Title, record.Author);
 
             if (existingBook != null)
             {
@@ -192,7 +193,8 @@ namespace MyMediaVerse.Application.Services
                 Title = record.Title.Trim(),
                 Author = record.Author.Trim(),
                 MediaType = MediaType.Book,
-                ISBN = CleanIsbn(record.ISBN) ?? CleanIsbn(record.ISBN13),
+                GoodreadsBookId = record.GoodreadsBookId,
+                ISBN = NormalizeIsbn(record),
                 Status = MapShelfToStatus(record.Shelves),
                 Format = MapBindingToFormat(record.Binding),
                 // Store the raw Goodreads rating only; deriving the MMV Rating enum from it is deferred
@@ -236,9 +238,10 @@ namespace MyMediaVerse.Application.Services
 
             // Everything else: fill-only (set only when the existing value is null/empty). Format is
             // a non-nullable enum with no gap sentinel, so it is intentionally left untouched here.
+            book.GoodreadsBookId ??= record.GoodreadsBookId;
             if (string.IsNullOrWhiteSpace(book.ISBN))
             {
-                book.ISBN = CleanIsbn(record.ISBN) ?? CleanIsbn(record.ISBN13);
+                book.ISBN = NormalizeIsbn(record);
             }
             book.AverageRating ??= record.AverageRating;
             if (string.IsNullOrWhiteSpace(book.Publisher))
@@ -329,6 +332,19 @@ namespace MyMediaVerse.Application.Services
                 .ToList();
         }
 
+        /// <summary>
+        /// Canonical ISBN for a CSV record: normalized to ISBN-13 (either column, either length)
+        /// via <see cref="IsbnNormalizer"/>, falling back to the raw cleaned value only when the
+        /// input is not a valid ISBN shape so nothing the export provided is silently dropped.
+        /// </summary>
+        private static string? NormalizeIsbn(GoodreadsCsvImportDto record)
+        {
+            return IsbnNormalizer.Normalize(record.ISBN13)
+                ?? IsbnNormalizer.Normalize(record.ISBN)
+                ?? CleanIsbn(record.ISBN)
+                ?? CleanIsbn(record.ISBN13);
+        }
+
         private static string? CleanIsbn(string? isbn)
         {
             if (string.IsNullOrWhiteSpace(isbn))
@@ -336,7 +352,10 @@ namespace MyMediaVerse.Application.Services
                 return null;
             }
 
-            return isbn.Replace("-", "").Replace(" ", "").Trim();
+            // Also strip the ="…" Excel wrapper Goodreads puts around ISBN columns.
+            var cleaned = isbn.Replace("-", "").Replace(" ", "")
+                .Replace("=", "").Replace("\"", "").Trim();
+            return cleaned.Length == 0 ? null : cleaned;
         }
 
         private static string BuildTitleAuthorKey(string title, string author) =>
@@ -344,17 +363,24 @@ namespace MyMediaVerse.Application.Services
 
         /// <summary>
         /// In-memory dedup lookup for a single import run: existing (and newly created) books keyed
-        /// by cleaned ISBN and by normalized title+author, so each record is matched without a query.
+        /// by Goodreads Book Id, canonical ISBN, and normalized title+author, so each record is
+        /// matched without a query. Key order mirrors BookDuplicateFinder: external id first.
         /// </summary>
         private sealed class DedupIndex
         {
+            private readonly Dictionary<long, Book> _byGoodreadsId = new();
             private readonly Dictionary<string, Book> _byIsbn = new(StringComparer.OrdinalIgnoreCase);
             private readonly Dictionary<string, Book> _byTitleAuthor = new(StringComparer.OrdinalIgnoreCase);
 
-            /// <summary>ISBN match first (most reliable), then title+author. Returns null when neither matches.</summary>
-            public Book? Find(string? cleanIsbn, string title, string author)
+            /// <summary>Goodreads Book Id first, then ISBN, then title+author. Returns null when nothing matches.</summary>
+            public Book? Find(long? goodreadsBookId, string? isbn, string title, string author)
             {
-                if (!string.IsNullOrWhiteSpace(cleanIsbn) && _byIsbn.TryGetValue(cleanIsbn, out var byIsbn))
+                if (goodreadsBookId.HasValue && _byGoodreadsId.TryGetValue(goodreadsBookId.Value, out var byId))
+                {
+                    return byId;
+                }
+
+                if (!string.IsNullOrWhiteSpace(isbn) && _byIsbn.TryGetValue(isbn, out var byIsbn))
                 {
                     return byIsbn;
                 }
@@ -365,12 +391,19 @@ namespace MyMediaVerse.Application.Services
             }
 
             /// <summary>
-            /// Registers a book under both keys. First write wins (mirrors the prior FirstOrDefault
+            /// Registers a book under all its keys. First write wins (mirrors the prior FirstOrDefault
             /// behavior) so duplicate keys already present are left pointing at the original.
             /// </summary>
             public void Add(Book book)
             {
-                var isbn = CleanIsbn(book.ISBN);
+                if (book.GoodreadsBookId.HasValue)
+                {
+                    _byGoodreadsId.TryAdd(book.GoodreadsBookId.Value, book);
+                }
+
+                // Index stored ISBNs under their canonical ISBN-13 form so a 10 in the export
+                // still matches a legacy 13 row (and vice versa); non-ISBN values index raw.
+                var isbn = IsbnNormalizer.Normalize(book.ISBN) ?? CleanIsbn(book.ISBN);
                 if (!string.IsNullOrWhiteSpace(isbn))
                 {
                     _byIsbn.TryAdd(isbn, book);

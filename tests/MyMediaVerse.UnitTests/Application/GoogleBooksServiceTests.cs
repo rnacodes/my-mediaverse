@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using NSubstitute;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Services;
+using MyMediaVerse.Application.Utilities;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Shared.DTOs.GoogleBooks;
@@ -206,17 +207,13 @@ namespace MyMediaVerse.UnitTests.Application
                 .GetVolumeByIdAsync(volumeId)
                 .Returns(volumeDto);
 
-            _mockBookService
-                .GetBookByTitleAndAuthorAsync("Test Book", Arg.Any<string>())
-                .Returns((Book?)null);
-
             _mockMappingService
                 .MapFromGoogleBooksAsync(Arg.Any<GoogleBooksVolumeDto>())
                 .Returns(mappedBook);
 
             _mockBookService
-                .CreateBookAsync(Arg.Any<CreateBookDto>())
-                .Returns(createdBook);
+                .CreateBookAsync(Arg.Any<CreateBookDto>(), Arg.Any<BookIdentity?>())
+                .Returns(new BookCreationResult(createdBook, Created: true));
 
             // Act
             var result = await _googleBooksService.ImportBookFromVolumeIdAsync(volumeId);
@@ -224,9 +221,11 @@ namespace MyMediaVerse.UnitTests.Application
             // Assert
             Assert.Equal(createdBook, result);
             _mockApiClient.Received(1).GetVolumeByIdAsync(volumeId);
-            _mockBookService.Received(1).GetBookByTitleAndAuthorAsync("Test Book", Arg.Any<string>());
             _mockMappingService.Received(1).MapFromGoogleBooksAsync(Arg.Any<GoogleBooksVolumeDto>());
-            _mockBookService.Received(1).CreateBookAsync(Arg.Any<CreateBookDto>());
+            // The Google volume id must ride along so dedup + persistence can use it
+            await _mockBookService.Received(1).CreateBookAsync(
+                Arg.Any<CreateBookDto>(),
+                Arg.Is<BookIdentity?>(i => i != null && i.GoogleVolumeId == volumeId));
         }
 
         [Fact]
@@ -258,9 +257,21 @@ namespace MyMediaVerse.UnitTests.Application
                 .GetVolumeByIdAsync(volumeId)
                 .Returns(volumeDto);
 
+            _mockMappingService
+                .MapFromGoogleBooksAsync(Arg.Any<GoogleBooksVolumeDto>())
+                .Returns(new Book
+                {
+                    Title = "Test Book",
+                    Author = "Test Author",
+                    MediaType = MediaType.Book,
+                    Status = Status.Uncharted,
+                    DateAdded = DateTime.UtcNow
+                });
+
+            // Dedup now happens inside CreateBookAsync, which reports the match
             _mockBookService
-                .GetBookByTitleAndAuthorAsync("Test Book", Arg.Any<string>())
-                .Returns(existingBook);
+                .CreateBookAsync(Arg.Any<CreateBookDto>(), Arg.Any<BookIdentity?>())
+                .Returns(new BookCreationResult(existingBook, Created: false));
 
             // Act
             var result = await _googleBooksService.ImportBookFromVolumeIdAsync(volumeId);
@@ -268,9 +279,7 @@ namespace MyMediaVerse.UnitTests.Application
             // Assert
             Assert.Equal(existingBook, result);
             _mockApiClient.Received(1).GetVolumeByIdAsync(volumeId);
-            _mockBookService.Received(1).GetBookByTitleAndAuthorAsync("Test Book", Arg.Any<string>());
-            _mockMappingService.DidNotReceive().MapFromGoogleBooksAsync(Arg.Any<GoogleBooksVolumeDto>());
-            _mockBookService.DidNotReceive().CreateBookAsync(Arg.Any<CreateBookDto>());
+            await _mockBookService.Received(1).CreateBookAsync(Arg.Any<CreateBookDto>(), Arg.Any<BookIdentity?>());
         }
 
         [Fact]
@@ -339,17 +348,13 @@ namespace MyMediaVerse.UnitTests.Application
                 .SearchBooksByISBNAsync(isbn)
                 .Returns(searchResult);
 
-            _mockBookService
-                .GetBookByTitleAndAuthorAsync("Test Book", Arg.Any<string>())
-                .Returns((Book?)null);
-
             _mockMappingService
                 .MapFromGoogleBooksAsync(Arg.Any<GoogleBooksVolumeDto>())
                 .Returns(mappedBook);
 
             _mockBookService
-                .CreateBookAsync(Arg.Any<CreateBookDto>())
-                .Returns(createdBook);
+                .CreateBookAsync(Arg.Any<CreateBookDto>(), Arg.Any<BookIdentity?>())
+                .Returns(new BookCreationResult(createdBook, Created: true));
 
             // Act
             var result = await _googleBooksService.ImportBookFromISBNAsync(isbn);
@@ -357,9 +362,10 @@ namespace MyMediaVerse.UnitTests.Application
             // Assert
             Assert.Equal(createdBook, result);
             _mockApiClient.Received(1).SearchBooksByISBNAsync(isbn);
-            _mockBookService.Received(1).GetBookByTitleAndAuthorAsync("Test Book", Arg.Any<string>());
             _mockMappingService.Received(1).MapFromGoogleBooksAsync(Arg.Any<GoogleBooksVolumeDto>());
-            _mockBookService.Received(1).CreateBookAsync(Arg.Any<CreateBookDto>());
+            await _mockBookService.Received(1).CreateBookAsync(
+                Arg.Any<CreateBookDto>(),
+                Arg.Is<BookIdentity?>(i => i != null && i.GoogleVolumeId == "abc123"));
         }
 
         [Fact]
@@ -431,17 +437,13 @@ namespace MyMediaVerse.UnitTests.Application
                 .SearchBooksAsync($"intitle:{title} inauthor:{author}", null, 1)
                 .Returns(searchResult);
 
-            _mockBookService
-                .GetBookByTitleAndAuthorAsync(title, Arg.Any<string>())
-                .Returns((Book?)null);
-
             _mockMappingService
                 .MapFromGoogleBooksAsync(Arg.Any<GoogleBooksVolumeDto>())
                 .Returns(mappedBook);
 
             _mockBookService
-                .CreateBookAsync(Arg.Any<CreateBookDto>())
-                .Returns(createdBook);
+                .CreateBookAsync(Arg.Any<CreateBookDto>(), Arg.Any<BookIdentity?>())
+                .Returns(new BookCreationResult(createdBook, Created: true));
 
             // Act
             var result = await _googleBooksService.ImportBookFromTitleAndAuthorAsync(title, author);
@@ -495,17 +497,13 @@ namespace MyMediaVerse.UnitTests.Application
                 .SearchBooksByTitleAsync(title, null, 1)
                 .Returns(searchResult);
 
-            _mockBookService
-                .GetBookByTitleAndAuthorAsync(title, Arg.Any<string>())
-                .Returns((Book?)null);
-
             _mockMappingService
                 .MapFromGoogleBooksAsync(Arg.Any<GoogleBooksVolumeDto>())
                 .Returns(mappedBook);
 
             _mockBookService
-                .CreateBookAsync(Arg.Any<CreateBookDto>())
-                .Returns(createdBook);
+                .CreateBookAsync(Arg.Any<CreateBookDto>(), Arg.Any<BookIdentity?>())
+                .Returns(new BookCreationResult(createdBook, Created: true));
 
             // Act
             var result = await _googleBooksService.ImportBookFromTitleAndAuthorAsync(title);

@@ -68,7 +68,8 @@ export const SearchBarSection = React.memo(({
                             Create Mixlist
                         </Button>
                         <Button
-                            variant="outlined"
+                            variant="contained"
+                            color="primary"
                             onClick={onViewAllMixlists}
                             sx={{ minHeight: '44px' }}
                         >
@@ -104,24 +105,6 @@ export const SearchBarSection = React.memo(({
                     }
                 }}
             />
-            
-            {/* Quick Filters */}
-            {allTopics.length > 0 && (
-                <Box sx={{ mt: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    <Typography variant="body2" color="text.secondary" sx={{ mr: 1, alignSelf: 'center' }}>
-                        Quick filters:
-                    </Typography>
-                    {allTopics.slice(0, 4).map((topic) => (
-                        <Chip
-                            key={topic}
-                            label={topic}
-                            onClick={() => handleTopicToggle(topic)}
-                            color={selectedTopics.includes(topic) ? 'primary' : 'default'}
-                            sx={{ cursor: 'pointer' }}
-                        />
-                    ))}
-                </Box>
-            )}
         </Paper>
     );
 });

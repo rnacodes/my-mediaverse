@@ -13,7 +13,35 @@ namespace MyMediaVerse.Domain.Entities
         
         [StringLength(20)]
         public string? ASIN { get; set; }
-        
+
+        /// <summary>
+        /// Readwise's stable per-book id (user_book_id from the Readwise export API).
+        /// Fill-only external id: written when a highlight sync creates or matches this book,
+        /// never overwritten once set. Primary join key for highlight↔book linking.
+        /// </summary>
+        public int? ReadwiseBookId { get; set; }
+
+        /// <summary>
+        /// Goodreads "Book Id" from the library export CSV.
+        /// Fill-only external id: written on Goodreads import, never overwritten once set.
+        /// </summary>
+        public long? GoodreadsBookId { get; set; }
+
+        /// <summary>
+        /// Google Books volume id. Fill-only external id: written on Google Books import
+        /// or when enrichment resolves this book, never overwritten once set.
+        /// </summary>
+        [StringLength(40)]
+        public string? GoogleVolumeId { get; set; }
+
+        /// <summary>
+        /// Open Library work key (e.g. "/works/OL45883W"). Fill-only external id:
+        /// written on Open Library import, never overwritten once set.
+        /// </summary>
+        [StringLength(40)]
+        public string? OpenLibraryKey { get; set; }
+
+
         [Required]
         public BookFormat Format { get; set; } = BookFormat.Digital;
         

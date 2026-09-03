@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using MyMediaVerse.Application.Interfaces;
+using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 
 namespace MyMediaVerse.Web.API.Controllers
@@ -41,6 +42,14 @@ namespace MyMediaVerse.Web.API.Controllers
             if (dto == null)
             {
                 return BadRequest("Media item data is null.");
+            }
+
+            // The generic media DTO has no author field, so a book created here would be
+            // permanently authorless; the book endpoint owns book creation (RAS-160 owns
+            // the wider generic-API cleanup — this is a guard, not a redesign).
+            if (dto.MediaType == MediaType.Book)
+            {
+                return BadRequest("Books must be created via POST /api/book.");
             }
 
             var response = await _mediaService.CreateMediaItemAsync(dto);

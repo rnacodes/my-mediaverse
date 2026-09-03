@@ -7,6 +7,13 @@ namespace MyMediaVerse.DTOs
     /// </summary>
     public class GoodreadsCsvImportDto
     {
+        /// <summary>
+        /// Goodreads' stable per-book id ("Book Id" CSV column). The primary dedup key for
+        /// re-imports — Kindle editions frequently ship with a blank ISBN in the export.
+        /// </summary>
+        [Name("Book Id")]
+        public long? GoodreadsBookId { get; set; }
+
         [Name("Title")]
         public string Title { get; set; } = string.Empty;
 

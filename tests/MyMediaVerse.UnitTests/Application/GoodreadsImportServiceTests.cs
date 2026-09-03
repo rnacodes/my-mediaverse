@@ -275,6 +275,68 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         [Fact]
+        public async Task ImportFromCsvAsync_DedupsByBookId_WhenIsbnBlank()
+        {
+            // Kindle editions frequently ship with a blank ISBN in the export; the stable
+            // Goodreads Book Id must still match the existing row even when the title differs
+            // (e.g. Goodreads renamed the edition).
+            var existingBook = TestDataFactory.CreateBook("Old Edition Title", "Frank Herbert");
+            existingBook.GoodreadsBookId = 44444;
+            Context.Books.Add(existingBook);
+            await Context.SaveChangesAsync();
+
+            var result = await _service.ImportFromCsvAsync(
+                CsvStream(Row("Dune (Kindle Edition)", "Frank Herbert", bookId: "44444")));
+
+            result.UpdatedCount.Should().Be(1);
+            result.CreatedCount.Should().Be(0);
+            Context.Books.Count().Should().Be(1);
+        }
+
+        [Fact]
+        public async Task ImportFromCsvAsync_Isbn10And13_CollapseToOneBook()
+        {
+            // A legacy row storing the ISBN-10 must match an export row carrying the ISBN-13.
+            var existingBook = TestDataFactory.CreateBook("The Great Gatsby", "Fitzgerald, F. Scott");
+            existingBook.ISBN = "074327356X";
+            Context.Books.Add(existingBook);
+            await Context.SaveChangesAsync();
+
+            var result = await _service.ImportFromCsvAsync(
+                CsvStream(Row("The Great Gatsby (2004 ed.)", "F. Scott Fitzgerald", isbn13: "9780743273565")));
+
+            result.UpdatedCount.Should().Be(1);
+            result.CreatedCount.Should().Be(0);
+            Context.Books.Count().Should().Be(1);
+        }
+
+        [Fact]
+        public async Task ImportFromCsvAsync_NewBook_StoresBookIdAndNormalizedIsbn()
+        {
+            await _service.ImportFromCsvAsync(
+                CsvStream(Row("New Book", "New Author", isbn: "=\"\"074327356X\"\"", bookId: "98765")));
+
+            var book = Context.Books.Single(b => b.Title == "New Book");
+            book.GoodreadsBookId.Should().Be(98765);
+            book.ISBN.Should().Be("9780743273565"); // ISBN-10 stored in canonical 13 form
+        }
+
+        [Fact]
+        public async Task ImportFromCsvAsync_Reimport_BackfillsGoodreadsBookId()
+        {
+            // A book matched by ISBN that predates the Book Id column acquires the id (fill-only).
+            var existingBook = TestDataFactory.CreateBook("The Great Gatsby", "F. Scott Fitzgerald");
+            existingBook.ISBN = "9780743273565";
+            Context.Books.Add(existingBook);
+            await Context.SaveChangesAsync();
+
+            await _service.ImportFromCsvAsync(
+                CsvStream(Row("The Great Gatsby", "F. Scott Fitzgerald", isbn13: "9780743273565", bookId: "31337")));
+
+            existingBook.GoodreadsBookId.Should().Be(31337);
+        }
+
+        [Fact]
         public async Task ImportFromCsvAsync_MoreThanOneBatch_ImportsEveryRecord()
         {
             // 120 distinct books spans multiple 50-record save batches; nothing should be dropped
@@ -424,20 +486,21 @@ namespace MyMediaVerse.UnitTests.Application
         #region CSV helpers
 
         private const string GoodreadsHeader =
-            "Title,Author,ISBN,ISBN13,My Rating,Average Rating,Publisher,Year Published,Original Publication Year,Date Read,Date Added,Bookshelves,Exclusive Shelf,My Review,Binding";
+            "Book Id,Title,Author,ISBN,ISBN13,My Rating,Average Rating,Publisher,Year Published,Original Publication Year,Date Read,Date Added,Bookshelves,Exclusive Shelf,My Review,Binding";
 
         private static MemoryStream CsvStream(string body) =>
             new(System.Text.Encoding.UTF8.GetBytes(GoodreadsHeader + "\n" + body));
 
-        private static string Row(string title, string author, string isbn = "", string isbn13 = "") =>
-            $"\"{title}\",\"{author}\",\"{isbn}\",\"{isbn13}\",0,3.50,\"Pub\",2000,2000,,,\"shelf\",\"read\",\"\",\"Paperback\"";
+        private static string Row(string title, string author, string isbn = "", string isbn13 = "", string bookId = "") =>
+            $"\"{bookId}\",\"{title}\",\"{author}\",\"{isbn}\",\"{isbn13}\",0,3.50,\"Pub\",2000,2000,,,\"shelf\",\"read\",\"\",\"Paperback\"";
 
         // Row with per-field control for the re-import policy tests. Column order matches GoodreadsHeader.
         private static string DetailedRow(
             string title, string author, string isbn = "", string isbn13 = "",
             int myRating = 0, string publisher = "Pub", string dateRead = "",
-            string exclusiveShelf = "read", string myReview = "", string binding = "Paperback") =>
-            $"\"{title}\",\"{author}\",\"{isbn}\",\"{isbn13}\",{myRating},3.50,\"{publisher}\",2000,2000,\"{dateRead}\",,\"shelf\",\"{exclusiveShelf}\",\"{myReview}\",\"{binding}\"";
+            string exclusiveShelf = "read", string myReview = "", string binding = "Paperback",
+            string bookId = "") =>
+            $"\"{bookId}\",\"{title}\",\"{author}\",\"{isbn}\",\"{isbn13}\",{myRating},3.50,\"{publisher}\",2000,2000,\"{dateRead}\",,\"shelf\",\"{exclusiveShelf}\",\"{myReview}\",\"{binding}\"";
 
         #endregion
     }

@@ -121,7 +121,6 @@ namespace MyMediaVerse.UnitTests.Application.Services
         [InlineData(MediaType.Video, typeof(Video))]
         [InlineData(MediaType.Movie, typeof(Movie))]
         [InlineData(MediaType.TVShow, typeof(TvShow))]
-        [InlineData(MediaType.Book, typeof(Book))]
         [InlineData(MediaType.Channel, typeof(YouTubeChannel))]
         public async Task CreateMediaItemAsync_ShouldDispatchToConcreteEntityType(
             MediaType mediaType, Type expectedEntityType)
@@ -158,9 +157,20 @@ namespace MyMediaVerse.UnitTests.Application.Services
         }
 
         [Fact]
+        public async Task CreateMediaItemAsync_ShouldRejectBooks_WithGuidanceToBookEndpoint()
+        {
+            // The generic DTO has no author field, so a book created here would be
+            // permanently authorless; MediaController returns 400 and the service throws.
+            var act = () => _service.CreateMediaItemAsync(MakeDto("A Book", MediaType.Book));
+
+            await act.Should().ThrowAsync<NotSupportedException>()
+                .WithMessage("*POST /api/book*");
+        }
+
+        [Fact]
         public async Task CreateMediaItemAsync_ShouldPersistEntity_AndReturnGeneratedId()
         {
-            var result = await _service.CreateMediaItemAsync(MakeDto("Persisted", MediaType.Book));
+            var result = await _service.CreateMediaItemAsync(MakeDto("Persisted", MediaType.Movie));
 
             result.Id.Should().NotBeEmpty();
             (await Context.MediaItems.CountAsync()).Should().Be(1);
@@ -193,7 +203,7 @@ namespace MyMediaVerse.UnitTests.Application.Services
         [Fact]
         public async Task CreateMediaItemAsync_ShouldCreateAndAssociateNewTopics()
         {
-            var dto = MakeDto("Tagged", MediaType.Book, topics: new[] { "science", "history" });
+            var dto = MakeDto("Tagged", MediaType.Movie, topics: new[] { "science", "history" });
 
             var result = await _service.CreateMediaItemAsync(dto);
 
@@ -204,7 +214,7 @@ namespace MyMediaVerse.UnitTests.Application.Services
         [Fact]
         public async Task CreateMediaItemAsync_ShouldNormalizeTopicsToLowercase()
         {
-            var dto = MakeDto("Cased", MediaType.Book, topics: new[] { "SCIENCE", "History" });
+            var dto = MakeDto("Cased", MediaType.Movie, topics: new[] { "SCIENCE", "History" });
 
             var result = await _service.CreateMediaItemAsync(dto);
 
@@ -214,7 +224,7 @@ namespace MyMediaVerse.UnitTests.Application.Services
         [Fact]
         public async Task CreateMediaItemAsync_ShouldDeduplicateTopics_AfterNormalization()
         {
-            var dto = MakeDto("Dupes", MediaType.Book, topics: new[] { "Tech", "tech", " tech " });
+            var dto = MakeDto("Dupes", MediaType.Movie, topics: new[] { "Tech", "tech", " tech " });
 
             var result = await _service.CreateMediaItemAsync(dto);
 
@@ -225,7 +235,7 @@ namespace MyMediaVerse.UnitTests.Application.Services
         [Fact]
         public async Task CreateMediaItemAsync_ShouldSkipBlankTopics()
         {
-            var dto = MakeDto("Blanks", MediaType.Book, topics: new[] { "valid", "", "   " });
+            var dto = MakeDto("Blanks", MediaType.Movie, topics: new[] { "valid", "", "   " });
 
             var result = await _service.CreateMediaItemAsync(dto);
 
@@ -239,7 +249,7 @@ namespace MyMediaVerse.UnitTests.Application.Services
             await Context.SaveChangesAsync();
 
             var result = await _service.CreateMediaItemAsync(
-                MakeDto("Reuse", MediaType.Book, topics: new[] { "Tech" }));
+                MakeDto("Reuse", MediaType.Movie, topics: new[] { "Tech" }));
 
             result.Topics.Should().ContainSingle().Which.Should().Be("tech");
             (await Context.Topics.CountAsync()).Should().Be(1);
