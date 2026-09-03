@@ -72,6 +72,24 @@ namespace MyMediaVerse.IntegrationTests.Api
         }
 
         [Fact]
+        public async Task CreateBook_ShouldReturnOkWithExistingBook_WhenDuplicate()
+        {
+            // Arrange: create the book once
+            var dto = TestDataFactory.CreateBookDto("Duplicate Book", "Same Author");
+            var first = await _client.PostAsJsonAsync("/api/book", dto);
+            first.StatusCode.Should().Be(HttpStatusCode.Created);
+            var created = await first.Content.ReadFromJsonAsync<BookResponseDto>(_jsonOptions);
+
+            // Act: post the same identity again
+            var second = await _client.PostAsJsonAsync("/api/book", dto);
+
+            // Assert: 200 (not 201) with the existing row, and no duplicate created
+            second.StatusCode.Should().Be(HttpStatusCode.OK);
+            var returned = await second.Content.ReadFromJsonAsync<BookResponseDto>(_jsonOptions);
+            returned!.Id.Should().Be(created!.Id);
+        }
+
+        [Fact]
         public async Task CreateBook_ShouldReturnBadRequest_WhenInvalidDataProvided()
         {
             // Arrange

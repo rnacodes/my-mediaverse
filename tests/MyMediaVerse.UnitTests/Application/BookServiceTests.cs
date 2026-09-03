@@ -2,6 +2,7 @@ using AwesomeAssertions;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using MyMediaVerse.Application.Services;
+using MyMediaVerse.Application.Utilities;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.UnitTests.TestData;
@@ -124,12 +125,13 @@ namespace MyMediaVerse.UnitTests.Application
 
             // Assert
             result.Should().NotBeNull();
-            result.Title.Should().Be(dto.Title);
-            result.Author.Should().Be(dto.Author);
-            result.MediaType.Should().Be(MediaType.Book);
-            
+            result.Created.Should().BeTrue();
+            result.Book.Title.Should().Be(dto.Title);
+            result.Book.Author.Should().Be(dto.Author);
+            result.Book.MediaType.Should().Be(MediaType.Book);
+
             // Verify the book was saved to the database
-            var savedBook = await Context.Books.FindAsync(result.Id);
+            var savedBook = await Context.Books.FindAsync(result.Book.Id);
             savedBook.Should().NotBeNull();
             savedBook!.Title.Should().Be(dto.Title);
         }
@@ -160,11 +162,86 @@ namespace MyMediaVerse.UnitTests.Application
             var result = await _bookService.CreateBookAsync(dto);
 
             // Assert
-            result.Should().BeEquivalentTo(existingBook);
-            
+            result.Created.Should().BeFalse();
+            result.Book.Id.Should().Be(existingBook.Id);
+
             // Verify no duplicate was created
             var allBooks = Context.Books.ToList();
             allBooks.Should().HaveCount(1);
+        }
+
+        [Fact]
+        public async Task CreateBookAsync_ShouldMatchExistingBook_ByIsbnAcross10And13Forms()
+        {
+            // Arrange: existing row stores the ISBN-10 form (legacy data)
+            var existingBook = TestDataFactory.CreateBook("Some Edition", "Some Author");
+            existingBook.ISBN = "0596007124";
+            Context.Books.Add(existingBook);
+            await Context.SaveChangesAsync();
+
+            // Incoming book carries the equivalent ISBN-13 under a different title
+            var dto = TestDataFactory.CreateBookDto("Some Edition (Anniversary)", "Some Author");
+            dto.ISBN = "978-0-596-00712-6";
+
+            // Act
+            var result = await _bookService.CreateBookAsync(dto);
+
+            // Assert
+            result.Created.Should().BeFalse();
+            result.Book.Id.Should().Be(existingBook.Id);
+            Context.Books.ToList().Should().HaveCount(1);
+        }
+
+        [Fact]
+        public async Task CreateBookAsync_ShouldAbsorbExternalIds_OntoExistingMatch()
+        {
+            // Arrange
+            var existingBook = TestDataFactory.CreateBook("Known Book", "Known Author");
+            Context.Books.Add(existingBook);
+            await Context.SaveChangesAsync();
+
+            var dto = TestDataFactory.CreateBookDto("Known Book", "Known Author");
+            var identity = new BookIdentity
+            {
+                GoogleVolumeId = "vol-123",
+                OpenLibraryKey = "/works/OL1W",
+                Isbn = "0596007124"
+            };
+
+            // Act
+            var result = await _bookService.CreateBookAsync(dto, identity);
+
+            // Assert: title+author matched, and the ids were filled onto the existing row
+            result.Created.Should().BeFalse();
+            Context.ChangeTracker.Clear();
+            var saved = await Context.Books.FindAsync(existingBook.Id);
+            saved!.GoogleVolumeId.Should().Be("vol-123");
+            saved.OpenLibraryKey.Should().Be("/works/OL1W");
+            saved.ISBN.Should().Be("9780596007126");
+        }
+
+        [Fact]
+        public async Task CreateBookAsync_ShouldPersistExternalIds_AndNormalizedIsbn_OnCreate()
+        {
+            // Arrange
+            var dto = TestDataFactory.CreateBookDto("Fresh Book", "Fresh Author");
+            dto.ISBN = "0-596-00712-4";
+            var identity = new BookIdentity
+            {
+                GoogleVolumeId = "vol-9",
+                OpenLibraryKey = "/works/OL9W"
+            };
+
+            // Act
+            var result = await _bookService.CreateBookAsync(dto, identity);
+
+            // Assert
+            result.Created.Should().BeTrue();
+            Context.ChangeTracker.Clear();
+            var saved = await Context.Books.FindAsync(result.Book.Id);
+            saved!.ISBN.Should().Be("9780596007126");
+            saved.GoogleVolumeId.Should().Be("vol-9");
+            saved.OpenLibraryKey.Should().Be("/works/OL9W");
         }
 
         [Fact]
@@ -208,7 +285,7 @@ namespace MyMediaVerse.UnitTests.Application
 
             // Assert
             Context.ChangeTracker.Clear();
-            var saved = await Context.Books.FindAsync(result.Id);
+            var saved = await Context.Books.FindAsync(result.Book.Id);
             saved.Should().NotBeNull();
             saved!.Publisher.Should().Be("Penguin");
             saved.YearPublished.Should().Be(2014);
@@ -289,31 +366,23 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         [Fact]
-        public async Task BookExistsAsync_ShouldReturnTrue_WhenBookExists()
+        public async Task UpdateBookAsync_ShouldNormalizeIsbn()
         {
             // Arrange
-            var book = TestDataFactory.CreateBook("Existing Book", "Existing Author");
-            Context.Books.Add(book);
+            var existingBook = TestDataFactory.CreateBook("Original", "Author");
+            Context.Books.Add(existingBook);
             await Context.SaveChangesAsync();
 
-            // Act
-            var result = await _bookService.BookExistsAsync("Existing Book", "Existing Author");
-
-            // Assert
-            result.Should().BeTrue();
-        }
-
-        [Fact]
-        public async Task BookExistsAsync_ShouldReturnFalse_WhenBookDoesNotExist()
-        {
-            // Arrange
-            // No books in database
+            var dto = TestDataFactory.CreateBookDto("Original", "Author");
+            dto.ISBN = "0-596-00712-4";
 
             // Act
-            var result = await _bookService.BookExistsAsync("Non-existent Book", "Non-existent Author");
+            await _bookService.UpdateBookAsync(existingBook.Id, dto);
 
             // Assert
-            result.Should().BeFalse();
+            Context.ChangeTracker.Clear();
+            var updated = await Context.Books.FindAsync(existingBook.Id);
+            updated!.ISBN.Should().Be("9780596007126");
         }
     }
 }

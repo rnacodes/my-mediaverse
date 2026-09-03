@@ -323,6 +323,12 @@ namespace MyMediaVerse.Web.API.Controllers
                         {
                             case MediaType.Book:
                                 mediaItem = await ProcessBookRow(csv);
+                                if (mediaItem == null)
+                                {
+                                    skipped.Add($"Row {csv.CurrentIndex}: a book with this ISBN/ASIN or title+author already exists; skipped");
+                                    skippedCount++;
+                                    continue;
+                                }
                                 break;
                             case MediaType.Movie:
                                 mediaItem = await ProcessMovieRow(csv);
@@ -599,13 +605,34 @@ namespace MyMediaVerse.Web.API.Controllers
             }
         }
 
-        private Task<Book?> ProcessBookRow(CsvReader csv)
+        private async Task<Book?> ProcessBookRow(CsvReader csv)
         {
+            var title = GetCsvValue(csv, "Title") ?? "Unknown Title";
+            var author = GetCsvValue(csv, "Author") ?? "Unknown Author";
+            var rawIsbn = GetCsvValue(csv, "ISBN");
+            var asin = GetCsvValue(csv, "ASIN");
+
+            // Dedup like the Article branch: skip rows that match an existing book
+            // (by ISBN/ASIN or title+author) instead of silently inserting a duplicate.
+            var existing = await BookDuplicateFinder.FindExistingAsync(_context.Books, new BookIdentity
+            {
+                Isbn = rawIsbn,
+                Asin = asin,
+                Title = title,
+                Author = author
+            });
+            if (existing != null)
+            {
+                _logger.LogInformation("CSV row {RowIndex}: book already exists for '{Title}' by {Author} (ID: {Id}); skipping",
+                    csv.CurrentIndex, title, author, existing.Id);
+                return null;
+            }
+
             var book = new Book
             {
-                Title = GetCsvValue(csv, "Title") ?? "Unknown Title",
+                Title = title,
                 MediaType = MediaType.Book,
-                Author = GetCsvValue(csv, "Author") ?? "Unknown Author",
+                Author = author,
                 DateAdded = DateTime.UtcNow,
                 Status = ParseStatus(GetCsvValue(csv, "Status")) ?? Status.Uncharted
             };
@@ -617,8 +644,8 @@ namespace MyMediaVerse.Web.API.Controllers
             book.RelatedNotes = GetCsvValue(csv, "RelatedNotes");
             book.Thumbnail = GetCsvValue(csv, "Thumbnail");
             // Note: Genre is now handled through the navigation property via ProcessTopicsAndGenres
-            book.ISBN = GetCsvValue(csv, "ISBN");
-            book.ASIN = GetCsvValue(csv, "ASIN");
+            book.ISBN = IsbnNormalizer.Normalize(rawIsbn) ?? rawIsbn;
+            book.ASIN = asin;
 
             // Debug logging for thumbnail
             _logger.LogInformation("Book '{Title}' thumbnail: {Thumbnail}", book.Title, book.Thumbnail ?? "null");
@@ -650,27 +677,21 @@ namespace MyMediaVerse.Web.API.Controllers
                     // If Rating (PLB rating) is not set, auto-convert from Goodreads rating
                     if (!book.Rating.HasValue)
                     {
-                        book.Rating = goodreadsRating switch
-                        {
-                            5 => Rating.SuperLike,
-                            4 => Rating.Like,
-                            3 => Rating.Neutral,
-                            >= 1 and < 3 => Rating.Dislike,
-                            _ => null
-                        };
+                        book.Rating = RatingConverter.ConvertGoodreadsRatingToPLBRating(goodreadsRating);
                     }
                 }
             }
 
-            // Parse dates
+            // Parse dates (invariant culture so a CSV parses the same on any host locale)
             var dateCompletedStr = GetCsvValue(csv, "DateCompleted");
-            if (!string.IsNullOrEmpty(dateCompletedStr) && DateTime.TryParse(dateCompletedStr, out DateTime dateCompleted))
+            if (!string.IsNullOrEmpty(dateCompletedStr) &&
+                DateTime.TryParse(dateCompletedStr, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime dateCompleted))
                 book.DateCompleted = DateTime.SpecifyKind(dateCompleted, DateTimeKind.Utc);
 
             // Note: Topics and Genres can be assigned later through the UI
             // For now, we'll just create the basic book entity
 
-            return Task.FromResult<Book?>(book);
+            return book;
         }
 
         private Task<Movie?> ProcessMovieRow(CsvReader csv)

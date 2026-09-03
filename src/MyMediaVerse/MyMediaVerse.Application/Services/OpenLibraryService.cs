@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using MyMediaVerse.Application.Interfaces;
+using MyMediaVerse.Application.Utilities;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Shared.DTOs.OpenLibrary;
@@ -103,25 +104,19 @@ namespace MyMediaVerse.Application.Services
                     }
                 }
 
-                // Check if book already exists by title and author
-                var existingBook = await _bookService.GetBookByTitleAndAuthorAsync(workData.Title ?? "Unknown Title", authorName);
-                if (existingBook != null)
-                {
-                    _logger.LogInformation("Book {Title} by {Author} already exists", workData.Title, authorName);
-                    return existingBook;
-                }
-
-                // Try to get ISBN by searching for the book
-                string? isbn = null;
+                // Try to get ISBN and edition metadata by searching for the book
+                OpenLibraryBookDto? searchDoc = null;
                 try
                 {
                     var searchResult = await _openLibraryApiClient.SearchBooksAsync($"title:{workData.Title}", limit: 1);
-                    isbn = searchResult.Docs?.FirstOrDefault()?.Isbn?.FirstOrDefault();
+                    searchDoc = searchResult.Docs?.FirstOrDefault();
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Could not fetch ISBN for book: {Title}", workData.Title);
+                    _logger.LogWarning(ex, "Could not fetch search metadata for book: {Title}", workData.Title);
                 }
+
+                var isbn = searchDoc?.Isbn?.FirstOrDefault();
 
                 // Convert work data to book format for consistency
                 var bookData = new OpenLibraryBookDto
@@ -151,16 +146,28 @@ namespace MyMediaVerse.Application.Services
                     Rating = book.Rating,
                     OwnershipStatus = book.OwnershipStatus,
                     Notes = book.Notes,
-                    RelatedNotes = book.RelatedNotes
+                    RelatedNotes = book.RelatedNotes,
+                    Publisher = searchDoc?.Publisher?.FirstOrDefault(),
+                    OriginalPublicationYear = searchDoc?.FirstPublishYear,
+                    AverageRating = searchDoc?.RatingAverage is >= 1 and <= 5
+                        ? (decimal?)searchDoc.RatingAverage
+                        : null
                 };
 
-                // Save to database through domain service
-                var savedBook = await _bookService.CreateBookAsync(createBookDto);
+                // Save to database through domain service; the duplicate finder inside
+                // matches on Open Library key / ISBN / title+author and absorbs the key
+                // onto an existing row instead of creating a duplicate.
+                var identity = new BookIdentity
+                {
+                    OpenLibraryKey = workData.Key ?? $"/works/{cleanKey}",
+                    Isbn = book.ISBN
+                };
+                var result = await _bookService.CreateBookAsync(createBookDto, identity);
 
-                _logger.LogInformation("Successfully imported book from OpenLibrary: {Title} (Key: {OpenLibraryKey})",
-                    workData.Title, openLibraryKey);
+                _logger.LogInformation("Successfully imported book from OpenLibrary: {Title} (Key: {OpenLibraryKey}, Created: {Created})",
+                    workData.Title, openLibraryKey, result.Created);
 
-                return savedBook;
+                return result.Book;
             }
             catch (Exception ex)
             {
@@ -184,15 +191,6 @@ namespace MyMediaVerse.Application.Services
                     throw new InvalidOperationException($"Book with ISBN {isbn} not found in OpenLibrary");
                 }
 
-                // Check if book already exists by title and author
-                var authorName = bookData.AuthorName?.FirstOrDefault() ?? "Unknown Author";
-                var existingBook = await _bookService.GetBookByTitleAndAuthorAsync(bookData.Title ?? "Unknown Title", authorName);
-                if (existingBook != null)
-                {
-                    _logger.LogInformation("Book {Title} by {Author} already exists", bookData.Title, authorName);
-                    return existingBook;
-                }
-
                 // Create book entity from OpenLibrary data using mapping service
                 var book = await _bookMappingService.MapFromOpenLibraryAsync(bookData);
 
@@ -211,16 +209,27 @@ namespace MyMediaVerse.Application.Services
                     Rating = book.Rating,
                     OwnershipStatus = book.OwnershipStatus,
                     Notes = book.Notes,
-                    RelatedNotes = book.RelatedNotes
+                    RelatedNotes = book.RelatedNotes,
+                    Publisher = bookData.Publisher?.FirstOrDefault(),
+                    OriginalPublicationYear = bookData.FirstPublishYear,
+                    AverageRating = bookData.RatingAverage is >= 1 and <= 5
+                        ? (decimal?)bookData.RatingAverage
+                        : null
                 };
 
-                // Save to database through domain service
-                var savedBook = await _bookService.CreateBookAsync(createBookDto);
+                // Save to database through domain service; duplicates are matched on
+                // Open Library key / ISBN / title+author by the finder inside.
+                var identity = new BookIdentity
+                {
+                    OpenLibraryKey = bookData.Key,
+                    Isbn = book.ISBN ?? isbn
+                };
+                var result = await _bookService.CreateBookAsync(createBookDto, identity);
 
-                _logger.LogInformation("Successfully imported book from ISBN: {Title} (ISBN: {ISBN})",
-                    bookData.Title, isbn);
+                _logger.LogInformation("Successfully imported book from ISBN: {Title} (ISBN: {ISBN}, Created: {Created})",
+                    bookData.Title, isbn, result.Created);
 
-                return savedBook;
+                return result.Book;
             }
             catch (Exception ex)
             {
@@ -255,15 +264,6 @@ namespace MyMediaVerse.Application.Services
                     throw new InvalidOperationException($"Book with title '{title}' and author '{author}' not found in OpenLibrary");
                 }
 
-                // Check if book already exists by title and author
-                var authorName = bookData.AuthorName?.FirstOrDefault() ?? "Unknown Author";
-                var existingBook = await _bookService.GetBookByTitleAndAuthorAsync(bookData.Title ?? "Unknown Title", authorName);
-                if (existingBook != null)
-                {
-                    _logger.LogInformation("Book {Title} by {Author} already exists", bookData.Title, authorName);
-                    return existingBook;
-                }
-
                 // Create book entity from OpenLibrary data using mapping service
                 var book = await _bookMappingService.MapFromOpenLibraryAsync(bookData);
 
@@ -282,16 +282,27 @@ namespace MyMediaVerse.Application.Services
                     Rating = book.Rating,
                     OwnershipStatus = book.OwnershipStatus,
                     Notes = book.Notes,
-                    RelatedNotes = book.RelatedNotes
+                    RelatedNotes = book.RelatedNotes,
+                    Publisher = bookData.Publisher?.FirstOrDefault(),
+                    OriginalPublicationYear = bookData.FirstPublishYear,
+                    AverageRating = bookData.RatingAverage is >= 1 and <= 5
+                        ? (decimal?)bookData.RatingAverage
+                        : null
                 };
 
-                // Save to database through domain service
-                var savedBook = await _bookService.CreateBookAsync(createBookDto);
+                // Save to database through domain service; duplicates are matched on
+                // Open Library key / ISBN / title+author by the finder inside.
+                var identity = new BookIdentity
+                {
+                    OpenLibraryKey = bookData.Key,
+                    Isbn = book.ISBN
+                };
+                var result = await _bookService.CreateBookAsync(createBookDto, identity);
 
-                _logger.LogInformation("Successfully imported book from title and author: {Title} by {Author}",
-                    bookData.Title, bookData.AuthorName?.FirstOrDefault());
+                _logger.LogInformation("Successfully imported book from title and author: {Title} by {Author} (Created: {Created})",
+                    bookData.Title, bookData.AuthorName?.FirstOrDefault(), result.Created);
 
-                return savedBook;
+                return result.Book;
             }
             catch (Exception ex)
             {

@@ -116,10 +116,14 @@ namespace MyMediaVerse.Web.API.Controllers
                     return BadRequest("Book data is required");
                 }
 
-                var book = await _bookService.CreateBookAsync(dto);
-                var response = await _bookMappingService.MapToResponseDtoAsync(book);
+                var result = await _bookService.CreateBookAsync(dto);
+                var response = await _bookMappingService.MapToResponseDtoAsync(result.Book);
 
-                return CreatedAtAction(nameof(GetBook), new { id = book.Id }, response);
+                // 201 only when a row was actually created; a dedup hit returns the
+                // existing book with 200 so clients can tell the difference.
+                return result.Created
+                    ? CreatedAtAction(nameof(GetBook), new { id = result.Book.Id }, response)
+                    : Ok(response);
             }
             catch (Exception ex)
             {

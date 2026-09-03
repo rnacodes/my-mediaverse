@@ -141,7 +141,7 @@ namespace MyMediaVerse.Application.Services
                 MediaType.Video => CreateVideo(dto),
                 MediaType.Movie => CreateMovie(dto),
                 MediaType.TVShow => CreateTvShow(dto),
-                MediaType.Book => CreateBook(dto),
+                MediaType.Book => throw new NotSupportedException("Books must be created via POST /api/book."),
                 MediaType.Channel => CreateYouTubeChannel(dto),
                 _ => throw new NotSupportedException($"Media type '{dto.MediaType}' is not yet supported. Please implement a concrete class for this media type.")
             };
@@ -566,26 +566,6 @@ namespace MyMediaVerse.Application.Services
             {
                 Title = dto.Title,
                 MediaType = MediaType.TVShow,
-                Link = dto.Link,
-                Notes = dto.Notes,
-                Status = dto.Status,
-                DateAdded = DateTime.UtcNow,
-                DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted),
-                Rating = dto.Rating,
-                OwnershipStatus = dto.OwnershipStatus,
-                Description = dto.Description,
-                RelatedNotes = dto.RelatedNotes,
-                Thumbnail = dto.Thumbnail
-            };
-        }
-
-        private static Book CreateBook(CreateMediaItemDto dto)
-        {
-            return new Book
-            {
-                Title = dto.Title,
-                Author = "",
-                MediaType = MediaType.Book,
                 Link = dto.Link,
                 Notes = dto.Notes,
                 Status = dto.Status,

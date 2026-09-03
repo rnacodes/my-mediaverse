@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using MyMediaVerse.Application.Interfaces;
+using MyMediaVerse.Application.Utilities;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Shared.DTOs.GoogleBooks;
@@ -82,16 +83,7 @@ namespace MyMediaVerse.Application.Services
                     throw new InvalidOperationException($"Volume with ID {volumeId} not found in Google Books");
                 }
 
-                // Check if book already exists by title and author
                 var title = volume.VolumeInfo.Title ?? "Unknown Title";
-                var author = volume.VolumeInfo.Authors?.FirstOrDefault() ?? "Unknown Author";
-
-                var existingBook = await _bookService.GetBookByTitleAndAuthorAsync(title, author);
-                if (existingBook != null)
-                {
-                    _logger.LogInformation("Book {Title} by {Author} already exists", title, author);
-                    return existingBook;
-                }
 
                 // Map to Book entity
                 var book = await _bookMappingService.MapFromGoogleBooksAsync(volume);
@@ -117,13 +109,19 @@ namespace MyMediaVerse.Application.Services
                     YearPublished = book.YearPublished
                 };
 
-                // Save to database through domain service
-                var savedBook = await _bookService.CreateBookAsync(createBookDto);
+                // Save to database through domain service; duplicates are matched on
+                // Google volume id / ISBN / title+author by the finder inside.
+                var identity = new BookIdentity
+                {
+                    GoogleVolumeId = volume.Id,
+                    Isbn = book.ISBN
+                };
+                var result = await _bookService.CreateBookAsync(createBookDto, identity);
 
-                _logger.LogInformation("Successfully imported book from Google Books: {Title} (Volume ID: {VolumeId})",
-                    title, volumeId);
+                _logger.LogInformation("Successfully imported book from Google Books: {Title} (Volume ID: {VolumeId}, Created: {Created})",
+                    title, volumeId, result.Created);
 
-                return savedBook;
+                return result.Book;
             }
             catch (Exception ex)
             {
@@ -147,16 +145,7 @@ namespace MyMediaVerse.Application.Services
                     throw new InvalidOperationException($"Book with ISBN {isbn} not found in Google Books");
                 }
 
-                // Check if book already exists by title and author
                 var title = volume.VolumeInfo.Title ?? "Unknown Title";
-                var author = volume.VolumeInfo.Authors?.FirstOrDefault() ?? "Unknown Author";
-
-                var existingBook = await _bookService.GetBookByTitleAndAuthorAsync(title, author);
-                if (existingBook != null)
-                {
-                    _logger.LogInformation("Book {Title} by {Author} already exists", title, author);
-                    return existingBook;
-                }
 
                 // Map to Book entity
                 var book = await _bookMappingService.MapFromGoogleBooksAsync(volume);
@@ -182,13 +171,19 @@ namespace MyMediaVerse.Application.Services
                     YearPublished = book.YearPublished
                 };
 
-                // Save to database through domain service
-                var savedBook = await _bookService.CreateBookAsync(createBookDto);
+                // Save to database through domain service; duplicates are matched on
+                // Google volume id / ISBN / title+author by the finder inside.
+                var identity = new BookIdentity
+                {
+                    GoogleVolumeId = volume.Id,
+                    Isbn = book.ISBN ?? isbn
+                };
+                var result = await _bookService.CreateBookAsync(createBookDto, identity);
 
-                _logger.LogInformation("Successfully imported book from ISBN: {Title} (ISBN: {ISBN})",
-                    title, isbn);
+                _logger.LogInformation("Successfully imported book from ISBN: {Title} (ISBN: {ISBN}, Created: {Created})",
+                    title, isbn, result.Created);
 
-                return savedBook;
+                return result.Book;
             }
             catch (Exception ex)
             {
@@ -223,16 +218,8 @@ namespace MyMediaVerse.Application.Services
                     throw new InvalidOperationException($"Book with title '{title}' and author '{author}' not found in Google Books");
                 }
 
-                // Check if book already exists by title and author
                 var bookTitle = volume.VolumeInfo.Title ?? "Unknown Title";
                 var bookAuthor = volume.VolumeInfo.Authors?.FirstOrDefault() ?? "Unknown Author";
-
-                var existingBook = await _bookService.GetBookByTitleAndAuthorAsync(bookTitle, bookAuthor);
-                if (existingBook != null)
-                {
-                    _logger.LogInformation("Book {Title} by {Author} already exists", bookTitle, bookAuthor);
-                    return existingBook;
-                }
 
                 // Map to Book entity
                 var book = await _bookMappingService.MapFromGoogleBooksAsync(volume);
@@ -258,13 +245,19 @@ namespace MyMediaVerse.Application.Services
                     YearPublished = book.YearPublished
                 };
 
-                // Save to database through domain service
-                var savedBook = await _bookService.CreateBookAsync(createBookDto);
+                // Save to database through domain service; duplicates are matched on
+                // Google volume id / ISBN / title+author by the finder inside.
+                var identity = new BookIdentity
+                {
+                    GoogleVolumeId = volume.Id,
+                    Isbn = book.ISBN
+                };
+                var result = await _bookService.CreateBookAsync(createBookDto, identity);
 
-                _logger.LogInformation("Successfully imported book from title and author: {Title} by {Author}",
-                    bookTitle, bookAuthor);
+                _logger.LogInformation("Successfully imported book from title and author: {Title} by {Author} (Created: {Created})",
+                    bookTitle, bookAuthor, result.Created);
 
-                return savedBook;
+                return result.Book;
             }
             catch (Exception ex)
             {
