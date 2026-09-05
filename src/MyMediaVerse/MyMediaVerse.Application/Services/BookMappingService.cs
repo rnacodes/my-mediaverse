@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MyMediaVerse.Domain.Entities;
@@ -227,7 +226,7 @@ namespace MyMediaVerse.Application.Services
                 Format = volume.SaleInfo?.IsEbook == true ? BookFormat.Digital : BookFormat.Physical,
                 PartOfSeries = false,
                 Thumbnail = volumeInfo?.ImageLinks?.GetBestThumbnail(),
-                Description = StripHtmlTags(volumeInfo?.Description),
+                Description = HtmlText.Strip(volumeInfo?.Description),
                 Link = volumeInfo?.CanonicalVolumeLink ?? volumeInfo?.InfoLink,
                 Publisher = volumeInfo?.Publisher,
                 AverageRating = (decimal?)volumeInfo?.AverageRating,
@@ -265,32 +264,6 @@ namespace MyMediaVerse.Application.Services
                 HasFulltext = null, // Not available in Google Books
                 EditionCount = null // Not available in Google Books
             });
-        }
-
-        /// <summary>
-        /// Strips HTML tags from a string and decodes HTML entities.
-        /// </summary>
-        private static string? StripHtmlTags(string? html)
-        {
-            if (string.IsNullOrEmpty(html)) return null;
-
-            // Remove HTML tags
-            var withoutTags = Regex.Replace(html, "<.*?>", " ");
-
-            // Decode common HTML entities
-            withoutTags = withoutTags
-                .Replace("&nbsp;", " ")
-                .Replace("&amp;", "&")
-                .Replace("&lt;", "<")
-                .Replace("&gt;", ">")
-                .Replace("&quot;", "\"")
-                .Replace("&#39;", "'")
-                .Replace("&apos;", "'");
-
-            // Collapse multiple spaces into one
-            withoutTags = Regex.Replace(withoutTags, @"\s+", " ");
-
-            return withoutTags.Trim();
         }
     }
 }

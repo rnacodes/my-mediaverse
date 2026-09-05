@@ -9,10 +9,15 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
     /// <summary>
     /// Derives the MMV <c>Rating</c> enum from the raw <c>GoodreadsRating</c> stored at import time.
     /// Goodreads CSV import stores only the raw 1-5 rating (no conversion during upload); this step
-    /// performs the conversion. Pure local operation — no external API, no rate limiting.
+    /// performs the conversion. Pure local operation — no external API, no rate limiting. Candidates
+    /// are walked in pages so a large library is never materialized in memory at once.
     /// </summary>
     public class BookRatingEnrichmentService : IBookRatingEnrichmentService
     {
+        // Page size for walking candidates. The candidate predicate does not change when a row is
+        // converted, so plain offset paging over a stable order is safe here.
+        internal const int PageSize = 200;
+
         private readonly IApplicationDbContext _context;
         private readonly ILogger<BookRatingEnrichmentService> _logger;
 
@@ -36,37 +41,62 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
         /// <inheritdoc />
         public async Task<BookRatingConversionResult> ConvertGoodreadsRatingsAsync(CancellationToken cancellationToken = default)
         {
-            var result = new BookRatingConversionResult();
+            var result = new BookRatingConversionResult { StartedAt = DateTime.UtcNow };
 
-            // Every book carrying a real 1-5 Goodreads rating is a candidate; the derived value is
-            // Goodreads-primary, so a candidate whose current Rating differs is overwritten.
-            var candidates = await _context.Books
-                .Where(b => b.GoodreadsRating >= 1 && b.GoodreadsRating <= 5)
-                .ToListAsync(cancellationToken);
-
-            result.TotalCandidates = candidates.Count;
-
-            foreach (var book in candidates)
+            try
             {
-                var derived = RatingConverter.ConvertGoodreadsRatingToPLBRating(book.GoodreadsRating);
-                if (derived == null || book.Rating == derived)
+                // Every book carrying a real 1-5 Goodreads rating is a candidate; the derived value is
+                // Goodreads-primary, so a candidate whose current Rating differs is overwritten.
+                var candidates = _context.Books
+                    .Where(b => b.GoodreadsRating >= 1 && b.GoodreadsRating <= 5)
+                    .OrderBy(b => b.Id);
+
+                var offset = 0;
+                while (true)
                 {
-                    result.Unchanged++;
-                    continue;
+                    var page = await candidates.Skip(offset).Take(PageSize).ToListAsync(cancellationToken);
+                    if (page.Count == 0)
+                    {
+                        break;
+                    }
+
+                    var convertedInPage = 0;
+                    foreach (var book in page)
+                    {
+                        var derived = RatingConverter.ConvertGoodreadsRatingToPLBRating(book.GoodreadsRating);
+                        if (derived == null || book.Rating == derived)
+                        {
+                            result.Unchanged++;
+                            continue;
+                        }
+
+                        book.Rating = derived;
+                        convertedInPage++;
+                    }
+
+                    result.TotalCandidates += page.Count;
+                    result.Converted += convertedInPage;
+
+                    if (convertedInPage > 0)
+                    {
+                        await _context.SaveChangesAsync(cancellationToken);
+                    }
+
+                    offset += page.Count;
                 }
 
-                book.Rating = derived;
-                result.Converted++;
-            }
+                result.CompletedAt = DateTime.UtcNow;
 
-            if (result.Converted > 0)
+                _logger.LogInformation(
+                    "Goodreads rating conversion complete. Candidates: {Candidates}, Converted: {Converted}, Unchanged: {Unchanged}",
+                    result.TotalCandidates, result.Converted, result.Unchanged);
+            }
+            catch (Exception ex)
             {
-                await _context.SaveChangesAsync(cancellationToken);
+                result.Success = false;
+                result.ErrorMessage = $"Rating conversion failed: {ex.Message}";
+                _logger.LogError(ex, "Goodreads rating conversion run failed");
             }
-
-            _logger.LogInformation(
-                "Goodreads rating conversion complete. Candidates: {Candidates}, Converted: {Converted}, Unchanged: {Unchanged}",
-                result.TotalCandidates, result.Converted, result.Unchanged);
 
             return result;
         }

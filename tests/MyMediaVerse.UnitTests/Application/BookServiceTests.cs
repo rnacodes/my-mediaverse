@@ -5,6 +5,7 @@ using MyMediaVerse.Application.Services;
 using MyMediaVerse.Application.Utilities;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
+using MyMediaVerse.Shared.Interfaces;
 using MyMediaVerse.UnitTests.TestData;
 using MyMediaVerse.UnitTests.TestHelpers;
 
@@ -14,12 +15,14 @@ namespace MyMediaVerse.UnitTests.Application
     public class BookServiceTests : InMemoryDbTestBase
     {
         private readonly ILogger<BookService> _mockLogger;
+        private readonly ITypesenseService _mockTypesense;
         private readonly BookService _bookService;
 
         public BookServiceTests()
         {
             _mockLogger = Substitute.For<ILogger<BookService>>();
-            _bookService = new BookService(Context, _mockLogger);
+            _mockTypesense = Substitute.For<ITypesenseService>();
+            _bookService = new BookService(Context, _mockTypesense, _mockLogger);
         }
 
         [Fact]
@@ -363,6 +366,35 @@ namespace MyMediaVerse.UnitTests.Application
 
             // Assert
             result.Should().BeFalse();
+            await _mockTypesense.DidNotReceive().DeleteMediaItemAsync(Arg.Any<Guid>());
+        }
+
+        [Fact]
+        public async Task DeleteBookAsync_RemovesTheSearchDocument()
+        {
+            var book = TestDataFactory.CreateBook("Indexed Book", "Author");
+            Context.Books.Add(book);
+            await Context.SaveChangesAsync();
+
+            await _bookService.DeleteBookAsync(book.Id);
+
+            await _mockTypesense.Received(1).DeleteMediaItemAsync(book.Id);
+        }
+
+        [Fact]
+        public async Task DeleteBookAsync_SearchIndexFailure_DoesNotAbortTheDelete()
+        {
+            var book = TestDataFactory.CreateBook("Ghost Candidate", "Author");
+            Context.Books.Add(book);
+            await Context.SaveChangesAsync();
+
+            _mockTypesense.DeleteMediaItemAsync(book.Id)
+                .Returns<Task>(_ => throw new InvalidOperationException("Typesense down"));
+
+            var result = await _bookService.DeleteBookAsync(book.Id);
+
+            result.Should().BeTrue();
+            (await Context.Books.FindAsync(book.Id)).Should().BeNull();
         }
 
         [Fact]

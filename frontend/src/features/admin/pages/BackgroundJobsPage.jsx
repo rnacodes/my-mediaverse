@@ -282,10 +282,11 @@ const BackgroundJobsPage = () => {
                     <Card variant="outlined" sx={{ mb: 2, bgcolor: 'success.dark' }}><CardContent>
                         <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold' }}>Batch Run Complete</Typography>
                         <Grid container spacing={2}>
-                            <Grid item xs={6} sm={3}><StatBox value={batchResult.totalProcessed} label="Processed" /></Grid>
-                            <Grid item xs={6} sm={3}><StatBox value={batchResult.enrichedCount} label="Enriched" color="success.main" /></Grid>
-                            <Grid item xs={6} sm={3}><StatBox value={batchResult.failedCount} label="Failed" color="error.main" /></Grid>
-                            <Grid item xs={6} sm={3}><StatBox value={batchResult.skippedCount} label="Skipped" color="text.secondary" /></Grid>
+                            <Grid item xs={6} sm={2.4}><StatBox value={batchResult.totalProcessed} label="Processed" /></Grid>
+                            <Grid item xs={6} sm={2.4}><StatBox value={batchResult.enrichedCount} label="Enriched" color="success.main" /></Grid>
+                            <Grid item xs={6} sm={2.4}><StatBox value={batchResult.notFoundCount ?? 0} label="Not Found" color="warning.main" /></Grid>
+                            <Grid item xs={6} sm={2.4}><StatBox value={batchResult.failedCount} label="Failed" color="error.main" /></Grid>
+                            <Grid item xs={6} sm={2.4}><StatBox value={batchResult.skippedCount} label="Skipped" color="text.secondary" /></Grid>
                         </Grid>
                         {renderErrors(batchResult.errors)}
                     </CardContent></Card>
@@ -298,9 +299,10 @@ const BackgroundJobsPage = () => {
                         <Grid container spacing={2}>
                             <Grid item xs={6} sm={2}><StatBox value={runAllResult.totalProcessed} label="Processed" /></Grid>
                             <Grid item xs={6} sm={2}><StatBox value={runAllResult.totalEnriched} label="Enriched" color="success.main" /></Grid>
+                            <Grid item xs={6} sm={2}><StatBox value={runAllResult.totalNotFound ?? 0} label="Not Found" color="warning.main" /></Grid>
                             <Grid item xs={6} sm={2}><StatBox value={runAllResult.totalFailed} label="Failed" color="error.main" /></Grid>
                             <Grid item xs={6} sm={2}><StatBox value={runAllResult.batchesRun} label="Batches" color="info.main" /></Grid>
-                            <Grid item xs={12} sm={4}><StatBox value={runAllResult.remainingBooks} label="Still Remaining" color="warning.main" /></Grid>
+                            <Grid item xs={12} sm={2}><StatBox value={runAllResult.remainingBooks} label="Still Remaining" color="warning.main" /></Grid>
                         </Grid>
                         {renderErrors(runAllResult.errors)}
                     </CardContent></Card>

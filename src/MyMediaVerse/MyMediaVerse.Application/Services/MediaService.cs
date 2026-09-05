@@ -17,15 +17,18 @@ namespace MyMediaVerse.Application.Services
         private readonly IApplicationDbContext _context;
         private readonly ILogger<MediaService> _logger;
         private readonly IThumbnailStorageService _thumbnailStorage;
+        private readonly ITypesenseService _typesenseService;
 
         public MediaService(
             IApplicationDbContext context,
             ILogger<MediaService> logger,
-            IThumbnailStorageService thumbnailStorage)
+            IThumbnailStorageService thumbnailStorage,
+            ITypesenseService typesenseService)
         {
             _context = context;
             _logger = logger;
             _thumbnailStorage = thumbnailStorage;
+            _typesenseService = typesenseService;
         }
 
         public async Task<IEnumerable<MediaItemResponseDto>> GetAllMediaAsync()
@@ -226,6 +229,11 @@ namespace MyMediaVerse.Application.Services
             _context.Remove(mediaItem);
             await _context.SaveChangesAsync();
 
+            // Eager search-index cleanup so the deleted item stops appearing in search immediately.
+            // Best effort: the next bulk reindex reconciles anything this misses.
+            await SearchIndexCleanup.TryDeleteAsync(
+                () => _typesenseService.DeleteMediaItemAsync(id), _logger, "media item", id);
+
             return true;
         }
 
@@ -264,6 +272,13 @@ namespace MyMediaVerse.Application.Services
             }
 
             await _context.SaveChangesAsync();
+
+            // Eager search-index cleanup per deleted row; each call is best effort and never throws.
+            foreach (var mediaItem in mediaItems)
+            {
+                await SearchIndexCleanup.TryDeleteAsync(
+                    () => _typesenseService.DeleteMediaItemAsync(mediaItem.Id), _logger, "media item", mediaItem.Id);
+            }
 
             return (deletedCount, thumbnailErrors);
         }

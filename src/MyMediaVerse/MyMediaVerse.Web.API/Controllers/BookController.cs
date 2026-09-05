@@ -4,6 +4,7 @@ using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Shared.DTOs.GoogleBooks;
 using MyMediaVerse.Shared.DTOs.OpenLibrary;
 using MyMediaVerse.DTOs;
+using MyMediaVerse.Shared.Interfaces;
 using MyMediaVerse.Web.API.Extensions;
 
 namespace MyMediaVerse.Web.API.Controllers
@@ -17,19 +18,22 @@ namespace MyMediaVerse.Web.API.Controllers
         private readonly ILogger<BookController> _logger;
         private readonly IOpenLibraryService _openLibraryService;
         private readonly IGoogleBooksService _googleBooksService;
+        private readonly IImportReindexService _importReindexService;
 
         public BookController(
             IBookService bookService,
             IBookMappingService bookMappingService,
             ILogger<BookController> logger,
             IOpenLibraryService openLibraryService,
-            IGoogleBooksService googleBooksService)
+            IGoogleBooksService googleBooksService,
+            IImportReindexService importReindexService)
         {
             _bookService = bookService;
             _bookMappingService = bookMappingService;
             _logger = logger;
             _openLibraryService = openLibraryService;
             _googleBooksService = googleBooksService;
+            _importReindexService = importReindexService;
         }
 
         // GET: api/book
@@ -258,6 +262,9 @@ namespace MyMediaVerse.Web.API.Controllers
 
                 _logger.LogInformation("Successfully imported book from Open Library: {Title} by {Author}", createdBook.Title, createdBook.Author);
 
+                // The import may have matched an existing row and absorbed new ids, so reindex either way.
+                await _importReindexService.ReindexItemAfterImportAsync(createdBook.Id, "Open Library import");
+
                 var responseDto = await _bookMappingService.MapToResponseDtoAsync(createdBook);
                 return CreatedAtAction(nameof(GetBook), new { id = createdBook.Id }, responseDto);
             }
@@ -355,6 +362,9 @@ namespace MyMediaVerse.Web.API.Controllers
                 }
 
                 _logger.LogInformation("Successfully imported book from Google Books: {Title} by {Author}", createdBook.Title, createdBook.Author);
+
+                // The import may have matched an existing row and absorbed new ids, so reindex either way.
+                await _importReindexService.ReindexItemAfterImportAsync(createdBook.Id, "Google Books import");
 
                 var responseDto = await _bookMappingService.MapToResponseDtoAsync(createdBook);
                 return CreatedAtAction(nameof(GetBook), new { id = createdBook.Id }, responseDto);
