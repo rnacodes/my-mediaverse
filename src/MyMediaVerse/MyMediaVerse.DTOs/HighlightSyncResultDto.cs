@@ -11,6 +11,7 @@ namespace MyMediaVerse.DTOs
         public int SkippedCount { get; set; }
         public int LinkedCount { get; set; }  // Number of highlights auto-linked to articles/books
         public int DeletedCount { get; set; }  // Highlights removed because Readwise reported them deleted/discarded
+        public int StubBooksCreatedCount { get; set; }  // Books created so book-category highlights have a local source
         public string? ErrorMessage { get; set; }
         public string? WarningMessage { get; set; }  // Non-fatal issues, e.g. pagination stopped at the safety limit
         public DateTime StartedAt { get; set; }

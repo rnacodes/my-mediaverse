@@ -35,9 +35,21 @@ namespace MyMediaVerse.UnitTests.Application
                 .Returns(new ReaderSyncResultDto { Success = true, CreatedCount = 1, UpdatedCount = 2 });
 
             _highlights.SyncHighlightsIncrementalAsync(Arg.Any<DateTime>())
-                .Returns(new HighlightSyncResultDto { Success = true, CreatedCount = 3, UpdatedCount = 4, LinkedCount = 5 });
+                .Returns(new HighlightSyncResultDto { Success = true, CreatedCount = 3, UpdatedCount = 4, LinkedCount = 5, StubBooksCreatedCount = 6 });
             _highlights.SyncHighlightsFromReadwiseAsync()
-                .Returns(new HighlightSyncResultDto { Success = true, CreatedCount = 30, UpdatedCount = 40, LinkedCount = 50 });
+                .Returns(new HighlightSyncResultDto { Success = true, CreatedCount = 30, UpdatedCount = 40, LinkedCount = 50, StubBooksCreatedCount = 60 });
+        }
+
+        [Fact]
+        public async Task SyncAll_ReportsStubBooksCreated_AndCountsThemAsMediaItems()
+        {
+            var incremental = await _service.SyncAllAsync(incremental: true);
+            var full = await _service.SyncAllAsync(incremental: false);
+
+            incremental.BooksCreated.Should().Be(6);
+            full.BooksCreated.Should().Be(60);
+            // Reader created 1 + updated 2 = 3 articles, plus the stub books, all land in the media index
+            full.TotalMediaItemsProcessed.Should().Be(63);
         }
 
         [Fact]

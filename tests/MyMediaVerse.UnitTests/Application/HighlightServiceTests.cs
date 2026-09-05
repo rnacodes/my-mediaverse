@@ -641,6 +641,327 @@ namespace MyMediaVerse.UnitTests.Application
         private static ReadwiseExportResponse SinglePage(params ReadwiseExportBookDto[] books) =>
             new() { nextPageCursor = null, results = books.ToList() };
 
+        private static ReadwiseExportBookDto BookSource(
+            int userBookId, string title, string? author, params ReadwiseExportHighlightDto[] highlights) =>
+            new()
+            {
+                user_book_id = userBookId,
+                title = title,
+                author = author,
+                category = "books",
+                highlights = highlights.ToList()
+            };
+
+        [Fact]
+        public async Task SyncHighlights_LinksBookByReadwiseBookId_BeforeTitleAndAuthor()
+        {
+            // Arrange — the local book was renamed; only the id still identifies it
+            _service.ExportPageDelayMs = 0;
+            var book = new Book { Id = Guid.NewGuid(), Title = "Meditations (Annotated)", Author = "M. Aurelius", ReadwiseBookId = 9 };
+            Context.Books.Add(book);
+            await Context.SaveChangesAsync();
+
+            _mockReadwiseClient.GetExportAsync(Arg.Any<string?>(), Arg.Any<string?>()).Returns(SinglePage(
+                BookSource(9, "Meditations", "Marcus Aurelius",
+                    new ReadwiseExportHighlightDto { id = 77, text = "Memento mori" })));
+
+            // Act
+            var result = await _service.SyncHighlightsFromReadwiseAsync();
+
+            // Assert
+            result.LinkedCount.Should().Be(1);
+            result.StubBooksCreatedCount.Should().Be(0);
+            (await Context.Highlights.SingleAsync(h => h.ReadwiseId == 77)).BookId.Should().Be(book.Id);
+            (await Context.Books.CountAsync()).Should().Be(1);
+        }
+
+        [Fact]
+        public async Task SyncHighlights_TitleAndAuthorMatch_FillsReadwiseBookIdOnBook()
+        {
+            // Arrange — a Goodreads-imported book with no Readwise id yet
+            _service.ExportPageDelayMs = 0;
+            var book = new Book { Id = Guid.NewGuid(), Title = "Meditations", Author = "Marcus Aurelius" };
+            Context.Books.Add(book);
+            await Context.SaveChangesAsync();
+
+            _mockReadwiseClient.GetExportAsync(Arg.Any<string?>(), Arg.Any<string?>()).Returns(SinglePage(
+                BookSource(9, "MEDITATIONS", "marcus aurelius",
+                    new ReadwiseExportHighlightDto { id = 77, text = "Memento mori" })));
+
+            // Act
+            await _service.SyncHighlightsFromReadwiseAsync();
+
+            // Assert
+            (await Context.Books.SingleAsync()).ReadwiseBookId.Should().Be(9);
+        }
+
+        [Fact]
+        public async Task SyncHighlights_NoLocalBook_CreatesStubAndLinks()
+        {
+            // Arrange
+            _service.ExportPageDelayMs = 0;
+            _mockReadwiseClient.GetExportAsync(Arg.Any<string?>(), Arg.Any<string?>()).Returns(SinglePage(
+                new ReadwiseExportBookDto
+                {
+                    user_book_id = 9,
+                    title = "Meditations",
+                    author = "Marcus Aurelius",
+                    category = "books",
+                    asin = "B00ABC1234",
+                    cover_image_url = "https://images.example.com/meditations.jpg",
+                    source_url = "https://readwise.io/books/9",
+                    highlights = new List<ReadwiseExportHighlightDto>
+                    {
+                        new ReadwiseExportHighlightDto { id = 77, text = "Memento mori" },
+                        new ReadwiseExportHighlightDto { id = 78, text = "Amor fati" }
+                    }
+                }));
+
+            // Act
+            var result = await _service.SyncHighlightsFromReadwiseAsync();
+
+            // Assert
+            result.Success.Should().BeTrue();
+            result.StubBooksCreatedCount.Should().Be(1);
+            result.CreatedCount.Should().Be(2);
+            result.LinkedCount.Should().Be(2);
+
+            var stub = await Context.Books.SingleAsync();
+            stub.Title.Should().Be("Meditations");
+            stub.Author.Should().Be("Marcus Aurelius");
+            stub.ReadwiseBookId.Should().Be(9);
+            stub.ASIN.Should().Be("B00ABC1234");
+            stub.Thumbnail.Should().Be("https://images.example.com/meditations.jpg");
+            stub.Link.Should().Be("https://readwise.io/books/9");
+            stub.MediaType.Should().Be(MediaType.Book);
+            stub.Status.Should().Be(Status.Completed);
+            stub.Format.Should().Be(BookFormat.Digital);
+
+            var highlights = await Context.Highlights.ToListAsync();
+            highlights.Should().HaveCount(2);
+            highlights.Should().OnlyContain(h => h.BookId == stub.Id);
+        }
+
+        [Fact]
+        public async Task SyncHighlights_StubWithoutAuthor_UsesUnknownAuthor()
+        {
+            // Arrange
+            _service.ExportPageDelayMs = 0;
+            _mockReadwiseClient.GetExportAsync(Arg.Any<string?>(), Arg.Any<string?>()).Returns(SinglePage(
+                BookSource(9, "Anonymous Pamphlet", null,
+                    new ReadwiseExportHighlightDto { id = 77, text = "Text" })));
+
+            // Act
+            await _service.SyncHighlightsFromReadwiseAsync();
+
+            // Assert
+            (await Context.Books.SingleAsync()).Author.Should().Be("Unknown Author");
+        }
+
+        [Fact]
+        public async Task SyncHighlights_SecondRun_DoesNotCreateSecondStub()
+        {
+            // Arrange
+            _service.ExportPageDelayMs = 0;
+            _mockReadwiseClient.GetExportAsync(Arg.Any<string?>(), Arg.Any<string?>()).Returns(_ => SinglePage(
+                BookSource(9, "Meditations", "Marcus Aurelius",
+                    new ReadwiseExportHighlightDto { id = 77, text = "Memento mori" })));
+
+            // Act
+            var first = await _service.SyncHighlightsFromReadwiseAsync();
+            var second = await _service.SyncHighlightsFromReadwiseAsync();
+
+            // Assert
+            first.StubBooksCreatedCount.Should().Be(1);
+            second.StubBooksCreatedCount.Should().Be(0);
+            second.UpdatedCount.Should().Be(1);
+            (await Context.Books.CountAsync()).Should().Be(1);
+        }
+
+        [Fact]
+        public async Task SyncHighlights_SameSourceOnTwoPages_CreatesOneStub()
+        {
+            // Arrange — Readwise can split one source's highlights across export pages
+            _service.ExportPageDelayMs = 0;
+            var page1 = new ReadwiseExportResponse
+            {
+                nextPageCursor = "page-2",
+                results = new List<ReadwiseExportBookDto>
+                {
+                    BookSource(9, "Meditations", "Marcus Aurelius",
+                        new ReadwiseExportHighlightDto { id = 77, text = "Memento mori" })
+                }
+            };
+            var page2 = SinglePage(
+                BookSource(9, "Meditations", "Marcus Aurelius",
+                    new ReadwiseExportHighlightDto { id = 78, text = "Amor fati" }));
+            _mockReadwiseClient.GetExportAsync(Arg.Any<string?>(), null).Returns(page1);
+            _mockReadwiseClient.GetExportAsync(Arg.Any<string?>(), "page-2").Returns(page2);
+
+            // Act
+            var result = await _service.SyncHighlightsFromReadwiseAsync();
+
+            // Assert
+            result.StubBooksCreatedCount.Should().Be(1);
+            result.CreatedCount.Should().Be(2);
+            var stub = await Context.Books.SingleAsync();
+            (await Context.Highlights.ToListAsync()).Should().OnlyContain(h => h.BookId == stub.Id);
+        }
+
+        [Fact]
+        public async Task SyncHighlights_DeletedBookSource_DoesNotCreateStub()
+        {
+            // Arrange — tombstoned source; nothing live to attach a stub to
+            _service.ExportPageDelayMs = 0;
+            var source = BookSource(9, "Deleted Book", "Someone",
+                new ReadwiseExportHighlightDto { id = 77, text = "Gone" });
+            source.is_deleted = true;
+            _mockReadwiseClient.GetExportAsync(Arg.Any<string?>(), Arg.Any<string?>()).Returns(SinglePage(source));
+
+            // Act
+            var result = await _service.SyncHighlightsFromReadwiseAsync();
+
+            // Assert
+            result.StubBooksCreatedCount.Should().Be(0);
+            (await Context.Books.CountAsync()).Should().Be(0);
+        }
+
+        [Fact]
+        public async Task SyncHighlights_OnlyDiscardedHighlights_DoesNotCreateStub()
+        {
+            // Arrange
+            _service.ExportPageDelayMs = 0;
+            _mockReadwiseClient.GetExportAsync(Arg.Any<string?>(), Arg.Any<string?>()).Returns(SinglePage(
+                BookSource(9, "Skimmed Book", "Someone",
+                    new ReadwiseExportHighlightDto { id = 77, text = "Hidden", is_discard = true },
+                    new ReadwiseExportHighlightDto { id = 78, text = "Removed", is_deleted = true })));
+
+            // Act
+            var result = await _service.SyncHighlightsFromReadwiseAsync();
+
+            // Assert
+            result.StubBooksCreatedCount.Should().Be(0);
+            result.CreatedCount.Should().Be(0);
+            (await Context.Books.CountAsync()).Should().Be(0);
+        }
+
+        [Fact]
+        public async Task SyncHighlights_ArticleCategory_NeverCreatesStubBook()
+        {
+            // Arrange — an unmatched article stays unlinked; stubs are a books-only behavior
+            _service.ExportPageDelayMs = 0;
+            _mockReadwiseClient.GetExportAsync(Arg.Any<string?>(), Arg.Any<string?>()).Returns(SinglePage(
+                new ReadwiseExportBookDto
+                {
+                    user_book_id = 9,
+                    title = "Some Blog Post",
+                    author = "Blogger",
+                    category = "articles",
+                    source_url = "https://example.com/post",
+                    highlights = new List<ReadwiseExportHighlightDto>
+                    {
+                        new ReadwiseExportHighlightDto { id = 77, text = "Quote" }
+                    }
+                }));
+
+            // Act
+            var result = await _service.SyncHighlightsFromReadwiseAsync();
+
+            // Assert
+            result.CreatedCount.Should().Be(1);
+            result.LinkedCount.Should().Be(0);
+            result.StubBooksCreatedCount.Should().Be(0);
+            (await Context.Books.CountAsync()).Should().Be(0);
+            (await Context.Highlights.SingleAsync()).BookId.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task SyncHighlights_UpdateBranch_LinksExistingOrphanToBook()
+        {
+            // Arrange — the highlight was synced before the book existed locally
+            _service.ExportPageDelayMs = 0;
+            var book = new Book { Id = Guid.NewGuid(), Title = "Meditations", Author = "Marcus Aurelius" };
+            Context.Books.Add(book);
+            Context.Highlights.Add(new Highlight
+            {
+                Id = Guid.NewGuid(),
+                ReadwiseId = 77,
+                Text = "Memento mori",
+                Title = "Meditations",
+                Author = "Marcus Aurelius",
+                Category = "books"
+            });
+            await Context.SaveChangesAsync();
+
+            _mockReadwiseClient.GetExportAsync(Arg.Any<string?>(), Arg.Any<string?>()).Returns(SinglePage(
+                BookSource(9, "Meditations", "Marcus Aurelius",
+                    new ReadwiseExportHighlightDto { id = 77, text = "Memento mori" })));
+
+            // Act
+            var result = await _service.SyncHighlightsFromReadwiseAsync();
+
+            // Assert
+            result.UpdatedCount.Should().Be(1);
+            result.CreatedCount.Should().Be(0);
+            result.LinkedCount.Should().Be(1);
+            var linked = await Context.Highlights.SingleAsync(h => h.ReadwiseId == 77);
+            linked.BookId.Should().Be(book.Id);
+            linked.ReadwiseBookId.Should().Be(9);
+        }
+
+        [Fact]
+        public async Task SyncHighlights_UpdateBranch_OrphanWithNoBook_GetsStub()
+        {
+            // Arrange — a full re-sync is the backfill for pre-existing orphans
+            _service.ExportPageDelayMs = 0;
+            Context.Highlights.Add(new Highlight
+            {
+                Id = Guid.NewGuid(),
+                ReadwiseId = 77,
+                Text = "Memento mori",
+                Title = "Meditations",
+                Author = "Marcus Aurelius",
+                Category = "books"
+            });
+            await Context.SaveChangesAsync();
+
+            _mockReadwiseClient.GetExportAsync(Arg.Any<string?>(), Arg.Any<string?>()).Returns(SinglePage(
+                BookSource(9, "Meditations", "Marcus Aurelius",
+                    new ReadwiseExportHighlightDto { id = 77, text = "Memento mori" })));
+
+            // Act
+            var result = await _service.SyncHighlightsFromReadwiseAsync();
+
+            // Assert
+            result.StubBooksCreatedCount.Should().Be(1);
+            result.LinkedCount.Should().Be(1);
+            var stub = await Context.Books.SingleAsync();
+            (await Context.Highlights.SingleAsync()).BookId.Should().Be(stub.Id);
+        }
+
+        [Fact]
+        public async Task SyncHighlights_UpdateBranch_DoesNotRelinkAlreadyLinkedHighlight()
+        {
+            // Arrange — an explicit existing link is never overridden by the matcher
+            _service.ExportPageDelayMs = 0;
+            var chosen = new Book { Id = Guid.NewGuid(), Title = "Meditations", Author = "Marcus Aurelius" };
+            var other = new Book { Id = Guid.NewGuid(), Title = "Other", Author = "Someone", ReadwiseBookId = 9 };
+            Context.Books.AddRange(chosen, other);
+            Context.Highlights.Add(new Highlight { Id = Guid.NewGuid(), ReadwiseId = 77, Text = "Memento mori", BookId = chosen.Id });
+            await Context.SaveChangesAsync();
+
+            _mockReadwiseClient.GetExportAsync(Arg.Any<string?>(), Arg.Any<string?>()).Returns(SinglePage(
+                BookSource(9, "Other", "Someone",
+                    new ReadwiseExportHighlightDto { id = 77, text = "Memento mori" })));
+
+            // Act
+            var result = await _service.SyncHighlightsFromReadwiseAsync();
+
+            // Assert
+            result.LinkedCount.Should().Be(0);
+            (await Context.Highlights.SingleAsync()).BookId.Should().Be(chosen.Id);
+        }
+
         [Fact]
         public async Task SyncHighlights_DeletedInReadwise_RemovesExistingRow()
         {

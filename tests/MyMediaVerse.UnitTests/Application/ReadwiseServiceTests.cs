@@ -115,6 +115,32 @@ namespace MyMediaVerse.UnitTests.Application
             linked!.BookId.Should().Be(book.Id);
         }
 
+        [Fact]
+        public async Task LinkHighlightsToMediaAsync_MatchesBookByReadwiseBookId_BeforeTitleAndAuthor()
+        {
+            var byId = new Book { Id = Guid.NewGuid(), Title = "Meditations (Annotated)", Author = "M. Aurelius", ReadwiseBookId = 9 };
+            var byTitle = new Book { Id = Guid.NewGuid(), Title = "Meditations", Author = "Marcus Aurelius" };
+            Context.Books.AddRange(byId, byTitle);
+
+            var highlight = TestDataFactory.CreateHighlight("Memento mori");
+            highlight.Title = "Meditations";
+            highlight.Author = "Marcus Aurelius";
+            highlight.Category = "books";
+            highlight.ReadwiseBookId = 9;
+            highlight.SourceUrl = null;
+            highlight.ArticleId = null;
+            highlight.BookId = null;
+            Context.Highlights.Add(highlight);
+
+            await Context.SaveChangesAsync();
+
+            var result = await _service.LinkHighlightsToMediaAsync();
+
+            result.Should().Be(1);
+            var linked = await Context.Highlights.FindAsync(highlight.Id);
+            linked!.BookId.Should().Be(byId.Id);
+        }
+
         #endregion
 
         #region ExportHighlightToReadwiseAsync

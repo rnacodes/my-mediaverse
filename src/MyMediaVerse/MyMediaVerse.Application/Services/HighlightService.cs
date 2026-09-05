@@ -404,6 +404,8 @@ namespace MyMediaVerse.Application.Services
                 var hasMore = true;
                 var iteration = 0;
 
+                var stubBooksThisRun = new Dictionary<int, Book>();
+
                 while (hasMore && iteration < MaxExportPages)
                 {
                     _logger.LogInformation("Fetching export page {Iteration}", iteration + 1);
@@ -421,7 +423,7 @@ namespace MyMediaVerse.Application.Services
                     // Process each book with its nested highlights
                     foreach (var bookDto in response.results)
                     {
-                        await ProcessExportBookWithHighlightsAsync(bookDto, result);
+                        await ProcessExportBookWithHighlightsAsync(bookDto, result, stubBooksThisRun);
                     }
 
                     hasMore = !string.IsNullOrEmpty(response.nextPageCursor);
@@ -445,8 +447,8 @@ namespace MyMediaVerse.Application.Services
                 result.CompletedAt = DateTime.UtcNow;
                 result.Success = true;
 
-                _logger.LogInformation("Completed highlight sync. Created: {Created}, Updated: {Updated}, Linked: {Linked}, Deleted: {Deleted}",
-                    result.CreatedCount, result.UpdatedCount, result.LinkedCount, result.DeletedCount);
+                _logger.LogInformation("Completed highlight sync. Created: {Created}, Updated: {Updated}, Linked: {Linked}, Deleted: {Deleted}, Stub books: {StubBooks}",
+                    result.CreatedCount, result.UpdatedCount, result.LinkedCount, result.DeletedCount, result.StubBooksCreatedCount);
             }
             catch (Exception ex)
             {
@@ -462,19 +464,34 @@ namespace MyMediaVerse.Application.Services
         /// <summary>
         /// Process a book with nested highlights from the export endpoint.
         /// Book data is already included, no separate API call needed.
+        /// The source is resolved to local media once per envelope (not per highlight);
+        /// a book-category source with no local match gets a stub Book so its
+        /// highlights are never orphaned, and highlights that were previously
+        /// unlinked are attached on update — so a full re-sync doubles as the backfill.
         /// </summary>
         private async Task ProcessExportBookWithHighlightsAsync(
             Shared.DTOs.Readwise.ReadwiseExportBookDto bookDto,
-            HighlightSyncResultDto result)
+            HighlightSyncResultDto result,
+            Dictionary<int, Book> stubBooksThisRun)
         {
             var removedFromDb = new List<Guid>();
             var topics = new TopicResolver(_context);
+
+            static bool IsTombstone(Shared.DTOs.Readwise.ReadwiseExportBookDto book, Shared.DTOs.Readwise.ReadwiseExportHighlightDto highlight)
+                => book.is_deleted || highlight.is_deleted || highlight.is_discard;
+
+            // Resolve the source once; only worth doing (and only safe to stub) when the
+            // envelope carries something that will actually be stored.
+            var hasLiveHighlights = bookDto.highlights.Any(h => !IsTombstone(bookDto, h));
+            var match = hasLiveHighlights
+                ? await ResolveExportSourceAsync(bookDto, result, stubBooksThisRun)
+                : new HighlightLinkMatcher.Match();
 
             foreach (var highlightDto in bookDto.highlights)
             {
                 // Tombstones: Readwise marks deleted sources/highlights with is_deleted
                 // (and hidden ones with is_discard) instead of omitting them.
-                if (bookDto.is_deleted || highlightDto.is_deleted || highlightDto.is_discard)
+                if (IsTombstone(bookDto, highlightDto))
                 {
                     var doomed = await _context.Highlights
                         .FirstOrDefaultAsync(h => h.ReadwiseId == highlightDto.id);
@@ -509,8 +526,27 @@ namespace MyMediaVerse.Application.Services
                     existing.LocationType = highlightDto.location_type;
                     existing.Color = highlightDto.color;
                     existing.IsFavorite = highlightDto.is_favorite;
+                    existing.ReadwiseBookId ??= bookDto.user_book_id;
                     await ApplyTagsAsync(existing, highlightDto.tags?.Select(t => t.name), topics);
                     existing.UpdatedAt = DateTime.UtcNow;
+
+                    // Orphans (synced before their source existed locally) are attached
+                    // here, so a full re-sync links everything a fresh sync would.
+                    if (existing.ArticleId == null && existing.BookId == null)
+                    {
+                        if (match.Article != null)
+                        {
+                            existing.ArticleId = match.Article.Id;
+                            existing.Article = match.Article;
+                            result.LinkedCount++;
+                        }
+                        else if (match.Book != null)
+                        {
+                            existing.BookId = match.Book.Id;
+                            existing.Book = match.Book;
+                            result.LinkedCount++;
+                        }
+                    }
 
                     result.UpdatedCount++;
                 }
@@ -541,14 +577,6 @@ namespace MyMediaVerse.Application.Services
 
                     await ApplyTagsAsync(highlight, highlightDto.tags?.Select(t => t.name), topics);
 
-                    // Auto-link to source media: URL(s) first, then title/title+author
-                    var match = await HighlightLinkMatcher.ResolveAsync(
-                        _context,
-                        new[] { bookDto.source_url, bookDto.unique_url },
-                        bookDto.title,
-                        bookDto.author,
-                        bookDto.category);
-
                     if (match.Article != null)
                     {
                         highlight.ArticleId = match.Article.Id;
@@ -565,12 +593,6 @@ namespace MyMediaVerse.Application.Services
                         _logger.LogDebug("Auto-linked highlight {HighlightId} to book {BookId}",
                             highlight.Id, match.Book.Id);
                     }
-                    else if (bookDto.category?.ToLowerInvariant() == "articles")
-                    {
-                        // Log unlinked article highlights for debugging
-                        _logger.LogDebug("Could not link highlight to article. Source URL: {SourceUrl}, Title: {Title}",
-                            bookDto.source_url, bookDto.title);
-                    }
 
                     _context.Add(highlight);
                     result.CreatedCount++;
@@ -585,6 +607,80 @@ namespace MyMediaVerse.Application.Services
             {
                 await TryRemoveFromSearchIndexAsync(id);
             }
+        }
+
+        /// <summary>
+        /// Resolves an export envelope to its local source: URL(s) first, then title
+        /// for articles, then Readwise book id, then title+author for books. A
+        /// book-category source with no match gets a stub Book (a highlighted book
+        /// counts as read, hence Completed); later enrichment fills in the rest.
+        /// </summary>
+        private async Task<HighlightLinkMatcher.Match> ResolveExportSourceAsync(
+            Shared.DTOs.Readwise.ReadwiseExportBookDto bookDto,
+            HighlightSyncResultDto result,
+            Dictionary<int, Book> stubBooksThisRun)
+        {
+            var match = await HighlightLinkMatcher.ResolveAsync(
+                _context,
+                new[] { bookDto.source_url, bookDto.unique_url },
+                bookDto.title,
+                bookDto.author,
+                bookDto.category,
+                bookDto.user_book_id);
+
+            if (match.Book != null)
+            {
+                // A title+author hit (e.g. a Goodreads-imported book) acquires the id so
+                // every later sync matches it directly, even if its title is edited.
+                match.Book.ReadwiseBookId ??= bookDto.user_book_id;
+                return match;
+            }
+
+            if (match.Article != null)
+            {
+                return match;
+            }
+
+            var category = bookDto.category?.ToLowerInvariant();
+            if (category != "books" || string.IsNullOrWhiteSpace(bookDto.title))
+            {
+                if (category == "articles")
+                {
+                    _logger.LogDebug("Could not link highlights to article. Source URL: {SourceUrl}, Title: {Title}",
+                        bookDto.source_url, bookDto.title);
+                }
+                return match;
+            }
+
+            if (stubBooksThisRun.TryGetValue(bookDto.user_book_id, out var alreadyCreated))
+            {
+                return new HighlightLinkMatcher.Match { Book = alreadyCreated };
+            }
+
+            var asin = bookDto.asin?.Trim();
+            var stub = new Book
+            {
+                Id = Guid.NewGuid(),
+                Title = bookDto.title.Trim(),
+                Author = string.IsNullOrWhiteSpace(bookDto.author) ? "Unknown Author" : bookDto.author.Trim(),
+                MediaType = MediaType.Book,
+                Status = Status.Completed,
+                Format = BookFormat.Digital,
+                ReadwiseBookId = bookDto.user_book_id,
+                ASIN = string.IsNullOrEmpty(asin) || asin.Length > 20 ? null : asin,
+                Thumbnail = bookDto.cover_image_url,
+                Link = bookDto.source_url,
+                DateAdded = DateTime.UtcNow
+            };
+
+            _context.Add(stub);
+            stubBooksThisRun[bookDto.user_book_id] = stub;
+            result.StubBooksCreatedCount++;
+
+            _logger.LogInformation("Created stub book {BookId} for Readwise source {ReadwiseBookId} ({Title} by {Author})",
+                stub.Id, bookDto.user_book_id, stub.Title, stub.Author);
+
+            return new HighlightLinkMatcher.Match { Book = stub };
         }
 
         /// <summary>

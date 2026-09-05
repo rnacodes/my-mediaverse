@@ -9,9 +9,9 @@ namespace MyMediaVerse.Application.Services
     /// The single shared strategy for matching a highlight to its source media.
     /// Order: source URL(s) — anchored equality against every stored form of the
     /// normalized comparison key (scheme/www/trailing-slash variants) — then title
-    /// for article highlights, then title+author for book highlights. All
-    /// comparisons are case-insensitive. Returns at most one match (article wins
-    /// over book, mirroring the two FK columns).
+    /// for article highlights, then the Readwise book id, then title+author for
+    /// book highlights. All comparisons are case-insensitive. Returns at most one
+    /// match (article wins over book, mirroring the two FK columns).
     /// </summary>
     public static class HighlightLinkMatcher
     {
@@ -27,7 +27,8 @@ namespace MyMediaVerse.Application.Services
             IEnumerable<string?> candidateUrls,
             string? title,
             string? author,
-            string? category)
+            string? category,
+            int? readwiseBookId = null)
         {
             var normalizedCategory = category?.ToLowerInvariant();
 
@@ -48,7 +49,17 @@ namespace MyMediaVerse.Application.Services
                 return new Match { Article = article };
             }
 
-            // Book highlights match on exact title + author
+            if (readwiseBookId.HasValue)
+            {
+                var bookById = await context.Books
+                    .FirstOrDefaultAsync(b => b.ReadwiseBookId == readwiseBookId.Value);
+                if (bookById != null)
+                {
+                    return new Match { Book = bookById };
+                }
+            }
+
+            // Book highlights fall back to exact title + author
             if (normalizedCategory == "books" &&
                 !string.IsNullOrEmpty(title) &&
                 !string.IsNullOrEmpty(author))

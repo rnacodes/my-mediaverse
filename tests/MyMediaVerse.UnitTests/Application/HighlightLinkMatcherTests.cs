@@ -20,11 +20,66 @@ namespace MyMediaVerse.UnitTests.Application
             return article;
         }
 
-        private Book AddBook(string title, string? author)
+        private Book AddBook(string title, string? author, int? readwiseBookId = null)
         {
-            var book = new Book { Id = Guid.NewGuid(), Title = title, Author = author };
+            var book = new Book { Id = Guid.NewGuid(), Title = title, Author = author, ReadwiseBookId = readwiseBookId };
             Context.Books.Add(book);
             return book;
+        }
+
+        [Fact]
+        public async Task ResolveAsync_ReadwiseBookId_BeatsTitleAndAuthor()
+        {
+            var byId = AddBook("Meditations (Annotated Edition)", "M. Aurelius", readwiseBookId: 9);
+            AddBook("Meditations", "Marcus Aurelius");
+            await Context.SaveChangesAsync();
+
+            var match = await HighlightLinkMatcher.ResolveAsync(
+                Context, Array.Empty<string?>(), "Meditations", "Marcus Aurelius", "books", readwiseBookId: 9);
+
+            match.Book.Should().NotBeNull();
+            match.Book!.Id.Should().Be(byId.Id);
+        }
+
+        [Fact]
+        public async Task ResolveAsync_ReadwiseBookIdMiss_FallsBackToTitleAndAuthor()
+        {
+            var book = AddBook("Meditations", "Marcus Aurelius");
+            await Context.SaveChangesAsync();
+
+            var match = await HighlightLinkMatcher.ResolveAsync(
+                Context, Array.Empty<string?>(), "meditations", "marcus aurelius", "books", readwiseBookId: 404);
+
+            match.Book.Should().NotBeNull();
+            match.Book!.Id.Should().Be(book.Id);
+        }
+
+        [Fact]
+        public async Task ResolveAsync_ReadwiseBookId_DoesNotRequireCategory()
+        {
+            var book = AddBook("Meditations", "Marcus Aurelius", readwiseBookId: 9);
+            await Context.SaveChangesAsync();
+
+            var match = await HighlightLinkMatcher.ResolveAsync(
+                Context, Array.Empty<string?>(), null, null, null, readwiseBookId: 9);
+
+            match.Book.Should().NotBeNull();
+            match.Book!.Id.Should().Be(book.Id);
+        }
+
+        [Fact]
+        public async Task ResolveAsync_ArticleUrlMatch_BeatsReadwiseBookId()
+        {
+            var article = AddArticle("Some Post", "https://example.com/post");
+            AddBook("Meditations", "Marcus Aurelius", readwiseBookId: 9);
+            await Context.SaveChangesAsync();
+
+            var match = await HighlightLinkMatcher.ResolveAsync(
+                Context, new[] { "https://example.com/post" }, "Meditations", "Marcus Aurelius", "books", readwiseBookId: 9);
+
+            match.Article.Should().NotBeNull();
+            match.Article!.Id.Should().Be(article.Id);
+            match.Book.Should().BeNull();
         }
 
         [Fact]

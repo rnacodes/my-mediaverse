@@ -103,9 +103,9 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 var result = await _readwiseSyncService.SyncAllAsync(incremental);
 
-                // Articles index into the media collection; highlights maintain their own index.
-                await _importReindexService.ReindexAfterImportAsync(result.TotalArticlesProcessed, "Readwise sync");
-                result.ReindexTriggered = result.TotalArticlesProcessed > 0;
+                // Articles and stub books index into the media collection; highlights maintain their own index.
+                await _importReindexService.ReindexAfterImportAsync(result.TotalMediaItemsProcessed, "Readwise sync");
+                result.ReindexTriggered = result.TotalMediaItemsProcessed > 0;
 
                 if (!result.Success)
                 {

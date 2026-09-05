@@ -24,6 +24,7 @@ namespace MyMediaVerse.DTOs
         public int HighlightsUpdated { get; set; }
         public int HighlightsLinked { get; set; }
         public int HighlightsDeleted { get; set; }  // Removed because Readwise reported them deleted/discarded
+        public int BooksCreated { get; set; }  // Stub books created for book-category highlights with no local source
 
         public string? ErrorMessage { get; set; }
         public string? WarningMessage { get; set; }  // Non-fatal issues surfaced by either sync step
@@ -48,6 +49,8 @@ namespace MyMediaVerse.DTOs
         public bool ReindexTriggered { get; set; }
 
         public int TotalArticlesProcessed => ArticlesCreated + ArticlesUpdated;
+        // Everything this run wrote to the media collection (articles + stub books).
+        public int TotalMediaItemsProcessed => TotalArticlesProcessed + BooksCreated;
         public int TotalHighlightsProcessed => HighlightsCreated + HighlightsUpdated;
 
         public TimeSpan? Duration => CompletedAt.HasValue
