@@ -116,6 +116,18 @@ namespace MyMediaVerse.Infrastructure.Models
         public string? SeriesId { get; set; }
 
         /// <summary>
+        /// ISBN-13 (for Books) - exact-match searchable so a scanned or pasted ISBN finds the book
+        /// </summary>
+        [JsonPropertyName("isbn")]
+        public string? Isbn { get; set; }
+
+        /// <summary>
+        /// The user's Goodreads star rating, 1-5 (for Books) - facetable, shown on list and card views
+        /// </summary>
+        [JsonPropertyName("goodreads_rating")]
+        public double? GoodreadsRating { get; set; }
+
+        /// <summary>
         /// Text composed for semantic embedding. Typesense auto-embeds this via the collection's
         /// embedding field, so keyword and vector search stay sourced from one place. Serialized
         /// on write; ignored when search hits are deserialized back (no setter).

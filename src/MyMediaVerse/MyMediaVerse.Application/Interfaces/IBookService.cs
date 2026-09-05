@@ -25,7 +25,11 @@ namespace MyMediaVerse.Application.Interfaces
         /// </summary>
         Task<BookCreationResult> CreateBookAsync(CreateBookDto dto, BookIdentity? identity = null);
 
-        Task<Book> UpdateBookAsync(Guid id, CreateBookDto dto);
+        /// <summary>
+        /// Replaces the book's editable fields. Returns null when no book has that id, so the
+        /// controller can answer 404 without parsing an exception message.
+        /// </summary>
+        Task<Book?> UpdateBookAsync(Guid id, CreateBookDto dto);
         Task<bool> DeleteBookAsync(Guid id);
     }
 }

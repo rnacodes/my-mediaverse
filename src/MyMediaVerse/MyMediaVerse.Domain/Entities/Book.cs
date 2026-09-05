@@ -108,7 +108,9 @@ namespace MyMediaVerse.Domain.Entities
     public enum BookFormat
     {
         Digital,
-        Physical
+        Physical,
+        // Appended, never reordered: the column stores the integer value.
+        Audiobook
     }
 }
 

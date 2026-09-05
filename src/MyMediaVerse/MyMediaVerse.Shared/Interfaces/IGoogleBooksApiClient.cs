@@ -36,13 +36,5 @@ namespace MyMediaVerse.Shared.Interfaces
         /// </summary>
         /// <param name="volumeId">The Google Books volume ID</param>
         Task<GoogleBooksVolumeDto?> GetVolumeByIdAsync(string volumeId);
-
-        /// <summary>
-        /// Gets the book description by ISBN.
-        /// Searches for the book and returns the description from the first result.
-        /// </summary>
-        /// <param name="isbn">ISBN-10 or ISBN-13</param>
-        /// <returns>Description text (HTML stripped) or null if not found</returns>
-        Task<string?> GetBookDescriptionByISBNAsync(string isbn);
     }
 }

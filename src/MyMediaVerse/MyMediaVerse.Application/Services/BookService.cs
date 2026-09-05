@@ -192,7 +192,7 @@ namespace MyMediaVerse.Application.Services
             }
         }
 
-        public async Task<Book> UpdateBookAsync(Guid id, CreateBookDto dto)
+        public async Task<Book?> UpdateBookAsync(Guid id, CreateBookDto dto)
         {
             try
             {
@@ -204,7 +204,8 @@ namespace MyMediaVerse.Application.Services
                     .FirstOrDefaultAsync(b => b.Id == id);
                 if (book == null)
                 {
-                    throw new InvalidOperationException($"Book with ID {id} not found.");
+                    _logger.LogInformation("Update requested for book {Id}, which does not exist", id);
+                    return null;
                 }
 
                 // Update book properties

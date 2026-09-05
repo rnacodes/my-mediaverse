@@ -20,82 +20,6 @@ namespace MyMediaVerse.Application.Services
             _logger = logger;
         }
 
-        public async Task<Book> MapFromDtoAsync(CreateBookDto dto)
-        {
-            var book = new Book
-            {
-                Title = dto.Title,
-                MediaType = MediaType.Book,
-                Link = dto.Link,
-                Notes = dto.Notes,
-                Status = dto.Status,
-                DateAdded = DateTime.UtcNow,
-                DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted),
-                Rating = dto.Rating,
-                OwnershipStatus = dto.OwnershipStatus,
-                Description = dto.Description,
-                RelatedNotes = dto.RelatedNotes,
-                Thumbnail = dto.Thumbnail,
-                Author = dto.Author,
-                ISBN = dto.ISBN,
-                ASIN = dto.ASIN,
-                Format = dto.Format,
-                PartOfSeries = dto.PartOfSeries,
-                GoodreadsRating = dto.GoodreadsRating,
-                AverageRating = dto.AverageRating,
-                YearPublished = dto.YearPublished,
-                OriginalPublicationYear = dto.OriginalPublicationYear,
-                DateRead = DateTimeNormalizer.ToUtc(dto.DateRead),
-                MyReview = dto.MyReview,
-                Publisher = dto.Publisher,
-                GoodreadsTags = dto.GoodreadsTags ?? new List<string>()
-            };
-            
-            // If GoodreadsRating is provided but Rating is not, auto-convert
-            if (dto.GoodreadsRating.HasValue && !dto.Rating.HasValue)
-            {
-                book.Rating = RatingConverter.ConvertGoodreadsRatingToPLBRating(dto.GoodreadsRating);
-            }
-
-            // Handle Topics array conversion
-            if (dto.Topics?.Length > 0)
-            {
-                foreach (var topicName in dto.Topics.Where(t => !string.IsNullOrWhiteSpace(t)))
-                {
-                    var normalizedTopicName = topicName.Trim().ToLowerInvariant();
-                    var existingTopic = await _context.Topics.FirstOrDefaultAsync(t => t.Name == normalizedTopicName);
-                    if (existingTopic != null)
-                    {
-                        book.Topics.Add(existingTopic);
-                    }
-                    else
-                    {
-                        book.Topics.Add(new Topic { Name = normalizedTopicName });
-                    }
-                }
-            }
-
-            // Handle Genres array conversion
-            if (dto.Genres?.Length > 0)
-            {
-                foreach (var genreName in dto.Genres.Where(g => !string.IsNullOrWhiteSpace(g)))
-                {
-                    var normalizedGenreName = genreName.Trim().ToLowerInvariant();
-                    var existingGenre = await _context.Genres.FirstOrDefaultAsync(g => g.Name == normalizedGenreName);
-                    if (existingGenre != null)
-                    {
-                        book.Genres.Add(existingGenre);
-                    }
-                    else
-                    {
-                        book.Genres.Add(new Genre { Name = normalizedGenreName });
-                    }
-                }
-            }
-
-            return book;
-        }
-
         public Task<BookResponseDto> MapToResponseDtoAsync(Book book)
         {
             return Task.FromResult(new BookResponseDto
@@ -127,7 +51,12 @@ namespace MyMediaVerse.Application.Services
                 DateRead = book.DateRead,
                 MyReview = book.MyReview,
                 Publisher = book.Publisher,
-                GoodreadsTags = book.GoodreadsTags ?? new List<string>()
+                GoodreadsTags = book.GoodreadsTags ?? new List<string>(),
+                ReadwiseBookId = book.ReadwiseBookId,
+                GoodreadsBookId = book.GoodreadsBookId,
+                GoogleVolumeId = book.GoogleVolumeId,
+                OpenLibraryKey = book.OpenLibraryKey,
+                EnrichedAt = book.EnrichedAt
             });
         }
 
@@ -156,21 +85,6 @@ namespace MyMediaVerse.Application.Services
             // Users can add them manually after import if desired
 
             return Task.FromResult(book);
-        }
-
-        public async Task<Book> MapFromOpenLibraryWorkAsync(OpenLibraryWorkDto openLibraryWork)
-        {
-            // Convert work data to book format for consistency
-            // Note: Author key is passed here, the caller should resolve it to actual name
-            var bookData = new OpenLibraryBookDto
-            {
-                Key = openLibraryWork.Key,
-                Title = openLibraryWork.Title,
-                AuthorName = openLibraryWork.Authors?.Select(a => a.Author?.Key?.Replace("/authors/", "")).Where(a => a != null).ToArray()!,
-                CoverId = openLibraryWork.Covers?.FirstOrDefault()
-            };
-
-            return await MapFromOpenLibraryAsync(bookData);
         }
 
         public Task<BookSearchResultDto> MapToSearchResultDtoAsync(OpenLibraryBookDto openLibraryBook)

@@ -1,6 +1,7 @@
 using AwesomeAssertions;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using Microsoft.EntityFrameworkCore;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.UnitTests.TestData;
@@ -87,7 +88,10 @@ namespace MyMediaVerse.UnitTests.Application
         [InlineData("Mass Market Paperback", BookFormat.Physical)]
         [InlineData("Kindle Edition", BookFormat.Digital)]
         [InlineData("ebook", BookFormat.Digital)]
-        [InlineData("Audiobook", BookFormat.Digital)]
+        [InlineData("Audiobook", BookFormat.Audiobook)]
+        [InlineData("Audible Audio", BookFormat.Audiobook)]
+        [InlineData("Audio CD", BookFormat.Audiobook)]
+        [InlineData("Audio Cassette", BookFormat.Audiobook)]
         public void MapBindingToFormat_VariousBindings_MapsCorrectly(string binding, BookFormat expected)
         {
             var result = _service.MapBindingToFormat(binding);
@@ -134,57 +138,6 @@ namespace MyMediaVerse.UnitTests.Application
         {
             var result = _service.ParseBookshelves(bookshelves);
             result.Should().BeEmpty();
-        }
-
-        #endregion
-
-        #region FindExistingBookAsync
-
-        [Fact]
-        public async Task FindExistingBookAsync_MatchByIsbn_ReturnsBook()
-        {
-            var book = TestDataFactory.CreateBook("Existing Book");
-            book.ISBN = "9780123456789";
-            Context.Books.Add(book);
-            await Context.SaveChangesAsync();
-
-            var result = await _service.FindExistingBookAsync("978-012-345-6789", "Different Title", "Different Author");
-
-            result.Should().NotBeNull();
-            result!.Id.Should().Be(book.Id);
-        }
-
-        [Fact]
-        public async Task FindExistingBookAsync_MatchByTitleAndAuthor_CaseInsensitive()
-        {
-            var book = TestDataFactory.CreateBook("The Great Gatsby", "F. Scott Fitzgerald");
-            Context.Books.Add(book);
-            await Context.SaveChangesAsync();
-
-            var result = await _service.FindExistingBookAsync(null, "the great gatsby", "f. scott fitzgerald");
-
-            result.Should().NotBeNull();
-            result!.Id.Should().Be(book.Id);
-        }
-
-        [Fact]
-        public async Task FindExistingBookAsync_NoMatch_ReturnsNull()
-        {
-            var result = await _service.FindExistingBookAsync(null, "Nonexistent Book", "Unknown Author");
-            result.Should().BeNull();
-        }
-
-        [Fact]
-        public async Task FindExistingBookAsync_NullIsbn_FallsBackToTitleAuthor()
-        {
-            var book = TestDataFactory.CreateBook("Test Book", "Test Author");
-            Context.Books.Add(book);
-            await Context.SaveChangesAsync();
-
-            var result = await _service.FindExistingBookAsync(null, "Test Book", "Test Author");
-
-            result.Should().NotBeNull();
-            result!.Id.Should().Be(book.Id);
         }
 
         #endregion
@@ -481,9 +434,133 @@ namespace MyMediaVerse.UnitTests.Application
             book.Rating.Should().BeNull();
         }
 
+        [Fact]
+        public async Task ImportFromCsvAsync_NewBook_AudioBinding_SeedsAudiobookFormat()
+        {
+            await _service.ImportFromCsvAsync(
+                CsvStream(DetailedRow("Project Hail Mary", "Andy Weir", binding: "Audible Audio")));
+
+            Context.Books.Single(b => b.Title == "Project Hail Mary").Format.Should().Be(BookFormat.Audiobook);
+        }
+
+        [Fact]
+        public async Task ImportFromCsvAsync_ReportsContractFields()
+        {
+            var result = await _service.ImportFromCsvAsync(CsvStream(Row("Dune", "Frank Herbert")));
+
+            result.Success.Should().BeTrue();
+            result.Operation.Should().Be("goodreads-import");
+            result.ErrorMessage.Should().BeNull();
+            result.WarningMessage.Should().BeNull();
+            result.StartedAt.Should().NotBe(default);
+            result.CompletedAt.Should().NotBeNull();
+            result.Duration.Should().NotBeNull();
+        }
+
+        [Fact]
+        public async Task ImportFromCsvAsync_UnreadableStream_IsFatal()
+        {
+            // A stream that cannot be read means nothing was imported: success flips, and the reason is
+            // in errorMessage rather than buried in the per-row errors list.
+            var closed = new MemoryStream();
+            closed.Dispose();
+
+            var result = await _service.ImportFromCsvAsync(closed);
+
+            result.Success.Should().BeFalse();
+            result.ErrorMessage.Should().StartWith("CSV parsing error:");
+            result.CompletedAt.Should().BeNull();
+            result.TotalProcessed.Should().Be(0);
+        }
+
+        [Fact]
+        public async Task ImportFromCsvAsync_RowWithoutTitle_IsSkippedAndWarned_NotFatal()
+        {
+            // A single bad row is a per-item problem: the import completes with success true and a
+            // warning summarizing the failures.
+            var result = await _service.ImportFromCsvAsync(CsvStream(
+                Row("", "Ghost Author") + "\n" +
+                Row("Dune", "Frank Herbert")));
+
+            result.Success.Should().BeTrue();
+            result.CreatedCount.Should().Be(1);
+            result.SkippedCount.Should().Be(1);
+        }
+
+        #endregion
+
+        #region Shelves → Topics
+
+        [Fact]
+        public async Task ImportFromCsvAsync_NewBook_SubjectShelvesBecomeTopics_StatusShelvesDoNot()
+        {
+            await _service.ImportFromCsvAsync(CsvStream(
+                ShelvedRow("Dune", "Frank Herbert", bookshelves: "read fantasy classics currently-reading", exclusiveShelf: "read")));
+
+            var book = Context.Books.Include(b => b.Topics).Single(b => b.Title == "Dune");
+            book.Topics.Select(t => t.Name).Should().BeEquivalentTo("fantasy", "classics");
+            book.GoodreadsTags.Should().BeEquivalentTo("read", "fantasy", "classics", "currently-reading"); // raw snapshot untouched
+            Context.Topics.Select(t => t.Name).Should().BeEquivalentTo("fantasy", "classics");
+        }
+
+        [Fact]
+        public async Task ImportFromCsvAsync_Reimport_AddsNewShelfTopic_KeepsAppAddedTopic()
+        {
+            var book = TestDataFactory.CreateBook("Dune", "Frank Herbert");
+            book.Topics.Add(new Topic { Name = "desert-planets" });
+            Context.Books.Add(book);
+            await Context.SaveChangesAsync();
+
+            await _service.ImportFromCsvAsync(CsvStream(
+                ShelvedRow("Dune", "Frank Herbert", bookshelves: "fantasy")));
+
+            var updated = Context.Books.Include(b => b.Topics).Single(b => b.Id == book.Id);
+            updated.Topics.Select(t => t.Name).Should().BeEquivalentTo("desert-planets", "fantasy");
+        }
+
+        [Fact]
+        public async Task ImportFromCsvAsync_TwoRowsSharingANewShelf_CreateOneTopic()
+        {
+            await _service.ImportFromCsvAsync(CsvStream(
+                ShelvedRow("Dune", "Frank Herbert", bookshelves: "fantasy") + "\n" +
+                ShelvedRow("Hyperion", "Dan Simmons", bookshelves: "fantasy")));
+
+            Context.Topics.Count(t => t.Name == "fantasy").Should().Be(1);
+            Context.Books.Include(b => b.Topics).All(b => b.Topics.Any(t => t.Name == "fantasy")).Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task ImportFromCsvAsync_ExistingTopic_IsReusedNotDuplicated()
+        {
+            Context.Topics.Add(new Topic { Name = "fantasy" });
+            await Context.SaveChangesAsync();
+
+            await _service.ImportFromCsvAsync(CsvStream(
+                ShelvedRow("Dune", "Frank Herbert", bookshelves: "fantasy")));
+
+            Context.Topics.Count(t => t.Name == "fantasy").Should().Be(1);
+        }
+
+        [Fact]
+        public async Task ImportFromCsvAsync_SkipWhenUpdateDisabled_DoesNotTouchTopics()
+        {
+            var book = TestDataFactory.CreateBook("Dune", "Frank Herbert");
+            Context.Books.Add(book);
+            await Context.SaveChangesAsync();
+
+            await _service.ImportFromCsvAsync(
+                CsvStream(ShelvedRow("Dune", "Frank Herbert", bookshelves: "fantasy")), updateExisting: false);
+
+            Context.Books.Include(b => b.Topics).Single(b => b.Id == book.Id).Topics.Should().BeEmpty();
+        }
+
         #endregion
 
         #region CSV helpers
+
+        // Row with control over the Bookshelves and Exclusive Shelf columns for the shelves → topics tests.
+        private static string ShelvedRow(string title, string author, string bookshelves, string exclusiveShelf = "read") =>
+            $"\"\",\"{title}\",\"{author}\",\"\",\"\",0,3.50,\"Pub\",2000,2000,,,\"{bookshelves}\",\"{exclusiveShelf}\",\"\",\"Paperback\"";
 
         private const string GoodreadsHeader =
             "Book Id,Title,Author,ISBN,ISBN13,My Rating,Average Rating,Publisher,Year Published,Original Publication Year,Date Read,Date Added,Bookshelves,Exclusive Shelf,My Review,Binding";

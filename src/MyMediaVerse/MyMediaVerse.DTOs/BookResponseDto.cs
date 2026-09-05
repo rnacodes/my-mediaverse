@@ -88,5 +88,23 @@ namespace MyMediaVerse.DTOs
 
         [JsonPropertyName("goodreadsTags")]
         public List<string> GoodreadsTags { get; set; } = new();
+
+        // External identities and the enrichment stamp. Read-only on the wire: imports and
+        // enrichment fill these in, and they are never edited through the book form.
+
+        [JsonPropertyName("readwiseBookId")]
+        public int? ReadwiseBookId { get; set; }
+
+        [JsonPropertyName("goodreadsBookId")]
+        public long? GoodreadsBookId { get; set; }
+
+        [JsonPropertyName("googleVolumeId")]
+        public string? GoogleVolumeId { get; set; }
+
+        [JsonPropertyName("openLibraryKey")]
+        public string? OpenLibraryKey { get; set; }
+
+        [JsonPropertyName("enrichedAt")]
+        public DateTime? EnrichedAt { get; set; }
     }
 }

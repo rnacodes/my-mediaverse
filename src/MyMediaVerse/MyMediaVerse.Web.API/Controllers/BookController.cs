@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using MyMediaVerse.Application.Interfaces;
@@ -49,7 +50,7 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while retrieving all books");
-                return StatusCode(500, new { error = "Failed to retrieve books", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to retrieve books" });
             }
         }
 
@@ -71,7 +72,7 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while retrieving book with ID {Id}", id);
-                return StatusCode(500, new { error = "Failed to retrieve book", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to retrieve book" });
             }
         }
 
@@ -88,7 +89,7 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while retrieving books by author: {Author}", author);
-                return StatusCode(500, new { error = "Failed to retrieve books by author", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to retrieve books by author" });
             }
         }
 
@@ -105,7 +106,7 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while retrieving book series");
-                return StatusCode(500, new { error = "Failed to retrieve book series", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to retrieve book series" });
             }
         }
 
@@ -132,7 +133,7 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while creating book");
-                return StatusCode(500, new { error = "Failed to create book", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to create book" });
             }
         }
 
@@ -143,17 +144,18 @@ namespace MyMediaVerse.Web.API.Controllers
             try
             {
                 var book = await _bookService.UpdateBookAsync(id, dto);
+                if (book == null)
+                {
+                    return NotFound(new { error = $"Book with ID {id} not found." });
+                }
+
                 var response = await _bookMappingService.MapToResponseDtoAsync(book);
                 return Ok(response);
-            }
-            catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
-            {
-                return NotFound($"Book with ID {id} not found.");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while updating book with ID {Id}", id);
-                return StatusCode(500, new { error = "Failed to update book", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to update book" });
             }
         }
 
@@ -166,7 +168,7 @@ namespace MyMediaVerse.Web.API.Controllers
                 var deleted = await _bookService.DeleteBookAsync(id);
                 if (!deleted)
                 {
-                    return NotFound($"Book with ID {id} not found.");
+                    return NotFound(new { error = $"Book with ID {id} not found." });
                 }
 
                 return NoContent();
@@ -174,7 +176,7 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while deleting book with ID {Id}", id);
-                return StatusCode(500, new { error = "Failed to delete book", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to delete book" });
             }
         }
 
@@ -220,11 +222,15 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while searching Open Library for query: {Query}", searchDto.Query);
-                return StatusCode(500, new { error = "Failed to search Open Library", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to search Open Library" });
             }
         }
 
         // POST: api/book/import-from-openlibrary
+        // Explicit [Authorize] even though the fallback policy already requires a token: this endpoint
+        // writes to the library and proxies up to three outbound Open Library calls per request.
+        [Authorize]
+        [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
         [HttpPost("import-from-openlibrary")]
         public async Task<IActionResult> ImportFromOpenLibrary([FromBody] ImportBookFromOpenLibraryDto importDto)
         {
@@ -276,7 +282,7 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while importing book from Open Library");
-                return StatusCode(500, new { error = "Failed to import book from Open Library", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to import book from Open Library" });
             }
         }
 
@@ -326,11 +332,15 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while searching Google Books for query: {Query}", searchDto.Query);
-                return StatusCode(500, new { error = "Failed to search Google Books", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to search Google Books" });
             }
         }
 
         // POST: api/book/import-from-googlebooks
+        // Explicit [Authorize] even though the fallback policy already requires a token: this endpoint
+        // writes to the library and proxies outbound Google Books calls per request.
+        [Authorize]
+        [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
         [HttpPost("import-from-googlebooks")]
         public async Task<IActionResult> ImportFromGoogleBooks([FromBody] ImportBookFromGoogleBooksDto importDto)
         {
@@ -377,7 +387,7 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while importing book from Google Books");
-                return StatusCode(500, new { error = "Failed to import book from Google Books", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to import book from Google Books" });
             }
         }
     }

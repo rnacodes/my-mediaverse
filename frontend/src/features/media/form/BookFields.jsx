@@ -83,6 +83,7 @@ function BookFields() {
       <ControlledSelect name="format" label="Format">
         <MenuItem value="Digital">Digital</MenuItem>
         <MenuItem value="Physical">Physical</MenuItem>
+        <MenuItem value="Audiobook">Audiobook</MenuItem>
       </ControlledSelect>
 
       <Controller

@@ -12,24 +12,12 @@ export const getBookById = (id) => {
     return apiClient.get(`/book/${id}`);
 };
 
-export const getBooksByAuthor = (author) => {
-    return apiClient.get(`/book/by-author/${encodeURIComponent(author)}`);
-};
-
-export const getBookSeries = () => {
-    return apiClient.get('/book/series');
-};
-
 export const createBook = (bookData) => {
     return apiClient.post('/book', bookData);
 };
 
 export const updateBook = (id, bookData) => {
     return apiClient.put(`/book/${id}`, bookData);
-};
-
-export const deleteBook = (id) => {
-    return apiClient.delete(`/book/${id}`);
 };
 
 // ============================================

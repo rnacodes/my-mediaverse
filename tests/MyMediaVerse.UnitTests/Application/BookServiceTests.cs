@@ -324,16 +324,17 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         [Fact]
-        public async Task UpdateBookAsync_ShouldThrowInvalidOperationException_WhenBookDoesNotExist()
+        public async Task UpdateBookAsync_ShouldReturnNull_WhenBookDoesNotExist()
         {
             // Arrange
             var nonExistentId = Guid.NewGuid();
             var dto = TestDataFactory.CreateBookDto("Updated Title", "Updated Author");
 
-            // Act & Assert
-            await _bookService.Invoking(s => s.UpdateBookAsync(nonExistentId, dto))
-                .Should().ThrowAsync<InvalidOperationException>()
-                .WithMessage($"Book with ID {nonExistentId} not found.");
+            // Act
+            var result = await _bookService.UpdateBookAsync(nonExistentId, dto);
+
+            // Assert: a typed "not found" the controller turns into a 404, not an exception to parse.
+            result.Should().BeNull();
         }
 
         [Fact]

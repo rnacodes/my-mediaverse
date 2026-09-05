@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using MyMediaVerse.Application.Interfaces;
+using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Infrastructure.Models;
 using MyMediaVerse.Shared.DTOs.Search;
 using MyMediaVerse.Shared.Interfaces;
@@ -282,58 +283,119 @@ namespace MyMediaVerse.Infrastructure.Services.Search
         }
 
         /// <summary>
-        /// Ensures the media_items collection exists with proper schema.
-        /// Called once during application startup.
+        /// Ensures the media_items collection exists with the current schema. Creates it when missing;
+        /// when it already exists, adds any field this build declares that the live collection lacks,
+        /// so a new indexed field reaches an existing deployment without the destructive reset.
+        /// Called during application startup and before every bulk reindex.
         /// </summary>
         public async Task EnsureCollectionExistsAsync()
         {
             try
             {
-                // Try to retrieve the collection to check if it exists
-                await _typesenseClient.RetrieveCollection(_mediaCollectionName);
+                CollectionResponse existing;
+                try
+                {
+                    existing = await _typesenseClient.RetrieveCollection(_mediaCollectionName);
+                }
+                catch (TypesenseApiNotFoundException)
+                {
+                    // Collection doesn't exist, create it
+                    _logger.LogInformation("Creating Typesense collection '{CollectionName}'...", _mediaCollectionName);
+
+                    var schema = new Schema(_mediaCollectionName, BuildMediaCollectionFields())
+                    {
+                        DefaultSortingField = "date_added" // Sort by most recently added by default
+                    };
+
+                    await _typesenseClient.CreateCollection(schema);
+                    _logger.LogInformation("Successfully created Typesense collection '{CollectionName}'.", _mediaCollectionName);
+                    return;
+                }
+
                 _logger.LogInformation("Typesense collection '{CollectionName}' already exists.", _mediaCollectionName);
-            }
-            catch (TypesenseApiNotFoundException)
-            {
-                // Collection doesn't exist, create it
-                _logger.LogInformation("Creating Typesense collection '{CollectionName}'...", _mediaCollectionName);
-
-                var fields = new List<Field>
-                {
-                    new Field("id", FieldType.String, false), // Not facet, primary key
-                    new Field("title", FieldType.String, false) { Sort = true }, // Searchable, sortable for Title (A-Z)
-                    new Field("media_type", FieldType.String, true), // Facetable for filtering
-                    new Field("description", FieldType.String, false, optional: true), // Searchable, optional
-                    new Field("topics", FieldType.StringArray, true), // Facetable array
-                    new Field("genres", FieldType.StringArray, true), // Facetable array
-                    new Field("date_added", FieldType.Int64, false), // Sortable timestamp
-                    new Field("status", FieldType.String, true), // Facetable
-                    new Field("rating", FieldType.String, true, optional: true), // Facetable, optional
-                    new Field("thumbnail", FieldType.String, false, optional: true, index: false), // Not searchable, not indexed
-                    new Field("author", FieldType.String, true, optional: true), // Searchable and facetable
-                    new Field("director", FieldType.String, true, optional: true), // Searchable and facetable
-                    new Field("creator", FieldType.String, true, optional: true), // Searchable and facetable
-                    new Field("publisher", FieldType.String, true, optional: true), // Searchable and facetable
-                    new Field("release_year", FieldType.Int32, true, optional: true), // Facetable
-                    new Field("platform", FieldType.String, true, optional: true), // Facetable
-                    new Field("series_id", FieldType.String, false, optional: true, index: false) // For podcast episode routing
-                };
-
-                AddEmbeddingFields(fields);
-
-                var schema = new Schema(_mediaCollectionName, fields)
-                {
-                    DefaultSortingField = "date_added" // Sort by most recently added by default
-                };
-
-                await _typesenseClient.CreateCollection(schema);
-                _logger.LogInformation("Successfully created Typesense collection '{CollectionName}'.", _mediaCollectionName);
+                await AddMissingMediaFieldsAsync(existing);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error ensuring Typesense collection exists.");
                 throw;
             }
+        }
+
+        /// <summary>
+        /// The media_items schema. <see cref="MediaItemDocument"/> mirrors this list; keep them in step.
+        /// </summary>
+        private List<Field> BuildMediaCollectionFields()
+        {
+            var fields = new List<Field>
+            {
+                new Field("id", FieldType.String, false), // Not facet, primary key
+                new Field("title", FieldType.String, false) { Sort = true }, // Searchable, sortable for Title (A-Z)
+                new Field("media_type", FieldType.String, true), // Facetable for filtering
+                new Field("description", FieldType.String, false, optional: true), // Searchable, optional
+                new Field("topics", FieldType.StringArray, true), // Facetable array
+                new Field("genres", FieldType.StringArray, true), // Facetable array
+                new Field("date_added", FieldType.Int64, false), // Sortable timestamp
+                new Field("status", FieldType.String, true), // Facetable
+                new Field("rating", FieldType.String, true, optional: true), // Facetable, optional
+                new Field("thumbnail", FieldType.String, false, optional: true, index: false), // Not searchable, not indexed
+                new Field("author", FieldType.String, true, optional: true), // Searchable and facetable
+                new Field("director", FieldType.String, true, optional: true), // Searchable and facetable
+                new Field("creator", FieldType.String, true, optional: true), // Searchable and facetable
+                new Field("publisher", FieldType.String, true, optional: true), // Searchable and facetable
+                new Field("release_year", FieldType.Int32, true, optional: true), // Facetable
+                new Field("platform", FieldType.String, true, optional: true), // Facetable
+                new Field("series_id", FieldType.String, false, optional: true, index: false), // For podcast episode routing
+                new Field("isbn", FieldType.String, false, optional: true), // Books: exact-match searchable
+                new Field("goodreads_rating", FieldType.Float, true, optional: true) // Books: facetable star rating
+            };
+
+            AddEmbeddingFields(fields);
+            return fields;
+        }
+
+        // Fields that must never be added to a live collection by a plain alter: adding the
+        // auto-embedding pair would re-embed every document at a cost, so that path stays behind
+        // the explicit reset endpoint.
+        private static readonly HashSet<string> AlterExcludedFields = new(StringComparer.Ordinal)
+        {
+            "embedding_source", "embedding"
+        };
+
+        /// <summary>
+        /// Pure diff: the desired fields whose names the live collection lacks, minus the fields that
+        /// must never be added by alter. Internal for unit testing.
+        /// </summary>
+        internal static List<Field> ComputeMissingFields(IEnumerable<Field> desired, IEnumerable<string> existingNames)
+        {
+            var present = new HashSet<string>(existingNames.Where(n => !string.IsNullOrEmpty(n)), StringComparer.Ordinal);
+            return desired
+                .Where(f => !present.Contains(f.Name) && !AlterExcludedFields.Contains(f.Name))
+                .ToList();
+        }
+
+        /// <summary>
+        /// Add-only schema migration for an existing collection. Typesense lets fields be added in
+        /// place; documents pick the new fields up on their next upsert, which the bulk reindex that
+        /// follows performs for every row. Nothing is ever dropped here.
+        /// </summary>
+        private async Task AddMissingMediaFieldsAsync(CollectionResponse existing)
+        {
+            var missing = ComputeMissingFields(BuildMediaCollectionFields(), existing.Fields.Select(f => f.Name));
+            if (missing.Count == 0)
+            {
+                return;
+            }
+
+            _logger.LogInformation(
+                "Adding {Count} missing field(s) to Typesense collection '{CollectionName}': {Fields}",
+                missing.Count, _mediaCollectionName, string.Join(", ", missing.Select(f => f.Name)));
+
+            var update = new UpdateSchema(missing
+                .Select(f => new UpdateSchemaField(f.Name, f.Type, f.Facet ?? false, f.Optional ?? false, f.Index ?? true))
+                .ToList());
+
+            await _typesenseClient.UpdateCollection(_mediaCollectionName, update);
         }
 
         /// <summary>
@@ -372,26 +434,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 // Add media-specific fields if provided
                 if (additionalFields != null)
                 {
-                    if (additionalFields.TryGetValue("author", out var author))
-                        document.Author = author?.ToString();
-                    
-                    if (additionalFields.TryGetValue("director", out var director))
-                        document.Director = director?.ToString();
-                    
-                    if (additionalFields.TryGetValue("creator", out var creator))
-                        document.Creator = creator?.ToString();
-                    
-                    if (additionalFields.TryGetValue("publisher", out var publisher))
-                        document.Publisher = publisher?.ToString();
-                    
-                    if (additionalFields.TryGetValue("release_year", out var releaseYear) && releaseYear != null)
-                        document.ReleaseYear = Convert.ToInt32(releaseYear);
-                    
-                    if (additionalFields.TryGetValue("platform", out var platform))
-                        document.Platform = platform?.ToString();
-
-                    if (additionalFields.TryGetValue("series_id", out var seriesId))
-                        document.SeriesId = seriesId?.ToString();
+                    ApplyAdditionalFields(document, additionalFields);
                 }
 
                 // Upsert: creates if new, updates if exists
@@ -562,70 +605,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
 
                 foreach (var item in mediaItems)
                 {
-                    var additionalFields = new Dictionary<string, object>();
-
-                    // Extract media-specific fields based on type
-                    switch (item.MediaType.ToString())
-                    {
-                        case "Article":
-                            var article = await _context.Articles.AsNoTracking()
-                                .FirstOrDefaultAsync(a => a.Id == item.Id);
-                            if (article?.Author != null)
-                                additionalFields["author"] = article.Author;
-                            break;
-
-                        case "Book":
-                            var book = await _context.Books.AsNoTracking()
-                                .FirstOrDefaultAsync(b => b.Id == item.Id);
-                            if (book?.Author != null)
-                                additionalFields["author"] = book.Author;
-                            break;
-
-                        case "Movie":
-                            var movie = await _context.Movies.AsNoTracking()
-                                .FirstOrDefaultAsync(m => m.Id == item.Id);
-                            if (movie?.Director != null)
-                                additionalFields["director"] = movie.Director;
-                            if (movie?.ReleaseYear != null)
-                                additionalFields["release_year"] = movie.ReleaseYear.Value;
-                            break;
-
-                        case "TVShow":
-                            var tvShow = await _context.TvShows.AsNoTracking()
-                                .FirstOrDefaultAsync(t => t.Id == item.Id);
-                            if (tvShow?.Creator != null)
-                                additionalFields["creator"] = tvShow.Creator;
-                            if (tvShow?.FirstAirYear != null)
-                                additionalFields["release_year"] = tvShow.FirstAirYear.Value;
-                            break;
-
-                        case "Podcast":
-                            // Check if it's a podcast episode first (episodes have SeriesId)
-                            var episode = await _context.PodcastEpisodes.AsNoTracking()
-                                .FirstOrDefaultAsync(e => e.Id == item.Id);
-                            if (episode != null)
-                            {
-                                additionalFields["series_id"] = episode.SeriesId.ToString();
-                                if (episode.Publisher != null)
-                                    additionalFields["publisher"] = episode.Publisher;
-                            }
-                            else
-                            {
-                                // It's a podcast series
-                                var podcast = await _context.PodcastSeries.AsNoTracking()
-                                    .FirstOrDefaultAsync(p => p.Id == item.Id);
-                                if (podcast?.Publisher != null)
-                                    additionalFields["publisher"] = podcast.Publisher;
-                            }
-                            break;
-
-                        case "Video":
-                            var video = await _context.Videos.AsNoTracking()
-                                .FirstOrDefaultAsync(v => v.Id == item.Id);
-                            if (video?.Platform != null)
-                                additionalFields["platform"] = video.Platform;
-                            break;
-                    }
+                    var additionalFields = await BuildAdditionalFieldsAsync(item);
 
                     var document = new MediaItemDocument
                     {
@@ -641,21 +621,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                         Thumbnail = item.Thumbnail
                     };
 
-                    // Apply additional fields
-                    if (additionalFields.TryGetValue("author", out var author))
-                        document.Author = author.ToString();
-                    if (additionalFields.TryGetValue("director", out var director))
-                        document.Director = director.ToString();
-                    if (additionalFields.TryGetValue("creator", out var creator))
-                        document.Creator = creator.ToString();
-                    if (additionalFields.TryGetValue("publisher", out var publisher))
-                        document.Publisher = publisher.ToString();
-                    if (additionalFields.TryGetValue("release_year", out var releaseYear))
-                        document.ReleaseYear = Convert.ToInt32(releaseYear);
-                    if (additionalFields.TryGetValue("platform", out var platform))
-                        document.Platform = platform.ToString();
-                    if (additionalFields.TryGetValue("series_id", out var seriesId))
-                        document.SeriesId = seriesId.ToString();
+                    ApplyAdditionalFields(document, additionalFields);
 
                     documents.Add(document);
                 }
@@ -710,22 +676,12 @@ namespace MyMediaVerse.Infrastructure.Services.Search
         }
 
         /// <summary>
-        /// Re-indexes a single media item by ID, applying any media-type-specific fields.
+        /// Loads the type-specific columns for one media item and returns them keyed by their
+        /// Typesense field names. The single source for both the bulk and the per-item reindex, so
+        /// the two paths cannot drift apart.
         /// </summary>
-        public async Task<bool> ReindexMediaItemByIdAsync(Guid id)
+        private async Task<Dictionary<string, object>> BuildAdditionalFieldsAsync(BaseMediaItem item)
         {
-            var item = await _context.MediaItems
-                .Include(m => m.Topics)
-                .Include(m => m.Genres)
-                .AsNoTracking()
-                .FirstOrDefaultAsync(m => m.Id == id);
-
-            if (item == null)
-            {
-                _logger.LogInformation("ReindexMediaItemByIdAsync: media item {Id} not found.", id);
-                return false;
-            }
-
             var additionalFields = new Dictionary<string, object>();
 
             switch (item.MediaType.ToString())
@@ -740,8 +696,19 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 case "Book":
                     var book = await _context.Books.AsNoTracking()
                         .FirstOrDefaultAsync(b => b.Id == item.Id);
-                    if (book?.Author != null)
+                    if (book != null)
+                    {
                         additionalFields["author"] = book.Author;
+                        if (!string.IsNullOrWhiteSpace(book.ISBN))
+                            additionalFields["isbn"] = book.ISBN;
+                        if (book.GoodreadsRating.HasValue)
+                            additionalFields["goodreads_rating"] = (double)book.GoodreadsRating.Value;
+                        if (!string.IsNullOrWhiteSpace(book.Publisher))
+                            additionalFields["publisher"] = book.Publisher;
+                        var bookYear = book.YearPublished ?? book.OriginalPublicationYear;
+                        if (bookYear != null)
+                            additionalFields["release_year"] = bookYear.Value;
+                    }
                     break;
 
                 case "Movie":
@@ -763,6 +730,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     break;
 
                 case "Podcast":
+                    // Check if it's a podcast episode first (episodes have SeriesId)
                     var episode = await _context.PodcastEpisodes.AsNoTracking()
                         .FirstOrDefaultAsync(e => e.Id == item.Id);
                     if (episode != null)
@@ -773,6 +741,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     }
                     else
                     {
+                        // It's a podcast series
                         var podcast = await _context.PodcastSeries.AsNoTracking()
                             .FirstOrDefaultAsync(p => p.Id == item.Id);
                         if (podcast?.Publisher != null)
@@ -787,6 +756,54 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                         additionalFields["platform"] = video.Platform;
                     break;
             }
+
+            return additionalFields;
+        }
+
+        /// <summary>
+        /// Copies the type-specific values onto the document. Shared by the single-item upsert and the
+        /// bulk reindex; a null value leaves the document field unset.
+        /// </summary>
+        private static void ApplyAdditionalFields(MediaItemDocument document, Dictionary<string, object> additionalFields)
+        {
+            if (additionalFields.TryGetValue("author", out var author))
+                document.Author = author?.ToString();
+            if (additionalFields.TryGetValue("director", out var director))
+                document.Director = director?.ToString();
+            if (additionalFields.TryGetValue("creator", out var creator))
+                document.Creator = creator?.ToString();
+            if (additionalFields.TryGetValue("publisher", out var publisher))
+                document.Publisher = publisher?.ToString();
+            if (additionalFields.TryGetValue("release_year", out var releaseYear) && releaseYear != null)
+                document.ReleaseYear = Convert.ToInt32(releaseYear);
+            if (additionalFields.TryGetValue("platform", out var platform))
+                document.Platform = platform?.ToString();
+            if (additionalFields.TryGetValue("series_id", out var seriesId))
+                document.SeriesId = seriesId?.ToString();
+            if (additionalFields.TryGetValue("isbn", out var isbn))
+                document.Isbn = isbn?.ToString();
+            if (additionalFields.TryGetValue("goodreads_rating", out var goodreadsRating) && goodreadsRating != null)
+                document.GoodreadsRating = Convert.ToDouble(goodreadsRating);
+        }
+
+        /// <summary>
+        /// Re-indexes a single media item by ID, applying any media-type-specific fields.
+        /// </summary>
+        public async Task<bool> ReindexMediaItemByIdAsync(Guid id)
+        {
+            var item = await _context.MediaItems
+                .Include(m => m.Topics)
+                .Include(m => m.Genres)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(m => m.Id == id);
+
+            if (item == null)
+            {
+                _logger.LogInformation("ReindexMediaItemByIdAsync: media item {Id} not found.", id);
+                return false;
+            }
+
+            var additionalFields = await BuildAdditionalFieldsAsync(item);
 
             await IndexMediaItemAsync(
                 item.Id,

@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using MyMediaVerse.Shared.DTOs.GoogleBooks;
@@ -131,60 +130,5 @@ namespace MyMediaVerse.Infrastructure.Clients.Google
             }
         }
 
-        public async Task<string?> GetBookDescriptionByISBNAsync(string isbn)
-        {
-            try
-            {
-                _logger.LogInformation("Getting book description for ISBN: {ISBN}", isbn);
-
-                var searchResult = await SearchBooksByISBNAsync(isbn);
-
-                var volume = searchResult.Items?.FirstOrDefault();
-                if (volume?.VolumeInfo?.Description == null)
-                {
-                    _logger.LogWarning("No description found for ISBN: {ISBN}", isbn);
-                    return null;
-                }
-
-                // Strip HTML tags from description
-                var description = StripHtmlTags(volume.VolumeInfo.Description);
-
-                _logger.LogDebug("Found description for ISBN {ISBN}: {DescriptionPreview}...",
-                    isbn, description.Length > 100 ? description.Substring(0, 100) : description);
-
-                return description;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting book description for ISBN: {ISBN}", isbn);
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Strips HTML tags from a string and decodes HTML entities.
-        /// </summary>
-        private static string StripHtmlTags(string? html)
-        {
-            if (string.IsNullOrEmpty(html)) return string.Empty;
-
-            // Remove HTML tags
-            var withoutTags = Regex.Replace(html, "<.*?>", " ");
-
-            // Decode common HTML entities
-            withoutTags = withoutTags
-                .Replace("&nbsp;", " ")
-                .Replace("&amp;", "&")
-                .Replace("&lt;", "<")
-                .Replace("&gt;", ">")
-                .Replace("&quot;", "\"")
-                .Replace("&#39;", "'")
-                .Replace("&apos;", "'");
-
-            // Collapse multiple spaces into one
-            withoutTags = Regex.Replace(withoutTags, @"\s+", " ");
-
-            return withoutTags.Trim();
-        }
     }
 }
