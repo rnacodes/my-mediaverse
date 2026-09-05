@@ -435,6 +435,15 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         [Fact]
+        public async Task ImportFromCsvAsync_NewBook_UnratedExport_StoresNoGoodreadsRating()
+        {
+            await _service.ImportFromCsvAsync(
+                CsvStream(DetailedRow("Unrated Book", "New Author", myRating: 0)));
+
+            Context.Books.Single(b => b.Title == "Unrated Book").GoodreadsRating.Should().BeNull();
+        }
+
+        [Fact]
         public async Task ImportFromCsvAsync_NewBook_AudioBinding_SeedsAudiobookFormat()
         {
             await _service.ImportFromCsvAsync(

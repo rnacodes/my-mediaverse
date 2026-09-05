@@ -24,7 +24,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         [Fact]
         public void ComputeMissingFields_ReturnsOnlyFieldsTheLiveCollectionLacks()
         {
-            var missing = TypesenseService.ComputeMissingFields(Desired, new[] { "id", "title", "author" });
+            var missing = TypesenseService.ComputeMissingFields(Desired, new[] { "title", "author" });
 
             missing.Select(f => f.Name).Should().BeEquivalentTo(new[] { "isbn", "goodreads_rating" });
         }
@@ -33,6 +33,16 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         public void ComputeMissingFields_ReturnsEmpty_WhenTheLiveCollectionIsComplete()
         {
             var missing = TypesenseService.ComputeMissingFields(Desired, Desired.Select(f => f.Name));
+
+            missing.Should().BeEmpty();
+        }
+
+        [Fact]
+        public void ComputeMissingFields_NeverProposesTheIdField()
+        {
+            var liveWithoutId = Desired.Select(f => f.Name).Where(n => n != "id");
+
+            var missing = TypesenseService.ComputeMissingFields(Desired, liveWithoutId);
 
             missing.Should().BeEmpty();
         }

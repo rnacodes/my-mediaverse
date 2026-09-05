@@ -226,9 +226,7 @@ namespace MyMediaVerse.Application.Services
                 ISBN = NormalizeIsbn(record),
                 Status = MapShelfToStatus(record.Shelves),
                 Format = MapBindingToFormat(record.Binding),
-                // Store the raw Goodreads rating only; deriving the MMV Rating enum from it is deferred
-                // to the book rating enrichment stage so import stays a dumb/fast raw capture.
-                GoodreadsRating = record.MyRating,
+                GoodreadsRating = record.MyRating is > 0 ? record.MyRating : null,
                 AverageRating = record.AverageRating,
                 Publisher = record.Publisher?.Trim(),
                 YearPublished = record.YearPublished,

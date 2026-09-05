@@ -354,12 +354,13 @@ namespace MyMediaVerse.Infrastructure.Services.Search
             return fields;
         }
 
-        // Fields that must never be added to a live collection by a plain alter: adding the
-        // auto-embedding pair would re-embed every document at a cost, so that path stays behind
-        // the explicit reset endpoint.
+        // Fields that must never be added to a live collection by a plain alter. "id" is the
+        // document key: Typesense never lists it in a collection's fields, so it always looks
+        // missing, and altering it in is rejected. Adding the auto-embedding pair would re-embed
+        // every document at a cost, so that path stays behind the explicit reset endpoint.
         private static readonly HashSet<string> AlterExcludedFields = new(StringComparer.Ordinal)
         {
-            "embedding_source", "embedding"
+            "id", "embedding_source", "embedding"
         };
 
         /// <summary>
