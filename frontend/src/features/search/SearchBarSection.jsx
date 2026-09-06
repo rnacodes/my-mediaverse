@@ -1,13 +1,12 @@
 import React from 'react';
-import { Box, Typography, TextField, InputAdornment, Chip, Paper, IconButton, ToggleButtonGroup, ToggleButton, Button } from '@mui/material';
+import { Box, TextField, InputAdornment, Paper, IconButton, ToggleButtonGroup, ToggleButton, Button } from '@mui/material';
 import { Search as SearchIcon, Clear, PlaylistAdd } from '@mui/icons-material';
 
+// Topic props (allTopics, selectedTopics, handleTopicToggle) are still passed by Search.jsx 
+// Topic chips moved to the filter sidebar; they are intentionally not destructured here.
 export const SearchBarSection = React.memo(({
     searchQuery,
     setSearchQuery,
-    allTopics,
-    selectedTopics,
-    handleTopicToggle,
     searchMode,
     onSearchModeChange,
     onCreateMixlist,
