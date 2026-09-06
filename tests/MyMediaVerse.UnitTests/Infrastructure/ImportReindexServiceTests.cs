@@ -65,5 +65,47 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             await act.Should().NotThrowAsync();
             await typesense.Received(1).BulkReindexAllMediaItemsAsync();
         }
+
+        [Fact]
+        public async Task ReindexItem_ReindexesJustThatItem()
+        {
+            var typesense = Substitute.For<ITypesenseService>();
+            var id = Guid.NewGuid();
+            typesense.ReindexMediaItemByIdAsync(id).Returns(Task.FromResult(true));
+            var service = BuildService(typesense);
+
+            await service.ReindexItemAfterImportAsync(id, "Open Library import");
+
+            await typesense.Received(1).ReindexMediaItemByIdAsync(id);
+            await typesense.DidNotReceive().BulkReindexAllMediaItemsAsync();
+        }
+
+        [Fact]
+        public async Task ReindexItem_NotIndexed_DoesNotThrow()
+        {
+            var typesense = Substitute.For<ITypesenseService>();
+            var id = Guid.NewGuid();
+            typesense.ReindexMediaItemByIdAsync(id).Returns(Task.FromResult(false));
+            var service = BuildService(typesense);
+
+            var act = async () => await service.ReindexItemAfterImportAsync(id, "Open Library import");
+
+            await act.Should().NotThrowAsync();
+        }
+
+        [Fact]
+        public async Task ReindexItem_Throws_IsSwallowed_DoesNotBubbleUp()
+        {
+            var typesense = Substitute.For<ITypesenseService>();
+            var id = Guid.NewGuid();
+            typesense.ReindexMediaItemByIdAsync(id)
+                .Returns<Task<bool>>(_ => throw new InvalidOperationException("Typesense down"));
+            var service = BuildService(typesense);
+
+            var act = async () => await service.ReindexItemAfterImportAsync(id, "book enrichment");
+
+            await act.Should().NotThrowAsync();
+            await typesense.Received(1).ReindexMediaItemByIdAsync(id);
+        }
     }
 }

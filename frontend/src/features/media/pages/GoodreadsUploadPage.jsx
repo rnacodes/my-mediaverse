@@ -112,6 +112,7 @@ const GoodreadsUploadPage = () => {
         }
       } catch (chunkErr) {
         const reason =
+          chunkErr.response?.data?.errorMessage ||
           chunkErr.response?.data?.error ||
           chunkErr.response?.data?.details ||
           chunkErr.message;

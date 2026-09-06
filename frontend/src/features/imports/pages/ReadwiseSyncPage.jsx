@@ -217,6 +217,12 @@ const ReadwiseSyncPage = () => {
                   <span className="result-value">{syncResult.highlightsDeleted}</span>
                 </div>
               )}
+              {syncResult.booksCreated > 0 && (
+                <div className="result-item">
+                  <span className="result-label">Books Created:</span>
+                  <span className="result-value">{syncResult.booksCreated}</span>
+                </div>
+              )}
               {syncResult.duration && (
                 <div className="result-item">
                   <span className="result-label">Duration:</span>

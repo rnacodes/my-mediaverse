@@ -93,5 +93,41 @@ namespace MyMediaVerse.UnitTests.Infrastructure
 
             count.Should().Be(1);
         }
+
+        [Fact]
+        public async Task ConvertGoodreadsRatingsAsync_MoreCandidatesThanOnePage_ConvertsAcrossPages()
+        {
+            // 2 full pages + a partial third; every candidate must be visited exactly once.
+            var total = BookRatingEnrichmentService.PageSize * 2 + 50;
+            for (var i = 0; i < total; i++)
+            {
+                var book = TestDataFactory.CreateBook($"Paged {i}");
+                book.GoodreadsRating = 5m;
+                book.Rating = null;
+                Context.Books.Add(book);
+            }
+            await Context.SaveChangesAsync();
+
+            var result = await _service.ConvertGoodreadsRatingsAsync();
+
+            result.TotalCandidates.Should().Be(total);
+            result.Converted.Should().Be(total);
+            Context.Books.Count(b => b.Rating == Rating.SuperLike).Should().Be(total);
+        }
+
+        [Fact]
+        public async Task ConvertGoodreadsRatingsAsync_ReportsContractFields()
+        {
+            await SeedBook("Dune", goodreadsRating: 5m, rating: null);
+
+            var result = await _service.ConvertGoodreadsRatingsAsync();
+
+            result.Success.Should().BeTrue();
+            result.Operation.Should().Be("goodreads-rating-conversion");
+            result.ErrorMessage.Should().BeNull();
+            result.StartedAt.Should().NotBe(default);
+            result.CompletedAt.Should().NotBeNull();
+            result.Duration.Should().NotBeNull();
+        }
     }
 }

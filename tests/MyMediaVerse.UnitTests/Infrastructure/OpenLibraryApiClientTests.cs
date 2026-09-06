@@ -108,6 +108,24 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             Assert.Equal(title, result.Docs[0].Title);
         }
 
+        [Theory]
+        [InlineData("title", "Dune Messiah", "Dune%20Messiah")]
+        [InlineData("author", "Frank Herbert", "Frank%20Herbert")]
+        public async Task FieldSearches_EncodeMultiWordValuesOnce(string field, string value, string expectedQueryFragment)
+        {
+            _mockHttpMessageHandler.RespondWith(HttpStatusCode.OK, "{\"numFound\":0,\"docs\":[]}");
+
+            if (field == "title")
+                await _openLibraryApiClient.SearchBooksByTitleAsync(value);
+            else
+                await _openLibraryApiClient.SearchBooksByAuthorAsync(value);
+
+            // AbsoluteUri keeps the percent-encoding; ToString() would unescape it.
+            var requestUri = _mockHttpMessageHandler.Requests.Single().RequestUri!.AbsoluteUri;
+            Assert.Contains(expectedQueryFragment, requestUri);
+            Assert.DoesNotContain("%2520", requestUri);
+        }
+
         [Fact]
         public async Task SearchBooksByAuthorAsync_WithValidAuthor_ReturnsSearchResult()
         {

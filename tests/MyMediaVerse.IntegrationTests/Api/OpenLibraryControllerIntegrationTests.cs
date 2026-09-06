@@ -10,6 +10,7 @@ using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.IntegrationTests.Fixtures;
 using MyMediaVerse.Shared.DTOs.OpenLibrary;
+using MyMediaVerse.Shared.Interfaces;
 using MyMediaVerse.UnitTests.TestData;
 using Xunit;
 
@@ -295,6 +296,33 @@ namespace MyMediaVerse.IntegrationTests.Api
 
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.Created);
+        }
+
+        [Fact]
+        public async Task ImportFromOpenLibrary_ReindexesJustTheImportedBook()
+        {
+            var importedBook = TestDataFactory.CreateBook("The Hobbit", "J.R.R. Tolkien");
+            var (client, _, typesense) = _factory.CreateClientWithSubstitutes<IOpenLibraryService, ITypesenseService>(
+                ol => ol.ImportBookFromOpenLibraryKeyAsync("OL262758W").Returns(importedBook),
+                null);
+
+            var response = await client.PostAsJsonAsync("/api/book/import-from-openlibrary",
+                new ImportBookFromOpenLibraryDto { OpenLibraryKey = "OL262758W" });
+
+            response.StatusCode.Should().Be(HttpStatusCode.Created);
+            await typesense.Received(1).ReindexMediaItemByIdAsync(importedBook.Id);
+            await typesense.DidNotReceive().BulkReindexAllMediaItemsAsync();
+        }
+
+        [Fact]
+        public async Task ImportFromOpenLibrary_WithoutToken_ReturnsUnauthorized()
+        {
+            var client = _factory.CreateAnonymousClient();
+
+            var response = await client.PostAsJsonAsync("/api/book/import-from-openlibrary",
+                new ImportBookFromOpenLibraryDto { Title = "Anything" });
+
+            response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         }
 
         [Fact]

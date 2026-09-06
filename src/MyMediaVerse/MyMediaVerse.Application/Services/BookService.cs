@@ -4,19 +4,23 @@ using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Utilities;
+using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.Application.Services
 {
     public class BookService : IBookService
     {
         private readonly IApplicationDbContext _context;
+        private readonly ITypesenseService _typesenseService;
         private readonly ILogger<BookService> _logger;
 
         public BookService(
             IApplicationDbContext context,
+            ITypesenseService typesenseService,
             ILogger<BookService> logger)
         {
             _context = context;
+            _typesenseService = typesenseService;
             _logger = logger;
         }
 
@@ -188,7 +192,7 @@ namespace MyMediaVerse.Application.Services
             }
         }
 
-        public async Task<Book> UpdateBookAsync(Guid id, CreateBookDto dto)
+        public async Task<Book?> UpdateBookAsync(Guid id, CreateBookDto dto)
         {
             try
             {
@@ -200,7 +204,8 @@ namespace MyMediaVerse.Application.Services
                     .FirstOrDefaultAsync(b => b.Id == id);
                 if (book == null)
                 {
-                    throw new InvalidOperationException($"Book with ID {id} not found.");
+                    _logger.LogInformation("Update requested for book {Id}, which does not exist", id);
+                    return null;
                 }
 
                 // Update book properties
@@ -273,6 +278,11 @@ namespace MyMediaVerse.Application.Services
 
                 _context.Remove(book);
                 await _context.SaveChangesAsync();
+
+                // Eager search-index cleanup so the deleted book stops appearing in search immediately.
+                // Best effort: the next bulk reindex reconciles anything this misses.
+                await SearchIndexCleanup.TryDeleteAsync(
+                    () => _typesenseService.DeleteMediaItemAsync(bookId), _logger, "book", bookId);
 
                 _logger.LogInformation("Successfully deleted book: {Title} by {Author}", bookTitle, bookAuthor);
                 return true;

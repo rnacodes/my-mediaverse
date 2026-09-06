@@ -13,7 +13,6 @@ namespace MyMediaVerse.Application.Interfaces
         
         // Detail operations (return DTOs for API consumption)
         Task<OpenLibraryWorkDto> GetBookByOpenLibraryIdAsync(string openLibraryId);
-        Task<OpenLibraryBookDto> GetBookByISBNAsync(string isbn);
         Task<OpenLibraryAuthorDto> GetAuthorAsync(string authorId);
         
         // Utility operations

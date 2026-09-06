@@ -47,6 +47,10 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
   const enrichBookMutation = useEnrichBookById();
   const updateVideoMutation = useUpdateVideo();
   const enriching = enrichBookMutation.isPending;
+  // Google Books lookup needs an ISBN, or a title plus a real author. "Unknown Author" is the
+  // placeholder imports write when the source had none, so it cannot anchor a lookup.
+  const hasRealAuthor = Boolean(mediaItem.author) && mediaItem.author !== 'Unknown Author';
+  const canEnrichBook = Boolean(mediaItem.isbn) || (Boolean(mediaItem.title) && hasRealAuthor);
   const linkingChannel = updateVideoMutation.isPending;
 
   const handleEnrichBook = () => {
@@ -483,7 +487,7 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
                   size="small"
                   startIcon={enriching ? <CircularProgress size={16} /> : <AutoFixHigh />}
                   onClick={handleEnrichBook}
-                  disabled={enriching || !mediaItem.isbn}
+                  disabled={enriching || !canEnrichBook}
                   sx={{
                     borderColor: 'rgba(255, 255, 255, 0.3)',
                     color: 'text.primary',
@@ -499,9 +503,9 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
                 >
                   {enriching ? 'Enriching...' : 'Fetch Description'}
                 </Button>
-                {!mediaItem.isbn && (
+                {!canEnrichBook && (
                   <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
-                    (Requires ISBN)
+                    (Requires ISBN or title + author)
                   </Typography>
                 )}
               </Box>
@@ -512,16 +516,21 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
                   onClose={() => setEnrichResult(null)}
                 >
                   {enrichResult.success && !enrichResult.alreadyHasDescription && (
-                    <>Description fetched successfully! Refresh the page to see it.</>
+                    <>
+                      Description fetched successfully! Refresh the page to see it.
+                      {enrichResult.filledFields?.length > 1 && (
+                        <> Also filled: {enrichResult.filledFields.filter((f) => f !== 'description').join(', ')}.</>
+                      )}
+                    </>
                   )}
                   {enrichResult.alreadyHasDescription && (
                     <>This book already has a description.</>
                   )}
-                  {enrichResult.noIsbn && (
-                    <>This book has no ISBN to look up.</>
+                  {enrichResult.noLookupKey && (
+                    <>This book has no ISBN or title + author to look up.</>
                   )}
-                  {!enrichResult.success && !enrichResult.alreadyHasDescription && !enrichResult.noIsbn && (
-                    <>{enrichResult.errorMessage || 'No description found in Google Books for this ISBN.'}</>
+                  {!enrichResult.success && !enrichResult.alreadyHasDescription && !enrichResult.noLookupKey && (
+                    <>{enrichResult.errorMessage || 'No description found in Google Books for this book.'}</>
                   )}
                 </Alert>
               )}

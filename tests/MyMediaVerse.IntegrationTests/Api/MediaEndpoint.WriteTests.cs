@@ -36,6 +36,26 @@ namespace MyMediaVerse.IntegrationTests.Api
         public Task DisposeAsync() => Task.CompletedTask;
 
         [Fact]
+        public async Task CreateMediaItem_WithBookType_ShouldReturnBadRequestJson()
+        {
+            var createDto = new CreateMediaItemDto
+            {
+                Title = "A Book Through The Wrong Door",
+                MediaType = MediaType.Book,
+                Status = Status.Uncharted
+            };
+
+            var content = new StringContent(JsonSerializer.Serialize(createDto, _jsonOptions), Encoding.UTF8, "application/json");
+
+            var response = await _client.PostAsync("/api/media", content);
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            var body = JsonSerializer.Deserialize<JsonElement>(await response.Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.True(body.TryGetProperty("error", out var error));
+            Assert.Contains("/api/book", error.GetString());
+        }
+
+        [Fact]
         public async Task CreateMediaItem_WithArticleType_ShouldReturnCreated()
         {
             var createDto = new CreateMediaItemDto

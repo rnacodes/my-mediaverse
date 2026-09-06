@@ -50,7 +50,8 @@ namespace MyMediaVerse.Application.Services
                     new[] { highlight.SourceUrl },
                     highlight.Title,
                     highlight.Author,
-                    highlight.Category);
+                    highlight.Category,
+                    highlight.ReadwiseBookId);
 
                 if (match.Article != null)
                 {
@@ -63,7 +64,7 @@ namespace MyMediaVerse.Application.Services
                 {
                     highlight.BookId = match.Book.Id;
                     linkedCount++;
-                    _logger.LogDebug("Linked highlight {HighlightId} to book {BookId} by title/author",
+                    _logger.LogDebug("Linked highlight {HighlightId} to book {BookId}",
                         highlight.Id, match.Book.Id);
                 }
             }

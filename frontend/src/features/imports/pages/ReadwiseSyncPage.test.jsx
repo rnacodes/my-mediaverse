@@ -51,6 +51,7 @@ describe('ReadwiseSyncPage', () => {
           highlightsCreated: 10,
           highlightsUpdated: 2,
           highlightsLinked: 8,
+          booksCreated: 3,
           duration: '00:00:05',
         }),
       ),
@@ -63,6 +64,8 @@ describe('ReadwiseSyncPage', () => {
     expect(await screen.findByText('Sync Results')).toBeInTheDocument();
     expect(screen.getByText('✅ Success')).toBeInTheDocument();
     expect(screen.getByText('Articles Created:')).toBeInTheDocument();
+    expect(screen.getByText('Books Created:')).toBeInTheDocument();
+    expect(screen.getByText('3')).toBeInTheDocument();
     expect(screen.getByText('Full sync')).toBeInTheDocument();
   });
 
@@ -96,6 +99,8 @@ describe('ReadwiseSyncPage', () => {
     expect(screen.getByText(/since last successful sync/)).toBeInTheDocument();
     expect(screen.getByText(/checkpoint saved/)).toBeInTheDocument();
     expect(screen.getByText('Highlights Deleted:')).toBeInTheDocument();
+    // No stub books were created, so the row stays hidden
+    expect(screen.queryByText('Books Created:')).not.toBeInTheDocument();
   });
 
   it('hides the deleted-highlights row when nothing was deleted', async () => {

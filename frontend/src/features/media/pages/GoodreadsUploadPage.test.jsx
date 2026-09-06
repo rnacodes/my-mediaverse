@@ -132,6 +132,38 @@ describe('GoodreadsUploadPage', () => {
     consoleError.mockRestore();
   });
 
+  it('shows the contract errorMessage when a chunk fails with a result body', async () => {
+    // Fatal per the reporting contract: 500 with the result DTO, whose errorMessage is the reason.
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    server.use(
+      http.post(`${API_BASE}/upload/goodreads-csv`, ({ request }) => {
+        const url = new URL(request.url);
+        const chunkIndex = Number(url.searchParams.get('chunkIndex'));
+        const totalChunks = Number(url.searchParams.get('totalChunks'));
+        if (chunkIndex === 1) {
+          return HttpResponse.json(
+            { success: false, operation: 'goodreads-import', errorMessage: 'CSV parsing error: bad quote' },
+            { status: 500 },
+          );
+        }
+        return chunkResponse(chunkIndex, totalChunks);
+      }),
+    );
+
+    const { user, container } = renderWithProviders(<GoodreadsUploadPage />, {
+      route: '/goodreads-upload',
+    });
+
+    await selectFile(user, container, makeCsvFile(CHUNK_SIZE + 1));
+    await user.click(screen.getByRole('button', { name: /upload & import/i }));
+
+    const failedPanel = await screen.findByText(/failed chunks \(1\)/i);
+    const panel = failedPanel.closest('.failed-chunks');
+    expect(within(panel).getByText(/rows 201.*201: csv parsing error: bad quote/i)).toBeInTheDocument();
+
+    consoleError.mockRestore();
+  });
+
   it('rejects a file that is not a CSV', async () => {
     const { container } = renderWithProviders(<GoodreadsUploadPage />, {
       route: '/goodreads-upload',

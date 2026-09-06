@@ -465,7 +465,7 @@ namespace MyMediaVerse.IntegrationTests.Api
             var mediaDto = new CreateMediaItemDto
             {
                 Title = "Media for GetAll Test",
-                MediaType = MediaType.Book,
+                MediaType = MediaType.Article,
                 Status = Status.Uncharted,
                 Description = mediaDescription
             };

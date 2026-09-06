@@ -378,6 +378,7 @@ namespace MyMediaVerse.Web.API.Controllers
                             if (mediaItem is Book book)
                             {
                                 _context.Books.Add(book);
+                                await _context.SaveChangesAsync();
                                 importedItems.Add(new
                                 {
                                     Id = book.Id,
@@ -540,23 +541,31 @@ namespace MyMediaVerse.Web.API.Controllers
             [FromQuery] int? chunkIndex = null,
             [FromQuery] int? totalChunks = null)
         {
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest(new { error = "No file uploaded" });
+            }
+
+            if (!file.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest(new { error = "File must be a CSV" });
+            }
+
+            var startedAt = DateTime.UtcNow;
             try
             {
-                if (file == null || file.Length == 0)
-                {
-                    return BadRequest(new { error = "No file uploaded" });
-                }
-
-                if (!file.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
-                {
-                    return BadRequest(new { error = "File must be a CSV" });
-                }
-
                 _logger.LogInformation("Processing Goodreads CSV upload: {FileName}, updateExisting={UpdateExisting}, chunk={ChunkIndex}/{TotalChunks}",
                     file.FileName, updateExisting, chunkIndex, totalChunks);
 
                 using var stream = file.OpenReadStream();
                 var result = await _goodreadsImportService.ImportFromCsvAsync(stream, updateExisting);
+
+                if (!result.Success)
+                {
+                    // Fatal per the reporting contract: 500 with the result body (bare, even for a
+                    // chunked call, so the client's failure path reads one shape).
+                    return StatusCode(500, result);
+                }
 
                 // import -> enrich -> embed for the interactive path: derive the MMV Rating enum from
                 // the raw Goodreads rating that import just stored (import itself does no conversion),
@@ -583,6 +592,7 @@ namespace MyMediaVerse.Web.API.Controllers
                 // Make the imported books searchable immediately (best-effort; never fails the import).
                 // Fires per chunk that actually imported books — the bulk reindex skips unchanged items,
                 // so earlier chunks' books aren't re-embedded.
+                result.ReindexTriggered = result.SuccessCount > 0;
                 await _importReindexService.ReindexAfterImportAsync(result.SuccessCount, "Goodreads CSV");
 
                 // Include chunk info in response for frontend progress tracking
@@ -601,7 +611,12 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error processing Goodreads CSV upload");
-                return StatusCode(500, new { error = "Failed to process Goodreads CSV upload", details = ex.Message });
+                return StatusCode(500, new GoodreadsImportResultDto
+                {
+                    Success = false,
+                    ErrorMessage = "Failed to process Goodreads CSV upload",
+                    StartedAt = startedAt
+                });
             }
         }
 

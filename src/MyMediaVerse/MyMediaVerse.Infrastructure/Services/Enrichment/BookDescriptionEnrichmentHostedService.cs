@@ -8,7 +8,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
 {
     /// <summary>
     /// Background hosted service that periodically enriches book descriptions
-    /// from Open Library API.
+    /// from the Google Books API.
     /// </summary>
     public class BookDescriptionEnrichmentHostedService : BackgroundService
     {
@@ -77,7 +77,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                 return;
             }
 
-            // Process in batches until done or cancelled
+            // Process in batches until done or canceled
             var totalEnriched = 0;
             var totalFailed = 0;
 

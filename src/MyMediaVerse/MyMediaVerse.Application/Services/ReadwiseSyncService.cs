@@ -108,6 +108,7 @@ namespace MyMediaVerse.Application.Services
             result.HighlightsUpdated = highlightResult.UpdatedCount;
             result.HighlightsLinked = highlightResult.LinkedCount;
             result.HighlightsDeleted = highlightResult.DeletedCount;
+            result.BooksCreated = highlightResult.StubBooksCreatedCount;
 
             if (!highlightResult.Success)
             {
@@ -136,10 +137,12 @@ namespace MyMediaVerse.Application.Services
             _logger.LogInformation(
                 "Unified sync completed (success: {Success}). Articles: {ArticlesCreated} created, {ArticlesUpdated} updated. " +
                 "Highlights: {HighlightsCreated} created, {HighlightsUpdated} updated, {HighlightsLinked} linked. " +
+                "Stub books created: {BooksCreated}. " +
                 "Window: {Source} since {Since}. Cursors advanced: reader={ReaderAdvanced}, highlights={HighlightsAdvanced}.",
                 result.Success,
                 result.ArticlesCreated, result.ArticlesUpdated,
                 result.HighlightsCreated, result.HighlightsUpdated, result.HighlightsLinked,
+                result.BooksCreated,
                 result.SyncWindowSource, result.SyncedSince?.ToString("u") ?? "n/a",
                 result.ReaderCursorAdvanced, result.HighlightsCursorAdvanced);
 

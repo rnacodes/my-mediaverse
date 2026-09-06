@@ -49,7 +49,7 @@ namespace MyMediaVerse.Web.API.Controllers
             // the wider generic-API cleanup — this is a guard, not a redesign).
             if (dto.MediaType == MediaType.Book)
             {
-                return BadRequest("Books must be created via POST /api/book.");
+                return BadRequest(new { error = "Books must be created via POST /api/book." });
             }
 
             var response = await _mediaService.CreateMediaItemAsync(dto);

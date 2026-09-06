@@ -130,7 +130,7 @@ function SourceDirectoryPage() {
             color: COLORS.mediaTypes.book,
             available: true,
             connected: false,
-            action: () => navigate('/import-media'),
+            action: () => navigate('/upload-goodreads'),
             features: [
                 'Upload Goodreads CSV export',
                 'Import shelves & reading status',

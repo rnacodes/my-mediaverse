@@ -59,12 +59,6 @@ namespace MyMediaVerse.Application.Services
             return await _openLibraryApiClient.GetBookByOpenLibraryIdAsync(openLibraryId);
         }
 
-        public async Task<OpenLibraryBookDto> GetBookByISBNAsync(string isbn)
-        {
-            _logger.LogInformation("Getting OpenLibrary book details for ISBN: {ISBN}", isbn);
-            return await _openLibraryApiClient.GetBookByISBNAsync(isbn);
-        }
-
         public async Task<OpenLibraryAuthorDto> GetAuthorAsync(string authorId)
         {
             _logger.LogInformation("Getting OpenLibrary author details for ID: {AuthorId}", authorId);

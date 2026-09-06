@@ -14,11 +14,6 @@ namespace MyMediaVerse.Application.Interfaces
         Task<GoodreadsImportResultDto> ImportFromCsvAsync(Stream csvStream, bool updateExisting = true);
 
         /// <summary>
-        /// Find an existing book by ISBN (primary) or Title+Author (fallback)
-        /// </summary>
-        Task<Book?> FindExistingBookAsync(string? isbn, string title, string author);
-
-        /// <summary>
         /// Map Goodreads shelf value to PLB Status enum
         /// </summary>
         Status MapShelfToStatus(string? shelf);

@@ -25,10 +25,17 @@ namespace MyMediaVerse.Shared.Interfaces
     }
 
     /// <summary>
-    /// Result of a Goodreads rating conversion run.
+    /// Result of a Goodreads rating conversion run. Follows the sync/import reporting contract:
+    /// <see cref="Success"/> flips only when the run itself aborted.
     /// </summary>
     public class BookRatingConversionResult
     {
+        /// <summary>False only when the run aborted before completing.</summary>
+        public bool Success { get; set; } = true;
+
+        /// <summary>Stable identifier of the operation for notifications and sync-state records.</summary>
+        public string Operation { get; set; } = "goodreads-rating-conversion";
+
         /// <summary>Books with a real 1-5 Goodreads rating that were considered.</summary>
         public int TotalCandidates { get; set; }
 
@@ -37,5 +44,15 @@ namespace MyMediaVerse.Shared.Interfaces
 
         /// <summary>Books whose Rating already matched the derived value (no change).</summary>
         public int Unchanged { get; set; }
+
+        /// <summary>The fatal reason. Non-null only when <see cref="Success"/> is false.</summary>
+        public string? ErrorMessage { get; set; }
+
+        public DateTime StartedAt { get; set; }
+        public DateTime? CompletedAt { get; set; }
+
+        public TimeSpan? Duration => CompletedAt.HasValue
+            ? CompletedAt.Value - StartedAt
+            : null;
     }
 }

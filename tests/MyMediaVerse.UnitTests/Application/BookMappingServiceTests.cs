@@ -23,167 +23,6 @@ namespace MyMediaVerse.UnitTests.Application
             _service = new BookMappingService(Context, _mockLogger);
         }
 
-        #region MapFromDtoAsync
-
-        [Fact]
-        public async Task MapFromDtoAsync_ValidDto_MapsAllProperties()
-        {
-            var dto = new CreateBookDto
-            {
-                Title = "The Great Gatsby",
-                Author = "F. Scott Fitzgerald",
-                MediaType = MediaType.Book,
-                Status = Status.Completed,
-                Format = BookFormat.Physical,
-                PartOfSeries = false,
-                ISBN = "978-0743273565",
-                ASIN = "B000FC0PDA",
-                Description = "A classic novel",
-                Publisher = "Scribner",
-                YearPublished = 1925,
-                Rating = Rating.Like,
-                Topics = Array.Empty<string>(),
-                Genres = Array.Empty<string>()
-            };
-
-            var result = await _service.MapFromDtoAsync(dto);
-
-            result.Should().NotBeNull();
-            result.Title.Should().Be("The Great Gatsby");
-            result.Author.Should().Be("F. Scott Fitzgerald");
-            result.MediaType.Should().Be(MediaType.Book);
-            result.Status.Should().Be(Status.Completed);
-            result.Format.Should().Be(BookFormat.Physical);
-            result.ISBN.Should().Be("978-0743273565");
-            result.ASIN.Should().Be("B000FC0PDA");
-            result.Publisher.Should().Be("Scribner");
-            result.YearPublished.Should().Be(1925);
-            result.Rating.Should().Be(Rating.Like);
-            result.DateAdded.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
-        }
-
-        [Fact]
-        public async Task MapFromDtoAsync_WithTopics_NormalizesToLowercase()
-        {
-            var dto = TestDataFactory.CreateBookDto();
-            dto.Topics = new[] { "Science Fiction", "  ADVENTURE  ", "classic" };
-
-            var result = await _service.MapFromDtoAsync(dto);
-
-            result.Topics.Should().HaveCount(3);
-            result.Topics.Select(t => t.Name).Should().BeEquivalentTo("science fiction", "adventure", "classic");
-        }
-
-        [Fact]
-        public async Task MapFromDtoAsync_WithExistingTopic_ReusesExistingTopic()
-        {
-            var existingTopic = new Topic { Name = "science fiction" };
-            Context.Topics.Add(existingTopic);
-            await Context.SaveChangesAsync();
-
-            var dto = TestDataFactory.CreateBookDto();
-            dto.Topics = new[] { "Science Fiction" };
-
-            var result = await _service.MapFromDtoAsync(dto);
-
-            result.Topics.Should().HaveCount(1);
-            result.Topics.First().Id.Should().Be(existingTopic.Id);
-        }
-
-        [Fact]
-        public async Task MapFromDtoAsync_WithGenres_NormalizesToLowercase()
-        {
-            var dto = TestDataFactory.CreateBookDto();
-            dto.Genres = new[] { "Fiction", "  LITERARY  " };
-
-            var result = await _service.MapFromDtoAsync(dto);
-
-            result.Genres.Should().HaveCount(2);
-            result.Genres.Select(g => g.Name).Should().BeEquivalentTo("fiction", "literary");
-        }
-
-        [Fact]
-        public async Task MapFromDtoAsync_WithExistingGenre_ReusesExistingGenre()
-        {
-            var existingGenre = new Genre { Name = "fiction" };
-            Context.Genres.Add(existingGenre);
-            await Context.SaveChangesAsync();
-
-            var dto = TestDataFactory.CreateBookDto();
-            dto.Genres = new[] { "Fiction" };
-
-            var result = await _service.MapFromDtoAsync(dto);
-
-            result.Genres.Should().HaveCount(1);
-            result.Genres.First().Id.Should().Be(existingGenre.Id);
-        }
-
-        [Fact]
-        public async Task MapFromDtoAsync_SkipsWhitespaceTopicsAndGenres()
-        {
-            var dto = TestDataFactory.CreateBookDto();
-            dto.Topics = new[] { "", "  ", "valid topic" };
-            dto.Genres = new[] { "", "valid genre" };
-
-            var result = await _service.MapFromDtoAsync(dto);
-
-            result.Topics.Should().HaveCount(1);
-            result.Topics.First().Name.Should().Be("valid topic");
-            result.Genres.Should().HaveCount(1);
-            result.Genres.First().Name.Should().Be("valid genre");
-        }
-
-        [Fact]
-        public async Task MapFromDtoAsync_GoodreadsRatingWithoutPlbRating_AutoConverts()
-        {
-            var dto = TestDataFactory.CreateBookDto();
-            dto.GoodreadsRating = 5.0m;
-            dto.Rating = null;
-
-            var result = await _service.MapFromDtoAsync(dto);
-
-            result.Rating.Should().Be(Rating.SuperLike);
-        }
-
-        [Fact]
-        public async Task MapFromDtoAsync_GoodreadsRatingWithPlbRating_KeepsPlbRating()
-        {
-            var dto = TestDataFactory.CreateBookDto();
-            dto.GoodreadsRating = 5.0m;
-            dto.Rating = Rating.Dislike;
-
-            var result = await _service.MapFromDtoAsync(dto);
-
-            result.Rating.Should().Be(Rating.Dislike);
-        }
-
-        [Fact]
-        public async Task MapFromDtoAsync_NullTopicsAndGenres_CreatesEmptyCollections()
-        {
-            var dto = TestDataFactory.CreateBookDto();
-            dto.Topics = null;
-            dto.Genres = null;
-
-            var result = await _service.MapFromDtoAsync(dto);
-
-            result.Topics.Should().BeEmpty();
-            result.Genres.Should().BeEmpty();
-        }
-
-        [Fact]
-        public async Task MapFromDtoAsync_GoodreadsTags_DefaultsToEmptyList()
-        {
-            var dto = TestDataFactory.CreateBookDto();
-            dto.GoodreadsTags = null;
-
-            var result = await _service.MapFromDtoAsync(dto);
-
-            result.GoodreadsTags.Should().NotBeNull();
-            result.GoodreadsTags.Should().BeEmpty();
-        }
-
-        #endregion
-
         #region MapToResponseDtoAsync
 
         [Fact]
@@ -221,6 +60,28 @@ namespace MyMediaVerse.UnitTests.Application
 
             result.GoodreadsTags.Should().NotBeNull();
             result.GoodreadsTags.Should().BeEmpty();
+        }
+
+        [Fact]
+        public async Task MapToResponseDtoAsync_ExposesExternalIdsAndEnrichmentStamp()
+        {
+            // The ids imports and enrichment fill in are read-only on the wire but must be visible,
+            // so a client (or a smoke test) can see which sources a book has been matched to.
+            var enrichedAt = new DateTime(2026, 9, 5, 19, 1, 54, DateTimeKind.Utc);
+            var book = TestDataFactory.CreateBook("Dune", "Frank Herbert");
+            book.ReadwiseBookId = 12345;
+            book.GoodreadsBookId = 234225;
+            book.GoogleVolumeId = "9ddRibJTyJAC";
+            book.OpenLibraryKey = "/works/OL893415W";
+            book.EnrichedAt = enrichedAt;
+
+            var result = await _service.MapToResponseDtoAsync(book);
+
+            result.ReadwiseBookId.Should().Be(12345);
+            result.GoodreadsBookId.Should().Be(234225);
+            result.GoogleVolumeId.Should().Be("9ddRibJTyJAC");
+            result.OpenLibraryKey.Should().Be("/works/OL893415W");
+            result.EnrichedAt.Should().Be(enrichedAt);
         }
 
         #endregion

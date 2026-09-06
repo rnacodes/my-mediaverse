@@ -19,6 +19,11 @@ namespace MyMediaVerse.Application.Services
         // import instead of one giant SaveChanges at the very end.
         private const int BatchSize = 50;
 
+        private static readonly HashSet<string> StatusShelves = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "read", "to-read", "currently-reading", "to-be-continued"
+        };
+
         public GoodreadsImportService(
             IApplicationDbContext context,
             ILogger<GoodreadsImportService> logger)
@@ -29,7 +34,7 @@ namespace MyMediaVerse.Application.Services
 
         public async Task<GoodreadsImportResultDto> ImportFromCsvAsync(Stream csvStream, bool updateExisting = true)
         {
-            var result = new GoodreadsImportResultDto();
+            var result = new GoodreadsImportResultDto { StartedAt = DateTime.UtcNow };
             var config = new CsvConfiguration(CultureInfo.InvariantCulture)
             {
                 HeaderValidated = null,
@@ -53,12 +58,16 @@ namespace MyMediaVerse.Application.Services
                 // updated in place without another round-trip.
                 var dedup = await BuildDedupIndexAsync();
 
+                // One resolver per run so a shelf shared by many rows resolves to a single Topic
+                // instance before SaveChanges (see TopicResolver).
+                var topics = new TopicResolver(_context);
+
                 var processedSinceSave = 0;
                 foreach (var record in records)
                 {
                     try
                     {
-                        ProcessBookRecord(record, result, updateExisting, dedup);
+                        await ProcessBookRecordAsync(record, result, updateExisting, dedup, topics);
 
                         // Flush every BatchSize records so neither the change tracker nor a single
                         // SaveChanges grows unbounded over a large import.
@@ -77,14 +86,22 @@ namespace MyMediaVerse.Application.Services
 
                 // Persist the final partial batch.
                 await _context.SaveChangesAsync();
+
+                if (result.ErrorCount > 0)
+                {
+                    result.WarningMessage = $"{result.ErrorCount} of {result.TotalProcessed} rows failed";
+                }
+
+                result.CompletedAt = DateTime.UtcNow;
                 _logger.LogInformation("Goodreads import complete: {Created} created, {Updated} updated, {Errors} errors",
                     result.CreatedCount, result.UpdatedCount, result.ErrorCount);
             }
             catch (Exception ex)
             {
+                // The file itself could not be read or parsed: nothing was imported, so this is fatal.
                 _logger.LogError(ex, "Error parsing Goodreads CSV");
-                result.Errors.Add($"CSV parsing error: {ex.Message}");
-                result.ErrorCount++;
+                result.Success = false;
+                result.ErrorMessage = $"CSV parsing error: {ex.Message}";
             }
 
             result.SuccessCount = result.CreatedCount + result.UpdatedCount;
@@ -92,14 +109,15 @@ namespace MyMediaVerse.Application.Services
         }
 
         /// <summary>
-        /// Loads existing books once and indexes them by cleaned ISBN and normalized title+author so
-        /// each CSV record can be deduplicated against an in-memory lookup rather than a DB query.
+        /// Loads existing books once (with their topics, so shelf-to-topic linking can see what is
+        /// already attached) and indexes them by cleaned ISBN and normalized title+author so each CSV
+        /// record can be deduplicated against an in-memory lookup rather than a DB query.
         /// Books are tracked so matched rows update in place.
         /// </summary>
         private async Task<DedupIndex> BuildDedupIndexAsync()
         {
             var index = new DedupIndex();
-            var existing = await _context.Books.ToListAsync();
+            var existing = await _context.Books.Include(b => b.Topics).ToListAsync();
             foreach (var book in existing)
             {
                 index.Add(book);
@@ -107,7 +125,12 @@ namespace MyMediaVerse.Application.Services
             return index;
         }
 
-        private void ProcessBookRecord(GoodreadsCsvImportDto record, GoodreadsImportResultDto result, bool updateExisting, DedupIndex dedup)
+        private async Task ProcessBookRecordAsync(
+            GoodreadsCsvImportDto record,
+            GoodreadsImportResultDto result,
+            bool updateExisting,
+            DedupIndex dedup,
+            TopicResolver topics)
         {
             if (string.IsNullOrWhiteSpace(record.Title) || string.IsNullOrWhiteSpace(record.Author))
             {
@@ -126,6 +149,7 @@ namespace MyMediaVerse.Application.Services
                 if (updateExisting)
                 {
                     UpdateBookFromRecord(existingBook, record);
+                    await ApplyShelvesAsTopicsAsync(existingBook, record, topics);
                     result.UpdatedCount++;
                     result.ImportedBooks.Add(new GoodreadsImportedBookDto
                     {
@@ -144,6 +168,7 @@ namespace MyMediaVerse.Application.Services
             else
             {
                 var newBook = CreateBookFromRecord(record);
+                await ApplyShelvesAsTopicsAsync(newBook, record, topics);
                 _context.Add(newBook);
                 result.CreatedCount++;
                 result.ImportedBooks.Add(new GoodreadsImportedBookDto
@@ -160,30 +185,34 @@ namespace MyMediaVerse.Application.Services
             }
         }
 
-        public async Task<Book?> FindExistingBookAsync(string? isbn, string title, string author)
+        /// <summary>
+        /// Adds the record's subject shelves to the book as Topics. Additive only: a re-import can
+        /// attach a new shelf but never removes a topic, so topics added in the app survive.
+        /// Status shelves (and the record's own exclusive shelf) describe reading progress, not
+        /// subject matter, and are excluded. The raw shelf list is still kept in GoodreadsTags.
+        /// </summary>
+        private async Task ApplyShelvesAsTopicsAsync(Book book, GoodreadsCsvImportDto record, TopicResolver topics)
         {
-            var cleanIsbn = CleanIsbn(isbn);
+            var exclusiveShelf = record.Shelves?.Trim().ToLowerInvariant();
 
-            // Try ISBN match first (most reliable)
-            if (!string.IsNullOrWhiteSpace(cleanIsbn))
+            foreach (var shelf in ParseBookshelves(record.Bookshelves))
             {
-                var byIsbn = await _context.Books
-                    .FirstOrDefaultAsync(b => b.ISBN != null &&
-                        b.ISBN.Replace("-", "").Replace(" ", "") == cleanIsbn);
-                if (byIsbn != null)
+                if (StatusShelves.Contains(shelf) || shelf == exclusiveShelf)
                 {
-                    return byIsbn;
+                    continue;
+                }
+
+                if (book.Topics.Any(t => string.Equals(t.Name, shelf, StringComparison.OrdinalIgnoreCase)))
+                {
+                    continue;
+                }
+
+                var topic = await topics.GetOrCreateAsync(shelf);
+                if (topic != null)
+                {
+                    book.Topics.Add(topic);
                 }
             }
-
-            // Fallback to Title+Author match (case-insensitive)
-            var normalizedTitle = title.Trim().ToLowerInvariant();
-            var normalizedAuthor = author.Trim().ToLowerInvariant();
-
-            return await _context.Books
-                .FirstOrDefaultAsync(b =>
-                    b.Title.ToLower() == normalizedTitle &&
-                    b.Author.ToLower() == normalizedAuthor);
         }
 
         private Book CreateBookFromRecord(GoodreadsCsvImportDto record)
@@ -197,9 +226,7 @@ namespace MyMediaVerse.Application.Services
                 ISBN = NormalizeIsbn(record),
                 Status = MapShelfToStatus(record.Shelves),
                 Format = MapBindingToFormat(record.Binding),
-                // Store the raw Goodreads rating only; deriving the MMV Rating enum from it is deferred
-                // to the book rating enrichment stage so import stays a dumb/fast raw capture.
-                GoodreadsRating = record.MyRating,
+                GoodreadsRating = record.MyRating is > 0 ? record.MyRating : null,
                 AverageRating = record.AverageRating,
                 Publisher = record.Publisher?.Trim(),
                 YearPublished = record.YearPublished,
@@ -309,10 +336,13 @@ namespace MyMediaVerse.Application.Services
                 return BookFormat.Digital;
             }
 
+            // Goodreads bindings seen in exports: Paperback, Hardcover, Kindle Edition, ebook,
+            // Audible Audio, Audiobook, Audio CD, Audio Cassette, MP3 CD.
             var lower = binding.Trim().ToLowerInvariant();
             return lower switch
             {
                 "paperback" or "hardcover" or "hardback" or "mass market paperback" => BookFormat.Physical,
+                _ when lower.Contains("audio") => BookFormat.Audiobook,
                 _ => BookFormat.Digital
             };
         }

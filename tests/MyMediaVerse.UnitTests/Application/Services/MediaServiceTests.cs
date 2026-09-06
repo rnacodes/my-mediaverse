@@ -28,13 +28,15 @@ namespace MyMediaVerse.UnitTests.Application.Services
     {
         private readonly ILogger<MediaService> _mockLogger;
         private readonly IThumbnailStorageService _mockThumbnailStorage;
+        private readonly ITypesenseService _mockTypesense;
         private readonly MediaService _service;
 
         public MediaServiceTests()
         {
             _mockLogger = Substitute.For<ILogger<MediaService>>();
             _mockThumbnailStorage = Substitute.For<IThumbnailStorageService>();
-            _service = new MediaService(Context, _mockLogger, _mockThumbnailStorage);
+            _mockTypesense = Substitute.For<ITypesenseService>();
+            _service = new MediaService(Context, _mockLogger, _mockThumbnailStorage, _mockTypesense);
         }
 
         private static CreateMediaItemDto MakeDto(
@@ -434,6 +436,73 @@ namespace MyMediaVerse.UnitTests.Application.Services
 
             deletedCount.Should().Be(1);
             thumbnailErrors.Should().ContainSingle().Which.Should().Contain("Has Bad Thumb");
+            (await Context.MediaItems.CountAsync()).Should().Be(0);
+        }
+
+        [Fact]
+        public async Task DeleteMediaItemAsync_RemovesTheSearchDocument()
+        {
+            var book = TestDataFactory.CreateBook();
+            Context.Books.Add(book);
+            await Context.SaveChangesAsync();
+
+            await _service.DeleteMediaItemAsync(book.Id);
+
+            await _mockTypesense.Received(1).DeleteMediaItemAsync(book.Id);
+        }
+
+        [Fact]
+        public async Task DeleteMediaItemAsync_DoesNotTouchSearchIndex_WhenItemMissing()
+        {
+            await _service.DeleteMediaItemAsync(Guid.NewGuid());
+
+            await _mockTypesense.DidNotReceive().DeleteMediaItemAsync(Arg.Any<Guid>());
+        }
+
+        [Fact]
+        public async Task DeleteMediaItemAsync_SearchIndexFailure_DoesNotAbortTheDelete()
+        {
+            var book = TestDataFactory.CreateBook();
+            Context.Books.Add(book);
+            await Context.SaveChangesAsync();
+
+            _mockTypesense.DeleteMediaItemAsync(book.Id)
+                .Returns<Task>(_ => throw new InvalidOperationException("Typesense down"));
+
+            var result = await _service.DeleteMediaItemAsync(book.Id);
+
+            result.Should().BeTrue();
+            (await Context.MediaItems.CountAsync()).Should().Be(0);
+        }
+
+        [Fact]
+        public async Task BulkDeleteMediaItemsAsync_RemovesEverySearchDocument()
+        {
+            var books = TestDataFactory.CreateBooks(3);
+            Context.Books.AddRange(books);
+            await Context.SaveChangesAsync();
+
+            await _service.BulkDeleteMediaItemsAsync(books.Select(b => b.Id).ToList());
+
+            foreach (var book in books)
+            {
+                await _mockTypesense.Received(1).DeleteMediaItemAsync(book.Id);
+            }
+        }
+
+        [Fact]
+        public async Task BulkDeleteMediaItemsAsync_SearchIndexFailure_DoesNotAbortTheDelete()
+        {
+            var books = TestDataFactory.CreateBooks(2);
+            Context.Books.AddRange(books);
+            await Context.SaveChangesAsync();
+
+            _mockTypesense.DeleteMediaItemAsync(Arg.Any<Guid>())
+                .Returns<Task>(_ => throw new InvalidOperationException("Typesense down"));
+
+            var (deletedCount, _) = await _service.BulkDeleteMediaItemsAsync(books.Select(b => b.Id).ToList());
+
+            deletedCount.Should().Be(2);
             (await Context.MediaItems.CountAsync()).Should().Be(0);
         }
 
