@@ -10,6 +10,7 @@ using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.IntegrationTests.Fixtures;
 using MyMediaVerse.Shared.DTOs.GoogleBooks;
+using MyMediaVerse.Shared.Interfaces;
 using MyMediaVerse.UnitTests.TestData;
 using Xunit;
 
@@ -328,6 +329,33 @@ namespace MyMediaVerse.IntegrationTests.Api
 
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.Created);
+        }
+
+        [Fact]
+        public async Task ImportFromGoogleBooks_ReindexesJustTheImportedBook()
+        {
+            var importedBook = TestDataFactory.CreateBook("Dune Messiah", "Frank Herbert");
+            var (client, _, typesense) = _factory.CreateClientWithSubstitutes<IGoogleBooksService, ITypesenseService>(
+                gb => gb.ImportBookFromVolumeIdAsync("AXVUqdzi3rsC").Returns(importedBook),
+                null);
+
+            var response = await client.PostAsJsonAsync("/api/book/import-from-googlebooks",
+                new ImportBookFromGoogleBooksDto { VolumeId = "AXVUqdzi3rsC" });
+
+            response.StatusCode.Should().Be(HttpStatusCode.Created);
+            await typesense.Received(1).ReindexMediaItemByIdAsync(importedBook.Id);
+            await typesense.DidNotReceive().BulkReindexAllMediaItemsAsync();
+        }
+
+        [Fact]
+        public async Task ImportFromGoogleBooks_WithoutToken_ReturnsUnauthorized()
+        {
+            var client = _factory.CreateAnonymousClient();
+
+            var response = await client.PostAsJsonAsync("/api/book/import-from-googlebooks",
+                new ImportBookFromGoogleBooksDto { Title = "Anything" });
+
+            response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         }
 
         [Fact]

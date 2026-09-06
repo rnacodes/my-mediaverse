@@ -378,6 +378,7 @@ namespace MyMediaVerse.Web.API.Controllers
                             if (mediaItem is Book book)
                             {
                                 _context.Books.Add(book);
+                                await _context.SaveChangesAsync();
                                 importedItems.Add(new
                                 {
                                     Id = book.Id,

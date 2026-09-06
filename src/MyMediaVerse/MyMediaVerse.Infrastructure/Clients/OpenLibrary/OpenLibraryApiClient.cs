@@ -56,19 +56,19 @@ namespace MyMediaVerse.Infrastructure.Clients.OpenLibrary
 
         public async Task<OpenLibrarySearchResultDto> SearchBooksByTitleAsync(string title, int? offset = null, int? limit = null)
         {
-            var query = $"title:{Uri.EscapeDataString(title)}";
+            var query = $"title:{title}";
             return await SearchBooksAsync(query, offset, limit);
         }
 
         public async Task<OpenLibrarySearchResultDto> SearchBooksByAuthorAsync(string author, int? offset = null, int? limit = null)
         {
-            var query = $"author:{Uri.EscapeDataString(author)}";
+            var query = $"author:{author}";
             return await SearchBooksAsync(query, offset, limit);
         }
 
         public async Task<OpenLibrarySearchResultDto> SearchBooksByISBNAsync(string isbn)
         {
-            var query = $"isbn:{Uri.EscapeDataString(isbn)}";
+            var query = $"isbn:{isbn}";
             return await SearchBooksAsync(query);
         }
 

@@ -104,6 +104,69 @@ namespace MyMediaVerse.IntegrationTests.Api
             total.GetInt32().Should().Be(0);
         }
 
+        [Fact]
+        public async Task RunEnrichment_ShouldReportContractFields()
+        {
+            await _client.AuthenticateAsync();
+
+            var response = await _client.PostAsync("/api/bookenrichment/run", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var result = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+            result.GetProperty("success").GetBoolean().Should().BeTrue();
+            result.GetProperty("operation").GetString().Should().Be("book-description-enrichment");
+            result.TryGetProperty("startedAt", out _).Should().BeTrue();
+            result.TryGetProperty("completedAt", out _).Should().BeTrue();
+            result.TryGetProperty("notFoundCount", out _).Should().BeTrue();
+            result.TryGetProperty("errorMessage", out _).Should().BeFalse("null optional fields are omitted from the JSON");
+        }
+
+        #endregion
+
+        #region EnrichSingleBook outcomes (no external call is made on these branches)
+
+        [Fact]
+        public async Task EnrichSingleBook_PlaceholderAuthorAndNoIsbn_ReportsNoLookupKey()
+        {
+            await _client.AuthenticateAsync();
+            var bookId = await CreateBook(new { title = "Mystery Stub", author = "Unknown Author", status = "Uncharted", format = "Digital" });
+
+            var response = await _client.PostAsync($"/api/bookenrichment/{bookId}", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var result = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+            result.GetProperty("success").GetBoolean().Should().BeFalse();
+            result.GetProperty("noLookupKey").GetBoolean().Should().BeTrue();
+            result.TryGetProperty("noIsbn", out _).Should().BeFalse("the old flag name is gone");
+        }
+
+        [Fact]
+        public async Task EnrichSingleBook_AlreadyHasDescription_ReportsThatAndSucceeds()
+        {
+            await _client.AuthenticateAsync();
+            var bookId = await CreateBook(new
+            {
+                title = "Described Book", author = "Some Author", status = "Uncharted", format = "Digital",
+                description = "Already here"
+            });
+
+            var response = await _client.PostAsync($"/api/bookenrichment/{bookId}", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var result = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+            result.GetProperty("success").GetBoolean().Should().BeTrue();
+            result.GetProperty("alreadyHasDescription").GetBoolean().Should().BeTrue();
+            result.GetProperty("filledFields").GetArrayLength().Should().Be(0);
+        }
+
+        private async Task<Guid> CreateBook(object dto)
+        {
+            var response = await _client.PostAsJsonAsync("/api/book", dto);
+            response.StatusCode.Should().Be(HttpStatusCode.Created);
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+            return body.GetProperty("id").GetGuid();
+        }
+
         #endregion
 
         #region ConvertGoodreadsRatings
@@ -129,6 +192,9 @@ namespace MyMediaVerse.IntegrationTests.Api
             var result = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
             result.TryGetProperty("totalCandidates", out var candidates).Should().BeTrue();
             candidates.GetInt32().Should().Be(0);
+            result.GetProperty("success").GetBoolean().Should().BeTrue();
+            result.GetProperty("operation").GetString().Should().Be("goodreads-rating-conversion");
+            result.TryGetProperty("completedAt", out _).Should().BeTrue();
         }
 
         #endregion
