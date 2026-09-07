@@ -33,6 +33,12 @@ namespace MyMediaVerse.Application.Interfaces
         /// </summary>
         Task<WebsiteScreenshotResultDto?> RegenerateScreenshotAsync(Guid id, bool force, CancellationToken cancellationToken = default);
 
+        /// <summary>
+        /// The whole website library as a Netscape bookmark file (topics as TAGS), ready to be
+        /// imported into a browser or bookmark manager.
+        /// </summary>
+        Task<(byte[] Content, string FileName)> ExportBookmarksAsync();
+
         // Query operations
         Task<IEnumerable<Website>> GetWebsitesByDomainAsync(string domain);
         Task<IEnumerable<Website>> GetWebsitesWithRssFeedsAsync();

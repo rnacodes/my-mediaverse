@@ -22,6 +22,41 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         };
 
         [Fact]
+        public void MediaBaseFields_CarriesTheWebsiteFields_WithTheirFacetAndTypeSettings()
+        {
+            var fields = TypesenseService.MediaBaseFields().ToDictionary(f => f.Name);
+
+            fields.Should().ContainKey("domain").WhoseValue.Should().Match<Field>(f =>
+                f.Type == FieldType.String && f.Facet == true && f.Optional == true);
+            fields.Should().ContainKey("has_rss").WhoseValue.Should().Match<Field>(f =>
+                f.Type == FieldType.Bool && f.Facet == true && f.Optional == true);
+            fields.Should().ContainKey("link_status").WhoseValue.Should().Match<Field>(f =>
+                f.Type == FieldType.Int32 && f.Facet == false && f.Optional == true);
+        }
+
+        [Fact]
+        public void MediaBaseFields_LeavesTheEmbeddingPairToTheRuntimeConfig()
+        {
+            TypesenseService.MediaBaseFields().Select(f => f.Name).Should().NotContain(new[] { "embedding", "embedding_source" });
+        }
+
+        [Fact]
+        public void MediaItemDocument_SerializesTheWebsiteFields_UnderTheSchemaNames()
+        {
+            var document = new MyMediaVerse.Infrastructure.Models.MediaItemDocument
+            {
+                Id = "1", Title = "Site", MediaType = "Website", Status = "Uncharted",
+                Domain = "example.com", HasRss = true, LinkStatus = 404
+            };
+
+            var json = System.Text.Json.JsonSerializer.Serialize(document);
+
+            json.Should().Contain("\"domain\":\"example.com\"")
+                .And.Contain("\"has_rss\":true")
+                .And.Contain("\"link_status\":404");
+        }
+
+        [Fact]
         public void ComputeMissingFields_ReturnsOnlyFieldsTheLiveCollectionLacks()
         {
             var missing = TypesenseService.ComputeMissingFields(Desired, new[] { "title", "author" });

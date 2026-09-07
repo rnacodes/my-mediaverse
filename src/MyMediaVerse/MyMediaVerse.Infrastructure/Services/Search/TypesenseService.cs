@@ -327,7 +327,18 @@ namespace MyMediaVerse.Infrastructure.Services.Search
         /// </summary>
         private List<Field> BuildMediaCollectionFields()
         {
-            var fields = new List<Field>
+            var fields = MediaBaseFields();
+            AddEmbeddingFields(fields);
+            return fields;
+        }
+
+        /// <summary>
+        /// The media_items fields other than the embedding pair, which depends on runtime config.
+        /// Internal so the schema tests can pin the list.
+        /// </summary>
+        internal static List<Field> MediaBaseFields()
+        {
+            return new List<Field>
             {
                 new Field("id", FieldType.String, false), // Not facet, primary key
                 new Field("title", FieldType.String, false) { Sort = true }, // Searchable, sortable for Title (A-Z)
@@ -347,11 +358,11 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 new Field("platform", FieldType.String, true, optional: true), // Facetable
                 new Field("series_id", FieldType.String, false, optional: true, index: false), // For podcast episode routing
                 new Field("isbn", FieldType.String, false, optional: true), // Books: exact-match searchable
-                new Field("goodreads_rating", FieldType.Float, true, optional: true) // Books: facetable star rating
+                new Field("goodreads_rating", FieldType.Float, true, optional: true), // Books: facetable star rating
+                new Field("domain", FieldType.String, true, optional: true), // Websites: facetable site grouping
+                new Field("has_rss", FieldType.Bool, true, optional: true), // Websites: facetable feed presence
+                new Field("link_status", FieldType.Int32, false, optional: true) // Websites: last HTTP status (0 = unreachable)
             };
-
-            AddEmbeddingFields(fields);
-            return fields;
         }
 
         // Fields that must never be added to a live collection by a plain alter. "id" is the
@@ -756,6 +767,23 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     if (video?.Platform != null)
                         additionalFields["platform"] = video.Platform;
                     break;
+
+                case "Website":
+                    var website = await _context.Websites.AsNoTracking()
+                        .FirstOrDefaultAsync(w => w.Id == item.Id);
+                    if (website != null)
+                    {
+                        if (!string.IsNullOrWhiteSpace(website.Author))
+                            additionalFields["author"] = website.Author;
+                        if (!string.IsNullOrWhiteSpace(website.Publication))
+                            additionalFields["publisher"] = website.Publication;
+                        if (!string.IsNullOrWhiteSpace(website.Domain))
+                            additionalFields["domain"] = website.Domain;
+                        additionalFields["has_rss"] = !string.IsNullOrWhiteSpace(website.RssFeedUrl);
+                        if (website.LastHttpStatus.HasValue)
+                            additionalFields["link_status"] = website.LastHttpStatus.Value;
+                    }
+                    break;
             }
 
             return additionalFields;
@@ -785,6 +813,12 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 document.Isbn = isbn?.ToString();
             if (additionalFields.TryGetValue("goodreads_rating", out var goodreadsRating) && goodreadsRating != null)
                 document.GoodreadsRating = Convert.ToDouble(goodreadsRating);
+            if (additionalFields.TryGetValue("domain", out var domain))
+                document.Domain = domain?.ToString();
+            if (additionalFields.TryGetValue("has_rss", out var hasRss) && hasRss != null)
+                document.HasRss = Convert.ToBoolean(hasRss);
+            if (additionalFields.TryGetValue("link_status", out var linkStatus) && linkStatus != null)
+                document.LinkStatus = Convert.ToInt32(linkStatus);
         }
 
         /// <summary>

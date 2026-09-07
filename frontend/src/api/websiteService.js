@@ -130,6 +130,99 @@ export const deleteWebsite = async (id) => {
 };
 
 // ============================================
+// Bulk import (bookmark file, URL list) and export
+// ============================================
+
+const bookmarkFileForm = (file, options = {}) => {
+    const form = new FormData();
+    form.append('file', file);
+    Object.entries(options).forEach(([key, value]) => {
+        if (value === undefined || value === null) return;
+        if (Array.isArray(value)) value.forEach((v) => form.append(key, v));
+        else form.append(key, value);
+    });
+    return form;
+};
+
+/**
+ * Counts what a bookmark export (browser or bookmark-manager HTML) would import, without saving
+ * @param {File} file - The exported .html file
+ */
+export const previewBookmarkFile = async (file) => {
+    try {
+        const response = await apiClient.post('/website/from-bookmark-file/preview', bookmarkFileForm(file), {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error previewing bookmark file:', error);
+        throw error;
+    }
+};
+
+/**
+ * Imports a bookmark export as website stubs (enrich afterwards)
+ * @param {File} file - The exported .html file
+ * @param {object} [options] - { foldersAsTopics, tagsAsTopics, defaultStatus, extraTopics[], extraGenres[] }
+ */
+export const importBookmarkFile = async (file, options = {}) => {
+    try {
+        const response = await apiClient.post('/website/from-bookmark-file', bookmarkFileForm(file, options), {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error importing bookmark file:', error);
+        throw error;
+    }
+};
+
+/**
+ * Counts what a pasted list of URLs would import, without saving
+ * @param {string} urls - Pasted text, one URL per line (separators tolerated)
+ */
+export const previewUrlList = async (urls) => {
+    try {
+        const response = await apiClient.post('/website/from-url-list/preview', { urls });
+        return response.data;
+    } catch (error) {
+        console.error('Error previewing URL list:', error);
+        throw error;
+    }
+};
+
+/**
+ * Imports a pasted list of URLs as website stubs (enrich afterwards)
+ * @param {string} urls - Pasted text
+ * @param {object} [options] - Same shape as importBookmarkFile options
+ */
+export const importUrlList = async (urls, options = {}) => {
+    try {
+        const response = await apiClient.post('/website/from-url-list', { urls, options });
+        return response.data;
+    } catch (error) {
+        console.error('Error importing URL list:', error);
+        throw error;
+    }
+};
+
+/**
+ * Downloads the library as a Netscape bookmark file (topics as TAGS)
+ * @returns {{ blob: Blob, fileName: string }}
+ */
+export const exportBookmarks = async () => {
+    try {
+        const response = await apiClient.get('/website/export', { responseType: 'blob' });
+        const disposition = response.headers?.['content-disposition'] ?? '';
+        const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
+        return { blob: response.data, fileName: match ? decodeURIComponent(match[1]) : 'bookmarks.html' };
+    } catch (error) {
+        console.error('Error exporting bookmarks:', error);
+        throw error;
+    }
+};
+
+// ============================================
 // Enrichment (metadata fill, screenshots, link health)
 // ============================================
 

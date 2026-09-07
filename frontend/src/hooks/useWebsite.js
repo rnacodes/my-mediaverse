@@ -10,6 +10,11 @@ import {
   updateWebsite,
   deleteWebsite,
   getWebsiteRssFeedItems,
+  previewBookmarkFile,
+  importBookmarkFile,
+  previewUrlList,
+  importUrlList,
+  exportBookmarks,
   getWebsiteEnrichmentStatus,
   runWebsiteEnrichment,
   checkWebsiteLinks,
@@ -111,6 +116,42 @@ export function useDeleteWebsite() {
       queryClient.removeQueries({ queryKey: websiteKeys.detail(id) });
       queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
     },
+  });
+}
+
+// ----- Bulk import / export -----
+
+export function usePreviewBookmarkFile() {
+  return useMutation({
+    mutationFn: (file) => previewBookmarkFile(file),
+  });
+}
+
+export function useImportBookmarkFile() {
+  const invalidate = useInvalidateWebsites();
+  return useMutation({
+    mutationFn: ({ file, options }) => importBookmarkFile(file, options),
+    onSuccess: invalidate,
+  });
+}
+
+export function usePreviewUrlList() {
+  return useMutation({
+    mutationFn: (urls) => previewUrlList(urls),
+  });
+}
+
+export function useImportUrlList() {
+  const invalidate = useInvalidateWebsites();
+  return useMutation({
+    mutationFn: ({ urls, options }) => importUrlList(urls, options),
+    onSuccess: invalidate,
+  });
+}
+
+export function useExportBookmarks() {
+  return useMutation({
+    mutationFn: () => exportBookmarks(),
   });
 }
 

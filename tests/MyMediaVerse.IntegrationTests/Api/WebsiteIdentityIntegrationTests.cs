@@ -77,7 +77,7 @@ namespace MyMediaVerse.IntegrationTests.Api
             var all = await _client.GetFromJsonAsync<List<WebsiteResponseDto>>("/api/website");
             all.Should().ContainSingle();
             all![0].Title.Should().Be("First", "the title is never overwritten by a later save");
-            all[0].Link.Should().Be("https://example.com/page");
+            all[0].Link.Should().Be("https://example.com/Page", "the host is lowercased, the path keeps its case");
         }
 
         [Fact]
@@ -129,6 +129,19 @@ namespace MyMediaVerse.IntegrationTests.Api
             existing!.Id.Should().Be(created!.Id);
             created.Title.Should().Be("Scraped");
             await scraper.Received(1).ScrapeWebsiteAsync(Arg.Any<string>());
+        }
+
+        [Fact]
+        public async Task ImportFromUrl_ReindexesTheNewItem_ButNotAnExistingOne()
+        {
+            var (client, _, reindex) = _factory.CreateClientWithSubstitutes<IWebsiteScraperService, IImportReindexService>(
+                s => s.ScrapeWebsiteAsync(Arg.Any<string>()).Returns(call => Scraped(call.Arg<string>())));
+
+            var first = await client.PostAsJsonAsync("/api/website/from-url", new ImportWebsiteDto { Url = "https://example.com/indexed" });
+            await client.PostAsJsonAsync("/api/website/from-url", new ImportWebsiteDto { Url = "https://example.com/indexed" });
+
+            var created = await first.Content.ReadFromJsonAsync<WebsiteResponseDto>();
+            await reindex.Received(1).ReindexItemAfterImportAsync(created!.Id, "website import");
         }
 
         [Fact]

@@ -128,6 +128,24 @@ namespace MyMediaVerse.Infrastructure.Models
         public double? GoodreadsRating { get; set; }
 
         /// <summary>
+        /// Site domain (for Websites, e.g. "theverge.com") - facetable, groups bookmarks by source
+        /// </summary>
+        [JsonPropertyName("domain")]
+        public string? Domain { get; set; }
+
+        /// <summary>
+        /// Whether the website has a known RSS feed (for Websites) - facetable
+        /// </summary>
+        [JsonPropertyName("has_rss")]
+        public bool? HasRss { get; set; }
+
+        /// <summary>
+        /// HTTP status from the last link check (for Websites; 0 = unreachable) - lets lists flag broken links
+        /// </summary>
+        [JsonPropertyName("link_status")]
+        public int? LinkStatus { get; set; }
+
+        /// <summary>
         /// Text composed for semantic embedding. Typesense auto-embeds this via the collection's
         /// embedding field, so keyword and vector search stay sourced from one place. Serialized
         /// on write; ignored when search hits are deserialized back (no setter).

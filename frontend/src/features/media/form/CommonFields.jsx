@@ -76,13 +76,12 @@ function CommonFields({ lockMediaType = false }) {
           control={control}
           render={({ field }) => (
             <Select labelId="media-type-label" label="Media Type" data-testid="media-type-select" disabled={lockMediaType} {...field}>
-              <MenuItem value="Article">Article (Coming Soon)</MenuItem>
+              {/* Articles and Websites are added from their source (see AddedFromSourcePanel). */}
               <MenuItem value="Book">Book</MenuItem>
               <MenuItem value="Movie">Movie</MenuItem>
               <MenuItem value="Podcast">Podcast</MenuItem>
               <MenuItem value="TVShow">TV Show</MenuItem>
               <MenuItem value="Video">Video</MenuItem>
-              <MenuItem value="Website">Website (Coming Soon)</MenuItem>
             </Select>
           )}
         />

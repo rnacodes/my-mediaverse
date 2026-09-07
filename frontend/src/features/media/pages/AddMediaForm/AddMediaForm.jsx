@@ -16,6 +16,7 @@ import {
 import CommonFields from '@/features/media/form/CommonFields';
 import TypeSpecificFields from '@/features/media/form/TypeSpecificFields';
 import MixlistSelector from './MixlistSelector';
+import AddedFromSourcePanel from './AddedFromSourcePanel';
 import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
 
 function AddMediaForm() {
@@ -121,6 +122,8 @@ function AddMediaForm() {
           <Typography variant="h4" component="h1" gutterBottom sx={{ textAlign: 'center', fontSize: '28px', fontWeight: 'bold', mb: 3 }}>
             Add New Media
           </Typography>
+
+          <AddedFromSourcePanel />
 
           <CommonFields />
           <MixlistSelector />

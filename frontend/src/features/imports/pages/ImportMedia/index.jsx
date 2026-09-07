@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
     Box, Typography, Container, Divider, Snackbar, Alert
 } from '@mui/material';
@@ -15,8 +15,15 @@ import TraktImportSection from './TraktImportSection';
 import WebsiteImportSection from './WebsiteImportSection';
 import YouTubeImportSection from './YouTubeImportSection';
 
+// Accordion panel keys, so links elsewhere can open a section directly (?section=readwise).
+const SECTION_KEYS = ['books', 'tmdb', 'podcasts', 'readwise', 'trakt', 'websites', 'youtube'];
+
 function ImportMediaPage() {
-    const [expanded, setExpanded] = useState(false);
+    const [searchParams] = useSearchParams();
+    const requestedSection = searchParams.get('section');
+    const [expanded, setExpanded] = useState(
+        SECTION_KEYS.includes(requestedSection) ? requestedSection : false
+    );
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
     const navigate = useNavigate();
     const demoBlocked = useDemoWriteBlocked();

@@ -287,6 +287,9 @@ namespace MyMediaVerse.Web.API.Controllers
                     _logger.LogInformation("Processing CSV upload with per-row media types from MediaType column");
                 }
 
+                var topicResolver = new TopicResolver(_context);
+                var genreResolver = new GenreResolver(_context);
+
                 // Process rows based on media type (either from column or parameter)
                 while (csv.Read())
                 {
@@ -380,6 +383,8 @@ namespace MyMediaVerse.Web.API.Controllers
 
                         if (mediaItem != null)
                         {
+                            await ApplyTagColumnsAsync(mediaItem, csv, topicResolver, genreResolver);
+
                             // Add to the appropriate DbSet based on the media type
                             if (mediaItem is Book book)
                             {
@@ -667,7 +672,6 @@ namespace MyMediaVerse.Web.API.Controllers
             book.Notes = GetCsvValue(csv, "Notes");
             book.RelatedNotes = GetCsvValue(csv, "RelatedNotes");
             book.Thumbnail = GetCsvValue(csv, "Thumbnail");
-            // Note: Genre is now handled through the navigation property via ProcessTopicsAndGenres
             book.ISBN = IsbnNormalizer.Normalize(rawIsbn) ?? rawIsbn;
             book.ASIN = asin;
 
@@ -712,7 +716,6 @@ namespace MyMediaVerse.Web.API.Controllers
                 DateTime.TryParse(dateCompletedStr, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime dateCompleted))
                 book.DateCompleted = DateTime.SpecifyKind(dateCompleted, DateTimeKind.Utc);
 
-            // Note: Topics and Genres can be assigned later through the UI
             // For now, we'll just create the basic book entity
 
             return book;
@@ -1011,6 +1014,35 @@ namespace MyMediaVerse.Web.API.Controllers
 
             return website;
         }
+
+        /// <summary>
+        /// Reads the optional Topics and Genres columns (semicolon-separated, pipe tolerated) onto a
+        /// row's new item. Names are trimmed and lowercased like every other tag path.
+        /// </summary>
+        private static async Task ApplyTagColumnsAsync(BaseMediaItem item, CsvReader csv, TopicResolver topics, GenreResolver genres)
+        {
+            foreach (var name in SplitTagColumn(GetCsvValue(csv, "Topics")))
+            {
+                if (item.Topics.Any(t => t.Name == name)) continue;
+                var topic = await topics.GetOrCreateAsync(name);
+                if (topic != null) item.Topics.Add(topic);
+            }
+
+            foreach (var name in SplitTagColumn(GetCsvValue(csv, "Genres")))
+            {
+                if (item.Genres.Any(g => g.Name == name)) continue;
+                var genre = await genres.GetOrCreateAsync(name);
+                if (genre != null) item.Genres.Add(genre);
+            }
+        }
+
+        private static IEnumerable<string> SplitTagColumn(string? value) =>
+            string.IsNullOrWhiteSpace(value)
+                ? Enumerable.Empty<string>()
+                : value.Split(new[] { ';', '|' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(v => v.ToLowerInvariant())
+                    .Where(v => v.Length > 0)
+                    .Distinct(StringComparer.Ordinal);
 
         private static string? GetCsvValue(CsvReader csv, string fieldName)
         {

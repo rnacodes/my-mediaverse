@@ -367,22 +367,30 @@ namespace MyMediaVerse.Application.Services
         {
             if (genres == null) return;
 
+            var resolver = new GenreResolver(_context);
             foreach (var name in genres.Where(g => !string.IsNullOrWhiteSpace(g)))
             {
                 var normalizedGenreName = name.Trim().ToLowerInvariant();
                 if (website.Genres.Any(g => g.Name == normalizedGenreName)) continue;
 
-                var genre = await _context.Genres.FirstOrDefaultAsync(g => g.Name == normalizedGenreName);
-                if (genre == null)
+                var genre = await resolver.GetOrCreateAsync(normalizedGenreName);
+                if (genre != null)
                 {
-                    // Register the new genre explicitly so EF inserts it instead of assuming the
-                    // client-set key already exists.
-                    genre = new Genre { Name = normalizedGenreName };
-                    _context.Add(genre);
+                    website.Genres.Add(genre);
                 }
-
-                website.Genres.Add(genre);
             }
+        }
+
+        public async Task<(byte[] Content, string FileName)> ExportBookmarksAsync()
+        {
+            var websites = await _context.Websites
+                .AsNoTracking()
+                .Include(w => w.Topics)
+                .OrderBy(w => w.DateAdded)
+                .ToListAsync();
+
+            var html = NetscapeBookmarkWriter.Write(websites);
+            return (System.Text.Encoding.UTF8.GetBytes(html), NetscapeBookmarkWriter.FileName(DateTime.UtcNow));
         }
     }
 }

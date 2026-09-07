@@ -163,8 +163,8 @@ namespace MyMediaVerse.UnitTests.Application
 
             var result = await _websiteService.CreateWebsiteAsync(dto);
 
-            result.Website.Link.Should().Be("https://example.com/path");
-            result.Website.UrlKey.Should().Be("example.com/path");
+            result.Website.Link.Should().Be("https://example.com/Path", "the host is lowercased, the path keeps its case");
+            result.Website.UrlKey.Should().Be("example.com/path", "the key is case-insensitive");
             result.Website.Domain.Should().Be("example.com");
         }
 
