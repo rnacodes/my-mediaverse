@@ -28,7 +28,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         public async Task CaptureScreenshotAsync_StoresTheRenderedImage_AndReturnsItsPublicUrl()
         {
             _renderer.RenderAsync(PageUrl, Arg.Any<CancellationToken>()).Returns(Png);
-            _storage.UploadStreamAsync(Arg.Any<Stream>(), "image/png", "screenshots")
+            _storage.UploadStreamAsync(Arg.Any<Stream>(), "image/png", "screenshots/")
                 .Returns(new ThumbnailUploadResult("https://bucket.example/screenshots/abc.png", "screenshots/abc.png"));
 
             var result = await _service.CaptureScreenshotAsync(PageUrl);

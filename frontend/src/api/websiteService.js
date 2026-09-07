@@ -129,6 +129,108 @@ export const deleteWebsite = async (id) => {
     }
 };
 
+// ============================================
+// Enrichment (metadata fill, screenshots, link health)
+// ============================================
+
+/**
+ * Gets the enrichment backlog and the screenshot budget left this month
+ * @returns {{ pendingCount: number, screenshotQuotaRemaining: number }}
+ */
+export const getWebsiteEnrichmentStatus = async () => {
+    try {
+        const response = await apiClient.get('/website/enrichment/status');
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching website enrichment status:', error);
+        throw error;
+    }
+};
+
+/**
+ * Enriches one page of pending websites (oldest first). Call repeatedly until
+ * the returned pendingCount is 0.
+ * @param {number} [limit] - Websites to process in this call (server default 50, max 200)
+ */
+export const runWebsiteEnrichment = async (limit) => {
+    try {
+        const response = await apiClient.post('/website/enrichment/run', null, {
+            params: limit ? { limit } : undefined,
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error running website enrichment:', error);
+        throw error;
+    }
+};
+
+/**
+ * Re-checks stored links that have never been checked or are stale
+ * @param {object} [options] - { limit?, olderThanDays? }
+ */
+export const checkWebsiteLinks = async (options = {}) => {
+    try {
+        const response = await apiClient.post('/website/enrichment/check-links', null, {
+            params: options,
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error checking website links:', error);
+        throw error;
+    }
+};
+
+/**
+ * Re-renders thumbnails that point at the screenshot provider or an animated placeholder
+ * @param {number} [limit] - Thumbnails to repair in this call
+ */
+export const repairWebsiteThumbnails = async (limit) => {
+    try {
+        const response = await apiClient.post('/website/enrichment/repair-thumbnails', null, {
+            params: limit ? { limit } : undefined,
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error repairing website thumbnails:', error);
+        throw error;
+    }
+};
+
+/**
+ * Enriches a single website. Fill-only; pass force to re-run on an already enriched row.
+ * @param {string} id - The website ID
+ * @param {boolean} [force=false]
+ */
+export const enrichWebsite = async (id, force = false) => {
+    try {
+        const response = await apiClient.post(`/website/${id}/enrich`, null, {
+            params: force ? { force: true } : undefined,
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error enriching website:', error);
+        throw error;
+    }
+};
+
+/**
+ * Renders a fresh screenshot for a website. Skipped when it already has a thumbnail
+ * unless force is set, which replaces the current thumbnail.
+ * @param {string} id - The website ID
+ * @param {boolean} [force=false]
+ */
+export const regenerateWebsiteScreenshot = async (id, force = false) => {
+    try {
+        const response = await apiClient.post(`/website/${id}/screenshot`, null, {
+            params: force ? { force: true } : undefined,
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error regenerating website screenshot:', error);
+        throw error;
+    }
+};
+
 /**
  * Gets the latest RSS feed items for a website
  * @param {string} id - The website ID

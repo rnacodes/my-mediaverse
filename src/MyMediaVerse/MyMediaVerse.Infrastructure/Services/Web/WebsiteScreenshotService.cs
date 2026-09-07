@@ -9,7 +9,8 @@ namespace MyMediaVerse.Infrastructure.Services.Web
     /// </summary>
     public class WebsiteScreenshotService : IWebsiteScreenshotService
     {
-        private const string StorageKeyPrefix = "screenshots";
+        // Storage appends the object name directly, so the folder separator belongs to the prefix.
+        private const string StorageKeyPrefix = "screenshots/";
 
         private readonly IScreenshotRenderer _renderer;
         private readonly IScreenshotQuota _quota;

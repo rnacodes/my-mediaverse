@@ -309,6 +309,24 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         [Fact]
+        public async Task ImportWebsiteFromUrlAsync_LeavesTheThumbnailEmpty_WhenNoImageAndNoUsableScreenshot()
+        {
+            // The old screenshot service handed back the render provider's own URL on failure.
+            var screenshots = Substitute.For<IWebsiteScreenshotService>();
+            screenshots.CaptureScreenshotAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns((string?)null);
+            var service = new WebsiteService(
+                Context, _mockScraperService, _mockTypesenseService, _mockThumbnailStorage, _mockLogger, screenshots);
+            _mockScraperService.ScrapeWebsiteAsync("https://test.com/plain")
+                .Returns(new ScrapedWebsiteDataDto { Url = "https://test.com/plain", Title = "Plain", ImageUrl = null });
+
+            var result = await service.ImportWebsiteFromUrlAsync(new ImportWebsiteDto { Url = "https://test.com/plain" });
+
+            result.Created.Should().BeTrue();
+            result.Website.Thumbnail.Should().BeNull();
+            await screenshots.Received(1).CaptureScreenshotAsync("https://test.com/plain", Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
         public async Task ImportWebsiteFromUrlAsync_ExistingUrl_ReturnsExistingWithoutScraping()
         {
             // Arrange: a legacy row with no UrlKey

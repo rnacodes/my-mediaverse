@@ -86,6 +86,7 @@ export const websiteKeys = {
   all: ['website'],
   lists: () => [...websiteKeys.all, 'list'],
   detail: (id) => [...websiteKeys.all, 'detail', id],
+  enrichmentStatus: () => [...websiteKeys.all, 'enrichment', 'status'],
 };
 
 export const youtubeKeys = {

@@ -10,6 +10,12 @@ import {
   updateWebsite,
   deleteWebsite,
   getWebsiteRssFeedItems,
+  getWebsiteEnrichmentStatus,
+  runWebsiteEnrichment,
+  checkWebsiteLinks,
+  repairWebsiteThumbnails,
+  enrichWebsite,
+  regenerateWebsiteScreenshot,
 } from '../api/websiteService';
 import { websiteKeys, mediaKeys } from '../api/queryKeys';
 
@@ -103,6 +109,73 @@ export function useDeleteWebsite() {
     onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: websiteKeys.lists() });
       queryClient.removeQueries({ queryKey: websiteKeys.detail(id) });
+      queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
+    },
+  });
+}
+
+// ----- Enrichment -----
+
+export function useWebsiteEnrichmentStatus(options = {}) {
+  return useQuery({
+    queryKey: websiteKeys.enrichmentStatus(),
+    queryFn: () => getWebsiteEnrichmentStatus(),
+    ...options,
+  });
+}
+
+function useInvalidateWebsites() {
+  const queryClient = useQueryClient();
+  return () => {
+    queryClient.invalidateQueries({ queryKey: websiteKeys.all });
+    queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
+  };
+}
+
+export function useRunWebsiteEnrichment() {
+  const invalidate = useInvalidateWebsites();
+  return useMutation({
+    mutationFn: (limit) => runWebsiteEnrichment(limit),
+    onSuccess: invalidate,
+  });
+}
+
+export function useCheckWebsiteLinks() {
+  const invalidate = useInvalidateWebsites();
+  return useMutation({
+    mutationFn: (options) => checkWebsiteLinks(options),
+    onSuccess: invalidate,
+  });
+}
+
+export function useRepairWebsiteThumbnails() {
+  const invalidate = useInvalidateWebsites();
+  return useMutation({
+    mutationFn: (limit) => repairWebsiteThumbnails(limit),
+    onSuccess: invalidate,
+  });
+}
+
+export function useEnrichWebsite() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, force = false }) => enrichWebsite(id, force),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: websiteKeys.detail(variables.id) });
+      queryClient.invalidateQueries({ queryKey: websiteKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: websiteKeys.enrichmentStatus() });
+      queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
+    },
+  });
+}
+
+export function useRegenerateWebsiteScreenshot() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, force = false }) => regenerateWebsiteScreenshot(id, force),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: websiteKeys.detail(variables.id) });
+      queryClient.invalidateQueries({ queryKey: websiteKeys.lists() });
       queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
     },
   });

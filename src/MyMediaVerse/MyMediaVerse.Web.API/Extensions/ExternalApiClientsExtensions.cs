@@ -8,6 +8,7 @@ using MyMediaVerse.Infrastructure.Clients.Paperless;
 using MyMediaVerse.Infrastructure.Clients.Readwise;
 using MyMediaVerse.Infrastructure.Clients.TMDB;
 using MyMediaVerse.Infrastructure.Clients.Trakt;
+using MyMediaVerse.Infrastructure.Clients.Wayback;
 using MyMediaVerse.Infrastructure.Clients.YouTube;
 using MyMediaVerse.Infrastructure.Services.Web;
 using Microsoft.Extensions.Options;
@@ -237,6 +238,24 @@ public static class ExternalApiClientsExtensions
 
         services.AddScoped<IScreenshotQuota, SyncStateScreenshotQuota>();
         services.AddScoped<IWebsiteScreenshotService, WebsiteScreenshotService>();
+
+        // Enrichment helpers: both are keyless public services.
+        services.Configure<WebsiteEnrichmentOptions>(configuration.GetSection(WebsiteEnrichmentOptions.SectionName));
+
+        services.AddHttpClient<IWaybackMachineClient, WaybackMachineClient>(client =>
+        {
+            client.BaseAddress = new Uri("https://web.archive.org/");
+            client.DefaultRequestHeaders.Add("User-Agent", "MyMediaVerse/1.0");
+            client.Timeout = TimeSpan.FromSeconds(10);
+        });
+
+        // The link checker follows redirects itself so it can report the final status.
+        services.AddHttpClient<ILinkChecker, HttpLinkChecker>(client =>
+        {
+            client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+            client.Timeout = TimeSpan.FromSeconds(15);
+        })
+        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
     }
 
     private static void AddRssFeedClient(this IServiceCollection services)

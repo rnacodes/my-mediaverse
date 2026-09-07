@@ -16,18 +16,21 @@ namespace MyMediaVerse.Web.API.Controllers
         private readonly IWebsiteMappingService _websiteMappingService;
         private readonly IRssFeedService? _rssFeedService;
         private readonly IImportReindexService _importReindexService;
+        private readonly IWebsiteEnrichmentService _enrichmentService;
         private readonly ILogger<WebsiteController> _logger;
 
         public WebsiteController(
             IWebsiteService websiteService,
             IWebsiteMappingService websiteMappingService,
             IImportReindexService importReindexService,
+            IWebsiteEnrichmentService enrichmentService,
             ILogger<WebsiteController> logger,
             IRssFeedService? rssFeedService = null)
         {
             _websiteService = websiteService;
             _websiteMappingService = websiteMappingService;
             _importReindexService = importReindexService;
+            _enrichmentService = enrichmentService;
             _rssFeedService = rssFeedService;
             _logger = logger;
         }
@@ -232,6 +235,46 @@ namespace MyMediaVerse.Web.API.Controllers
                     ErrorMessage = "Failed to regenerate the screenshot",
                     StartedAt = DateTime.UtcNow,
                     CompletedAt = DateTime.UtcNow
+                });
+            }
+        }
+
+        // POST: api/website/{id}/enrich?force=false
+        // Explicit [Authorize]: fetches the page, possibly a screenshot, and the Wayback index.
+        // The filled description feeds the search embedding, so the item is reindexed after.
+        [Authorize]
+        [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
+        [HttpPost("{id:guid}/enrich")]
+        public async Task<ActionResult<SingleWebsiteEnrichmentResult>> EnrichWebsite(Guid id, [FromQuery] bool force = false)
+        {
+            try
+            {
+                var result = await _enrichmentService.EnrichByIdAsync(id, force, HttpContext.RequestAborted);
+
+                if (result.NotFound)
+                {
+                    return NotFound(new { error = $"Website with ID {id} not found." });
+                }
+
+                if (!result.Success)
+                {
+                    return StatusCode(500, result);
+                }
+
+                if (result.FilledFields.Count > 0)
+                {
+                    await _importReindexService.ReindexItemAfterImportAsync(id, "website enrichment");
+                }
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while enriching website {Id}", id);
+                return StatusCode(500, new SingleWebsiteEnrichmentResult
+                {
+                    Success = false,
+                    ErrorMessage = "Failed to enrich the website"
                 });
             }
         }
