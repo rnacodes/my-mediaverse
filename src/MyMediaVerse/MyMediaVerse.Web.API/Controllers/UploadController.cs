@@ -350,6 +350,12 @@ namespace MyMediaVerse.Web.API.Controllers
                                 break;
                             case MediaType.Website:
                                 mediaItem = await ProcessWebsiteRow(csv);
+                                if (mediaItem == null)
+                                {
+                                    skipped.Add($"Row {csv.CurrentIndex}: a website with this URL already exists; skipped");
+                                    skippedCount++;
+                                    continue;
+                                }
                                 break;
                             case MediaType.Podcast:
                                 // Podcast requires special handling - check if it's a series or episode
@@ -442,7 +448,10 @@ namespace MyMediaVerse.Web.API.Controllers
                             }
                             else if (mediaItem is Website website)
                             {
+                                // Saved immediately so a later row with the same URL sees it in the
+                                // finder and is skipped, instead of colliding on the unique key index.
                                 _context.Websites.Add(website);
+                                await _context.SaveChangesAsync();
                                 importedItems.Add(new
                                 {
                                     Id = website.Id,
@@ -948,8 +957,19 @@ namespace MyMediaVerse.Web.API.Controllers
             return Task.FromResult<Video?>(video);
         }
 
-        private Task<Website?> ProcessWebsiteRow(CsvReader csv)
+        private async Task<Website?> ProcessWebsiteRow(CsvReader csv)
         {
+            var rawLink = GetCsvValue(csv, "Url") ?? GetCsvValue(csv, "Link"); // Support both column names
+            var normalizedLink = string.IsNullOrWhiteSpace(rawLink) ? rawLink : UrlNormalizer.Normalize(rawLink);
+
+            var existing = await WebsiteDuplicateFinder.FindExistingAsync(_context.Websites, rawLink);
+            if (existing != null)
+            {
+                _logger.LogInformation("CSV row {RowIndex}: website already exists for {Url} (ID: {Id}); skipping",
+                    csv.CurrentIndex, normalizedLink, existing.Id);
+                return null;
+            }
+
             var website = new Website
             {
                 Title = GetCsvValue(csv, "Title") ?? "Unknown Title",
@@ -960,11 +980,13 @@ namespace MyMediaVerse.Web.API.Controllers
 
             // Optional fields
             website.Description = GetCsvValue(csv, "Description");
-            website.Link = GetCsvValue(csv, "Link");
+            website.Link = normalizedLink;
+            website.UrlKey = string.IsNullOrWhiteSpace(rawLink) ? null : UrlNormalizer.GetComparisonKey(rawLink);
             website.Notes = GetCsvValue(csv, "Notes");
             website.RelatedNotes = GetCsvValue(csv, "RelatedNotes");
             website.Thumbnail = GetCsvValue(csv, "Thumbnail");
-            website.Domain = GetCsvValue(csv, "Domain");
+            var extractedDomain = UrlNormalizer.ExtractDomain(rawLink);
+            website.Domain = string.IsNullOrEmpty(extractedDomain) ? GetCsvValue(csv, "Domain") : extractedDomain;
             website.RssFeedUrl = GetCsvValue(csv, "RssFeedUrl");
             website.Author = GetCsvValue(csv, "Author");
             website.Publication = GetCsvValue(csv, "Publication");
@@ -987,7 +1009,7 @@ namespace MyMediaVerse.Web.API.Controllers
             if (!string.IsNullOrEmpty(ownershipStr) && Enum.TryParse<OwnershipStatus>(ownershipStr, true, out OwnershipStatus ownership))
                 website.OwnershipStatus = ownership;
 
-            return Task.FromResult<Website?>(website);
+            return website;
         }
 
         private static string? GetCsvValue(CsvReader csv, string fieldName)

@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using MyMediaVerse.Application.Services;
@@ -16,14 +17,28 @@ namespace MyMediaVerse.UnitTests.Application
     {
         private readonly ILogger<WebsiteService> _mockLogger;
         private readonly IWebsiteScraperService _mockScraperService;
+        private readonly ITypesenseService _mockTypesenseService;
+        private readonly IThumbnailStorageService _mockThumbnailStorage;
         private readonly WebsiteService _websiteService;
 
         public WebsiteServiceTests()
         {
             _mockLogger = Substitute.For<ILogger<WebsiteService>>();
             _mockScraperService = Substitute.For<IWebsiteScraperService>();
-            _websiteService = new WebsiteService(Context, _mockScraperService, _mockLogger);
+            _mockTypesenseService = Substitute.For<ITypesenseService>();
+            _mockThumbnailStorage = Substitute.For<IThumbnailStorageService>();
+            _websiteService = new WebsiteService(
+                Context, _mockScraperService, _mockTypesenseService, _mockThumbnailStorage, _mockLogger);
         }
+
+        private static ScrapedWebsiteDataDto Scraped(string url, string title = "Scraped Title") => new()
+        {
+            Url = url,
+            Title = title,
+            Domain = "test.com"
+        };
+
+        #region Reads
 
         [Fact]
         public async Task GetAllWebsitesAsync_ShouldReturnAllWebsites()
@@ -62,54 +77,9 @@ namespace MyMediaVerse.UnitTests.Application
         [Fact]
         public async Task GetWebsiteByIdAsync_ShouldReturnNull_WhenWebsiteDoesNotExist()
         {
-            // Arrange
-            var nonExistentId = Guid.NewGuid();
+            var result = await _websiteService.GetWebsiteByIdAsync(Guid.NewGuid());
 
-            // Act
-            var result = await _websiteService.GetWebsiteByIdAsync(nonExistentId);
-
-            // Assert
             result.Should().BeNull();
-        }
-
-        [Fact]
-        public async Task CreateWebsiteAsync_ShouldCreateNewWebsite()
-        {
-            // Arrange
-            var dto = TestDataFactory.CreateWebsiteDto("New Website", "https://newsite.com");
-
-            // Act
-            var result = await _websiteService.CreateWebsiteAsync(dto);
-
-            // Assert
-            result.Should().NotBeNull();
-            result.Title.Should().Be("New Website");
-            result.Link.Should().Be("https://newsite.com");
-            result.Domain.Should().Be("newsite.com");
-            result.MediaType.Should().Be(MediaType.Website);
-            
-            // Verify the website was saved to the database
-            var savedWebsite = await Context.Websites.FindAsync(result.Id);
-            savedWebsite.Should().NotBeNull();
-            savedWebsite!.Title.Should().Be("New Website");
-        }
-
-        [Fact]
-        public async Task CreateWebsiteAsync_ShouldCreateTopicsAndGenres_WhenProvided()
-        {
-            // Arrange
-            var dto = TestDataFactory.CreateWebsiteDto("Website with Tags", "https://tagged.com");
-            dto.Topics = new List<string> { "Technology", "Programming" };
-            dto.Genres = new List<string> { "News", "Tutorial" };
-
-            // Act
-            var result = await _websiteService.CreateWebsiteAsync(dto);
-
-            // Assert
-            result.Topics.Should().HaveCount(2);
-            result.Topics.Select(t => t.Name).Should().BeEquivalentTo(new[] { "technology", "programming" }); // lowercase per standards
-            result.Genres.Should().HaveCount(2);
-            result.Genres.Select(g => g.Name).Should().BeEquivalentTo(new[] { "news", "tutorial" }); // lowercase per standards
         }
 
         [Fact]
@@ -158,6 +128,117 @@ namespace MyMediaVerse.UnitTests.Application
             result.Should().OnlyContain(w => !string.IsNullOrEmpty(w.RssFeedUrl));
         }
 
+        #endregion
+
+        #region Create
+
+        [Fact]
+        public async Task CreateWebsiteAsync_ShouldCreateNewWebsite()
+        {
+            // Arrange
+            var dto = TestDataFactory.CreateWebsiteDto("New Website", "https://newsite.com");
+
+            // Act
+            var result = await _websiteService.CreateWebsiteAsync(dto);
+
+            // Assert
+            result.Created.Should().BeTrue();
+            var website = result.Website;
+            website.Title.Should().Be("New Website");
+            website.Link.Should().Be("https://newsite.com");
+            website.Domain.Should().Be("newsite.com");
+            website.UrlKey.Should().Be("newsite.com");
+            website.MediaType.Should().Be(MediaType.Website);
+            website.Status.Should().Be(Status.Uncharted);
+
+            var savedWebsite = await Context.Websites.FindAsync(website.Id);
+            savedWebsite.Should().NotBeNull();
+            savedWebsite!.Title.Should().Be("New Website");
+        }
+
+        [Fact]
+        public async Task CreateWebsiteAsync_StoresNormalizedLinkKeyAndDomain()
+        {
+            var dto = TestDataFactory.CreateWebsiteDto("Site", "https://WWW.Example.com/Path/?utm_source=x#frag");
+
+            var result = await _websiteService.CreateWebsiteAsync(dto);
+
+            result.Website.Link.Should().Be("https://example.com/path");
+            result.Website.UrlKey.Should().Be("example.com/path");
+            result.Website.Domain.Should().Be("example.com");
+        }
+
+        [Fact]
+        public async Task CreateWebsiteAsync_AppliesStatusRatingAndDateCompleted()
+        {
+            var dto = TestDataFactory.CreateWebsiteDto("Site", "https://example.com");
+            dto.Status = Status.Completed;
+            dto.Rating = Rating.Like;
+            dto.DateCompleted = new DateTime(2026, 1, 2, 0, 0, 0, DateTimeKind.Utc);
+
+            var result = await _websiteService.CreateWebsiteAsync(dto);
+
+            result.Website.Status.Should().Be(Status.Completed);
+            result.Website.Rating.Should().Be(Rating.Like);
+            result.Website.DateCompleted.Should().Be(dto.DateCompleted);
+        }
+
+        [Fact]
+        public async Task CreateWebsiteAsync_ShouldCreateTopicsAndGenres_TrimmedAndLowercased()
+        {
+            // Arrange
+            var dto = TestDataFactory.CreateWebsiteDto("Website with Tags", "https://tagged.com");
+            dto.Topics = new List<string> { " Technology ", "Programming", "", "technology" };
+            dto.Genres = new List<string> { "News ", " Tutorial", "   " };
+
+            // Act
+            var result = await _websiteService.CreateWebsiteAsync(dto);
+
+            // Assert
+            result.Website.Topics.Select(t => t.Name).Should().BeEquivalentTo(new[] { "technology", "programming" });
+            result.Website.Genres.Select(g => g.Name).Should().BeEquivalentTo(new[] { "news", "tutorial" });
+        }
+
+        [Theory]
+        [InlineData("not a url")]
+        [InlineData("ftp://example.com/file")]
+        [InlineData("")]
+        public async Task CreateWebsiteAsync_InvalidUrl_ThrowsArgumentException(string url)
+        {
+            var dto = TestDataFactory.CreateWebsiteDto("Site", url);
+
+            await _websiteService.Invoking(s => s.CreateWebsiteAsync(dto))
+                .Should().ThrowAsync<ArgumentException>();
+        }
+
+        [Fact]
+        public async Task CreateWebsiteAsync_ExistingUrl_ReturnsExistingRowAndAbsorbsMetadata()
+        {
+            // Arrange: first save has no description or topics
+            var first = TestDataFactory.CreateWebsiteDto("Original Title", "https://Example.com/Page?utm_source=x");
+            first.Description = null;
+            var created = await _websiteService.CreateWebsiteAsync(first);
+
+            var second = TestDataFactory.CreateWebsiteDto("Different Title", "http://www.example.com/page/");
+            second.Description = "Filled in later";
+            second.Topics = new List<string> { "News" };
+
+            // Act
+            var result = await _websiteService.CreateWebsiteAsync(second);
+
+            // Assert
+            result.Created.Should().BeFalse();
+            result.Website.Id.Should().Be(created.Website.Id);
+            result.Website.Title.Should().Be("Original Title");
+            result.Website.Description.Should().Be("Filled in later");
+            result.Website.Topics.Select(t => t.Name).Should().Contain("news");
+            (await Context.Websites.CountAsync()).Should().Be(1);
+        }
+
+        #endregion
+
+        #region Import from URL
+
         [Fact]
         public async Task ImportWebsiteFromUrlAsync_ShouldScrapeAndImportWebsite()
         {
@@ -190,19 +271,20 @@ namespace MyMediaVerse.UnitTests.Application
             var result = await _websiteService.ImportWebsiteFromUrlAsync(importDto);
 
             // Assert
-            result.Should().NotBeNull();
-            result.Title.Should().Be("Scraped Title");
-            result.Description.Should().Be("Scraped Description");
-            result.Thumbnail.Should().Be("https://test.com/image.jpg");
-            result.RssFeedUrl.Should().Be("https://test.com/feed");
-            result.Domain.Should().Be("test.com");
-            result.Author.Should().Be("Test Author");
-            result.Publication.Should().Be("Test Publication");
-            result.Notes.Should().Be("Test notes");
-            result.Topics.Should().HaveCount(1);
-            result.Genres.Should().HaveCount(1);
+            result.Created.Should().BeTrue();
+            var website = result.Website;
+            website.Title.Should().Be("Scraped Title");
+            website.Description.Should().Be("Scraped Description");
+            website.Thumbnail.Should().Be("https://test.com/image.jpg");
+            website.RssFeedUrl.Should().Be("https://test.com/feed");
+            website.Domain.Should().Be("test.com");
+            website.Author.Should().Be("Test Author");
+            website.Publication.Should().Be("Test Publication");
+            website.Notes.Should().Be("Test notes");
+            website.Topics.Should().HaveCount(1);
+            website.Genres.Should().HaveCount(1);
 
-            _mockScraperService.Received(1).ScrapeWebsiteAsync(importDto.Url);
+            await _mockScraperService.Received(1).ScrapeWebsiteAsync(importDto.Url);
         }
 
         [Fact]
@@ -215,33 +297,80 @@ namespace MyMediaVerse.UnitTests.Application
                 TitleOverride = "My Custom Title"
             };
 
-            var scrapedData = new ScrapedWebsiteDataDto
-            {
-                Url = "https://test.com",
-                Title = "Scraped Title",
-                Domain = "test.com"
-            };
-
             _mockScraperService
                 .ScrapeWebsiteAsync(importDto.Url)
-                .Returns(scrapedData);
+                .Returns(Scraped(importDto.Url));
 
             // Act
             var result = await _websiteService.ImportWebsiteFromUrlAsync(importDto);
 
             // Assert
-            result.Title.Should().Be("My Custom Title");
+            result.Website.Title.Should().Be("My Custom Title");
         }
 
         [Fact]
-        public async Task UpdateWebsiteAsync_ShouldUpdateExistingWebsite()
+        public async Task ImportWebsiteFromUrlAsync_ExistingUrl_ReturnsExistingWithoutScraping()
+        {
+            // Arrange: a legacy row with no UrlKey
+            var legacy = TestDataFactory.CreateWebsite("Known Site", "https://test.com", "test.com");
+            legacy.UrlKey = null;
+            Context.Websites.Add(legacy);
+            await Context.SaveChangesAsync();
+            Context.ChangeTracker.Clear();
+
+            // Act
+            var result = await _websiteService.ImportWebsiteFromUrlAsync(new ImportWebsiteDto { Url = "http://www.test.com/" });
+
+            // Assert
+            result.Created.Should().BeFalse();
+            result.Website.Id.Should().Be(legacy.Id);
+            result.Website.UrlKey.Should().Be("test.com", "the identity is filled in on the way past");
+            await _mockScraperService.DidNotReceiveWithAnyArgs().ScrapeWebsiteAsync(default!);
+            (await Context.Websites.CountAsync()).Should().Be(1);
+        }
+
+        #endregion
+
+        #region Preview
+
+        [Fact]
+        public async Task ScrapeWebsitePreviewAsync_ReportsExistingWebsite_WhenUrlIsKnown()
+        {
+            var known = TestDataFactory.CreateWebsite("Known Site", "https://test.com/page", "test.com");
+            known.UrlKey = "test.com/page";
+            Context.Websites.Add(known);
+            await Context.SaveChangesAsync();
+            _mockScraperService.ScrapeWebsiteAsync("https://www.test.com/page/").Returns(Scraped("https://www.test.com/page/"));
+
+            var preview = await _websiteService.ScrapeWebsitePreviewAsync("https://www.test.com/page/");
+
+            preview.Title.Should().Be("Scraped Title");
+            preview.ExistingWebsiteId.Should().Be(known.Id);
+            preview.ExistingTitle.Should().Be("Known Site");
+        }
+
+        [Fact]
+        public async Task ScrapeWebsitePreviewAsync_LeavesExistingFieldsNull_WhenUrlIsNew()
+        {
+            _mockScraperService.ScrapeWebsiteAsync("https://new.com").Returns(Scraped("https://new.com"));
+
+            var preview = await _websiteService.ScrapeWebsitePreviewAsync("https://new.com");
+
+            preview.ExistingWebsiteId.Should().BeNull();
+            preview.ExistingTitle.Should().BeNull();
+        }
+
+        #endregion
+
+        #region Update
+
+        [Fact]
+        public async Task UpdateWebsiteAsync_ShouldUpdateExistingWebsite_AsATrackedSave()
         {
             // Arrange
             var existingWebsite = TestDataFactory.CreateWebsite("Old Title", "https://old.com", "old.com");
             Context.Websites.Add(existingWebsite);
             await Context.SaveChangesAsync();
-            
-            // Clear change tracker to avoid entity tracking conflicts
             Context.ChangeTracker.Clear();
 
             var updateDto = TestDataFactory.CreateWebsiteDto("Updated Title", "https://updated.com");
@@ -254,31 +383,95 @@ namespace MyMediaVerse.UnitTests.Application
             result.Title.Should().Be("Updated Title");
             result.Link.Should().Be("https://updated.com");
             result.Domain.Should().Be("updated.com");
+            result.UrlKey.Should().Be("updated.com");
             result.Description.Should().Be("Updated Description");
+
+            Context.ChangeTracker.Clear();
+            var reloaded = await Context.Websites.SingleAsync(w => w.Id == existingWebsite.Id);
+            reloaded.Title.Should().Be("Updated Title");
+            reloaded.UrlKey.Should().Be("updated.com");
+        }
+
+        [Fact]
+        public async Task UpdateWebsiteAsync_NullEnumFields_LeaveExistingValues()
+        {
+            var existing = TestDataFactory.CreateWebsite("Site", "https://site.com", "site.com");
+            existing.Status = Status.Completed;
+            existing.Rating = Rating.SuperLike;
+            Context.Websites.Add(existing);
+            await Context.SaveChangesAsync();
+            Context.ChangeTracker.Clear();
+
+            var dto = TestDataFactory.CreateWebsiteDto("Site", "https://site.com");
+            dto.Status = null;
+            dto.Rating = null;
+
+            var result = await _websiteService.UpdateWebsiteAsync(existing.Id, dto);
+
+            result.Status.Should().Be(Status.Completed);
+            result.Rating.Should().Be(Rating.SuperLike);
+        }
+
+        [Fact]
+        public async Task UpdateWebsiteAsync_ReplacesTopicsAndGenres()
+        {
+            var existing = TestDataFactory.CreateWebsite("Site", "https://site.com", "site.com");
+            existing.Topics.Add(new Topic { Name = "old" });
+            Context.Websites.Add(existing);
+            await Context.SaveChangesAsync();
+            Context.ChangeTracker.Clear();
+
+            var dto = TestDataFactory.CreateWebsiteDto("Site", "https://site.com");
+            dto.Topics = new List<string> { " New " };
+            dto.Genres = new List<string> { "Blog" };
+
+            var result = await _websiteService.UpdateWebsiteAsync(existing.Id, dto);
+
+            result.Topics.Select(t => t.Name).Should().BeEquivalentTo(new[] { "new" });
+            result.Genres.Select(g => g.Name).Should().BeEquivalentTo(new[] { "blog" });
+        }
+
+        [Fact]
+        public async Task UpdateWebsiteAsync_UrlOwnedByAnotherWebsite_ThrowsInvalidOperation()
+        {
+            var first = TestDataFactory.CreateWebsite("First", "https://first.com", "first.com");
+            first.UrlKey = "first.com";
+            var second = TestDataFactory.CreateWebsite("Second", "https://second.com", "second.com");
+            second.UrlKey = "second.com";
+            Context.Websites.AddRange(first, second);
+            await Context.SaveChangesAsync();
+            Context.ChangeTracker.Clear();
+
+            var dto = TestDataFactory.CreateWebsiteDto("Second", "http://www.first.com/");
+
+            await _websiteService.Invoking(s => s.UpdateWebsiteAsync(second.Id, dto))
+                .Should().ThrowAsync<InvalidOperationException>()
+                .WithMessage($"*{first.Id}*");
         }
 
         [Fact]
         public async Task UpdateWebsiteAsync_ShouldThrowKeyNotFoundException_WhenWebsiteDoesNotExist()
         {
-            // Arrange
             var nonExistentId = Guid.NewGuid();
             var updateDto = TestDataFactory.CreateWebsiteDto("Title", "https://test.com");
 
-            // Act & Assert
             await _websiteService.Invoking(s => s.UpdateWebsiteAsync(nonExistentId, updateDto))
                 .Should().ThrowAsync<KeyNotFoundException>()
                 .WithMessage($"Website with ID {nonExistentId} not found.");
         }
 
+        #endregion
+
+        #region Delete
+
         [Fact]
-        public async Task DeleteWebsiteAsync_ShouldDeleteWebsite_WhenWebsiteExists()
+        public async Task DeleteWebsiteAsync_ShouldDeleteWebsite_AndRemoveItFromTheSearchIndex()
         {
             // Arrange
             var website = TestDataFactory.CreateWebsite("To Delete", "https://delete.com", "delete.com");
+            website.Thumbnail = null;
             Context.Websites.Add(website);
             await Context.SaveChangesAsync();
-            
-            // Clear change tracker to avoid entity tracking conflicts
             Context.ChangeTracker.Clear();
 
             // Act
@@ -286,22 +479,50 @@ namespace MyMediaVerse.UnitTests.Application
 
             // Assert
             result.Should().BeTrue();
-            var deletedWebsite = await Context.Websites.FindAsync(website.Id);
-            deletedWebsite.Should().BeNull();
+            (await Context.Websites.FindAsync(website.Id)).Should().BeNull();
+            await _mockTypesenseService.Received(1).DeleteMediaItemAsync(website.Id);
+            await _mockThumbnailStorage.DidNotReceiveWithAnyArgs().DeleteAsync(default);
+        }
+
+        [Fact]
+        public async Task DeleteWebsiteAsync_DeletesTheStoredThumbnail()
+        {
+            var website = TestDataFactory.CreateWebsite("To Delete", "https://delete.com", "delete.com");
+            website.Thumbnail = "https://bucket.example/screenshots/abc.png";
+            Context.Websites.Add(website);
+            await Context.SaveChangesAsync();
+            Context.ChangeTracker.Clear();
+
+            await _websiteService.DeleteWebsiteAsync(website.Id);
+
+            await _mockThumbnailStorage.Received(1).DeleteAsync("https://bucket.example/screenshots/abc.png");
+        }
+
+        [Fact]
+        public async Task DeleteWebsiteAsync_SearchIndexFailure_DoesNotAbortTheDelete()
+        {
+            var website = TestDataFactory.CreateWebsite("To Delete", "https://delete.com", "delete.com");
+            Context.Websites.Add(website);
+            await Context.SaveChangesAsync();
+            Context.ChangeTracker.Clear();
+            _mockTypesenseService.DeleteMediaItemAsync(Arg.Any<Guid>())
+                .Returns(Task.FromException(new HttpRequestException("Typesense down")));
+
+            var result = await _websiteService.DeleteWebsiteAsync(website.Id);
+
+            result.Should().BeTrue();
+            (await Context.Websites.FindAsync(website.Id)).Should().BeNull();
         }
 
         [Fact]
         public async Task DeleteWebsiteAsync_ShouldReturnFalse_WhenWebsiteDoesNotExist()
         {
-            // Arrange
-            var nonExistentId = Guid.NewGuid();
+            var result = await _websiteService.DeleteWebsiteAsync(Guid.NewGuid());
 
-            // Act
-            var result = await _websiteService.DeleteWebsiteAsync(nonExistentId);
-
-            // Assert
             result.Should().BeFalse();
+            await _mockTypesenseService.DidNotReceiveWithAnyArgs().DeleteMediaItemAsync(default);
         }
+
+        #endregion
     }
 }
-

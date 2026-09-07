@@ -1,9 +1,15 @@
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
-using MyMediaVerse.Shared.DTOs.WebsiteScraper;
 
 namespace MyMediaVerse.Application.Interfaces
 {
+    /// <summary>
+    /// Outcome of a website create/import: the persisted row plus whether it was inserted
+    /// (true) or the URL matched an existing website (false), which then absorbed any new
+    /// metadata the caller supplied.
+    /// </summary>
+    public record WebsiteCreationResult(Website Website, bool Created);
+
     /// <summary>
     /// Service interface for managing Website media items.
     /// </summary>
@@ -12,18 +18,16 @@ namespace MyMediaVerse.Application.Interfaces
         // Basic CRUD operations
         Task<IEnumerable<Website>> GetAllWebsitesAsync();
         Task<Website?> GetWebsiteByIdAsync(Guid id);
-        Task<Website> CreateWebsiteAsync(CreateWebsiteDto dto);
+        Task<WebsiteCreationResult> CreateWebsiteAsync(CreateWebsiteDto dto);
         Task<Website> UpdateWebsiteAsync(Guid id, CreateWebsiteDto dto);
         Task<bool> DeleteWebsiteAsync(Guid id);
-        
+
         // Import operations
-        Task<Website> ImportWebsiteFromUrlAsync(ImportWebsiteDto dto);
-        Task<ScrapedWebsiteDataDto> ScrapeWebsitePreviewAsync(string url);
-        
+        Task<WebsiteCreationResult> ImportWebsiteFromUrlAsync(ImportWebsiteDto dto);
+        Task<WebsitePreviewDto> ScrapeWebsitePreviewAsync(string url);
+
         // Query operations
         Task<IEnumerable<Website>> GetWebsitesByDomainAsync(string domain);
         Task<IEnumerable<Website>> GetWebsitesWithRssFeedsAsync();
-        Task<Website?> GetWebsiteByUrlAsync(string url);
     }
 }
-

@@ -1,8 +1,10 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.DTOs;
-using MyMediaVerse.Shared.DTOs.WebsiteScraper;
 using MyMediaVerse.Shared.Interfaces;
+using MyMediaVerse.Web.API.Extensions;
 
 namespace MyMediaVerse.Web.API.Controllers
 {
@@ -40,7 +42,7 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while retrieving all websites");
-                return StatusCode(500, new { error = "Failed to retrieve websites", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to retrieve websites" });
             }
         }
 
@@ -53,7 +55,7 @@ namespace MyMediaVerse.Web.API.Controllers
                 var website = await _websiteService.GetWebsiteByIdAsync(id);
                 if (website == null)
                 {
-                    return NotFound($"Website with ID {id} not found.");
+                    return NotFound(new { error = $"Website with ID {id} not found." });
                 }
 
                 var response = await _websiteMappingService.MapToResponseDtoAsync(website);
@@ -62,24 +64,29 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while retrieving website with ID {Id}", id);
-                return StatusCode(500, new { error = "Failed to retrieve website", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to retrieve website" });
             }
         }
 
         // POST: api/website
+        // 201 when a new website is created; 200 with the existing website when the URL is
+        // already in the library (its metadata is filled in from the request where empty).
         [HttpPost]
         public async Task<ActionResult<WebsiteResponseDto>> CreateWebsite([FromBody] CreateWebsiteDto dto)
         {
             try
             {
-                var website = await _websiteService.CreateWebsiteAsync(dto);
-                var response = await _websiteMappingService.MapToResponseDtoAsync(website);
-                return CreatedAtAction(nameof(GetWebsite), new { id = website.Id }, response);
+                var result = await _websiteService.CreateWebsiteAsync(dto);
+                return await CreatedOrExistingAsync(result);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while creating website");
-                return StatusCode(500, new { error = "Failed to create website", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to create website" });
             }
         }
 
@@ -97,10 +104,18 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 return NotFound(new { error = ex.Message });
             }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { error = ex.Message });
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while updating website with ID {Id}", id);
-                return StatusCode(500, new { error = "Failed to update website", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to update website" });
             }
         }
 
@@ -113,7 +128,7 @@ namespace MyMediaVerse.Web.API.Controllers
                 var result = await _websiteService.DeleteWebsiteAsync(id);
                 if (!result)
                 {
-                    return NotFound($"Website with ID {id} not found.");
+                    return NotFound(new { error = $"Website with ID {id} not found." });
                 }
 
                 return NoContent();
@@ -121,19 +136,22 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while deleting website with ID {Id}", id);
-                return StatusCode(500, new { error = "Failed to delete website", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to delete website" });
             }
         }
 
-        // POST: api/website/import
-        [HttpPost("import")]
+        // POST: api/website/from-url
+        // Explicit [Authorize] even though the fallback policy already requires a token: this endpoint
+        // writes to the library and fetches the target page (and possibly a screenshot) per request.
+        [Authorize]
+        [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
+        [HttpPost("from-url")]
         public async Task<ActionResult<WebsiteResponseDto>> ImportWebsite([FromBody] ImportWebsiteDto dto)
         {
             try
             {
-                var website = await _websiteService.ImportWebsiteFromUrlAsync(dto);
-                var response = await _websiteMappingService.MapToResponseDtoAsync(website);
-                return CreatedAtAction(nameof(GetWebsite), new { id = website.Id }, response);
+                var result = await _websiteService.ImportWebsiteFromUrlAsync(dto);
+                return await CreatedOrExistingAsync(result);
             }
             catch (ArgumentException ex)
             {
@@ -141,23 +159,27 @@ namespace MyMediaVerse.Web.API.Controllers
             }
             catch (HttpRequestException ex)
             {
-                return BadRequest(new { error = "Failed to fetch website", details = ex.Message });
+                _logger.LogWarning(ex, "Failed to fetch website for import: {Url}", dto.Url);
+                return BadRequest(new { error = "Failed to fetch website" });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while importing website from URL: {Url}", dto.Url);
-                return StatusCode(500, new { error = "Failed to import website", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to import website" });
             }
         }
 
         // POST: api/website/scrape-preview
+        // Explicit [Authorize]: fetches an arbitrary user-supplied URL through the server.
+        [Authorize]
+        [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
         [HttpPost("scrape-preview")]
-        public async Task<ActionResult<ScrapedWebsiteDataDto>> ScrapePreview([FromBody] string url)
+        public async Task<ActionResult<WebsitePreviewDto>> ScrapePreview([FromBody] ScrapePreviewRequestDto request)
         {
             try
             {
-                var scrapedData = await _websiteService.ScrapeWebsitePreviewAsync(url);
-                return Ok(scrapedData);
+                var preview = await _websiteService.ScrapeWebsitePreviewAsync(request.Url);
+                return Ok(preview);
             }
             catch (ArgumentException ex)
             {
@@ -165,12 +187,13 @@ namespace MyMediaVerse.Web.API.Controllers
             }
             catch (HttpRequestException ex)
             {
-                return BadRequest(new { error = "Failed to fetch website", details = ex.Message });
+                _logger.LogWarning(ex, "Failed to fetch website for preview: {Url}", request.Url);
+                return BadRequest(new { error = "Failed to fetch website" });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error occurred while scraping preview for URL: {Url}", url);
-                return StatusCode(500, new { error = "Failed to scrape website", details = ex.Message });
+                _logger.LogError(ex, "Error occurred while scraping preview for URL: {Url}", request.Url);
+                return StatusCode(500, new { error = "Failed to scrape website" });
             }
         }
 
@@ -187,7 +210,7 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while retrieving websites by domain: {Domain}", domain);
-                return StatusCode(500, new { error = "Failed to retrieve websites", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to retrieve websites" });
             }
         }
 
@@ -204,7 +227,7 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while retrieving websites with RSS feeds");
-                return StatusCode(500, new { error = "Failed to retrieve websites", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to retrieve websites" });
             }
         }
 
@@ -236,9 +259,16 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while fetching RSS items for website {Id}", id);
-                return StatusCode(500, new { error = "Failed to fetch RSS feed items", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to fetch RSS feed items" });
             }
+        }
+
+        private async Task<ActionResult<WebsiteResponseDto>> CreatedOrExistingAsync(WebsiteCreationResult result)
+        {
+            var response = await _websiteMappingService.MapToResponseDtoAsync(result.Website);
+            return result.Created
+                ? CreatedAtAction(nameof(GetWebsite), new { id = result.Website.Id }, response)
+                : Ok(response);
         }
     }
 }
-

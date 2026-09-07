@@ -31,6 +31,8 @@ namespace MyMediaVerse.Application.Services
                 Author = website.Author,
                 Publication = website.Publication,
                 LastCheckedDate = website.LastCheckedDate,
+                EnrichedAt = website.EnrichedAt,
+                LastHttpStatus = website.LastHttpStatus,
                 DateAdded = website.DateAdded,
                 Status = website.Status.ToString(),
                 Rating = website.Rating?.ToString(),

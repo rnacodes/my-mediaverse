@@ -15,6 +15,8 @@ namespace MyMediaVerse.DTOs
         public string? Author { get; set; }
         public string? Publication { get; set; }
         public DateTime? LastCheckedDate { get; set; }
+        public DateTime? EnrichedAt { get; set; }
+        public int? LastHttpStatus { get; set; }
         public DateTime DateAdded { get; set; }
         public string Status { get; set; } = "Uncharted";
         public string? Rating { get; set; }

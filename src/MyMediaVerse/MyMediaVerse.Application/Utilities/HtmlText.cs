@@ -1,10 +1,11 @@
+using System.Net;
 using System.Text.RegularExpressions;
 
 namespace MyMediaVerse.Application.Utilities
 {
     /// <summary>
     /// Turns HTML fragments from external APIs (Google Books descriptions, feed summaries)
-    /// into plain text: tags removed, common entities decoded, whitespace collapsed.
+    /// into plain text: tags removed, entities decoded, whitespace collapsed.
     /// </summary>
     public static class HtmlText
     {
@@ -23,14 +24,9 @@ namespace MyMediaVerse.Application.Utilities
 
             var text = TagPattern.Replace(html, " ");
 
-            text = text
-                .Replace("&nbsp;", " ")
-                .Replace("&amp;", "&")
-                .Replace("&lt;", "<")
-                .Replace("&gt;", ">")
-                .Replace("&quot;", "\"")
-                .Replace("&#39;", "'")
-                .Replace("&apos;", "'");
+            // Full entity decode (named, decimal and hex), then treat the non-breaking space as
+            // ordinary whitespace so it collapses with the rest.
+            text = WebUtility.HtmlDecode(text).Replace(' ', ' ');
 
             text = WhitespacePattern.Replace(text, " ");
             text = SpaceBeforePunctuation.Replace(text, "$1").Trim();

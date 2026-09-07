@@ -10,7 +10,7 @@ import { apiClient } from './apiClient';
  */
 export const scrapeWebsitePreview = async (url) => {
     try {
-        const response = await apiClient.post('/website/scrape-preview', JSON.stringify(url));
+        const response = await apiClient.post('/website/scrape-preview', { url });
         return response.data;
     } catch (error) {
         console.error('Error scraping website:', error);
@@ -19,12 +19,13 @@ export const scrapeWebsitePreview = async (url) => {
 };
 
 /**
- * Imports a website from a URL
+ * Imports a website from a URL. Returns the existing website (HTTP 200) when the
+ * URL is already in the library, or the newly created one (HTTP 201).
  * @param {object} websiteData - { url, titleOverride?, notes?, topics?, genres? }
  */
 export const importWebsite = async (websiteData) => {
     try {
-        const response = await apiClient.post('/website/import', websiteData);
+        const response = await apiClient.post('/website/from-url', websiteData);
         return response.data;
     } catch (error) {
         console.error('Error importing website:', error);

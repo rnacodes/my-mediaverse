@@ -52,6 +52,13 @@ namespace MyMediaVerse.Web.API.Controllers
                 return BadRequest(new { error = "Books must be created via POST /api/book." });
             }
 
+            // A website's identity is its URL and the website endpoint owns that normalization
+            // and duplicate check; the generic path would insert an unkeyed row.
+            if (dto.MediaType == MediaType.Website)
+            {
+                return BadRequest(new { error = "Websites must be created via POST /api/website." });
+            }
+
             var response = await _mediaService.CreateMediaItemAsync(dto);
             return CreatedAtAction(nameof(GetMediaItem), new { id = response.Id }, response);
         }

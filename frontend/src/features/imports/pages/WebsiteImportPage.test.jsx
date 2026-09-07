@@ -8,7 +8,7 @@ import WebsiteImportPage from './WebsiteImportPage';
 // WebsiteImportPage fetches nothing on mount: scrape/import are mutations and the
 // topic/genre autocompletes only query on non-empty input. Preview validates the
 // URL client-side (new URL(...)) before hitting POST /website/scrape-preview;
-// Import posts to /website/import and, on success, shows a success Alert then
+// Import posts to /website/from-url and, on success, shows a success Alert then
 // navigates after a 1.5s timer (the alert is asserted; the timed nav is not).
 const URL_FIELD = { name: 'URL' };
 
@@ -55,7 +55,7 @@ describe('WebsiteImportPage', () => {
   it('imports a website and shows the success message', async () => {
     let captured;
     server.use(
-      http.post(`${API_BASE}/website/import`, async ({ request }) => {
+      http.post(`${API_BASE}/website/from-url`, async ({ request }) => {
         captured = await request.json();
         return HttpResponse.json({ id: 'new-site', title: 'Imported Example' });
       }),
@@ -74,7 +74,7 @@ describe('WebsiteImportPage', () => {
   it('shows an error alert when the import fails', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     server.use(
-      http.post(`${API_BASE}/website/import`, () => new HttpResponse(null, { status: 500 })),
+      http.post(`${API_BASE}/website/from-url`, () => new HttpResponse(null, { status: 500 })),
     );
 
     const { user } = renderWithProviders(<WebsiteImportPage />, { route: '/import-website' });

@@ -179,6 +179,34 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             result[0].Description.Should().NotContain("<strong>");
         }
 
+        [Fact]
+        public async Task GetLatestFeedItemsAsync_LongHtmlDescription_DecodesEntitiesAndTruncatesTo300()
+        {
+            // 400 words of "caf&eacute;" ≈ well over the cap once decoded
+            var longBody = string.Join(" ", Enumerable.Repeat("caf&eacute; &amp; more", 60));
+            var rssFeed = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
+                <rss version=""2.0"">
+                    <channel>
+                        <title>Test Feed</title>
+                        <item>
+                            <title>Article</title>
+                            <link>https://example.com/article</link>
+                            <description><![CDATA[<p>{longBody}</p>]]></description>
+                        </item>
+                    </channel>
+                </rss>";
+
+            var service = CreateServiceWithResponse(rssFeed);
+
+            var result = await service.GetLatestFeedItemsAsync("https://example.com/feed.xml");
+
+            result.Should().HaveCount(1);
+            var description = result[0].Description!;
+            description.Should().StartWith("café & more");
+            description.Should().HaveLength(300);
+            description.Should().EndWith("...");
+        }
+
         #endregion
     }
 }

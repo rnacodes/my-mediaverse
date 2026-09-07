@@ -9,6 +9,27 @@ namespace MyMediaVerse.Domain.Entities
     public class Website : BaseMediaItem
     {
         /// <summary>
+        /// Scheme-insensitive comparison key derived from <see cref="BaseMediaItem.Link"/>
+        /// (tracking parameters, fragment, www prefix and trailing slash removed). The URL is
+        /// the identity of a website, and this column is what duplicate detection matches on.
+        /// Unique when present; rows saved before the column existed are matched by Link instead.
+        /// </summary>
+        [StringLength(2000)]
+        public string? UrlKey { get; set; }
+
+        /// <summary>
+        /// When metadata enrichment (description, thumbnail, feed, archive links) last ran for
+        /// this website. Null means the row is still a stub awaiting enrichment.
+        /// </summary>
+        public DateTime? EnrichedAt { get; set; }
+
+        /// <summary>
+        /// HTTP status returned by the most recent check of the URL (0 = network failure).
+        /// Null until the URL has been checked at least once.
+        /// </summary>
+        public int? LastHttpStatus { get; set; }
+
+        /// <summary>
         /// URL of the RSS feed associated with this website, if discovered during scraping.
         /// </summary>
         [Url]
