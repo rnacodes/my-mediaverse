@@ -20,6 +20,7 @@ namespace MyMediaVerse.Application.Services
         private readonly ITypesenseService _typesenseService;
         private readonly IThumbnailStorageService _thumbnailStorage;
         private readonly IWebsiteScreenshotService? _screenshotService;
+        private readonly IScreenshotQuota? _screenshotQuota;
         private readonly ILogger<WebsiteService> _logger;
 
         public WebsiteService(
@@ -28,13 +29,15 @@ namespace MyMediaVerse.Application.Services
             ITypesenseService typesenseService,
             IThumbnailStorageService thumbnailStorage,
             ILogger<WebsiteService> logger,
-            IWebsiteScreenshotService? screenshotService = null)
+            IWebsiteScreenshotService? screenshotService = null,
+            IScreenshotQuota? screenshotQuota = null)
         {
             _context = context;
             _scraperService = scraperService;
             _typesenseService = typesenseService;
             _thumbnailStorage = thumbnailStorage;
             _screenshotService = screenshotService;
+            _screenshotQuota = screenshotQuota;
             _logger = logger;
         }
 
@@ -251,6 +254,65 @@ namespace MyMediaVerse.Application.Services
 
             var existing = await WebsiteDuplicateFinder.FindExistingAsync(_context.Websites.AsNoTracking(), url);
             return WebsitePreviewDto.FromScraped(scraped, existing?.Id, existing?.Title);
+        }
+
+        public async Task<WebsiteScreenshotResultDto?> RegenerateScreenshotAsync(Guid id, bool force, CancellationToken cancellationToken = default)
+        {
+            var result = new WebsiteScreenshotResultDto { StartedAt = DateTime.UtcNow };
+
+            var website = await _context.Websites.FirstOrDefaultAsync(w => w.Id == id, cancellationToken);
+            if (website == null)
+                return null;
+
+            result.Thumbnail = website.Thumbnail;
+
+            if (!string.IsNullOrEmpty(website.Thumbnail) && !force)
+            {
+                result.Skipped = true;
+                result.WarningMessage = "The website already has a thumbnail; pass force=true to replace it.";
+                return Complete(result);
+            }
+
+            if (_screenshotService == null)
+            {
+                result.WarningMessage = "Screenshots are not configured.";
+                return Complete(result);
+            }
+
+            if (_screenshotQuota != null && await _screenshotQuota.RemainingAsync(cancellationToken) <= 0)
+            {
+                result.WarningMessage = "The monthly screenshot quota has been reached; try again next month or switch the screenshot provider.";
+                return Complete(result);
+            }
+
+            var newThumbnail = await _screenshotService.CaptureScreenshotAsync(website.Link ?? string.Empty, cancellationToken);
+            if (newThumbnail == null)
+            {
+                result.WarningMessage = "No usable screenshot could be rendered for this page.";
+                return Complete(result);
+            }
+
+            var previous = website.Thumbnail;
+            website.Thumbnail = newThumbnail;
+            website.LastCheckedDate = DateTime.UtcNow;
+            await _context.SaveChangesAsync(cancellationToken);
+
+            // Storage ignores URLs outside our bucket, so a provider-hosted og:image is left alone.
+            if (!string.IsNullOrEmpty(previous) && previous != newThumbnail)
+            {
+                await _thumbnailStorage.DeleteAsync(previous);
+            }
+
+            result.Rendered = true;
+            result.Thumbnail = newThumbnail;
+            _logger.LogInformation("Regenerated screenshot for website {Id}: {Thumbnail}", id, newThumbnail);
+            return Complete(result);
+
+            static WebsiteScreenshotResultDto Complete(WebsiteScreenshotResultDto r)
+            {
+                r.CompletedAt = DateTime.UtcNow;
+                return r;
+            }
         }
 
         public async Task<IEnumerable<Website>> GetWebsitesByDomainAsync(string domain)

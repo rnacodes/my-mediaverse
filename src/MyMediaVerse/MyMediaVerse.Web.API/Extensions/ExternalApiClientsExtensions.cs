@@ -10,6 +10,9 @@ using MyMediaVerse.Infrastructure.Clients.TMDB;
 using MyMediaVerse.Infrastructure.Clients.Trakt;
 using MyMediaVerse.Infrastructure.Clients.YouTube;
 using MyMediaVerse.Infrastructure.Services.Web;
+using Microsoft.Extensions.Options;
+using MyMediaVerse.Application.Services;
+using MyMediaVerse.Shared.Configuration;
 using MyMediaVerse.Shared.Interfaces;
 using Polly;
 
@@ -33,7 +36,7 @@ public static class ExternalApiClientsExtensions
         services.AddGoogleBooksApiClient();
         services.AddQuartzApiClient();
         services.AddGradientAIClient(configuration, logger);
-        services.AddWebsiteScrapingClients();
+        services.AddWebsiteScrapingClients(configuration);
         services.AddRssFeedClient();
         services.AddTmdbClient(configuration, logger);
         services.AddTraktClient();
@@ -206,7 +209,7 @@ public static class ExternalApiClientsExtensions
         });
     }
 
-    private static void AddWebsiteScrapingClients(this IServiceCollection services)
+    private static void AddWebsiteScrapingClients(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddHttpClient<IWebsiteScraperService, WebsiteScraperService>(client =>
         {
@@ -214,11 +217,26 @@ public static class ExternalApiClientsExtensions
             client.Timeout = TimeSpan.FromSeconds(30);
         });
 
-        services.AddHttpClient<IWebsiteScreenshotService, WebsiteScreenshotService>(client =>
+        // Screenshot pipeline: options carry code defaults, so the section may be absent entirely.
+        // The renderer is chosen by WebsiteScreenshots:Provider ("thumio" default, "none" to disable).
+        services.Configure<WebsiteScreenshotOptions>(configuration.GetSection(WebsiteScreenshotOptions.SectionName));
+
+        services.AddHttpClient<ThumIoScreenshotRenderer>(client =>
         {
             client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
             client.Timeout = TimeSpan.FromSeconds(30);
         });
+
+        services.AddScoped<IScreenshotRenderer>(provider =>
+        {
+            var options = provider.GetRequiredService<IOptions<WebsiteScreenshotOptions>>().Value;
+            return string.Equals(options.Provider, WebsiteScreenshotOptions.NoneProvider, StringComparison.OrdinalIgnoreCase)
+                ? new NullScreenshotRenderer()
+                : provider.GetRequiredService<ThumIoScreenshotRenderer>();
+        });
+
+        services.AddScoped<IScreenshotQuota, SyncStateScreenshotQuota>();
+        services.AddScoped<IWebsiteScreenshotService, WebsiteScreenshotService>();
     }
 
     private static void AddRssFeedClient(this IServiceCollection services)

@@ -318,6 +318,7 @@ namespace MyMediaVerse.IntegrationTests.Api
                 ["Website.GetWebsitesByDomain"] = Unclassified,
                 ["Website.GetWebsitesWithRss"] = Unclassified,
                 ["Website.ImportWebsite"] = Authorized,
+                ["Website.RegenerateScreenshot"] = Authorized,
                 ["Website.ScrapePreview"] = Authorized,
                 ["Website.UpdateWebsite"] = Unclassified,
                 ["YouTube.GetAllPlaylistItems"] = Unclassified,

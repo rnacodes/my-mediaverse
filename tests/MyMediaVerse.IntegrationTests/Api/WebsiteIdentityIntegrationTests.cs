@@ -255,6 +255,52 @@ namespace MyMediaVerse.IntegrationTests.Api
 
         #endregion
 
+        #region Regenerate screenshot
+
+        [Fact]
+        public async Task RegenerateScreenshot_SkipsAWebsiteWithAThumbnail_AndForceRendersThroughTheRenderer()
+        {
+            var dto = Dto("https://example.com/shot", "Shot");
+            dto.Thumbnail = "https://example.com/og.png";
+            var createResponse = await _client.PostAsJsonAsync("/api/website", dto);
+            var created = await createResponse.Content.ReadFromJsonAsync<WebsiteResponseDto>();
+
+            var skipped = await _client.PostAsync($"/api/website/{created!.Id}/screenshot", null);
+            // The test host substitutes the renderer with one that renders nothing.
+            var forced = await _client.PostAsync($"/api/website/{created.Id}/screenshot?force=true", null);
+
+            skipped.StatusCode.Should().Be(HttpStatusCode.OK);
+            var skippedResult = await skipped.Content.ReadFromJsonAsync<WebsiteScreenshotResultDto>();
+            skippedResult!.Skipped.Should().BeTrue();
+            skippedResult.Thumbnail.Should().Be("https://example.com/og.png");
+
+            forced.StatusCode.Should().Be(HttpStatusCode.OK);
+            var forcedResult = await forced.Content.ReadFromJsonAsync<WebsiteScreenshotResultDto>();
+            forcedResult!.Success.Should().BeTrue();
+            forcedResult.Rendered.Should().BeFalse();
+            forcedResult.WarningMessage.Should().NotBeNullOrEmpty();
+            forcedResult.Operation.Should().Be("website-screenshot");
+        }
+
+        [Fact]
+        public async Task RegenerateScreenshot_UnknownWebsite_ReturnsNotFoundErrorObject()
+        {
+            var response = await _client.PostAsync($"/api/website/{Guid.NewGuid()}/screenshot", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+            (await ReadJson(response)).TryGetProperty("error", out _).Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task RegenerateScreenshot_WithoutToken_ReturnsUnauthorized()
+        {
+            var response = await _factory.CreateAnonymousClient().PostAsync($"/api/website/{Guid.NewGuid()}/screenshot", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        }
+
+        #endregion
+
         #region Generic media endpoint
 
         [Fact]

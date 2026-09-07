@@ -462,6 +462,102 @@ namespace MyMediaVerse.UnitTests.Application
 
         #endregion
 
+        #region Regenerate screenshot
+
+        private WebsiteService ServiceWithScreenshots(IWebsiteScreenshotService screenshots, IScreenshotQuota? quota = null) =>
+            new(Context, _mockScraperService, _mockTypesenseService, _mockThumbnailStorage, _mockLogger, screenshots, quota);
+
+        [Fact]
+        public async Task RegenerateScreenshotAsync_ReturnsNull_WhenWebsiteDoesNotExist()
+        {
+            var service = ServiceWithScreenshots(Substitute.For<IWebsiteScreenshotService>());
+
+            (await service.RegenerateScreenshotAsync(Guid.NewGuid(), force: false)).Should().BeNull();
+        }
+
+        [Fact]
+        public async Task RegenerateScreenshotAsync_SkipsAWebsiteThatAlreadyHasAThumbnail_UnlessForced()
+        {
+            var website = TestDataFactory.CreateWebsite("Site", "https://site.com", "site.com");
+            website.Thumbnail = "https://site.com/og.png";
+            Context.Websites.Add(website);
+            await Context.SaveChangesAsync();
+            Context.ChangeTracker.Clear();
+            var screenshots = Substitute.For<IWebsiteScreenshotService>();
+            var service = ServiceWithScreenshots(screenshots);
+
+            var result = await service.RegenerateScreenshotAsync(website.Id, force: false);
+
+            result!.Skipped.Should().BeTrue();
+            result.Rendered.Should().BeFalse();
+            result.Thumbnail.Should().Be("https://site.com/og.png");
+            await screenshots.DidNotReceiveWithAnyArgs().CaptureScreenshotAsync(default!, default);
+        }
+
+        [Fact]
+        public async Task RegenerateScreenshotAsync_Forced_ReplacesTheThumbnailAndDeletesTheOldObject()
+        {
+            var website = TestDataFactory.CreateWebsite("Site", "https://site.com", "site.com");
+            website.Thumbnail = "https://bucket.example/screenshots/old.gif";
+            Context.Websites.Add(website);
+            await Context.SaveChangesAsync();
+            Context.ChangeTracker.Clear();
+            var screenshots = Substitute.For<IWebsiteScreenshotService>();
+            screenshots.CaptureScreenshotAsync("https://site.com", Arg.Any<CancellationToken>())
+                .Returns("https://bucket.example/screenshots/new.png");
+            var service = ServiceWithScreenshots(screenshots);
+
+            var result = await service.RegenerateScreenshotAsync(website.Id, force: true);
+
+            result!.Rendered.Should().BeTrue();
+            result.Thumbnail.Should().Be("https://bucket.example/screenshots/new.png");
+            Context.ChangeTracker.Clear();
+            (await Context.Websites.SingleAsync(w => w.Id == website.Id)).Thumbnail.Should().Be("https://bucket.example/screenshots/new.png");
+            await _mockThumbnailStorage.Received(1).DeleteAsync("https://bucket.example/screenshots/old.gif");
+        }
+
+        [Fact]
+        public async Task RegenerateScreenshotAsync_ReportsAWarning_WhenNothingUsableIsRendered()
+        {
+            var website = TestDataFactory.CreateWebsite("Site", "https://site.com", "site.com");
+            website.Thumbnail = null;
+            Context.Websites.Add(website);
+            await Context.SaveChangesAsync();
+            Context.ChangeTracker.Clear();
+            var screenshots = Substitute.For<IWebsiteScreenshotService>();
+            screenshots.CaptureScreenshotAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns((string?)null);
+            var service = ServiceWithScreenshots(screenshots);
+
+            var result = await service.RegenerateScreenshotAsync(website.Id, force: false);
+
+            result!.Success.Should().BeTrue();
+            result.Rendered.Should().BeFalse();
+            result.WarningMessage.Should().NotBeNullOrEmpty();
+            (await Context.Websites.SingleAsync(w => w.Id == website.Id)).Thumbnail.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task RegenerateScreenshotAsync_DoesNotRender_WhenTheQuotaIsExhausted()
+        {
+            var website = TestDataFactory.CreateWebsite("Site", "https://site.com", "site.com");
+            website.Thumbnail = null;
+            Context.Websites.Add(website);
+            await Context.SaveChangesAsync();
+            Context.ChangeTracker.Clear();
+            var screenshots = Substitute.For<IWebsiteScreenshotService>();
+            var quota = Substitute.For<IScreenshotQuota>();
+            quota.RemainingAsync(Arg.Any<CancellationToken>()).Returns(0);
+            var service = ServiceWithScreenshots(screenshots, quota);
+
+            var result = await service.RegenerateScreenshotAsync(website.Id, force: true);
+
+            result!.Rendered.Should().BeFalse();
+            result.WarningMessage.Should().Contain("quota");
+            await screenshots.DidNotReceiveWithAnyArgs().CaptureScreenshotAsync(default!, default);
+        }
+
+        #endregion
+
         #region Delete
 
         [Fact]

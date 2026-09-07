@@ -26,6 +26,13 @@ namespace MyMediaVerse.Application.Interfaces
         Task<WebsiteCreationResult> ImportWebsiteFromUrlAsync(ImportWebsiteDto dto);
         Task<WebsitePreviewDto> ScrapeWebsitePreviewAsync(string url);
 
+        /// <summary>
+        /// Renders a fresh screenshot and stores it as the website's thumbnail. Returns null when
+        /// the website does not exist. Without <paramref name="force"/> a website that already
+        /// has a thumbnail is left alone and reported as skipped.
+        /// </summary>
+        Task<WebsiteScreenshotResultDto?> RegenerateScreenshotAsync(Guid id, bool force, CancellationToken cancellationToken = default);
+
         // Query operations
         Task<IEnumerable<Website>> GetWebsitesByDomainAsync(string domain);
         Task<IEnumerable<Website>> GetWebsitesWithRssFeedsAsync();

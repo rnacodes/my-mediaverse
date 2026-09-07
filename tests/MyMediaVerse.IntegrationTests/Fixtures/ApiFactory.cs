@@ -167,6 +167,8 @@ namespace MyMediaVerse.IntegrationTests.Fixtures
 
                 // Substitute external services so tests stay hermetic.
                 ReplaceWithSubstitute<ITypesenseService>(services);
+                // The screenshot renderer would call thum.io; the substitute renders nothing.
+                ReplaceWithSubstitute<IScreenshotRenderer>(services);
 
                 // ListenNotes points at the public mock server when not substituted out elsewhere.
                 var listenNotesDescriptors = services.Where(d =>

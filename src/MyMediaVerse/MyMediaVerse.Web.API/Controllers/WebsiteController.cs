@@ -15,16 +15,19 @@ namespace MyMediaVerse.Web.API.Controllers
         private readonly IWebsiteService _websiteService;
         private readonly IWebsiteMappingService _websiteMappingService;
         private readonly IRssFeedService? _rssFeedService;
+        private readonly IImportReindexService _importReindexService;
         private readonly ILogger<WebsiteController> _logger;
 
         public WebsiteController(
             IWebsiteService websiteService,
             IWebsiteMappingService websiteMappingService,
+            IImportReindexService importReindexService,
             ILogger<WebsiteController> logger,
             IRssFeedService? rssFeedService = null)
         {
             _websiteService = websiteService;
             _websiteMappingService = websiteMappingService;
+            _importReindexService = importReindexService;
             _rssFeedService = rssFeedService;
             _logger = logger;
         }
@@ -194,6 +197,42 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 _logger.LogError(ex, "Error occurred while scraping preview for URL: {Url}", request.Url);
                 return StatusCode(500, new { error = "Failed to scrape website" });
+            }
+        }
+
+        // POST: api/website/{id}/screenshot?force=false
+        // Explicit [Authorize]: spends a render on the screenshot provider and writes the thumbnail.
+        [Authorize]
+        [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
+        [HttpPost("{id:guid}/screenshot")]
+        public async Task<ActionResult<WebsiteScreenshotResultDto>> RegenerateScreenshot(Guid id, [FromQuery] bool force = false)
+        {
+            try
+            {
+                var result = await _websiteService.RegenerateScreenshotAsync(id, force, HttpContext.RequestAborted);
+                if (result == null)
+                {
+                    return NotFound(new { error = $"Website with ID {id} not found." });
+                }
+
+                if (result.Rendered)
+                {
+                    await _importReindexService.ReindexItemAfterImportAsync(id, "website screenshot");
+                    result.ReindexTriggered = true;
+                }
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while regenerating the screenshot for website {Id}", id);
+                return StatusCode(500, new WebsiteScreenshotResultDto
+                {
+                    Success = false,
+                    ErrorMessage = "Failed to regenerate the screenshot",
+                    StartedAt = DateTime.UtcNow,
+                    CompletedAt = DateTime.UtcNow
+                });
             }
         }
 
