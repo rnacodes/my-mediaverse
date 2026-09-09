@@ -27,7 +27,7 @@ Your descriptions should:
 - Capture the main topic and purpose of the note
 - Be written in third person
 - Focus on what the note is about, not how it's written
-- Avoid phrases like 'This note discusses...' - just describe the content directly";
+- Do not start with phrases like 'This note discusses...' - just describe the content directly";
 
         private const string NoteDescriptionUserPromptTemplate = @"Generate a description for this note:
 

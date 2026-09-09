@@ -95,9 +95,13 @@ namespace MyMediaVerse.Application.Services
             {
                 var (candidates, invalid) = Normalize(parsed.Bookmarks);
                 result.FailedCount += invalid;
-                if (invalid > 0)
+                if (invalid == 1)
                 {
-                    result.Errors.Add($"{invalid} entr{(invalid == 1 ? "y" : "ies")} had a URL that could not be read and were not imported.");
+                    result.Errors.Add("1 entry had a URL that could not be read and was not imported.");
+                }
+                else if (invalid > 1)
+                {
+                    result.Errors.Add($"{invalid} entries had a URL that could not be read and were not imported.");
                 }
 
                 var existing = await LoadExistingAsync(candidates.Select(c => c.Key).Distinct().ToList(), cancellationToken);
@@ -336,10 +340,14 @@ namespace MyMediaVerse.Application.Services
         private static string? BuildWarning(WebsiteBulkImportResultDto result)
         {
             var parts = new List<string>();
-            if (result.NonWebLinkCount > 0)
-                parts.Add($"{result.NonWebLinkCount} entr{(result.NonWebLinkCount == 1 ? "y was" : "ies were")} not web links and were ignored.");
-            if (result.FailedCount > 0)
-                parts.Add($"{result.FailedCount} entr{(result.FailedCount == 1 ? "y" : "ies")} could not be imported.");
+            if (result.NonWebLinkCount == 1)
+                parts.Add("1 entry was not a web link and was ignored.");
+            else if (result.NonWebLinkCount > 1)
+                parts.Add($"{result.NonWebLinkCount} entries were not web links and were ignored.");
+            if (result.FailedCount == 1)
+                parts.Add("1 entry could not be imported.");
+            else if (result.FailedCount > 1)
+                parts.Add($"{result.FailedCount} entries could not be imported.");
             if (result.WasCancelled)
                 parts.Add("The import was canceled; websites saved before that point were kept.");
             return parts.Count == 0 ? null : string.Join(" ", parts);

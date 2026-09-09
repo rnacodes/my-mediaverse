@@ -205,6 +205,7 @@ export function useEnrichWebsite() {
       queryClient.invalidateQueries({ queryKey: websiteKeys.detail(variables.id) });
       queryClient.invalidateQueries({ queryKey: websiteKeys.lists() });
       queryClient.invalidateQueries({ queryKey: websiteKeys.enrichmentStatus() });
+      queryClient.invalidateQueries({ queryKey: mediaKeys.detail(variables.id) });
       queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
     },
   });
@@ -217,6 +218,7 @@ export function useRegenerateWebsiteScreenshot() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: websiteKeys.detail(variables.id) });
       queryClient.invalidateQueries({ queryKey: websiteKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: mediaKeys.detail(variables.id) });
       queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
     },
   });

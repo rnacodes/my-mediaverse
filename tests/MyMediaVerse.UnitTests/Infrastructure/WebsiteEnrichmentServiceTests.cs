@@ -315,6 +315,22 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         }
 
         [Fact]
+        public async Task EnrichPendingAsync_AsksTheLinkChecker_WhenTheScraperStoppedAtARedirect()
+        {
+            // The scraper's client refuses an https-to-http hop and reports the 301; the link checker
+            // follows it and finds a live page.
+            var redirected = await SeedStub("https://example.com/moved");
+            _scraper.ScrapeWebsiteAsync(redirected.Link!).Throws(new HttpRequestException("Failed to fetch URL",
+                new HttpRequestException("moved", null, System.Net.HttpStatusCode.MovedPermanently)));
+            _linkChecker.CheckAsync(redirected.Link!, Arg.Any<CancellationToken>()).Returns(200);
+
+            var result = await _service.EnrichPendingAsync(10);
+
+            result.SkippedCount.Should().Be(1);
+            (await Reload(redirected.Id)).LastHttpStatus.Should().Be(200);
+        }
+
+        [Fact]
         public async Task EnrichPendingAsync_IsolatesOneWebsitesFailure_FromTheRest()
         {
             var broken = await SeedStub("https://example.com/broken", dateAdded: DateTime.UtcNow.AddDays(-2));

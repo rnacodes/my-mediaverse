@@ -324,8 +324,9 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
         /// <summary>
         /// The status behind a failed scrape. The scraper wraps its HTTP errors, so the code is
         /// looked for down the exception chain; when none is recorded (the wrapper dropped it, or
-        /// the host never answered) the link checker probes the URL once so a plain 404 is not
-        /// recorded as "unreachable".
+        /// the host never answered), or when it is a redirect the scraper's client would not follow
+        /// (an https-to-http hop, for one), the link checker probes the URL so the recorded status
+        /// is where the link actually ends up rather than "unreachable" or a bare 3xx.
         /// </summary>
         private async Task<int> ResolveFailureStatusAsync(Exception exception, string? link, CancellationToken cancellationToken)
         {
@@ -334,7 +335,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
 
             for (var current = exception; current != null; current = current.InnerException)
             {
-                if (current is HttpRequestException { StatusCode: { } status })
+                if (current is HttpRequestException { StatusCode: { } status } && (int)status is < 300 or >= 400)
                     return (int)status;
             }
 

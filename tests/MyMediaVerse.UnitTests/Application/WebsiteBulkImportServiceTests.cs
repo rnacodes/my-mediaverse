@@ -261,6 +261,14 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         [Fact]
+        public async Task ImportAsync_WordsTheWarningForASingleIgnoredEntry()
+        {
+            var result = await Import(Parsed(1, Bookmark("https://example.com/ok")));
+
+            result.WarningMessage.Should().Be("1 entry was not a web link and was ignored.");
+        }
+
+        [Fact]
         public async Task ImportAsync_StopsAtTheToken_AndKeepsWhatWasSaved()
         {
             using var cts = new CancellationTokenSource();

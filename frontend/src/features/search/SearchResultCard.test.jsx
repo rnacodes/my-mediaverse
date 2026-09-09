@@ -81,3 +81,25 @@ describe('SearchResultCard selection', () => {
     expect(screen.getByRole('checkbox')).toBeChecked();
   });
 });
+
+describe('SearchResultCard website link health', () => {
+  it('flags a website whose last link check failed', () => {
+    renderCard({ mediaType: 'Website', linkStatus: 404 });
+
+    expect(screen.getByText('Link broken')).toBeInTheDocument();
+  });
+
+  it('flags a website the checker could not reach at all (status 0)', () => {
+    renderCard({ mediaType: 'Website', linkStatus: 0 });
+
+    expect(screen.getByText('Link broken')).toBeInTheDocument();
+  });
+
+  it('shows nothing for a healthy or unchecked website', () => {
+    renderCard({ mediaType: 'Website', linkStatus: 200 });
+    expect(screen.queryByText('Link broken')).not.toBeInTheDocument();
+
+    renderCard({ mediaType: 'Website', linkStatus: null });
+    expect(screen.queryByText('Link broken')).not.toBeInTheDocument();
+  });
+});

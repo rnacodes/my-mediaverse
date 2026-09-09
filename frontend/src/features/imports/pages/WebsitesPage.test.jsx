@@ -66,3 +66,52 @@ describe('WebsitesPage', () => {
     consoleError.mockRestore();
   });
 });
+
+describe('WebsitesPage bookmarks export and link health', () => {
+  it('downloads the bookmarks file the API returns', async () => {
+    server.use(
+      http.get(`${API_BASE}/website`, () => HttpResponse.json([makeWebsite({ id: 'w1', title: 'Alpha Site' })])),
+      http.get(`${API_BASE}/website/export`, () =>
+        new HttpResponse('<!DOCTYPE NETSCAPE-Bookmark-file-1>', {
+          headers: {
+            'Content-Type': 'text/html',
+            'Content-Disposition': 'attachment; filename="mymediaverse-bookmarks-20260907.html"',
+          },
+        })),
+    );
+    const createObjectURL = vi.fn(() => 'blob:bookmarks');
+    const revokeObjectURL = vi.fn();
+    window.URL.createObjectURL = createObjectURL;
+    window.URL.revokeObjectURL = revokeObjectURL;
+    let downloadedAs;
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function stubClick() {
+      downloadedAs = this.download;
+    });
+
+    const { user } = renderWithProviders(<WebsitesPage />, { route: '/websites' });
+    await waitFor(() => expect(screen.getByText('Alpha Site')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: /export bookmarks/i }));
+
+    await waitFor(() => expect(createObjectURL).toHaveBeenCalled());
+    expect(downloadedAs).toBe('mymediaverse-bookmarks-20260907.html');
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:bookmarks');
+
+    click.mockRestore();
+  });
+
+  it('flags websites whose link is broken', async () => {
+    server.use(
+      http.get(`${API_BASE}/website`, () =>
+        HttpResponse.json([
+          makeWebsite({ id: 'w1', title: 'Dead Site', lastHttpStatus: 404 }),
+          makeWebsite({ id: 'w2', title: 'Live Site', lastHttpStatus: 200 }),
+        ])),
+    );
+
+    renderWithProviders(<WebsitesPage />, { route: '/websites' });
+
+    await waitFor(() => expect(screen.getByText('Dead Site')).toBeInTheDocument());
+    expect(screen.getAllByText('Link broken')).toHaveLength(1);
+  });
+});

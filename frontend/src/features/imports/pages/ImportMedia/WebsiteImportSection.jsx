@@ -1,12 +1,13 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    Button, Box, Typography,
+    Button, Box, Typography, Divider,
     Accordion, AccordionSummary, AccordionDetails
 } from '@mui/material';
-import { Language, ExpandMore } from '@mui/icons-material';
+import { Language, ExpandMore, Link as LinkIcon, FormatListBulleted } from '@mui/icons-material';
 import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
 import { DEMO_SECTION_BLOCKED } from '@/features/demo/demoMessages';
+import BookmarkFileImport from '@/features/imports/pages/WebsiteImport/BookmarkFileImport';
 
 function WebsiteImportSection({ expanded, onAccordionChange }) {
     const navigate = useNavigate();
@@ -32,40 +33,38 @@ function WebsiteImportSection({ expanded, onAccordionChange }) {
             <AccordionDetails>
                 <Box sx={{ padding: 2 }}>
                     <Typography variant="body1" paragraph>
-                        Import websites and web pages to track and organize:
+                        Save web pages three ways: one address at a time, a bookmarks file exported from your
+                        browser or bookmark manager, or a pasted list of links. Titles, descriptions, images,
+                        RSS feeds and archived copies are filled in afterwards by enrichment.
                     </Typography>
-                    <Box component="ul" sx={{ mb: 2, pl: 3 }}>
-                        <li>
-                            <Typography variant="body2">
-                                Scrape and preview website metadata before importing
-                            </Typography>
-                        </li>
-                        <li>
-                            <Typography variant="body2">
-                                Automatically extract title, description, and images
-                            </Typography>
-                        </li>
-                        <li>
-                            <Typography variant="body2">
-                                Track RSS feeds for websites with available feeds
-                            </Typography>
-                        </li>
-                        <li>
-                            <Typography variant="body2">
-                                Organize and manage your saved websites
-                            </Typography>
-                        </li>
+
+                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
+                        Import a bookmarks file
+                    </Typography>
+                    <BookmarkFileImport compact />
+
+                    <Divider sx={{ my: 3 }} />
+
+                    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                        <DemoWriteGuard title={DEMO_SECTION_BLOCKED}>
+                            <Button
+                                variant="contained"
+                                startIcon={<LinkIcon />}
+                                onClick={() => navigate('/import-website?tab=url')}
+                            >
+                                Import a single website
+                            </Button>
+                        </DemoWriteGuard>
+                        <DemoWriteGuard title={DEMO_SECTION_BLOCKED}>
+                            <Button
+                                variant="outlined"
+                                startIcon={<FormatListBulleted />}
+                                onClick={() => navigate('/import-website?tab=paste')}
+                            >
+                                Paste a list of links
+                            </Button>
+                        </DemoWriteGuard>
                     </Box>
-                    <DemoWriteGuard title={DEMO_SECTION_BLOCKED}>
-                        <Button
-                            variant="contained"
-                            startIcon={<Language />}
-                            onClick={() => navigate('/import-website')}
-                            sx={{ mt: 2 }}
-                        >
-                            Import Website
-                        </Button>
-                    </DemoWriteGuard>
                 </Box>
             </AccordionDetails>
         </Accordion>

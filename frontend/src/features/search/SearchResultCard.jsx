@@ -1,8 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Box, Card, CardContent, CardMedia, Chip, Typography, Checkbox } from '@mui/material';
-import { Star, AccessTime } from '@mui/icons-material';
+import { Star, AccessTime, LinkOff } from '@mui/icons-material';
 import { formatMediaType, formatStatus, getRatingIcon } from '@/utils/formatters';
+import { isBrokenLink } from '@/features/media/websiteStatus';
 
 // Determine navigation path based on item type
 const getItemPath = (item) => {
@@ -212,10 +213,20 @@ export const SearchResultCard = React.memo(({ item, isSelected = false, onToggle
                     />
                 )}
                 {item.mediaType === 'Article' && item.isStarred && (
-                    <Chip 
-                        icon={<Star sx={{ fontSize: 14 }} />} 
-                        label="Starred" 
+                    <Chip
+                        icon={<Star sx={{ fontSize: 14 }} />}
+                        label="Starred"
                         size="small"
+                        sx={{ fontSize: '0.7rem' }}
+                    />
+                )}
+                {item.mediaType === 'Website' && isBrokenLink(item.linkStatus) && (
+                    <Chip
+                        icon={<LinkOff sx={{ fontSize: 14 }} />}
+                        label="Link broken"
+                        size="small"
+                        color="warning"
+                        variant="outlined"
                         sx={{ fontSize: '0.7rem' }}
                     />
                 )}

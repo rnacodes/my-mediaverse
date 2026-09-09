@@ -133,6 +133,11 @@ export const deleteWebsite = async (id) => {
 // Bulk import (bookmark file, URL list) and export
 // ============================================
 
+// Multipart posts must name the content type (see MULTIPART below): with the client's default
+// application/json header, axios would serialize the FormData to JSON. In browsers axios then
+// replaces the value with the boundary-carrying one, the same way uploadService.js posts.
+const MULTIPART = { headers: { 'Content-Type': 'multipart/form-data' } };
+
 const bookmarkFileForm = (file, options = {}) => {
     const form = new FormData();
     form.append('file', file);
@@ -150,9 +155,7 @@ const bookmarkFileForm = (file, options = {}) => {
  */
 export const previewBookmarkFile = async (file) => {
     try {
-        const response = await apiClient.post('/website/from-bookmark-file/preview', bookmarkFileForm(file), {
-            headers: { 'Content-Type': 'multipart/form-data' },
-        });
+        const response = await apiClient.post('/website/from-bookmark-file/preview', bookmarkFileForm(file), MULTIPART);
         return response.data;
     } catch (error) {
         console.error('Error previewing bookmark file:', error);
@@ -167,9 +170,7 @@ export const previewBookmarkFile = async (file) => {
  */
 export const importBookmarkFile = async (file, options = {}) => {
     try {
-        const response = await apiClient.post('/website/from-bookmark-file', bookmarkFileForm(file, options), {
-            headers: { 'Content-Type': 'multipart/form-data' },
-        });
+        const response = await apiClient.post('/website/from-bookmark-file', bookmarkFileForm(file, options), MULTIPART);
         return response.data;
     } catch (error) {
         console.error('Error importing bookmark file:', error);
@@ -215,7 +216,9 @@ export const exportBookmarks = async () => {
         const response = await apiClient.get('/website/export', { responseType: 'blob' });
         const disposition = response.headers?.['content-disposition'] ?? '';
         const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
-        return { blob: response.data, fileName: match ? decodeURIComponent(match[1]) : 'bookmarks.html' };
+        // The header is only readable when the API exposes it; otherwise use the same dated name.
+        const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        return { blob: response.data, fileName: match ? decodeURIComponent(match[1]) : `mymediaverse-bookmarks-${stamp}.html` };
     } catch (error) {
         console.error('Error exporting bookmarks:', error);
         throw error;

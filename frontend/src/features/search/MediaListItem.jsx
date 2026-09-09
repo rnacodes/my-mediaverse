@@ -1,8 +1,9 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Paper, Typography, Grid, Checkbox, Chip } from '@mui/material';
-import { Star } from '@mui/icons-material';
+import { Star, LinkOff } from '@mui/icons-material';
 import { formatMediaType, formatStatus, getRatingIcon } from '@/utils/formatters';
+import { isBrokenLink } from '@/features/media/websiteStatus';
 
 export const MediaListItem = React.memo(({ item, isSelected = false, onToggleSelect, showCheckbox = false }) => {
     const navigate = useNavigate();
@@ -96,12 +97,16 @@ export const MediaListItem = React.memo(({ item, isSelected = false, onToggleSel
                 if (item.estimatedReadingTimeMinutes) parts.push(`${item.estimatedReadingTimeMinutes} min read`);
                 if (item.wordCount) parts.push(`${(item.wordCount / 1000).toFixed(1)}k words`);
                 break;
+            case 'Website':
+                if (item.domain) parts.push(item.domain);
+                if (item.hasRss) parts.push('RSS');
+                break;
             case 'Mixlist':
                 return null;
             default:
                 break;
         }
-        
+
         return parts.length > 0 ? parts.join(' • ') : null;
     };
     
@@ -249,10 +254,20 @@ export const MediaListItem = React.memo(({ item, isSelected = false, onToggleSel
                         />
                     )}
                     {item.mediaType === 'Article' && item.isStarred && (
-                        <Chip 
-                            icon={<Star sx={{ fontSize: 14 }} />} 
-                            label="Starred" 
+                        <Chip
+                            icon={<Star sx={{ fontSize: 14 }} />}
+                            label="Starred"
                             size="small"
+                            sx={{ fontSize: '0.7rem' }}
+                        />
+                    )}
+                    {item.mediaType === 'Website' && isBrokenLink(item.linkStatus) && (
+                        <Chip
+                            icon={<LinkOff sx={{ fontSize: 14 }} />}
+                            label="Link broken"
+                            size="small"
+                            color="warning"
+                            variant="outlined"
                             sx={{ fontSize: '0.7rem' }}
                         />
                     )}

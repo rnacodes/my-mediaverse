@@ -6,6 +6,7 @@ import { useTvShow } from '@/hooks/useTvShow';
 import { useVideo } from '@/hooks/useVideo';
 import { useArticle } from '@/hooks/useArticle';
 import { usePodcastSeries, usePodcastEpisode } from '@/hooks/usePodcast';
+import { useWebsite } from '@/hooks/useWebsite';
 
 export function useMergedMediaItem(id) {
   const basicQuery = useMediaItem(id);
@@ -18,6 +19,8 @@ export function useMergedMediaItem(id) {
   const videoQuery = useVideo(id, { enabled: mediaType === 'Video' });
   const articleQuery = useArticle(id, { enabled: mediaType === 'Article' });
   const tvShowQuery = useTvShow(id, { enabled: mediaType === 'TVShow', retry: false });
+  // Websites carry link health and archive fields the generic media response does not.
+  const websiteQuery = useWebsite(id, { enabled: mediaType === 'Website' });
 
   // Podcast: probe series first; if it resolves the item is a series, otherwise
   // fall back to the episode detail (and pull in the parent series for context).
@@ -40,6 +43,7 @@ export function useMergedMediaItem(id) {
       case 'Movie': return !!movieQuery.data;
       case 'Video': return !!videoQuery.data;
       case 'Article': return !!articleQuery.data;
+      case 'Website': return !!websiteQuery.data || websiteQuery.isError;
       // Detail fetched via a probe that may legitimately error; treat the error as
       // "settled" so prefill falls back to base fields instead of hanging.
       case 'TVShow': return !!tvShowQuery.data || tvShowQuery.isError;
@@ -56,6 +60,7 @@ export function useMergedMediaItem(id) {
     if (mediaType === 'Video' && videoQuery.data) return { ...basicMedia, ...videoQuery.data };
     if (mediaType === 'Article' && articleQuery.data) return { ...basicMedia, ...articleQuery.data };
     if (mediaType === 'TVShow' && tvShowQuery.data) return { ...basicMedia, ...tvShowQuery.data };
+    if (mediaType === 'Website' && websiteQuery.data) return { ...basicMedia, ...websiteQuery.data };
     if (mediaType === 'Podcast' && isPodcastSeries && seriesProbe.data) {
       return { ...basicMedia, ...seriesProbe.data };
     }
@@ -67,7 +72,7 @@ export function useMergedMediaItem(id) {
     return basicMedia;
   }, [
     basicMedia, mediaType, bookQuery.data, movieQuery.data, videoQuery.data,
-    articleQuery.data, tvShowQuery.data, isPodcastSeries, seriesProbe.data,
+    articleQuery.data, tvShowQuery.data, websiteQuery.data, isPodcastSeries, seriesProbe.data,
     episodeQuery.data, parentSeriesQuery.data,
   ]);
 

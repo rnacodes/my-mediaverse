@@ -8,9 +8,22 @@ import {
 } from '@mui/material';
 import {
     ArrowBack, Add, Search, OpenInNew, RssFeed,
-    Language, Sort, Refresh, Delete
+    Language, Sort, Refresh, Delete, Download, LinkOff
 } from '@mui/icons-material';
-import { useAllWebsites, useWebsitesWithRss, useDeleteWebsite } from '@/hooks/useWebsite';
+import { useAllWebsites, useWebsitesWithRss, useDeleteWebsite, useExportBookmarks } from '@/hooks/useWebsite';
+import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
+import { isBrokenLink } from '@/features/media/websiteStatus';
+
+function downloadBlob(blob, fileName) {
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = fileName;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    window.URL.revokeObjectURL(url);
+}
 
 function WebsitesPage() {
     const navigate = useNavigate();
@@ -26,6 +39,14 @@ function WebsitesPage() {
     const activeQuery = showRssOnly ? rssQuery : allQuery;
     const websites = useMemo(() => activeQuery.data ?? [], [activeQuery.data]);
     const loading = activeQuery.isLoading;
+    const exportMutation = useExportBookmarks();
+    const handleExport = () => {
+        setOverrideError('');
+        exportMutation.mutate(undefined, {
+            onSuccess: ({ blob, fileName }) => downloadBlob(blob, fileName),
+            onError: (err) => setOverrideError(err.response?.data?.error || 'Failed to export bookmarks'),
+        });
+    };
     const queryError = !dismissedError && activeQuery.error
         ? (activeQuery.error.message || 'Failed to load websites')
         : '';
@@ -126,6 +147,15 @@ function WebsitesPage() {
                                 <Refresh />
                             </IconButton>
                         </Tooltip>
+                        <Button
+                            variant="outlined"
+                            startIcon={exportMutation.isPending ? <CircularProgress size={18} color="inherit" /> : <Download />}
+                            onClick={handleExport}
+                            disabled={exportMutation.isPending || websites.length === 0}
+                            sx={{ color: '#fcfafa', borderColor: 'rgba(252,250,250,0.5)' }}
+                        >
+                            {exportMutation.isPending ? 'Exporting...' : 'Export bookmarks'}
+                        </Button>
                         <Button
                             variant="contained"
                             startIcon={<Add />}
@@ -296,6 +326,17 @@ function WebsitesPage() {
                                         />
                                     )}
 
+                                    {isBrokenLink(website.lastHttpStatus) && (
+                                        <Chip
+                                            label="Link broken"
+                                            size="small"
+                                            icon={<LinkOff />}
+                                            color="warning"
+                                            variant="outlined"
+                                            sx={{ mb: 1, ml: 1 }}
+                                        />
+                                    )}
+
                                     {website.description && (
                                         <Typography
                                             variant="body2"
@@ -358,15 +399,16 @@ function WebsitesPage() {
                                                 </IconButton>
                                             </Tooltip>
                                         )}
-                                        <Tooltip title="Delete">
+                                        <DemoWriteGuard title="Deleting is not available in the demo">
                                             <IconButton
                                                 size="small"
+                                                aria-label="Delete"
                                                 onClick={() => handleDelete(website.id, website.title)}
                                                 sx={{ color: '#fcfafa' }}
                                             >
                                                 <Delete fontSize="small" />
                                             </IconButton>
-                                        </Tooltip>
+                                        </DemoWriteGuard>
                                     </Box>
                                 </CardActions>
                             </Card>
