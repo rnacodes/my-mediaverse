@@ -244,11 +244,14 @@ public static class ExternalApiClientsExtensions
         // Enrichment helpers: both are keyless public services.
         services.Configure<WebsiteEnrichmentOptions>(configuration.GetSection(WebsiteEnrichmentOptions.SectionName));
 
-        services.AddHttpClient<IWaybackMachineClient, WaybackMachineClient>(client =>
+        // The availability endpoint lives on archive.org (the snapshot links it returns point at
+        // web.archive.org). Its timeout is the option the enrichment run also reads.
+        services.AddHttpClient<IWaybackMachineClient, WaybackMachineClient>((provider, client) =>
         {
-            client.BaseAddress = new Uri("https://web.archive.org/");
+            var enrichment = provider.GetRequiredService<IOptions<WebsiteEnrichmentOptions>>().Value;
+            client.BaseAddress = new Uri("https://archive.org/");
             client.DefaultRequestHeaders.Add("User-Agent", "MyMediaVerse/1.0");
-            client.Timeout = TimeSpan.FromSeconds(10);
+            client.Timeout = TimeSpan.FromSeconds(Math.Max(1, enrichment.WaybackTimeoutSeconds));
         });
 
         // The link checker follows redirects itself so it can report the final status.

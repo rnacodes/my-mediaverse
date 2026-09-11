@@ -30,9 +30,23 @@ namespace MyMediaVerse.Shared.Configuration
         public int DefaultLinkCheckOlderThanDays { get; set; } = 30;
 
         /// <summary>
-        /// Pause between Wayback Machine lookups. The CDX endpoint is a shared public service;
-        /// spacing requests out keeps bulk runs polite.
+        /// Pause between Wayback Machine lookups. The archive is a shared public service; spacing
+        /// requests out keeps bulk runs polite.
         /// </summary>
         public int WaybackDelayMs { get; set; } = 250;
+
+        /// <summary>
+        /// Timeout for one Wayback lookup, in seconds. Shared by the HTTP client registration and the
+        /// enrichment run, which treats a lookup that used most of this as a slow response.
+        /// </summary>
+        public int WaybackTimeoutSeconds { get; set; } = 10;
+
+        /// <summary>
+        /// After this many consecutive slow Wayback responses in one run, the run stops asking the
+        /// archive for its remaining websites and says so in its warning; a fast answer resets the
+        /// count. The archive throttles sustained callers, and each slow answer costs the full
+        /// timeout for nothing. Zero disables the pause.
+        /// </summary>
+        public int WaybackPauseAfterSlowLookups { get; set; } = 3;
     }
 }

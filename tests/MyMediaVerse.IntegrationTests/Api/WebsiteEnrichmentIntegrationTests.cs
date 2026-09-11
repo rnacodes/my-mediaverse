@@ -3,6 +3,10 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AwesomeAssertions;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.IntegrationTests.Fixtures;
 using MyMediaVerse.Shared.DTOs.WebsiteScraper;
@@ -133,6 +137,51 @@ namespace MyMediaVerse.IntegrationTests.Api
             website!.LastHttpStatus.Should().Be(404);
             website.EnrichedAt.Should().NotBeNull();
             await reindex.Received(1).ReindexAfterImportAsync(0, "website enrichment");
+        }
+
+        [Fact]
+        public async Task RunEnrichment_DefersTheReindex_WhileATimeBudgetedPageLeavesWorkPending()
+        {
+            var scraper = Substitute.For<IWebsiteScraperService>();
+            scraper.ScrapeWebsiteAsync(Arg.Any<string>()).Returns(async call =>
+            {
+                await Task.Delay(1200);
+                return Scraped(call.Arg<string>());
+            });
+            var reindex = Substitute.For<IImportReindexService>();
+            var factory = _factory.WithWebHostBuilder(builder =>
+            {
+                builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["WebsiteEnrichment:RunTimeBudgetSeconds"] = "1"
+                }));
+                builder.ConfigureTestServices(services =>
+                {
+                    services.RemoveAll<IWebsiteScraperService>();
+                    services.RemoveAll<IImportReindexService>();
+                    services.AddSingleton(scraper);
+                    services.AddSingleton(reindex);
+                });
+            });
+            var client = factory.CreateClient();
+            await CreateStub(client, "https://example.com/first", "example.com");
+            await CreateStub(client, "https://example.com/second", "example.com");
+
+            var first = await client.PostAsync("/api/website/enrichment/run?limit=10", null);
+
+            first.StatusCode.Should().Be(HttpStatusCode.OK);
+            var firstBody = await ReadJson(first);
+            firstBody.GetProperty("timeBudgetReached").GetBoolean().Should().BeTrue();
+            firstBody.GetProperty("totalProcessed").GetInt32().Should().Be(1);
+            firstBody.GetProperty("pendingCount").GetInt32().Should().Be(1);
+            await reindex.DidNotReceive().ReindexAfterImportAsync(Arg.Any<int>(), "website enrichment");
+
+            var second = await client.PostAsync("/api/website/enrichment/run?limit=10", null);
+
+            second.StatusCode.Should().Be(HttpStatusCode.OK);
+            var secondBody = await ReadJson(second);
+            secondBody.GetProperty("pendingCount").GetInt32().Should().Be(0);
+            await reindex.Received(1).ReindexAfterImportAsync(1, "website enrichment");
         }
 
         [Fact]

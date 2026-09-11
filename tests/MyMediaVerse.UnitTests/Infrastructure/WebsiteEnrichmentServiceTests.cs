@@ -132,6 +132,83 @@ namespace MyMediaVerse.UnitTests.Infrastructure
 
         #endregion
 
+        #region EnrichPendingAsync — Wayback breaker
+
+        private WebsiteEnrichmentService CreateServiceWithWaybackBreaker(int pauseAfter) => new(
+            Context, _scraper, _screenshots, _quota, _wayback, _linkChecker, _storage, _syncState,
+            Options.Create(new WebsiteEnrichmentOptions
+            {
+                WaybackDelayMs = 0, MaxLimit = 200, RunTimeBudgetSeconds = 0,
+                WaybackTimeoutSeconds = 1, WaybackPauseAfterSlowLookups = pauseAfter
+            }),
+            Substitute.For<ILogger<WebsiteEnrichmentService>>());
+
+        [Fact]
+        public async Task EnrichPendingAsync_StopsAskingWayback_AfterAStreakOfSlowResponses()
+        {
+            // A one-second timeout makes anything over 900 ms "slow". Two slow answers in a row trip
+            // the breaker; the remaining two websites are enriched without an archive lookup.
+            for (var i = 1; i <= 4; i++)
+                await SeedStub($"https://example.com/{i}", dateAdded: DateTime.UtcNow.AddMinutes(-10 + i));
+            _wayback.FindLatestSnapshotAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(async _ =>
+            {
+                await Task.Delay(950);
+                return (string?)null;
+            });
+
+            var result = await CreateServiceWithWaybackBreaker(pauseAfter: 2).EnrichPendingAsync(10);
+
+            result.Success.Should().BeTrue();
+            result.WaybackPaused.Should().BeTrue();
+            result.TotalProcessed.Should().Be(4, "the pause affects only the archive lookup, not the run");
+            result.EnrichedCount.Should().Be(4);
+            result.WarningMessage.Should().Contain("Wayback lookups paused after 2 slow responses")
+                .And.Contain("2 website(s) were left without an archive link");
+            await _wayback.Received(2).FindLatestSnapshotAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task EnrichPendingAsync_ResetsTheSlowStreak_OnAQuickAnswer()
+        {
+            await SeedStub("https://example.com/1", dateAdded: DateTime.UtcNow.AddMinutes(-3));
+            await SeedStub("https://example.com/2", dateAdded: DateTime.UtcNow.AddMinutes(-2));
+            await SeedStub("https://example.com/3", dateAdded: DateTime.UtcNow.AddMinutes(-1));
+            var calls = 0;
+            _wayback.FindLatestSnapshotAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(async _ =>
+            {
+                calls++;
+                // slow, quick, slow: the quick "no captures" answer in the middle resets the streak.
+                if (calls != 2) await Task.Delay(950);
+                return (string?)null;
+            });
+
+            var result = await CreateServiceWithWaybackBreaker(pauseAfter: 2).EnrichPendingAsync(10);
+
+            result.WaybackPaused.Should().BeFalse();
+            result.WarningMessage.Should().BeNull();
+            await _wayback.Received(3).FindLatestSnapshotAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task EnrichPendingAsync_NeverPausesWayback_WhenTheBreakerIsDisabled()
+        {
+            await SeedStub("https://example.com/1", dateAdded: DateTime.UtcNow.AddMinutes(-3));
+            await SeedStub("https://example.com/2", dateAdded: DateTime.UtcNow.AddMinutes(-2));
+            await SeedStub("https://example.com/3", dateAdded: DateTime.UtcNow.AddMinutes(-1));
+            _wayback.FindLatestSnapshotAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(async _ =>
+            {
+                await Task.Delay(950);
+                return (string?)null;
+            });
+
+            var result = await CreateServiceWithWaybackBreaker(pauseAfter: 0).EnrichPendingAsync(10);
+
+            result.WaybackPaused.Should().BeFalse();
+            await _wayback.Received(3).FindLatestSnapshotAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        }
+
+        #endregion
+
         #region GetPendingCountAsync
 
         [Fact]

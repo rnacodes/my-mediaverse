@@ -84,6 +84,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                 // Once the budget is gone, stop asking so the rest of the run costs no quota reads.
                 var screenshotsAllowed = true;
                 var leftWithoutThumbnail = 0;
+                var wayback = new WaybackGate();
 
                 // A page is bounded by time as well as by count: dead hosts each cost a full connect
                 // timeout, and the caller's request must finish. Whatever is not reached stays pending.
@@ -111,7 +112,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
 
                     try
                     {
-                        var outcome = await EnrichOneAsync(website, screenshotsAllowed, cancellationToken);
+                        var outcome = await EnrichOneAsync(website, screenshotsAllowed, wayback, cancellationToken);
                         await _context.SaveChangesAsync(cancellationToken);
 
                         if (outcome.QuotaReached)
@@ -140,7 +141,8 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                 }
 
                 result.PendingCount = await GetPendingCountAsync(cancellationToken);
-                result.WarningMessage = BuildWarning(result, leftWithoutThumbnail);
+                result.WaybackPaused = !wayback.Allowed;
+                result.WarningMessage = BuildWarning(result, leftWithoutThumbnail, wayback);
                 result.CompletedAt = DateTime.UtcNow;
 
                 if (!result.WasCancelled)
@@ -218,7 +220,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                     return result;
                 }
 
-                var outcome = await EnrichOneAsync(website, screenshotsAllowed: true, cancellationToken);
+                var outcome = await EnrichOneAsync(website, screenshotsAllowed: true, wayback: null, cancellationToken);
                 await _context.SaveChangesAsync(cancellationToken);
 
                 result.Title = website.Title;
@@ -253,6 +255,18 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
             return result;
         }
 
+        /// <summary>
+        /// Per-run Wayback breaker. The archive throttles sustained callers, and every throttled
+        /// lookup costs the full timeout for nothing, so after a streak of slow answers the run
+        /// stops asking and counts what it left without an archive link.
+        /// </summary>
+        private sealed class WaybackGate
+        {
+            public bool Allowed { get; set; } = true;
+            public int SlowStreak { get; set; }
+            public int SkippedCount { get; set; }
+        }
+
         private sealed class EnrichOutcome
         {
             public List<string> FilledFields { get; } = new();
@@ -265,7 +279,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
         /// <summary>
         /// Runs the fill for one tracked website. Does not save; callers decide when to flush.
         /// </summary>
-        private async Task<EnrichOutcome> EnrichOneAsync(Website website, bool screenshotsAllowed, CancellationToken cancellationToken)
+        private async Task<EnrichOutcome> EnrichOneAsync(Website website, bool screenshotsAllowed, WaybackGate? wayback, CancellationToken cancellationToken)
         {
             var outcome = new EnrichOutcome();
             var now = DateTime.UtcNow;
@@ -295,7 +309,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
 
                 // A page that is gone is exactly the one whose archived copy matters, and the
                 // profile offers that copy only when a snapshot URL is stored.
-                await TryFillWaybackAsync(website, outcome, cancellationToken);
+                await TryFillWaybackAsync(website, outcome, wayback, cancellationToken);
                 return outcome;
             }
 
@@ -343,7 +357,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                 }
             }
 
-            await TryFillWaybackAsync(website, outcome, cancellationToken);
+            await TryFillWaybackAsync(website, outcome, wayback, cancellationToken);
 
             website.LastCheckedDate = now;
             website.LastHttpStatus = 200;
@@ -353,18 +367,50 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
 
         /// <summary>
         /// Fill-only Wayback lookup, for live and dead pages alike. The client returns null on any
-        /// failure, so a slow or refused lookup costs time but never the row.
+        /// failure, so a slow or refused lookup costs time but never the row. Inside a run the gate
+        /// watches for the archive throttling us: a lookup that used most of its timeout counts as
+        /// slow, a streak of them pauses lookups for the rest of the run, and any quick answer
+        /// (even "no captures") resets the streak. A single-item enrich passes no gate.
         /// </summary>
-        private async Task TryFillWaybackAsync(Website website, EnrichOutcome outcome, CancellationToken cancellationToken)
+        private async Task TryFillWaybackAsync(Website website, EnrichOutcome outcome, WaybackGate? wayback, CancellationToken cancellationToken)
         {
             if (!string.IsNullOrWhiteSpace(website.WaybackUrl) || string.IsNullOrWhiteSpace(website.Link))
                 return;
 
+            if (wayback is { Allowed: false })
+            {
+                wayback.SkippedCount++;
+                return;
+            }
+
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
             var snapshot = await _wayback.FindLatestSnapshotAsync(website.Link, cancellationToken);
+            stopwatch.Stop();
+
             if (!string.IsNullOrWhiteSpace(snapshot))
             {
                 website.WaybackUrl = snapshot;
                 outcome.FilledFields.Add("waybackUrl");
+            }
+
+            if (wayback != null && _options.WaybackPauseAfterSlowLookups > 0)
+            {
+                var slowAfter = TimeSpan.FromSeconds(Math.Max(1, _options.WaybackTimeoutSeconds) * 0.9);
+                if (stopwatch.Elapsed >= slowAfter)
+                {
+                    wayback.SlowStreak++;
+                    if (wayback.SlowStreak >= _options.WaybackPauseAfterSlowLookups)
+                    {
+                        wayback.Allowed = false;
+                        _logger.LogWarning(
+                            "Website enrichment: Wayback lookups paused for the rest of this run after {Streak} slow responses (>= {Seconds:0.#}s each)",
+                            wayback.SlowStreak, slowAfter.TotalSeconds);
+                    }
+                }
+                else
+                {
+                    wayback.SlowStreak = 0;
+                }
             }
 
             if (_options.WaybackDelayMs > 0)
@@ -424,9 +470,14 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
             if (before.Publication != after.Publication) yield return "publication";
         }
 
-        private static string? BuildWarning(WebsiteEnrichmentResult result, int leftWithoutThumbnail)
+        private static string? BuildWarning(WebsiteEnrichmentResult result, int leftWithoutThumbnail, WaybackGate wayback)
         {
             var parts = new List<string>();
+
+            if (!wayback.Allowed)
+            {
+                parts.Add($"Wayback lookups paused after {wayback.SlowStreak} slow responses; {wayback.SkippedCount} website(s) were left without an archive link. Rerun their enrich with force=true once the archive answers again.");
+            }
 
             if (result.QuotaReached)
             {

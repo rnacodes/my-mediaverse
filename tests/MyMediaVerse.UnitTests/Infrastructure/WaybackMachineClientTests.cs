@@ -8,28 +8,31 @@ using NSubstitute;
 namespace MyMediaVerse.UnitTests.Infrastructure
 {
     /// <summary>
-    /// The CDX index is faked through the HTTP handler; no real Wayback calls. Any problem with the
-    /// archive yields null so enrichment simply leaves the snapshot link empty.
+    /// The availability endpoint is faked through the HTTP handler; no real Wayback calls. Any
+    /// problem with the archive yields null so enrichment simply leaves the snapshot link empty.
     /// </summary>
     [Trait("Category", "Unit")]
     public class WaybackMachineClientTests
     {
         private const string PageUrl = "https://example.com/article";
 
+        private const string CaptureBody = """
+            {"url":"https://example.com/article","archived_snapshots":{"closest":{"status":"200","available":true,"url":"http://web.archive.org/web/20240315120000/https://example.com/article","timestamp":"20240315120000"}}}
+            """;
+
         private readonly TestHttpMessageHandler _handler = new();
         private readonly WaybackMachineClient _client;
 
         public WaybackMachineClientTests()
         {
-            var httpClient = new HttpClient(_handler) { BaseAddress = new Uri("https://web.archive.org/") };
+            var httpClient = new HttpClient(_handler) { BaseAddress = new Uri("https://archive.org/") };
             _client = new WaybackMachineClient(httpClient, Substitute.For<ILogger<WaybackMachineClient>>());
         }
 
         [Fact]
-        public async Task FindLatestSnapshotAsync_BuildsTheSnapshotUrl_FromTheNewestCdxRow()
+        public async Task FindLatestSnapshotAsync_ReturnsTheClosestCapture_AsAnHttpsLink()
         {
-            _handler.RespondWith(HttpStatusCode.OK,
-                """[["timestamp","original"],["20240315120000","https://example.com/article"]]""");
+            _handler.RespondWith(HttpStatusCode.OK, CaptureBody);
 
             var result = await _client.FindLatestSnapshotAsync(PageUrl);
 
@@ -37,32 +40,29 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         }
 
         [Fact]
-        public async Task FindLatestSnapshotAsync_QueriesTheCdxIndex_ForSuccessfulCapturesNewestFirst()
+        public async Task FindLatestSnapshotAsync_AsksTheAvailabilityEndpoint_NotTheCdxIndex()
         {
-            _handler.RespondWith(HttpStatusCode.OK, "[]");
+            _handler.RespondWith(HttpStatusCode.OK, """{"url":"https://example.com/article","archived_snapshots":{}}""");
 
             await _client.FindLatestSnapshotAsync(PageUrl);
 
             var request = _handler.Requests.Should().ContainSingle().Subject;
-            var query = request.RequestUri!.AbsoluteUri;
-            query.Should().StartWith("https://web.archive.org/cdx/search/cdx?url=https%3A%2F%2Fexample.com%2Farticle");
-            query.Should().Contain("output=json");
-            query.Should().Contain("limit=-1");
-            query.Should().Contain("filter=statuscode:200");
+            request.RequestUri!.AbsoluteUri.Should().Be("https://archive.org/wayback/available?url=https%3A%2F%2Fexample.com%2Farticle");
         }
 
         [Fact]
         public async Task FindLatestSnapshotAsync_ReturnsNull_WhenTheArchiveHasNoCaptures()
         {
-            _handler.RespondWith(HttpStatusCode.OK, "[]");
+            _handler.RespondWith(HttpStatusCode.OK, """{"url":"https://example.com/article","archived_snapshots":{}}""");
 
             (await _client.FindLatestSnapshotAsync(PageUrl)).Should().BeNull();
         }
 
         [Fact]
-        public async Task FindLatestSnapshotAsync_ReturnsNull_WhenOnlyTheHeaderRowComesBack()
+        public async Task FindLatestSnapshotAsync_ReturnsNull_WhenTheCaptureIsNotAvailable()
         {
-            _handler.RespondWith(HttpStatusCode.OK, """[["timestamp","original"]]""");
+            _handler.RespondWith(HttpStatusCode.OK,
+                """{"archived_snapshots":{"closest":{"status":"404","available":false,"url":"http://web.archive.org/web/20240315120000/https://example.com/article"}}}""");
 
             (await _client.FindLatestSnapshotAsync(PageUrl)).Should().BeNull();
         }
@@ -75,10 +75,13 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             (await _client.FindLatestSnapshotAsync(PageUrl)).Should().BeNull();
         }
 
-        [Fact]
-        public async Task FindLatestSnapshotAsync_ReturnsNull_OnAMalformedBody()
+        [Theory]
+        [InlineData("<html>not json</html>")]
+        [InlineData("[]")]
+        [InlineData("""{"archived_snapshots":{"closest":{"available":true}}}""")]
+        public async Task FindLatestSnapshotAsync_ReturnsNull_OnAMalformedOrIncompleteBody(string body)
         {
-            _handler.RespondWith(HttpStatusCode.OK, "<html>not json</html>", "text/html");
+            _handler.RespondWith(HttpStatusCode.OK, body, "text/html");
 
             (await _client.FindLatestSnapshotAsync(PageUrl)).Should().BeNull();
         }
@@ -92,11 +95,34 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         }
 
         [Fact]
+        public async Task FindLatestSnapshotAsync_ReturnsNull_WhenTheArchiveTimesOut()
+        {
+            _handler.OnSend = (_, _) => throw new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout of 10 seconds elapsing.");
+
+            (await _client.FindLatestSnapshotAsync(PageUrl)).Should().BeNull();
+        }
+
+        [Fact]
         public async Task FindLatestSnapshotAsync_ReturnsNull_ForAnEmptyUrl_WithoutCallingTheArchive()
         {
             (await _client.FindLatestSnapshotAsync(" ")).Should().BeNull();
 
             _handler.Requests.Should().BeEmpty();
+        }
+
+        [Fact]
+        public async Task FindLatestSnapshotAsync_Propagates_WhenTheCallerCancels()
+        {
+            using var cts = new CancellationTokenSource();
+            _handler.OnSend = (_, _) =>
+            {
+                cts.Cancel();
+                throw new OperationCanceledException(cts.Token);
+            };
+
+            var act = () => _client.FindLatestSnapshotAsync(PageUrl, cts.Token);
+
+            await act.Should().ThrowAsync<OperationCanceledException>();
         }
     }
 }

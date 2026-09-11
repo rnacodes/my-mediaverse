@@ -93,6 +93,12 @@ namespace MyMediaVerse.Shared.Interfaces
         /// </summary>
         public bool TimeBudgetReached { get; set; }
 
+        /// <summary>
+        /// True when the run stopped asking the Wayback Machine after a streak of slow responses;
+        /// the websites processed after that point have no archive link yet (see WarningMessage).
+        /// </summary>
+        public bool WaybackPaused { get; set; }
+
         public List<string> Errors { get; set; } = new List<string>();
 
         public bool WasCancelled { get; set; }

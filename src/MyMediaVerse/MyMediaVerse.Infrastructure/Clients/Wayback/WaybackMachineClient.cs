@@ -5,14 +5,13 @@ using MyMediaVerse.Shared.Interfaces;
 namespace MyMediaVerse.Infrastructure.Clients.Wayback
 {
     /// <summary>
-    /// Queries the Wayback Machine's CDX index for the newest successful capture of a page.
-    /// No API key is required. Any failure (no captures, HTTP error, malformed body, timeout)
-    /// yields null so enrichment simply leaves the archive link empty.
+    /// Asks the Wayback Machine's availability endpoint for the newest capture of a page. It answers
+    /// from an index in about a second, unlike the CDX search, which scans captures and throttles
+    /// sustained callers. No API key is required. Any failure (no captures, HTTP error, malformed
+    /// body, timeout) yields null so enrichment simply leaves the archive link empty.
     /// </summary>
     public class WaybackMachineClient : IWaybackMachineClient
     {
-        private const string SnapshotBaseUrl = "https://web.archive.org/web/";
-
         private readonly HttpClient _httpClient;
         private readonly ILogger<WaybackMachineClient> _logger;
 
@@ -23,11 +22,11 @@ namespace MyMediaVerse.Infrastructure.Clients.Wayback
         }
 
         /// <summary>
-        /// The CDX query for a page: JSON output, newest capture only (<c>limit=-1</c>), successful
-        /// captures only, one row per distinct content digest.
+        /// The availability query for a page. Without a timestamp the endpoint returns the most
+        /// recent capture as <c>archived_snapshots.closest</c>.
         /// </summary>
         public static string BuildQuery(string url) =>
-            $"cdx/search/cdx?url={Uri.EscapeDataString(url)}&output=json&limit=-1&fl=timestamp,original&filter=statuscode:200&collapse=digest";
+            $"wayback/available?url={Uri.EscapeDataString(url)}";
 
         public async Task<string?> FindLatestSnapshotAsync(string url, CancellationToken cancellationToken = default)
         {
@@ -39,7 +38,7 @@ namespace MyMediaVerse.Infrastructure.Clients.Wayback
                 using var response = await _httpClient.GetAsync(BuildQuery(url), cancellationToken);
                 if (!response.IsSuccessStatusCode)
                 {
-                    _logger.LogWarning("Wayback CDX returned {StatusCode} for {Url}", response.StatusCode, url);
+                    _logger.LogWarning("Wayback availability returned {StatusCode} for {Url}", response.StatusCode, url);
                     return null;
                 }
 
@@ -58,8 +57,10 @@ namespace MyMediaVerse.Infrastructure.Clients.Wayback
         }
 
         /// <summary>
-        /// The CDX JSON body is an array of rows whose first row is the header
-        /// (<c>[["timestamp","original"],["20240101120000","https://example.com/"]]</c>).
+        /// The body is <c>{"url": ..., "archived_snapshots": {"closest": {"available": true,
+        /// "url": "http://web.archive.org/web/20240101120000/https://example.com/", "timestamp":
+        /// "20240101120000", "status": "200"}}}</c>; a page with no captures comes back with an
+        /// empty <c>archived_snapshots</c> object.
         /// </summary>
         private static string? ParseSnapshotUrl(string body)
         {
@@ -67,27 +68,33 @@ namespace MyMediaVerse.Infrastructure.Clients.Wayback
                 return null;
 
             using var document = JsonDocument.Parse(body);
-            if (document.RootElement.ValueKind != JsonValueKind.Array)
+            if (document.RootElement.ValueKind != JsonValueKind.Object
+                || !document.RootElement.TryGetProperty("archived_snapshots", out var snapshots)
+                || snapshots.ValueKind != JsonValueKind.Object
+                || !snapshots.TryGetProperty("closest", out var closest)
+                || closest.ValueKind != JsonValueKind.Object)
                 return null;
 
-            // Skip the header row; the newest capture is the last data row.
-            JsonElement? latest = null;
-            var index = 0;
-            foreach (var row in document.RootElement.EnumerateArray())
-            {
-                if (index++ == 0) continue;
-                latest = row;
-            }
-
-            if (latest is not { ValueKind: JsonValueKind.Array } data || data.GetArrayLength() < 2)
+            if (closest.TryGetProperty("available", out var available)
+                && available.ValueKind is JsonValueKind.False or JsonValueKind.Null)
                 return null;
 
-            var timestamp = data[0].GetString();
-            var original = data[1].GetString();
-            if (string.IsNullOrWhiteSpace(timestamp) || string.IsNullOrWhiteSpace(original))
+            if (closest.TryGetProperty("status", out var status)
+                && status.ValueKind == JsonValueKind.String
+                && !(status.GetString() ?? string.Empty).StartsWith('2'))
                 return null;
 
-            return $"{SnapshotBaseUrl}{timestamp}/{original}";
+            if (!closest.TryGetProperty("url", out var urlElement) || urlElement.ValueKind != JsonValueKind.String)
+                return null;
+
+            var snapshotUrl = urlElement.GetString();
+            if (string.IsNullOrWhiteSpace(snapshotUrl))
+                return null;
+
+            // The endpoint hands back http:// links; the archive serves https and browsers prefer it.
+            return snapshotUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+                ? "https://" + snapshotUrl.Substring("http://".Length)
+                : snapshotUrl;
         }
     }
 }
