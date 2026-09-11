@@ -55,7 +55,7 @@ describe('BulkImportResultPanel', () => {
     expect(screen.getByText(/3 enriched, 0 already complete/i)).toBeInTheDocument();
     expect(screen.getByText(/enriched 3 of 3/i)).toBeInTheDocument();
     expect(calls).toEqual(['50', '50']);
-    expect(screen.getByRole('button', { name: /enrich now/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /enrichment done/i })).toBeDisabled();
   });
 
   it('stops and explains when the screenshot budget runs out', async () => {
