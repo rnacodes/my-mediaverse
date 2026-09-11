@@ -72,6 +72,60 @@ describe('BulkImportResultPanel', () => {
     expect(screen.getByText(/enrichment finished/i)).toBeInTheDocument();
   });
 
+  it('reports an interrupted page with what is still pending instead of claiming it finished', async () => {
+    server.use(
+      http.post(`${API_BASE}/website/enrichment/run`, () =>
+        HttpResponse.json(page({ totalProcessed: 1, skippedCount: 1, pendingCount: 2, wasCancelled: true })),
+      ),
+    );
+    const { user } = renderWithProviders(<BulkImportResultPanel result={result()} />);
+
+    await user.click(screen.getByRole('button', { name: /enrich now/i }));
+
+    expect(await screen.findByText(/interrupted; 2 websites still pending/i)).toBeInTheDocument();
+    expect(screen.queryByText(/enrichment finished/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/enriched 1 of 3/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /try again/i })).toBeEnabled();
+  });
+
+  it('stops when a page makes no progress, so a stuck queue cannot loop forever', async () => {
+    let calls = 0;
+    server.use(
+      http.post(`${API_BASE}/website/enrichment/run`, () => {
+        calls += 1;
+        return HttpResponse.json(page({ totalProcessed: 1, failedCount: 1, pendingCount: 3 }));
+      }),
+    );
+    const { user } = renderWithProviders(<BulkImportResultPanel result={result()} />);
+
+    await user.click(screen.getByRole('button', { name: /enrich now/i }));
+
+    expect(await screen.findByText(/no progress on the last page; 3 websites still pending/i)).toBeInTheDocument();
+    expect(calls).toBe(1);
+  });
+
+  it('lets the user try again after a failed request', async () => {
+    let calls = 0;
+    server.use(
+      http.post(`${API_BASE}/website/enrichment/run`, () => {
+        calls += 1;
+        return calls === 1
+          ? HttpResponse.json({ error: 'gateway timeout' }, { status: 504 })
+          : HttpResponse.json(page({ totalProcessed: 3, enrichedCount: 3, pendingCount: 0 }));
+      }),
+    );
+    const { user } = renderWithProviders(<BulkImportResultPanel result={result()} />);
+
+    await user.click(screen.getByRole('button', { name: /enrich now/i }));
+    const retry = await screen.findByRole('button', { name: /try again/i });
+    expect(retry).toBeEnabled();
+
+    await user.click(retry);
+
+    expect(await screen.findByText(/enrichment finished/i)).toBeInTheDocument();
+    expect(calls).toBe(2);
+  });
+
   it('offers nothing to enrich when the library is already complete', () => {
     renderWithProviders(<BulkImportResultPanel result={result({ pendingEnrichmentCount: 0 })} />);
 

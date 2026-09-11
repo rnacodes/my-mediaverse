@@ -15,6 +15,14 @@ namespace MyMediaVerse.Shared.Configuration
         /// <summary>Page size when a run does not specify one.</summary>
         public int DefaultLimit { get; set; } = 50;
 
+        /// <summary>
+        /// Wall-clock budget for one enrichment run, in seconds. A real bookmark export holds dead
+        /// hosts that each cost a full connect timeout, so a page is bounded by time as well as by
+        /// count: once the budget is spent no further website is started and the rest stay pending
+        /// for the next call. Zero disables the budget.
+        /// </summary>
+        public int RunTimeBudgetSeconds { get; set; } = 20;
+
         /// <summary>Page size for link checks when a run does not specify one.</summary>
         public int DefaultLinkCheckLimit { get; set; } = 100;
 

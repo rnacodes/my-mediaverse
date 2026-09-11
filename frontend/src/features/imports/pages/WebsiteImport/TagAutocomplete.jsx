@@ -30,15 +30,19 @@ function TagAutocomplete({ kind, label, value, onChange, disabled = false, place
         onInputChange={(event, newInputValue) => setInput(newInputValue)}
         disabled={disabled}
         renderTags={(tagValue, getTagProps) =>
-          tagValue.map((option, index) => (
-            <Chip
-              key={`${kind}-${option}`}
-              label={option}
-              size="small"
-              sx={{ backgroundColor: CHIP_COLORS[kind], color: 'white', fontSize: '0.75rem' }}
-              {...getTagProps({ index })}
-            />
-          ))
+          tagValue.map((option, index) => {
+            // MUI hands back a key inside the tag props; React wants it passed directly.
+            const { key, ...tagProps } = getTagProps({ index });
+            return (
+              <Chip
+                key={key}
+                label={option}
+                size="small"
+                sx={{ backgroundColor: CHIP_COLORS[kind], color: 'white', fontSize: '0.75rem' }}
+                {...tagProps}
+              />
+            );
+          })
         }
         renderInput={(params) => (
           <TextField

@@ -67,6 +67,125 @@ namespace MyMediaVerse.UnitTests.Application
             </DL>
             """;
 
+        private const string SafariExport = """
+            <!DOCTYPE NETSCAPE-Bookmark-file-1>
+            <HTML>
+            <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">
+            <Title>Bookmarks</Title>
+            <H1>Bookmarks</H1>
+            <DT><H3 FOLDED>Favorites</H3>
+            <DL><p>
+                <DT><A HREF="https://www.apple.com/">Apple</A>
+                <DT><H3 FOLDED>Reading</H3>
+                <DL><p>
+                    <DT><A HREF="https://example.com/article" ICON="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAOklEQVQ4T2NkoBAwUqifYdQAhtEwYBgNA4bRMGAYDQOG0TBgGA0DhtEwYBgNA4bRMGAYDQOG0TBgGA0DAAAdAAGaG8rIAAAAAElFTkSuQmCC">Long read &mdash; part 1</A>
+                </DL><p>
+            </DL><p>
+            <DT><H3 FOLDED>Bookmarks Menu</H3>
+            <DL><p>
+                <DT><A HREF="file:///Users/me/Desktop/Recipe.webloc">Recipe.webloc</A>
+                <DT><A HREF="https://example.com/menu">Menu link</A>
+            </DL><p>
+            </HTML>
+            """;
+
+        private const string RaindropExport = """
+            <!DOCTYPE NETSCAPE-Bookmark-file-1>
+            <!-- This is an automatically generated file. It will be read and overwritten. DO NOT EDIT! -->
+            <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">
+            <TITLE>Bookmarks</TITLE>
+            <H1>Bookmarks</H1>
+            <DL><p>
+            <DT><H3 ADD_DATE="1725000000" LAST_MODIFIED="1725000100">Design</H3>
+            <DL><p>
+            <DT><A HREF="https://example.com/palette" ADD_DATE="1725000000" LAST_MODIFIED="1725000100" TAGS="color,ui">Palette tool</A>
+            <DD>Pick a palette from an image.
+            <DT><A HREF="https://example.com/type" ADD_DATE="1725000001" LAST_MODIFIED="1725000001" TAGS="typography">Type scale</A>
+            </DL><p>
+            <DT><H3 ADD_DATE="1725000000" LAST_MODIFIED="1725000100">Unsorted</H3>
+            <DL><p>
+            <DT><A HREF="https://example.com/later" ADD_DATE="1725000002" LAST_MODIFIED="1725000002" TAGS="">Later</A>
+            </DL><p>
+            </DL><p>
+            """;
+
+        [Fact]
+        public void Parse_SafariExport_HandlesBareTopLevelFolders_IconsAndWeblocFiles()
+        {
+            var result = _parser.Parse(SafariExport);
+
+            result.Bookmarks.Select(b => b.Url).Should().Equal(
+                "https://www.apple.com/",
+                "https://example.com/article",
+                "https://example.com/menu");
+            result.NonWebLinkCount.Should().Be(1, "the .webloc file is a file:// link");
+
+            result.Bookmarks[0].FolderPath.Should().BeEmpty("'Favorites' is Safari's toolbar container");
+            result.Bookmarks[1].FolderPath.Should().Equal("Reading");
+            result.Bookmarks[1].Title.Should().Be("Long read — part 1", "the ICON data URI does not leak into the title");
+            result.Bookmarks[2].FolderPath.Should().BeEmpty("'Bookmarks Menu' is a container");
+            result.Bookmarks.Should().OnlyContain(b => b.AddedAt == null, "Safari writes no timestamps");
+            result.Bookmarks.Should().OnlyContain(b => b.Tags.Count == 0);
+
+            result.Folders.Should().Equal("Reading");
+        }
+
+        [Fact]
+        public void Parse_RaindropExport_ReadsCollectionsAsFolders_TagsAndSecondTimestamps()
+        {
+            var result = _parser.Parse(RaindropExport);
+
+            result.Bookmarks.Select(b => b.Url).Should().Equal(
+                "https://example.com/palette",
+                "https://example.com/type",
+                "https://example.com/later");
+            result.NonWebLinkCount.Should().Be(0);
+
+            result.Bookmarks[0].FolderPath.Should().Equal("Design");
+            result.Bookmarks[0].Tags.Should().Equal("color", "ui");
+            result.Bookmarks[0].AddedAt.Should().Be(DateTimeOffset.FromUnixTimeSeconds(1725000000).UtcDateTime);
+            result.Bookmarks[0].Title.Should().Be("Palette tool", "the <DD> excerpt is not part of the title");
+            result.Bookmarks[1].Tags.Should().Equal("typography");
+            result.Bookmarks[2].FolderPath.Should().Equal(new[] { "Unsorted" }, "Raindrop's Unsorted is a user-visible collection, not a browser container");
+            result.Bookmarks[2].Tags.Should().BeEmpty("an empty TAGS attribute yields no tags");
+
+            result.Folders.Should().Equal("Design", "Unsorted");
+        }
+
+        [Fact]
+        public void Parse_TwoThousandEntries_CompletesQuickly_AndDropsNothing()
+        {
+            const int count = 2000;
+            var builder = new System.Text.StringBuilder("<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<DL><p>\n");
+            var icon = "ICON=\"data:image/png;base64," + new string('A', 400) + "\"";
+            for (var i = 0; i < count; i++)
+            {
+                if (i % 100 == 0) builder.Append($"<DT><H3 ADD_DATE=\"1700000000\">Folder {i / 100}</H3>\n<DL><p>\n");
+                builder.Append($"<DT><A HREF=\"https://example.com/page-{i}?ref=x&amp;n={i}\" ADD_DATE=\"{1700000000 + i}\" {icon} TAGS=\"t{i % 7},bulk\">Page {i} &amp; friends <b>bold</b></A>\n");
+                if (i % 100 == 99) builder.Append("</DL><p>\n");
+            }
+            builder.Append("</DL><p>\n");
+            var content = builder.ToString();
+
+            // Warm up so the compiled regexes' first-use JIT cost is not what gets timed.
+            _parser.Parse(ChromeExport);
+
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            var result = _parser.Parse(content);
+            stopwatch.Stop();
+
+            result.Bookmarks.Should().HaveCount(count);
+            result.NonWebLinkCount.Should().Be(0);
+            result.Folders.Should().HaveCount(count / 100);
+            result.Bookmarks[1999].Url.Should().Be("https://example.com/page-1999?ref=x&n=1999");
+            result.Bookmarks[1999].Title.Should().Be("Page 1999 & friends bold");
+            result.Bookmarks[1999].FolderPath.Should().Equal("Folder 19");
+            result.Bookmarks[1999].Tags.Should().Equal("t4", "bulk");
+            // Catastrophic backtracking would take minutes here; the generous bound keeps a busy
+            // machine from turning this into a flaky test while still catching a regressed regex.
+            stopwatch.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(3), "the token scanner must stay linear in the file size");
+        }
+
         [Fact]
         public void Parse_ChromeExport_ReadsWebLinksWithFolderPaths_AndSkipsContainersAndNonWebLinks()
         {

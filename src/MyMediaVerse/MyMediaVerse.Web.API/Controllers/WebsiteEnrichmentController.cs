@@ -80,7 +80,17 @@ namespace MyMediaVerse.Web.API.Controllers
                     return StatusCode(500, result);
                 }
 
-                await _importReindexService.ReindexAfterImportAsync(result.EnrichedCount, "website enrichment");
+                if (result.TimeBudgetReached && result.PendingCount > 0)
+                {
+                    _logger.LogInformation(
+                        "Website enrichment: reindex deferred, {Pending} still pending after a time-budgeted page",
+                        result.PendingCount);
+                }
+                else
+                {
+                    await _importReindexService.ReindexAfterImportAsync(result.EnrichedCount, "website enrichment");
+                }
+
                 return Ok(result);
             }
             catch (Exception ex)

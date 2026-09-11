@@ -34,15 +34,25 @@ function BulkImportResultPanel({ result, guard }) {
   const pending = result.pendingEnrichmentCount ?? 0;
   const percent = runner.progress.total > 0 ? Math.round((runner.progress.done / runner.progress.total) * 100) : 0;
 
+  // A run that stopped on an error can be picked up again: the server left the rest pending.
+  const canRetry = runner.finished && !!runner.error;
+  const enrichLabel = runner.running
+    ? 'Enriching...'
+    : canRetry
+      ? 'Try again'
+      : runner.finished
+        ? 'Enrichment done'
+        : `Enrich now (${pending} pending)`;
+
   const enrichButton = (
     <Button
       variant="outlined"
       onClick={() => runner.start(pending)}
-      disabled={runner.running || pending === 0 || runner.finished}
+      disabled={runner.running || pending === 0 || (runner.finished && !canRetry)}
       startIcon={runner.running ? <CircularProgress size={18} color="inherit" /> : <AutoFixHigh />}
       sx={OUTLINED_BUTTON_SX}
     >
-      {runner.running ? 'Enriching...' : runner.finished ? 'Enrichment done' : `Enrich now (${pending} pending)`}
+      {enrichLabel}
     </Button>
   );
 

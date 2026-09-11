@@ -82,6 +82,56 @@ namespace MyMediaVerse.UnitTests.Infrastructure
 
         #endregion
 
+        #region EnrichPendingAsync — time budget
+
+        [Fact]
+        public async Task EnrichPendingAsync_StopsStartingWebsites_OnceTheTimeBudgetIsSpent()
+        {
+            // Three stubs, a one-second budget, and a scraper that takes longer than that: the first
+            // website is started (the budget is checked before each start), the other two stay pending.
+            await SeedStub("https://example.com/a", dateAdded: DateTime.UtcNow.AddMinutes(-3));
+            await SeedStub("https://example.com/b", dateAdded: DateTime.UtcNow.AddMinutes(-2));
+            await SeedStub("https://example.com/c", dateAdded: DateTime.UtcNow.AddMinutes(-1));
+            _scraper.ScrapeWebsiteAsync(Arg.Any<string>()).Returns(async call =>
+            {
+                await Task.Delay(1100);
+                return Scraped(call.Arg<string>());
+            });
+            var service = new WebsiteEnrichmentService(
+                Context, _scraper, _screenshots, _quota, _wayback, _linkChecker, _storage, _syncState,
+                Options.Create(new WebsiteEnrichmentOptions { WaybackDelayMs = 0, MaxLimit = 200, RunTimeBudgetSeconds = 1 }),
+                Substitute.For<ILogger<WebsiteEnrichmentService>>());
+
+            var result = await service.EnrichPendingAsync(50);
+
+            result.Success.Should().BeTrue();
+            result.TimeBudgetReached.Should().BeTrue();
+            result.TotalProcessed.Should().Be(1, "only websites actually attempted are counted");
+            result.EnrichedCount.Should().Be(1);
+            result.PendingCount.Should().Be(2, "the websites the budget did not reach stay pending for the next call");
+            result.WasCancelled.Should().BeFalse();
+            await _scraper.Received(1).ScrapeWebsiteAsync(Arg.Any<string>());
+        }
+
+        [Fact]
+        public async Task EnrichPendingAsync_ProcessesTheWholePage_WhenTheBudgetIsDisabled()
+        {
+            await SeedStub("https://example.com/a");
+            await SeedStub("https://example.com/b");
+            var service = new WebsiteEnrichmentService(
+                Context, _scraper, _screenshots, _quota, _wayback, _linkChecker, _storage, _syncState,
+                Options.Create(new WebsiteEnrichmentOptions { WaybackDelayMs = 0, MaxLimit = 200, RunTimeBudgetSeconds = 0 }),
+                Substitute.For<ILogger<WebsiteEnrichmentService>>());
+
+            var result = await service.EnrichPendingAsync(50);
+
+            result.TimeBudgetReached.Should().BeFalse();
+            result.TotalProcessed.Should().Be(2);
+            result.PendingCount.Should().Be(0);
+        }
+
+        #endregion
+
         #region GetPendingCountAsync
 
         [Fact]
@@ -279,7 +329,48 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             saved.LastCheckedDate.Should().NotBeNull();
             saved.Description.Should().BeNull();
             await _screenshots.DidNotReceiveWithAnyArgs().CaptureScreenshotAsync(default!, default);
-            await _wayback.DidNotReceiveWithAnyArgs().FindLatestSnapshotAsync(default!, default);
+        }
+
+        [Fact]
+        public async Task EnrichPendingAsync_LinksAnArchivedCopy_ForAPageThatIsGone()
+        {
+            var gone = await SeedStub("https://example.com/gone");
+            _scraper.ScrapeWebsiteAsync(gone.Link!)
+                .Throws(new HttpRequestException("gone", null, System.Net.HttpStatusCode.Gone));
+            _wayback.FindLatestSnapshotAsync(gone.Link!, Arg.Any<CancellationToken>())
+                .Returns("https://web.archive.org/web/20240101000000/https://example.com/gone");
+
+            var result = await _service.EnrichPendingAsync(10);
+
+            result.SkippedCount.Should().Be(1, "a dead page is still counted as unreachable");
+            var saved = await Reload(gone.Id);
+            saved.LastHttpStatus.Should().Be(410);
+            saved.WaybackUrl.Should().Be("https://web.archive.org/web/20240101000000/https://example.com/gone");
+        }
+
+        [Fact]
+        public async Task EnrichPendingAsync_TreatsAScraperTimeoutAsUnreachable_AndKeepsGoing()
+        {
+            var hanging = await SeedStub("https://example.com/hangs", dateAdded: DateTime.UtcNow.AddDays(-2));
+            var healthy = await SeedStub("https://example.com/healthy", dateAdded: DateTime.UtcNow.AddDays(-1));
+            _scraper.ScrapeWebsiteAsync(hanging.Link!)
+                .Throws(new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout of 15 seconds elapsing."));
+
+            var result = await _service.EnrichPendingAsync(10);
+
+            await _linkChecker.DidNotReceiveWithAnyArgs().CheckAsync(default!, default);
+
+            result.Success.Should().BeTrue();
+            result.WasCancelled.Should().BeFalse();
+            result.TotalProcessed.Should().Be(2);
+            result.SkippedCount.Should().Be(1);
+            result.EnrichedCount.Should().Be(1);
+            result.PendingCount.Should().Be(0);
+
+            var saved = await Reload(hanging.Id);
+            saved.LastHttpStatus.Should().Be(0);
+            saved.EnrichedAt.Should().NotBeNull("the row must not be retried on every page");
+            (await Reload(healthy.Id)).Description.Should().Be("Scraped description");
         }
 
         [Fact]
@@ -361,6 +452,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
 
             result.WasCancelled.Should().BeTrue();
             result.Success.Should().BeTrue();
+            result.PendingCount.Should().Be(2, "an interrupted run still reports what is left (the row it was on was never saved) so callers do not think the queue is empty");
             await _syncState.DidNotReceiveWithAnyArgs().MarkSyncSucceededAsync(default!, default);
             (await Reload(second.Id)).EnrichedAt.Should().BeNull();
         }

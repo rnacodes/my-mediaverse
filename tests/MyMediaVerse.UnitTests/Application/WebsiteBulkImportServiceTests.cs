@@ -217,6 +217,41 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         [Fact]
+        public async Task ImportAsync_MatchesEveryExistingRow_WhenTheKeysSpanMoreThanOneLookupChunk()
+        {
+            // 520 keys → two 500-key lookup queries; a real browser export is this size or larger.
+            const int count = 520;
+            var seeded = Enumerable.Range(1, count).Select(i =>
+            {
+                var url = $"https://example.com/page-{i}";
+                var website = TestDataFactory.CreateWebsite($"Page {i}", url);
+                website.UrlKey = MyMediaVerse.Application.Utilities.UrlNormalizer.GetComparisonKey(url);
+                return website;
+            }).ToList();
+            Context.Websites.AddRange(seeded);
+            await Context.SaveChangesAsync();
+            Context.ChangeTracker.Clear();
+
+            // Same pages, written the way a browser would (www + trailing slash + tracking query).
+            var parsed = Parsed(Enumerable.Range(1, count)
+                .Select(i => Bookmark($"http://www.example.com/page-{i}/?utm_source=export", $"Page {i}", new[] { "Imported" }))
+                .ToArray());
+
+            var preview = await _service.PreviewAsync(parsed);
+            preview.AlreadyInLibraryCount.Should().Be(count);
+            preview.NewCount.Should().Be(0);
+
+            var result = await Import(parsed);
+
+            result.CreatedCount.Should().Be(0);
+            result.UpdatedCount.Should().Be(count, "each match gains the folder topic");
+            result.SkippedCount.Should().Be(0);
+            result.FailedCount.Should().Be(0);
+            (await Context.Websites.CountAsync()).Should().Be(count, "no row was duplicated across the chunk boundary");
+            (await Context.Websites.CountAsync(w => w.Topics.Any(t => t.Name == "imported"))).Should().Be(count);
+        }
+
+        [Fact]
         public async Task ImportAsync_CountsAMatchWithNothingNewAsSkipped()
         {
             await SeedWebsite("https://example.com/known", "Known", legacy: false, "dev");

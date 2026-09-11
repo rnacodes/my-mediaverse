@@ -80,6 +80,23 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         }
 
         [Fact]
+        public async Task CheckAsync_FollowsAnHttpsToHttpDowngrade_AndReportsTheFinalStatus()
+        {
+            // The metadata scraper's client refuses https→http hops (so such pages enrich with a
+            // status but no metadata); the link checker follows them so the page is not marked broken.
+            _handler.RespondInSequence(
+                () => Redirect(HttpStatusCode.MovedPermanently, "http://example.com/page"),
+                () => new HttpResponseMessage(HttpStatusCode.OK));
+
+            var status = await _checker.CheckAsync(PageUrl);
+
+            status.Should().Be(200);
+            _handler.Requests.Should().HaveCount(2);
+            _handler.Requests[1].RequestUri!.Scheme.Should().Be("http");
+            _handler.Requests[1].Method.Should().Be(HttpMethod.Head, "a 301 keeps the method");
+        }
+
+        [Fact]
         public async Task CheckAsync_ReportsTheErrorBehindARedirect()
         {
             _handler.RespondInSequence(

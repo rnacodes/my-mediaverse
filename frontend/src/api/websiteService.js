@@ -250,8 +250,12 @@ export const getWebsiteEnrichmentStatus = async () => {
  */
 export const runWebsiteEnrichment = async (limit) => {
     try {
+        // The server bounds a run by its time budget, but the website it is on when the budget
+        // runs out still has to finish (a dead host costs a full connect timeout), so this call
+        // gets more room than the client's default 30s.
         const response = await apiClient.post('/website/enrichment/run', null, {
             params: limit ? { limit } : undefined,
+            timeout: 120000,
         });
         return response.data;
     } catch (error) {

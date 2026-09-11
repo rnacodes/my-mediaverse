@@ -79,12 +79,16 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                     .Take(limit)
                     .ToListAsync(cancellationToken);
 
-                result.TotalProcessed = candidates.Count;
                 _logger.LogInformation("Website enrichment: {Count} pending websites in this run", candidates.Count);
 
                 // Once the budget is gone, stop asking so the rest of the run costs no quota reads.
                 var screenshotsAllowed = true;
                 var leftWithoutThumbnail = 0;
+
+                // A page is bounded by time as well as by count: dead hosts each cost a full connect
+                // timeout, and the caller's request must finish. Whatever is not reached stays pending.
+                var timeBudget = _options.RunTimeBudgetSeconds > 0 ? TimeSpan.FromSeconds(_options.RunTimeBudgetSeconds) : (TimeSpan?)null;
+                var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
                 foreach (var website in candidates)
                 {
@@ -93,6 +97,17 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                         result.WasCancelled = true;
                         break;
                     }
+
+                    if (timeBudget.HasValue && stopwatch.Elapsed >= timeBudget.Value)
+                    {
+                        result.TimeBudgetReached = true;
+                        _logger.LogInformation(
+                            "Website enrichment: time budget of {Budget}s spent after {Processed} of {Count}; the rest stay pending",
+                            _options.RunTimeBudgetSeconds, result.TotalProcessed, candidates.Count);
+                        break;
+                    }
+
+                    result.TotalProcessed++;
 
                     try
                     {
@@ -112,7 +127,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                         else if (outcome.FilledFields.Count > 0) result.EnrichedCount++;
                         else result.UnchangedCount++;
                     }
-                    catch (OperationCanceledException)
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                     {
                         throw;
                     }
@@ -137,10 +152,11 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                     "Website enrichment complete. Enriched: {Enriched}, Unchanged: {Unchanged}, Skipped: {Skipped}, Failed: {Failed}, Screenshots: {Screenshots}, Pending: {Pending}",
                     result.EnrichedCount, result.UnchangedCount, result.SkippedCount, result.FailedCount, result.ScreenshotsRendered, result.PendingCount);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 result.WasCancelled = true;
                 result.CompletedAt = DateTime.UtcNow;
+                result.PendingCount = await TryGetPendingCountAsync();
                 _logger.LogInformation("Website enrichment was canceled");
             }
             catch (Exception ex)
@@ -148,10 +164,29 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                 result.Success = false;
                 result.ErrorMessage = $"Enrichment run failed: {ex.Message}";
                 result.CompletedAt = DateTime.UtcNow;
+                result.PendingCount = await TryGetPendingCountAsync();
                 _logger.LogError(ex, "Website enrichment run failed");
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// The pending count for a run that ended early. Callers loop on this number, so a canceled
+        /// or failed run must not report zero left when the queue is untouched; if even the count
+        /// fails, zero is the honest fallback because nothing more can be learned.
+        /// </summary>
+        private async Task<int> TryGetPendingCountAsync()
+        {
+            try
+            {
+                return await GetPendingCountAsync(CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Could not read the pending website count after an interrupted run");
+                return 0;
+            }
         }
 
         public async Task<SingleWebsiteEnrichmentResult> EnrichByIdAsync(Guid id, bool force, CancellationToken cancellationToken = default)
@@ -194,7 +229,9 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                 result.LastHttpStatus = website.LastHttpStatus;
 
                 if (outcome.Unreachable)
-                    result.WarningMessage = $"The page could not be fetched (status {website.LastHttpStatus}); nothing was filled.";
+                    result.WarningMessage = outcome.FilledFields.Contains("waybackUrl")
+                        ? $"The page could not be fetched (status {website.LastHttpStatus}); an archived copy was linked instead."
+                        : $"The page could not be fetched (status {website.LastHttpStatus}); nothing was filled.";
                 else if (outcome.QuotaReached)
                     result.WarningMessage = "The monthly screenshot quota has been reached; the website was enriched without a screenshot.";
                 else if (outcome.WantedScreenshot && !outcome.ScreenshotRendered)
@@ -243,16 +280,22 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
             {
                 scraped = await _scraper.ScrapeWebsiteAsync(website.Link ?? string.Empty);
             }
-            catch (Exception ex) when (ex is HttpRequestException or ArgumentException)
+            catch (Exception ex) when (ex is HttpRequestException or ArgumentException
+                || (ex is OperationCanceledException && !cancellationToken.IsCancellationRequested))
             {
-                // The page is gone or the stored URL is unusable. Record what we learned and mark
-                // the row enriched so the run does not retry it forever; a later link check or a
-                // forced re-run can revisit it.
+                // The page is gone, the stored URL is unusable, or the host hung until the scraper's
+                // own timeout fired (that surfaces as a cancellation that nobody requested). Record
+                // what we learned and mark the row enriched so the run does not retry it forever; a
+                // later link check or a forced re-run can revisit it.
                 website.LastHttpStatus = await ResolveFailureStatusAsync(ex, website.Link, cancellationToken);
                 website.LastCheckedDate = now;
                 website.EnrichedAt = now;
                 outcome.Unreachable = true;
                 _logger.LogInformation("Website {Id} ({Link}) could not be fetched: status {Status}", website.Id, website.Link, website.LastHttpStatus);
+
+                // A page that is gone is exactly the one whose archived copy matters, and the
+                // profile offers that copy only when a snapshot URL is stored.
+                await TryFillWaybackAsync(website, outcome, cancellationToken);
                 return outcome;
             }
 
@@ -300,25 +343,34 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                 }
             }
 
-            if (string.IsNullOrWhiteSpace(website.WaybackUrl) && !string.IsNullOrWhiteSpace(website.Link))
-            {
-                var snapshot = await _wayback.FindLatestSnapshotAsync(website.Link, cancellationToken);
-                if (!string.IsNullOrWhiteSpace(snapshot))
-                {
-                    website.WaybackUrl = snapshot;
-                    outcome.FilledFields.Add("waybackUrl");
-                }
-
-                if (_options.WaybackDelayMs > 0)
-                {
-                    await Task.Delay(_options.WaybackDelayMs, cancellationToken);
-                }
-            }
+            await TryFillWaybackAsync(website, outcome, cancellationToken);
 
             website.LastCheckedDate = now;
             website.LastHttpStatus = 200;
             website.EnrichedAt = now;
             return outcome;
+        }
+
+        /// <summary>
+        /// Fill-only Wayback lookup, for live and dead pages alike. The client returns null on any
+        /// failure, so a slow or refused lookup costs time but never the row.
+        /// </summary>
+        private async Task TryFillWaybackAsync(Website website, EnrichOutcome outcome, CancellationToken cancellationToken)
+        {
+            if (!string.IsNullOrWhiteSpace(website.WaybackUrl) || string.IsNullOrWhiteSpace(website.Link))
+                return;
+
+            var snapshot = await _wayback.FindLatestSnapshotAsync(website.Link, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(snapshot))
+            {
+                website.WaybackUrl = snapshot;
+                outcome.FilledFields.Add("waybackUrl");
+            }
+
+            if (_options.WaybackDelayMs > 0)
+            {
+                await Task.Delay(_options.WaybackDelayMs, cancellationToken);
+            }
         }
 
         /// <summary>
@@ -331,6 +383,9 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
         private async Task<int> ResolveFailureStatusAsync(Exception exception, string? link, CancellationToken cancellationToken)
         {
             if (exception is ArgumentException)
+                return 0;
+
+            if (exception is OperationCanceledException)
                 return 0;
 
             for (var current = exception; current != null; current = current.InnerException)

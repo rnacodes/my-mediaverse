@@ -10,8 +10,9 @@ const EMPTY_TOTALS = { processed: 0, enriched: 0, unchanged: 0, skipped: 0, fail
 
 /**
  * Drives the paged enrichment endpoint until nothing is pending: each call fills up to 50
- * websites and reports how many are left, so the loop is just "call again while pending".
- * Every request is short, which suits the hosting timeouts; the user can cancel between pages.
+ * websites, or as many as fit in the server's time budget, and reports how many are left, so
+ * the loop is just "call again while pending". A page that touched nothing ends the loop; the
+ * user can cancel between pages.
  */
 export function useEnrichmentRunner() {
   const queryClient = useQueryClient();
@@ -58,11 +59,20 @@ export function useEnrichmentRunner() {
           break;
         }
 
+        const previousPending = pending;
         pending = result.pendingCount ?? 0;
         setProgress({ done: Math.max(0, initialPending - pending), total: initialPending });
 
-        // A page that touched nothing means nothing more can be done right now.
+        if (result.wasCancelled) {
+          setError(`The enrichment run was interrupted; ${pending} website${pending === 1 ? '' : 's'} still pending.`);
+          break;
+        }
+
         if ((result.totalProcessed ?? 0) === 0) break;
+        if (pending >= previousPending) {
+          setError(`No progress on the last page; ${pending} website${pending === 1 ? '' : 's'} still pending.`);
+          break;
+        }
       }
     } catch (err) {
       setError(extractErrorMessage(err, 'The enrichment run failed.'));

@@ -87,6 +87,12 @@ namespace MyMediaVerse.Shared.Interfaces
         /// <summary>Websites still pending after this run (enrichment only).</summary>
         public int PendingCount { get; set; }
 
+        /// <summary>
+        /// True when the run stopped early because its time budget was spent. The websites it did
+        /// not reach are still pending; <see cref="TotalProcessed"/> counts only those attempted.
+        /// </summary>
+        public bool TimeBudgetReached { get; set; }
+
         public List<string> Errors { get; set; } = new List<string>();
 
         public bool WasCancelled { get; set; }

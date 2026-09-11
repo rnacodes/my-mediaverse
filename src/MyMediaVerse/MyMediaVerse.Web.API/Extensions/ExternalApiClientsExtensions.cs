@@ -212,10 +212,12 @@ public static class ExternalApiClientsExtensions
 
     private static void AddWebsiteScrapingClients(this IServiceCollection services, IConfiguration configuration)
     {
+        // A dead host costs the whole timeout, and bulk enrichment meets many of them, so the
+        // scraper gives up sooner than the other clients; a live page answers well within this.
         services.AddHttpClient<IWebsiteScraperService, WebsiteScraperService>(client =>
         {
             client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
-            client.Timeout = TimeSpan.FromSeconds(30);
+            client.Timeout = TimeSpan.FromSeconds(15);
         });
 
         // Screenshot pipeline: options carry code defaults, so the section may be absent entirely.
@@ -253,7 +255,7 @@ public static class ExternalApiClientsExtensions
         services.AddHttpClient<ILinkChecker, HttpLinkChecker>(client =>
         {
             client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
-            client.Timeout = TimeSpan.FromSeconds(15);
+            client.Timeout = TimeSpan.FromSeconds(10);
         })
         .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
     }
