@@ -7,13 +7,31 @@ namespace MyMediaVerse.UnitTests.Application.Utilities
     public class UrlNormalizerTests
     {
         [Theory]
-        [InlineData("https://Example.com/Article/", "https://example.com/article")]
+        [InlineData("HTTPS://Example.com/Article/", "https://example.com/Article")]
         [InlineData("https://example.com/article#section-2", "https://example.com/article")]
         [InlineData("https://example.com/article?utm_source=news&utm_medium=email", "https://example.com/article")]
         [InlineData("https://www.example.com/article", "https://example.com/article")]
+        [InlineData("https://example.com/tech/?page=2", "https://example.com/tech?page=2")]
         public void Normalize_AppliesExpectedTransformations(string input, string expected)
         {
             UrlNormalizer.Normalize(input).Should().Be(expected);
+        }
+
+        [Fact]
+        public void Normalize_KeepsPathAndQueryCase_BecauseManySitesAreCaseSensitiveThere()
+        {
+            UrlNormalizer.Normalize("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+                .Should().Be("https://youtube.com/watch?v=dQw4w9WgXcQ");
+            UrlNormalizer.Normalize("https://en.wikipedia.org/wiki/Bookmark_(digital)")
+                .Should().Be("https://en.wikipedia.org/wiki/Bookmark_(digital)");
+        }
+
+        [Fact]
+        public void GetComparisonKey_IsCaseInsensitive_AndIgnoresATrailingSlashBeforeTheQuery()
+        {
+            UrlNormalizer.GetComparisonKey("https://Example.com/Article?Id=42")
+                .Should().Be(UrlNormalizer.GetComparisonKey("http://www.example.com/article/?id=42"))
+                .And.Be("example.com/article?id=42");
         }
 
         [Fact]

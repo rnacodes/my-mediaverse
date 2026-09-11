@@ -1,6 +1,7 @@
 using System.ServiceModel.Syndication;
 using System.Xml;
 using Microsoft.Extensions.Logging;
+using MyMediaVerse.Application.Utilities;
 using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.Infrastructure.Services.Web
@@ -144,23 +145,21 @@ namespace MyMediaVerse.Infrastructure.Services.Web
             return null;
         }
 
+        private const int MaxDescriptionLength = 300;
+
+        /// <summary>
+        /// Feed summaries are shown as short teasers, so the plain text is capped at
+        /// <see cref="MaxDescriptionLength"/> characters (ellipsis included).
+        /// </summary>
         private static string? StripHtml(string? html)
         {
-            if (string.IsNullOrEmpty(html))
+            var text = HtmlText.Strip(html);
+            if (text == null)
                 return null;
 
-            // Remove HTML tags
-            var text = System.Text.RegularExpressions.Regex.Replace(html, "<[^>]+>", " ");
-            // Decode HTML entities
-            text = System.Net.WebUtility.HtmlDecode(text);
-            // Normalize whitespace
-            text = System.Text.RegularExpressions.Regex.Replace(text, @"\s+", " ").Trim();
-            // Truncate if too long
-            if (text.Length > 300)
-            {
-                text = text.Substring(0, 297) + "...";
-            }
-            return text;
+            return text.Length > MaxDescriptionLength
+                ? text.Substring(0, MaxDescriptionLength - 3) + "..."
+                : text;
         }
     }
 }

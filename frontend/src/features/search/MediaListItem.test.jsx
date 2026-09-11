@@ -84,3 +84,17 @@ describe('MediaListItem selection', () => {
     expect(screen.getByRole('checkbox')).toBeChecked();
   });
 });
+
+describe('MediaListItem website details', () => {
+  it('shows the domain and RSS presence on the metadata line', () => {
+    renderRow({ mediaType: 'Website', domain: 'theverge.com', hasRss: true });
+
+    expect(screen.getByText('theverge.com • RSS')).toBeInTheDocument();
+  });
+
+  it('flags a broken link', () => {
+    renderRow({ mediaType: 'Website', domain: 'theverge.com', linkStatus: 0 });
+
+    expect(screen.getByText('Link broken')).toBeInTheDocument();
+  });
+});

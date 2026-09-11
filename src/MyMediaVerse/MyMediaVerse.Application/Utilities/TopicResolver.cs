@@ -21,6 +21,9 @@ namespace MyMediaVerse.Application.Utilities
             _context = context;
         }
 
+        /// <summary>Topics this resolver created (as opposed to found) so far.</summary>
+        public int CreatedCount { get; private set; }
+
         /// <summary>
         /// Resolves a normalized (trimmed, lowercased) tag name to its Topic, creating
         /// one if none exists. Returns null for a name the Topic table cannot hold
@@ -42,6 +45,7 @@ namespace MyMediaVerse.Application.Utilities
             {
                 topic = new Topic { Name = name };
                 _context.Add(topic);
+                CreatedCount++;
             }
 
             _cache[name] = topic;

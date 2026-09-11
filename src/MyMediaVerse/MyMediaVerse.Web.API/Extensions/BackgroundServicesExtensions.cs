@@ -32,6 +32,10 @@ public static class BackgroundServicesExtensions
         // op, no external API — no background worker needed; triggered via the enrichment controller).
         services.AddScoped<IBookRatingEnrichmentService, BookRatingEnrichmentService>();
 
+        // Website enrichment runs on demand only (paged endpoints); scheduling is handled outside
+        // the API, so there is no hosted worker for it.
+        services.AddScoped<IWebsiteEnrichmentService, WebsiteEnrichmentService>();
+
         services.AddScoped<IMovieTvEnrichmentService, MovieTvEnrichmentService>();
         services.AddEnrichmentWorker<MovieTvEnrichmentHostedService, MovieTvEnrichmentOptions>(
             configuration, MovieTvEnrichmentOptions.SectionName, isTesting);

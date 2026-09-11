@@ -8,8 +8,12 @@ using MyMediaVerse.Infrastructure.Clients.Paperless;
 using MyMediaVerse.Infrastructure.Clients.Readwise;
 using MyMediaVerse.Infrastructure.Clients.TMDB;
 using MyMediaVerse.Infrastructure.Clients.Trakt;
+using MyMediaVerse.Infrastructure.Clients.Wayback;
 using MyMediaVerse.Infrastructure.Clients.YouTube;
 using MyMediaVerse.Infrastructure.Services.Web;
+using Microsoft.Extensions.Options;
+using MyMediaVerse.Application.Services;
+using MyMediaVerse.Shared.Configuration;
 using MyMediaVerse.Shared.Interfaces;
 using Polly;
 
@@ -33,7 +37,7 @@ public static class ExternalApiClientsExtensions
         services.AddGoogleBooksApiClient();
         services.AddQuartzApiClient();
         services.AddGradientAIClient(configuration, logger);
-        services.AddWebsiteScrapingClients();
+        services.AddWebsiteScrapingClients(configuration);
         services.AddRssFeedClient();
         services.AddTmdbClient(configuration, logger);
         services.AddTraktClient();
@@ -206,19 +210,57 @@ public static class ExternalApiClientsExtensions
         });
     }
 
-    private static void AddWebsiteScrapingClients(this IServiceCollection services)
+    private static void AddWebsiteScrapingClients(this IServiceCollection services, IConfiguration configuration)
     {
+        // A dead host costs the whole timeout, and bulk enrichment meets many of them, so the
+        // scraper gives up sooner than the other clients; a live page answers well within this.
         services.AddHttpClient<IWebsiteScraperService, WebsiteScraperService>(client =>
+        {
+            client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+            client.Timeout = TimeSpan.FromSeconds(15);
+        });
+
+        // Screenshot pipeline: options carry code defaults, so the section may be absent entirely.
+        // The renderer is chosen by WebsiteScreenshots:Provider ("thumio" default, "none" to disable).
+        services.Configure<WebsiteScreenshotOptions>(configuration.GetSection(WebsiteScreenshotOptions.SectionName));
+
+        services.AddHttpClient<ThumIoScreenshotRenderer>(client =>
         {
             client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
             client.Timeout = TimeSpan.FromSeconds(30);
         });
 
-        services.AddHttpClient<IWebsiteScreenshotService, WebsiteScreenshotService>(client =>
+        services.AddScoped<IScreenshotRenderer>(provider =>
+        {
+            var options = provider.GetRequiredService<IOptions<WebsiteScreenshotOptions>>().Value;
+            return string.Equals(options.Provider, WebsiteScreenshotOptions.NoneProvider, StringComparison.OrdinalIgnoreCase)
+                ? new NullScreenshotRenderer()
+                : provider.GetRequiredService<ThumIoScreenshotRenderer>();
+        });
+
+        services.AddScoped<IScreenshotQuota, SyncStateScreenshotQuota>();
+        services.AddScoped<IWebsiteScreenshotService, WebsiteScreenshotService>();
+
+        // Enrichment helpers: both are keyless public services.
+        services.Configure<WebsiteEnrichmentOptions>(configuration.GetSection(WebsiteEnrichmentOptions.SectionName));
+
+        // The availability endpoint lives on archive.org (the snapshot links it returns point at
+        // web.archive.org). Its timeout is the option the enrichment run also reads.
+        services.AddHttpClient<IWaybackMachineClient, WaybackMachineClient>((provider, client) =>
+        {
+            var enrichment = provider.GetRequiredService<IOptions<WebsiteEnrichmentOptions>>().Value;
+            client.BaseAddress = new Uri("https://archive.org/");
+            client.DefaultRequestHeaders.Add("User-Agent", "MyMediaVerse/1.0");
+            client.Timeout = TimeSpan.FromSeconds(Math.Max(1, enrichment.WaybackTimeoutSeconds));
+        });
+
+        // The link checker follows redirects itself so it can report the final status.
+        services.AddHttpClient<ILinkChecker, HttpLinkChecker>(client =>
         {
             client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
-            client.Timeout = TimeSpan.FromSeconds(30);
-        });
+            client.Timeout = TimeSpan.FromSeconds(10);
+        })
+        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
     }
 
     private static void AddRssFeedClient(this IServiceCollection services)

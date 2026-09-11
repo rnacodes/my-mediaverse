@@ -92,7 +92,11 @@ const transformMediaHits = (hits) => hits.map(hit => {
         publication: doc.publication || null,
         estimatedReadingTimeMinutes: doc.estimated_reading_time_minutes || null,
         wordCount: doc.word_count || null,
-        isStarred: doc.is_starred || false
+        isStarred: doc.is_starred || false,
+        domain: doc.domain || null,
+        hasRss: doc.has_rss || false,
+        // 0 means "unreachable", so keep it distinct from "not checked" (null).
+        linkStatus: doc.link_status ?? null
     };
 });
 

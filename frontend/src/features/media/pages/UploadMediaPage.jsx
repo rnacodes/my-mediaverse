@@ -97,20 +97,9 @@ function UploadMediaPage() {
             </Typography>
             
             <Typography variant="body1" color="text.secondary" paragraph>
-                Upload a CSV file to import multiple media items at once. Your CSV must include a MediaType column to specify the type of each item.
-                You can mix different media types in a single CSV file!
+                Upload a CSV file to import multiple media items at once. Each CSV file should use a single MediaType.
+                Your CSV file must include a header row with column names. The MediaType column is required as the first column and specifies the type of media for each row.
             </Typography>
-
-            <Alert severity="info" sx={{ mb: 3 }}>
-                <AlertTitle>CSV Format Requirement</AlertTitle>
-                Your CSV file must include <strong>MediaType</strong> as a column. Each row can have a different type! 
-                <br />
-                <strong>Supported types via CSV:</strong> Article, Book, Movie, TVShow, Video, Website
-                <br />
-                <strong>Not supported via CSV:</strong> Podcast, Channel, Document, Music, Other, Playlist, VideoGame
-                <br />
-                <em>For podcasts, please use the Import Media page. Other types will be added in future updates.</em>
-            </Alert>
 
             <Paper elevation={3} sx={{ p: 4, mb: 4 }}>
                 <Box sx={{ textAlign: 'center', mb: 3 }}>
@@ -527,106 +516,9 @@ function UploadMediaPage() {
                     </Typography>
                 </Alert>
 
-                <Typography variant="subtitle2" gutterBottom sx={{ mt: 3, fontWeight: 600 }}>
-                    Download Sample CSV Templates
-                </Typography>
+                
                 <Box sx={{ mt: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                    <Button
-                        variant="outlined"
-                        size="small"
-                        href="/sample-book-import.csv"
-                        download="sample-book-import.csv"
-                        sx={{ 
-                            borderColor: 'rgba(255, 255, 255, 0.5)',
-                            color: 'text.primary',
-                            '&:hover': {
-                                borderColor: 'rgba(255, 255, 255, 0.8)',
-                                backgroundColor: 'rgba(255, 255, 255, 0.05)'
-                            }
-                        }}
-                    >
-                        📚 Book Sample
-                    </Button>
-                    <Button
-                        variant="outlined"
-                        size="small"
-                        href="/sample-movie-import.csv"
-                        download="sample-movie-import.csv"
-                        sx={{ 
-                            borderColor: 'rgba(255, 255, 255, 0.5)',
-                            color: 'text.primary',
-                            '&:hover': {
-                                borderColor: 'rgba(255, 255, 255, 0.8)',
-                                backgroundColor: 'rgba(255, 255, 255, 0.05)'
-                            }
-                        }}
-                    >
-                        🎬 Movie Sample
-                    </Button>
-                    <Button
-                        variant="outlined"
-                        size="small"
-                        href="/sample-tvshow-import.csv"
-                        download="sample-tvshow-import.csv"
-                        sx={{ 
-                            borderColor: 'rgba(255, 255, 255, 0.5)',
-                            color: 'text.primary',
-                            '&:hover': {
-                                borderColor: 'rgba(255, 255, 255, 0.8)',
-                                backgroundColor: 'rgba(255, 255, 255, 0.05)'
-                            }
-                        }}
-                    >
-                        📺 TV Show Sample
-                    </Button>
-                    <Button
-                        variant="outlined"
-                        size="small"
-                        href="/sample-video-import.csv"
-                        download="sample-video-import.csv"
-                        sx={{ 
-                            borderColor: 'rgba(255, 255, 255, 0.5)',
-                            color: 'text.primary',
-                            '&:hover': {
-                                borderColor: 'rgba(255, 255, 255, 0.8)',
-                                backgroundColor: 'rgba(255, 255, 255, 0.05)'
-                            }
-                        }}
-                    >
-                        📹 Video Sample
-                    </Button>
-                    <Button
-                        variant="outlined"
-                        size="small"
-                        href="/sample-article-import.csv"
-                        download="sample-article-import.csv"
-                        sx={{ 
-                            borderColor: 'rgba(255, 255, 255, 0.5)',
-                            color: 'text.primary',
-                            '&:hover': {
-                                borderColor: 'rgba(255, 255, 255, 0.8)',
-                                backgroundColor: 'rgba(255, 255, 255, 0.05)'
-                            }
-                        }}
-                    >
-                        📰 Article Sample
-                    </Button>
-                    <Button
-                        variant="outlined"
-                        size="small"
-                        href="/sample-website-import.csv"
-                        download="sample-website-import.csv"
-                        sx={{ 
-                            borderColor: 'rgba(255, 255, 255, 0.5)',
-                            color: 'text.primary',
-                            '&:hover': {
-                                borderColor: 'rgba(255, 255, 255, 0.8)',
-                                backgroundColor: 'rgba(255, 255, 255, 0.05)'
-                            }
-                        }}
-                    >
-                        🌐 Website Sample
-                    </Button>
+                    
                 </Box>
             </Paper>
 

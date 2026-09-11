@@ -1241,14 +1241,24 @@ namespace MyMediaVerse.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<DateTime?>("EnrichedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime?>("LastCheckedDate")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("LastHttpStatus")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Publication")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
                     b.Property<string>("RssFeedUrl")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("UrlKey")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
 
@@ -1259,6 +1269,10 @@ namespace MyMediaVerse.Infrastructure.Migrations
                     b.HasIndex("Domain");
 
                     b.HasIndex("LastCheckedDate");
+
+                    b.HasIndex("UrlKey")
+                        .IsUnique()
+                        .HasFilter("\"UrlKey\" IS NOT NULL");
 
                     b.ToTable("Websites", (string)null);
                 });

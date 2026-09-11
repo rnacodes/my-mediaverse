@@ -236,6 +236,7 @@ function MediaProfilePage() {
           navigate={navigate}
           videoPlaylists={videoPlaylists}
           onBookEnriched={() => setRefreshKey(k => k + 1)}
+          onWebsiteUpdated={() => setRefreshKey(k => k + 1)}
           onVideoLinked={() => setRefreshKey(k => k + 1)}
           onFetchContent={handleFetchContent}
           fetchingContent={fetchingContent}

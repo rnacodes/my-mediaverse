@@ -30,6 +30,9 @@ public static class ApplicationServicesExtensions
         services.AddScoped<IArticleDeduplicationService, ArticleDeduplicationService>();
         services.AddScoped<IWebsiteService, WebsiteService>();
         services.AddScoped<IWebsiteMappingService, WebsiteMappingService>();
+        services.AddScoped<IWebsiteBulkImportService, WebsiteBulkImportService>();
+        // Bookmark export formats; the import endpoint asks each parser whether it recognizes the file.
+        services.AddScoped<IBookmarkFileParser, MyMediaVerse.Application.Services.Bookmarks.NetscapeBookmarkParser>();
         services.AddScoped<IGoodreadsImportService, GoodreadsImportService>();
         services.AddScoped<IPodcastOpmlImportService, PodcastOpmlImportService>();
         services.AddScoped<IMediaService, MediaService>();

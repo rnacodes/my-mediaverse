@@ -717,6 +717,14 @@ namespace MyMediaVerse.Infrastructure.Data
                 entity.Property(e => e.Publication)
                     .HasMaxLength(200);
 
+                entity.Property(e => e.UrlKey)
+                    .HasMaxLength(2000);
+
+                // The normalized URL is a website's identity: one row per page.
+                entity.HasIndex(e => e.UrlKey)
+                    .IsUnique()
+                    .HasFilter("\"UrlKey\" IS NOT NULL");
+
                 // Create indexes for better query performance
                 entity.HasIndex(e => e.Domain);
                 entity.HasIndex(e => e.LastCheckedDate);

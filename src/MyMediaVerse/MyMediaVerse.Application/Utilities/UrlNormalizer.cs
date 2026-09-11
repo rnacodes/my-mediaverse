@@ -11,16 +11,17 @@ namespace MyMediaVerse.Application.Utilities
     public static class UrlNormalizer
     {
         /// <summary>
-        /// Normalizes a URL for comparison and storage.
+        /// Normalizes a URL for storage.
         /// Transformations applied:
-        /// - Converts to lowercase
-        /// - Removes trailing slash
+        /// - Lowercases the scheme and host (never the path or query: many sites, video ids
+        ///   and archive lookups are case-sensitive there)
+        /// - Removes the trailing slash from the path, also when a query string follows
         /// - Removes URL fragments (#section)
         /// - Removes common tracking parameters (utm_*, fbclid, gclid, etc.)
         /// - Removes www. prefix
         /// The scheme (http/https) is preserved because normalized URLs are stored
         /// and used as links; use <see cref="GetComparisonKey"/> or
-        /// <see cref="AreEquivalent"/> for scheme-insensitive comparison.
+        /// <see cref="AreEquivalent"/> for scheme- and case-insensitive comparison.
         /// </summary>
         /// <param name="url">The URL to normalize</param>
         /// <returns>Normalized URL string, or empty string if invalid</returns>
@@ -69,9 +70,13 @@ namespace MyMediaVerse.Application.Utilities
                     builder.Query = query.Count > 0 ? query.ToString() : string.Empty;
                 }
 
-                // Convert to lowercase and remove trailing slash
-                var normalized = builder.Uri.ToString().ToLowerInvariant();
-                normalized = normalized.TrimEnd('/');
+                // Uri already lowercases the scheme and host. Drop the trailing slash from the
+                // path whether or not a query follows ("/tech/?a=1" and "/tech?a=1" are one page).
+                var text = builder.Uri.ToString();
+                var queryStart = text.IndexOf('?');
+                var normalized = queryStart < 0
+                    ? text.TrimEnd('/')
+                    : text[..queryStart].TrimEnd('/') + text[queryStart..];
 
                 // Remove www. prefix for consistent matching
                 normalized = RemoveWwwPrefix(normalized);
@@ -99,16 +104,16 @@ namespace MyMediaVerse.Application.Utilities
         }
 
         /// <summary>
-        /// Produces a scheme-insensitive key for duplicate detection.
-        /// Applies the same transformations as <see cref="Normalize"/>, then strips
-        /// the http/https prefix so the same page reached over either protocol
-        /// produces the same key. Not suitable for storage or display as a link.
+        /// Produces a scheme- and case-insensitive key for duplicate detection.
+        /// Applies the same transformations as <see cref="Normalize"/>, lowercases the
+        /// result, then strips the http/https prefix so the same page reached over either
+        /// protocol produces the same key. Not suitable for storage or display as a link.
         /// </summary>
         /// <param name="url">The URL to build a comparison key for</param>
         /// <returns>Comparison key, or empty string if invalid</returns>
         public static string GetComparisonKey(string? url)
         {
-            var normalized = Normalize(url);
+            var normalized = Normalize(url).ToLowerInvariant();
 
             if (normalized.StartsWith("https://"))
                 return normalized.Substring(8);

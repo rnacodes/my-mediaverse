@@ -43,7 +43,9 @@ public static class CorsExtensions
                     policy.WithOrigins(devOrigins.ToArray())
                           .AllowAnyHeader()
                           .AllowAnyMethod()
-                          .AllowCredentials();
+                          .AllowCredentials()
+                          // Lets the browser read the file name on downloads (bookmark and CSV exports).
+                          .WithExposedHeaders("Content-Disposition");
                 }
                 else
                 {
@@ -78,7 +80,9 @@ public static class CorsExtensions
                     policy.WithOrigins(allowedOrigins.ToArray())
                           .AllowAnyHeader()
                           .AllowAnyMethod()
-                          .AllowCredentials();
+                          .AllowCredentials()
+                          // Lets the browser read the file name on downloads (bookmark and CSV exports).
+                          .WithExposedHeaders("Content-Disposition");
                 }
             });
         });

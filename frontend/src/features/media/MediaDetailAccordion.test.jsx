@@ -1,6 +1,9 @@
-import { describe, it, expect } from 'vitest';
-import { renderWithProviders, screen } from '@/test/test-utils';
-import { makeBook } from '@/test/factories/media';
+import { describe, it, expect, vi } from 'vitest';
+import { http, HttpResponse } from 'msw';
+import { renderWithProviders, screen, within } from '@/test/test-utils';
+import { server } from '@/test/mocks/server';
+import { API_BASE } from '@/test/mocks/handlers';
+import { makeBook, makeWebsite } from '@/test/factories/media';
 import { makePodcastEpisode } from '@/test/factories/podcast';
 import MediaDetailAccordion from './MediaDetailAccordion';
 
@@ -44,6 +47,95 @@ describe('MediaDetailAccordion', () => {
 
       expect(screen.getByRole('button', { name: /fetch description/i })).toBeDisabled();
       expect(screen.getByText(/requires isbn or title \+ author/i)).toBeInTheDocument();
+    });
+  });
+
+  describe('website details', () => {
+    const expandDetails = async (user) => {
+      await user.click(screen.getByRole('button', { name: /website details/i }));
+    };
+
+    const site = (overrides = {}) => makeWebsite({
+      id: 'site-1',
+      title: 'Tech',
+      link: 'https://theverge.com/tech',
+      domain: 'theverge.com',
+      lastCheckedDate: '2026-09-07T00:00:00Z',
+      lastHttpStatus: 200,
+      waybackUrl: null,
+      ...overrides,
+    });
+
+    it('shows the link status and leads with the archived copy when the link is broken', async () => {
+      server.use(http.get(`${API_BASE}/website/by-domain/:domain`, () => HttpResponse.json([])));
+      const { user } = renderWithProviders(
+        <MediaDetailAccordion
+          mediaItem={site({ lastHttpStatus: 404, waybackUrl: 'https://web.archive.org/web/2024/https://theverge.com/tech' })}
+          navigate={() => {}}
+        />,
+      );
+
+      await expandDetails(user);
+
+      expect(screen.getByTestId('website-link-status')).toHaveTextContent('Broken (404)');
+      expect(screen.getByRole('link', { name: /open archived copy/i })).toHaveAttribute('href', 'https://web.archive.org/web/2024/https://theverge.com/tech');
+      expect(screen.getByRole('link', { name: /wayback machine/i })).toBeInTheDocument();
+      expect(screen.queryByText(/coming soon/i)).not.toBeInTheDocument();
+    });
+
+    it('lists other saved pages from the same site', async () => {
+      server.use(
+        http.get(`${API_BASE}/website/by-domain/:domain`, () => HttpResponse.json([
+          makeWebsite({ id: 'site-1', title: 'Tech', link: 'https://theverge.com/tech' }),
+          makeWebsite({ id: 'site-2', title: 'Reviews', link: 'https://theverge.com/reviews' }),
+        ])),
+      );
+      const navigate = vi.fn();
+      const { user } = renderWithProviders(<MediaDetailAccordion mediaItem={site()} navigate={navigate} />);
+
+      await expandDetails(user);
+
+      const siblings = await screen.findByTestId('website-siblings');
+      expect(within(siblings).getByText('Reviews')).toBeInTheDocument();
+      expect(within(siblings).queryByText('Tech')).not.toBeInTheDocument();
+      await user.click(within(siblings).getByText('Reviews'));
+      expect(navigate).toHaveBeenCalledWith('/media/site-2');
+    });
+
+    it('refreshes metadata and reports the filled fields', async () => {
+      let force;
+      server.use(
+        http.get(`${API_BASE}/website/by-domain/:domain`, () => HttpResponse.json([])),
+        http.post(`${API_BASE}/website/site-1/enrich`, ({ request }) => {
+          force = new URL(request.url).searchParams.get('force');
+          return HttpResponse.json({ success: true, filledFields: ['description', 'waybackUrl'], lastHttpStatus: 200 });
+        }),
+      );
+      const onWebsiteUpdated = vi.fn();
+      const { user } = renderWithProviders(
+        <MediaDetailAccordion mediaItem={site()} navigate={() => {}} onWebsiteUpdated={onWebsiteUpdated} />,
+      );
+
+      await expandDetails(user);
+      await user.click(screen.getByRole('button', { name: /refresh metadata/i }));
+
+      expect(await screen.findByTestId('website-action-result')).toHaveTextContent('Filled in: description, waybackUrl.');
+      expect(force).toBe('true');
+      expect(onWebsiteUpdated).toHaveBeenCalled();
+    });
+
+    it('regenerates the screenshot and reports the outcome', async () => {
+      server.use(
+        http.get(`${API_BASE}/website/by-domain/:domain`, () => HttpResponse.json([])),
+        http.post(`${API_BASE}/website/site-1/screenshot`, () =>
+          HttpResponse.json({ success: true, rendered: false, warningMessage: 'No usable screenshot could be rendered for this page.' })),
+      );
+      const { user } = renderWithProviders(<MediaDetailAccordion mediaItem={site()} navigate={() => {}} />);
+
+      await expandDetails(user);
+      await user.click(screen.getByRole('button', { name: /regenerate screenshot/i }));
+
+      expect(await screen.findByTestId('website-action-result')).toHaveTextContent(/no usable screenshot/i);
     });
   });
 

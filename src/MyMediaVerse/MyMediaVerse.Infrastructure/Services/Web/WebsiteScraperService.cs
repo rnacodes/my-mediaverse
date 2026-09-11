@@ -14,14 +14,12 @@ namespace MyMediaVerse.Infrastructure.Services.Web
         private readonly HttpClient _httpClient;
         private readonly ILogger<WebsiteScraperService> _logger;
 
+        // The browser-like User-Agent that keeps sites from blocking the scrape is set on the
+        // typed HttpClient at registration, so the constructor only stores its dependencies.
         public WebsiteScraperService(HttpClient httpClient, ILogger<WebsiteScraperService> logger)
         {
             _httpClient = httpClient;
             _logger = logger;
-            
-            // Configure HttpClient with a user agent to avoid being blocked
-            _httpClient.DefaultRequestHeaders.Add("User-Agent", 
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
         }
 
         public async Task<ScrapedWebsiteDataDto> ScrapeWebsiteAsync(string url)

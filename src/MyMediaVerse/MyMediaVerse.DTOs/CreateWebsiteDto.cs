@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using MyMediaVerse.Domain.Entities;
 
 namespace MyMediaVerse.DTOs
 {
@@ -63,6 +64,21 @@ namespace MyMediaVerse.DTOs
         /// Publication/site name.
         /// </summary>
         public string? Publication { get; set; }
+
+        /// <summary>
+        /// Reading status. Defaults to Uncharted on create; null on update leaves it unchanged.
+        /// </summary>
+        public Status? Status { get; set; }
+
+        /// <summary>
+        /// Personal rating. Null on update leaves it unchanged.
+        /// </summary>
+        public Rating? Rating { get; set; }
+
+        /// <summary>
+        /// When the website was finished/consumed. Null on update leaves it unchanged.
+        /// </summary>
+        public DateTime? DateCompleted { get; set; }
     }
 }
 

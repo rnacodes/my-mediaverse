@@ -3,8 +3,10 @@ import {
     Button, Card, Box, Typography, Accordion, AccordionSummary, AccordionDetails, Link, Chip, IconButton, Tooltip, Alert,
     CircularProgress, Divider, Dialog, DialogTitle, DialogContent, List, ListItem, ListItemButton, ListItemText
 } from '@mui/material';
-import { ExpandMore, OpenInNew, Star, RssFeed, ContentCopy, Language, Schedule, Article, AutoFixHigh, Download } from '@mui/icons-material';
-import { useWebsiteRssFeedItems } from '@/hooks/useWebsite';
+import { ExpandMore, OpenInNew, Star, RssFeed, ContentCopy, Language, Schedule, Article, AutoFixHigh, Download, LinkOff, CheckCircle, History, PhotoCamera } from '@mui/icons-material';
+import { useWebsiteRssFeedItems, useWebsitesByDomain, useEnrichWebsite, useRegenerateWebsiteScreenshot } from '@/hooks/useWebsite';
+import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
+import { describeLinkStatus, isBrokenLink } from '@/features/media/websiteStatus';
 import { useEnrichBookById } from '@/hooks/useBackgroundJobs';
 import { useAllYouTubeChannels } from '@/hooks/useYoutube';
 import { useUpdateVideo } from '@/hooks/useVideo';
@@ -15,10 +17,70 @@ function getJustWatchUrl(title) {
   return `https://www.justwatch.com/us/search?q=${encodeURIComponent(title)}`;
 }
 
-function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBookEnriched, onVideoLinked, onFetchContent, fetchingContent }) {
+const WEBSITE_ACTION_BUTTON_SX = {
+  borderColor: 'rgba(255,255,255,0.3)',
+  color: 'text.primary',
+  '&:hover': { borderColor: 'rgba(255,255,255,0.5)', backgroundColor: 'rgba(255,255,255,0.05)' },
+  '&.Mui-disabled': { borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.3)' },
+};
+
+function websiteActionSeverity(result) {
+  if (result.success === false) return 'error';
+  if (result.kind === 'refresh') {
+    if (result.unreachable) return 'warning';
+    if (result.quotaReached) return 'warning';
+    return result.filledFields?.length ? 'success' : 'info';
+  }
+  if (result.skipped) return 'info';
+  return result.rendered ? 'success' : 'warning';
+}
+
+function describeWebsiteActionResult(result) {
+  if (result.success === false) return result.errorMessage || 'The request failed.';
+  if (result.kind === 'refresh') {
+    if (result.unreachable) return `The page could not be fetched (status ${result.lastHttpStatus ?? 0}); nothing was filled.`;
+    const filled = result.filledFields ?? [];
+    const base = filled.length ? `Filled in: ${filled.join(', ')}.` : 'Nothing new to fill in; everything is already up to date.';
+    return result.warningMessage ? `${base} ${result.warningMessage}` : base;
+  }
+  if (result.rendered) return 'A fresh screenshot was rendered and stored as the thumbnail.';
+  return result.warningMessage || 'No usable screenshot could be rendered.';
+}
+
+function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBookEnriched, onWebsiteUpdated, onVideoLinked, onFetchContent, fetchingContent }) {
   const [enrichResult, setEnrichResult] = useState(null);
   const [channelDialogOpen, setChannelDialogOpen] = useState(false);
   const [feedDialogOpen, setFeedDialogOpen] = useState(false);
+  const [websiteActionResult, setWebsiteActionResult] = useState(null);
+
+  const isWebsite = mediaItem.mediaType === 'Website';
+  const enrichWebsiteMutation = useEnrichWebsite();
+  const regenerateScreenshotMutation = useRegenerateWebsiteScreenshot();
+  const refreshingWebsite = enrichWebsiteMutation.isPending;
+  const regeneratingScreenshot = regenerateScreenshotMutation.isPending;
+  const siblingsQuery = useWebsitesByDomain(mediaItem.domain, { enabled: isWebsite && !!mediaItem.domain });
+  const siblingSites = (siblingsQuery.data ?? []).filter((w) => w.id !== mediaItem.id).slice(0, 5);
+  const linkHealth = isWebsite ? describeLinkStatus(mediaItem.lastHttpStatus) : null;
+  const linkIsBroken = isWebsite && isBrokenLink(mediaItem.lastHttpStatus);
+
+  const runWebsiteAction = (mutation, kind) => {
+    setWebsiteActionResult(null);
+    mutation.mutate({ id: mediaItem.id, force: true }, {
+      onSuccess: (result) => {
+        setWebsiteActionResult({ kind, ...result });
+        if (result?.success !== false && onWebsiteUpdated) onWebsiteUpdated();
+      },
+      onError: (error) => {
+        // The demo's read-only layer answers 403 with its own message.
+        if (error.response?.status === 403) return;
+        setWebsiteActionResult({
+          kind,
+          success: false,
+          errorMessage: error.response?.data?.errorMessage || error.response?.data?.error || error.message || 'The request failed',
+        });
+      },
+    });
+  };
 
   // RSS feed items for websites — auto-fetched when conditions match.
   const isWebsiteWithRss = mediaItem.mediaType === 'Website' && !!mediaItem.rssFeedUrl;
@@ -1457,24 +1519,66 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
               </Box>
             )}
 
-            {/* Visit Website Button */}
-            {mediaItem.link && (
-              <Box sx={{ mt: 1 }}>
-                <Button
-                  variant="contained"
-                  color="primary"
+            {/* Link status (from the last link check) */}
+            {linkHealth && (
+              <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 0.5, sm: 0 } }}>
+                <Typography variant="body1" sx={{ mr: 1, minWidth: { sm: '140px' }, fontSize: '0.875rem' }}>
+                  <strong>Link status:</strong>
+                </Typography>
+                <Chip
                   size="small"
-                  href={mediaItem.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  startIcon={<OpenInNew />}
-                  sx={{
-                    textTransform: 'none',
-                    fontSize: '0.875rem'
-                  }}
-                >
-                  Visit Website
-                </Button>
+                  color={linkHealth.tone}
+                  variant="outlined"
+                  icon={linkIsBroken ? <LinkOff sx={{ fontSize: 16 }} /> : <CheckCircle sx={{ fontSize: 16 }} />}
+                  label={linkHealth.label}
+                  data-testid="website-link-status"
+                />
+              </Box>
+            )}
+
+            {/* Archived copy */}
+            {mediaItem.waybackUrl && (
+              <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 0.5, sm: 0 } }}>
+                <Typography variant="body1" sx={{ mr: 1, minWidth: { sm: '140px' }, fontSize: '0.875rem' }}>
+                  <strong>Archived copy:</strong>
+                </Typography>
+                <Link href={mediaItem.waybackUrl} target="_blank" rel="noopener noreferrer" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, fontSize: '0.875rem' }}>
+                  <History sx={{ fontSize: 16 }} /> Wayback Machine
+                </Link>
+              </Box>
+            )}
+
+            {/* Visit / Wayback buttons. A broken link leads with the archived copy. */}
+            {(mediaItem.link || mediaItem.waybackUrl) && (
+              <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                {linkIsBroken && mediaItem.waybackUrl && (
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    size="small"
+                    href={mediaItem.waybackUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    startIcon={<History />}
+                    sx={{ textTransform: 'none', fontSize: '0.875rem' }}
+                  >
+                    Open archived copy
+                  </Button>
+                )}
+                {mediaItem.link && (
+                  <Button
+                    variant={linkIsBroken && mediaItem.waybackUrl ? 'outlined' : 'contained'}
+                    color="primary"
+                    size="small"
+                    href={mediaItem.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    startIcon={<OpenInNew />}
+                    sx={{ textTransform: 'none', fontSize: '0.875rem' }}
+                  >
+                    Visit Website
+                  </Button>
+                )}
               </Box>
             )}
 
@@ -1575,20 +1679,69 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
               </Box>
             )}
 
-            {/* Coming Soon Message */}
-            <Alert
-              severity="info"
-              sx={{
-                mt: 2,
-                backgroundColor: 'rgba(33, 150, 243, 0.1)',
-                color: 'text.secondary',
-                '& .MuiAlert-icon': {
-                  color: 'rgba(33, 150, 243, 0.7)'
-                }
-              }}
-            >
-              Website archival and save RSS to Readwise coming soon
-            </Alert>
+            {/* More from this site */}
+            {siblingSites.length > 0 && (
+              <Box sx={{ mt: 2 }}>
+                <Divider sx={{ mb: 2 }} />
+                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Language sx={{ fontSize: 20 }} />
+                  More from {mediaItem.domain}
+                </Typography>
+                <List dense disablePadding data-testid="website-siblings">
+                  {siblingSites.map((site) => (
+                    <ListItem key={site.id} disablePadding>
+                      <ListItemButton onClick={() => navigate(`/media/${site.id}`)} sx={{ borderRadius: 1 }}>
+                        <ListItemText primary={site.title} secondary={site.link} primaryTypographyProps={{ fontSize: '0.9rem' }} secondaryTypographyProps={{ fontSize: '0.75rem', noWrap: true }} />
+                      </ListItemButton>
+                    </ListItem>
+                  ))}
+                </List>
+              </Box>
+            )}
+
+            {/* Actions: re-run the metadata fill, or render a fresh screenshot */}
+            <Divider sx={{ my: 2 }} />
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <Typography variant="body1" sx={{ fontSize: '1rem' }}>
+                <strong>Keep this page up to date:</strong>
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                <DemoWriteGuard title="Not available in the demo">
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={refreshingWebsite ? <CircularProgress size={16} /> : <AutoFixHigh />}
+                    onClick={() => runWebsiteAction(enrichWebsiteMutation, 'refresh')}
+                    disabled={refreshingWebsite || regeneratingScreenshot}
+                    sx={WEBSITE_ACTION_BUTTON_SX}
+                  >
+                    {refreshingWebsite ? 'Refreshing...' : 'Refresh metadata'}
+                  </Button>
+                </DemoWriteGuard>
+                <DemoWriteGuard title="Not available in the demo">
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={regeneratingScreenshot ? <CircularProgress size={16} /> : <PhotoCamera />}
+                    onClick={() => runWebsiteAction(regenerateScreenshotMutation, 'screenshot')}
+                    disabled={refreshingWebsite || regeneratingScreenshot}
+                    sx={WEBSITE_ACTION_BUTTON_SX}
+                  >
+                    {regeneratingScreenshot ? 'Rendering...' : 'Regenerate screenshot'}
+                  </Button>
+                </DemoWriteGuard>
+              </Box>
+              {websiteActionResult && (
+                <Alert
+                  severity={websiteActionSeverity(websiteActionResult)}
+                  sx={{ mt: 1 }}
+                  onClose={() => setWebsiteActionResult(null)}
+                  data-testid="website-action-result"
+                >
+                  {describeWebsiteActionResult(websiteActionResult)}
+                </Alert>
+              )}
+            </Box>
           </Box>
         )}
         
@@ -1599,7 +1752,7 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
           (mediaItem.mediaType === 'TVShow' && !mediaItem.creator && !mediaItem.cast && !mediaItem.firstAirYear && !mediaItem.numberOfSeasons && !mediaItem.contentRating) ||
           (mediaItem.mediaType === 'Video' && !mediaItem.platform && !mediaItem.channel && !mediaItem.lengthInSeconds && !mediaItem.externalId) ||
           (mediaItem.mediaType === 'Article' && !mediaItem.author && !mediaItem.publication && !mediaItem.publicationDate && !mediaItem.originalUrl && !mediaItem.readingProgress && !mediaItem.estimatedReadingTimeMinutes && !mediaItem.wordCount) ||
-          (mediaItem.mediaType === 'Website' && !mediaItem.domain && !mediaItem.author && !mediaItem.publication && !mediaItem.rssFeedUrl && !mediaItem.lastCheckedDate)) && (
+          (mediaItem.mediaType === 'Website' && !mediaItem.domain && !mediaItem.author && !mediaItem.publication && !mediaItem.rssFeedUrl && !mediaItem.lastCheckedDate && !describeLinkStatus(mediaItem.lastHttpStatus) && !mediaItem.waybackUrl)) && (
           <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
             No specific {mediaItem.mediaType.toLowerCase()} details available
           </Typography>

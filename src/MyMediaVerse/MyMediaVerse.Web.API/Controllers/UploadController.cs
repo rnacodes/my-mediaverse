@@ -287,6 +287,9 @@ namespace MyMediaVerse.Web.API.Controllers
                     _logger.LogInformation("Processing CSV upload with per-row media types from MediaType column");
                 }
 
+                var topicResolver = new TopicResolver(_context);
+                var genreResolver = new GenreResolver(_context);
+
                 // Process rows based on media type (either from column or parameter)
                 while (csv.Read())
                 {
@@ -350,6 +353,12 @@ namespace MyMediaVerse.Web.API.Controllers
                                 break;
                             case MediaType.Website:
                                 mediaItem = await ProcessWebsiteRow(csv);
+                                if (mediaItem == null)
+                                {
+                                    skipped.Add($"Row {csv.CurrentIndex}: a website with this URL already exists; skipped");
+                                    skippedCount++;
+                                    continue;
+                                }
                                 break;
                             case MediaType.Podcast:
                                 // Podcast requires special handling - check if it's a series or episode
@@ -374,6 +383,8 @@ namespace MyMediaVerse.Web.API.Controllers
 
                         if (mediaItem != null)
                         {
+                            await ApplyTagColumnsAsync(mediaItem, csv, topicResolver, genreResolver);
+
                             // Add to the appropriate DbSet based on the media type
                             if (mediaItem is Book book)
                             {
@@ -442,7 +453,10 @@ namespace MyMediaVerse.Web.API.Controllers
                             }
                             else if (mediaItem is Website website)
                             {
+                                // Saved immediately so a later row with the same URL sees it in the
+                                // finder and is skipped, instead of colliding on the unique key index.
                                 _context.Websites.Add(website);
+                                await _context.SaveChangesAsync();
                                 importedItems.Add(new
                                 {
                                     Id = website.Id,
@@ -658,7 +672,6 @@ namespace MyMediaVerse.Web.API.Controllers
             book.Notes = GetCsvValue(csv, "Notes");
             book.RelatedNotes = GetCsvValue(csv, "RelatedNotes");
             book.Thumbnail = GetCsvValue(csv, "Thumbnail");
-            // Note: Genre is now handled through the navigation property via ProcessTopicsAndGenres
             book.ISBN = IsbnNormalizer.Normalize(rawIsbn) ?? rawIsbn;
             book.ASIN = asin;
 
@@ -703,7 +716,6 @@ namespace MyMediaVerse.Web.API.Controllers
                 DateTime.TryParse(dateCompletedStr, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime dateCompleted))
                 book.DateCompleted = DateTime.SpecifyKind(dateCompleted, DateTimeKind.Utc);
 
-            // Note: Topics and Genres can be assigned later through the UI
             // For now, we'll just create the basic book entity
 
             return book;
@@ -948,8 +960,19 @@ namespace MyMediaVerse.Web.API.Controllers
             return Task.FromResult<Video?>(video);
         }
 
-        private Task<Website?> ProcessWebsiteRow(CsvReader csv)
+        private async Task<Website?> ProcessWebsiteRow(CsvReader csv)
         {
+            var rawLink = GetCsvValue(csv, "Url") ?? GetCsvValue(csv, "Link"); // Support both column names
+            var normalizedLink = string.IsNullOrWhiteSpace(rawLink) ? rawLink : UrlNormalizer.Normalize(rawLink);
+
+            var existing = await WebsiteDuplicateFinder.FindExistingAsync(_context.Websites, rawLink);
+            if (existing != null)
+            {
+                _logger.LogInformation("CSV row {RowIndex}: website already exists for {Url} (ID: {Id}); skipping",
+                    csv.CurrentIndex, normalizedLink, existing.Id);
+                return null;
+            }
+
             var website = new Website
             {
                 Title = GetCsvValue(csv, "Title") ?? "Unknown Title",
@@ -960,11 +983,13 @@ namespace MyMediaVerse.Web.API.Controllers
 
             // Optional fields
             website.Description = GetCsvValue(csv, "Description");
-            website.Link = GetCsvValue(csv, "Link");
+            website.Link = normalizedLink;
+            website.UrlKey = string.IsNullOrWhiteSpace(rawLink) ? null : UrlNormalizer.GetComparisonKey(rawLink);
             website.Notes = GetCsvValue(csv, "Notes");
             website.RelatedNotes = GetCsvValue(csv, "RelatedNotes");
             website.Thumbnail = GetCsvValue(csv, "Thumbnail");
-            website.Domain = GetCsvValue(csv, "Domain");
+            var extractedDomain = UrlNormalizer.ExtractDomain(rawLink);
+            website.Domain = string.IsNullOrEmpty(extractedDomain) ? GetCsvValue(csv, "Domain") : extractedDomain;
             website.RssFeedUrl = GetCsvValue(csv, "RssFeedUrl");
             website.Author = GetCsvValue(csv, "Author");
             website.Publication = GetCsvValue(csv, "Publication");
@@ -987,8 +1012,37 @@ namespace MyMediaVerse.Web.API.Controllers
             if (!string.IsNullOrEmpty(ownershipStr) && Enum.TryParse<OwnershipStatus>(ownershipStr, true, out OwnershipStatus ownership))
                 website.OwnershipStatus = ownership;
 
-            return Task.FromResult<Website?>(website);
+            return website;
         }
+
+        /// <summary>
+        /// Reads the optional Topics and Genres columns (semicolon-separated, pipe tolerated) onto a
+        /// row's new item. Names are trimmed and lowercased like every other tag path.
+        /// </summary>
+        private static async Task ApplyTagColumnsAsync(BaseMediaItem item, CsvReader csv, TopicResolver topics, GenreResolver genres)
+        {
+            foreach (var name in SplitTagColumn(GetCsvValue(csv, "Topics")))
+            {
+                if (item.Topics.Any(t => t.Name == name)) continue;
+                var topic = await topics.GetOrCreateAsync(name);
+                if (topic != null) item.Topics.Add(topic);
+            }
+
+            foreach (var name in SplitTagColumn(GetCsvValue(csv, "Genres")))
+            {
+                if (item.Genres.Any(g => g.Name == name)) continue;
+                var genre = await genres.GetOrCreateAsync(name);
+                if (genre != null) item.Genres.Add(genre);
+            }
+        }
+
+        private static IEnumerable<string> SplitTagColumn(string? value) =>
+            string.IsNullOrWhiteSpace(value)
+                ? Enumerable.Empty<string>()
+                : value.Split(new[] { ';', '|' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(v => v.ToLowerInvariant())
+                    .Where(v => v.Length > 0)
+                    .Distinct(StringComparer.Ordinal);
 
         private static string? GetCsvValue(CsvReader csv, string fieldName)
         {
