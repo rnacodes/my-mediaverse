@@ -68,7 +68,8 @@ Create themed playlists called **Mixlists** that can hold *any combination* of m
 
 | Service                  | What it does                                                          |
 | ------------------------ | -------------------------------------------------------------------- |
-| **ListenNotes**          | Search and import podcast series & episodes with rich metadata       |
+| **Apple Podcasts**       | Podcast directory search; resolves shows to their RSS feeds (no key) |
+| **Podcast RSS feeds**    | Each show's own feed is the source of its metadata                   |
 | **TMDB**                 | Movie and TV show metadata enrichment                                |
 | **Trakt**                | Import your TV watch history, watchlist, and ratings                 |
 | **YouTube Data API**     | Import videos, channels, and playlists                               |
@@ -253,7 +254,6 @@ The API starts at `http://localhost:5033`.
 
 | Variable                        | Description              |
 | ------------------------------- | ------------------------ |
-| `LISTENNOTES_API_KEY`           | ListenNotes podcast API  |
 | `TMDB_API_KEY`                  | TMDB movie/TV API        |
 | `YOUTUBE_API_KEY`               | YouTube Data API         |
 | `READWISE_API_KEY`              | Readwise / Reader API    |
@@ -288,7 +288,7 @@ The API is RESTful with a base URL of `/api`. Controllers are organized by respo
 | Book       | `/api/book`      | Book-specific operations            |
 | Movie      | `/api/movie`     | Movie operations (TMDB)             |
 | TVShow     | `/api/tvshow`    | TV show operations                  |
-| Podcast    | `/api/podcast`   | Podcast series & episodes           |
+| Podcast    | `/api/podcast`   | Podcast series & episodes, feed import, directory search |
 | YouTube    | `/api/youtube`   | Videos, channels, playlists         |
 | Article    | `/api/article`   | Article operations                  |
 | Website    | `/api/website`   | Website operations                  |
@@ -312,7 +312,6 @@ The API is RESTful with a base URL of `/api`. Controllers are organized by respo
 | ----------- | ----------------- | ------------------------------------ |
 | Readwise    | `/api/readwise`   | Readwise + Reader sync               |
 | Trakt       | `/api/trakt`      | Trakt TV watch-history sync          |
-| ListenNotes | `/api/listennotes`| Podcast search proxy                 |
 | TMDB        | `/api/tmdb`       | Movie / TV search proxy              |
 
 ### AI, Admin & Ops
@@ -430,7 +429,7 @@ See [LICENSE](./LICENSE.txt) for full terms, or reach out to discuss a use case.
 
 This project integrates with and is grateful for the following services and APIs:
 
-- [ListenNotes](https://www.listennotes.com/) — Podcast search API
+- [Apple iTunes Search API](https://performance-partners.apple.com/search-api) — Podcast directory search and lookup
 - [TMDB](https://www.themoviedb.org/) — Movie and TV database
 - [Trakt](https://trakt.tv/) — TV watch-history and tracking API
 - [YouTube Data API](https://developers.google.com/youtube/v3) — Video platform integration

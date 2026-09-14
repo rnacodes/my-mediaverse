@@ -65,7 +65,7 @@ namespace MyMediaVerse.Application.Services
             var book = new Book
             {
                 Title = openLibraryBook.Title ?? "Unknown Title",
-                Author = openLibraryBook.AuthorName?.FirstOrDefault() ?? "Unknown Author",
+                Author = BookAuthors.Join(openLibraryBook.AuthorName) ?? "Unknown Author",
                 MediaType = MediaType.Book,
                 Status = Status.Uncharted,
                 DateAdded = DateTime.UtcNow,
@@ -132,7 +132,7 @@ namespace MyMediaVerse.Application.Services
             var book = new Book
             {
                 Title = volumeInfo?.Title ?? "Unknown Title",
-                Author = volumeInfo?.Authors?.FirstOrDefault() ?? "Unknown Author",
+                Author = BookAuthors.Join(volumeInfo?.Authors) ?? "Unknown Author",
                 MediaType = MediaType.Book,
                 Status = Status.Uncharted,
                 DateAdded = DateTime.UtcNow,

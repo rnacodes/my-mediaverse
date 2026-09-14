@@ -219,10 +219,9 @@ namespace MyMediaVerse.Application.Services
                 }
 
                 var bookTitle = volume.VolumeInfo.Title ?? "Unknown Title";
-                var bookAuthor = volume.VolumeInfo.Authors?.FirstOrDefault() ?? "Unknown Author";
-
                 // Map to Book entity
                 var book = await _bookMappingService.MapFromGoogleBooksAsync(volume);
+                var bookAuthor = book.Author;
 
                 // Create DTO for the service
                 var createBookDto = new CreateBookDto

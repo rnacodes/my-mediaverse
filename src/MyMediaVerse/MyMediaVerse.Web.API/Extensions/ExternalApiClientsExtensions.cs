@@ -163,6 +163,12 @@ public static class ExternalApiClientsExtensions
         {
             client.BaseAddress = new Uri("https://www.googleapis.com/books/v1/");
             client.DefaultRequestHeaders.Add("User-Agent", "MyMediaVerse/1.0");
+        })
+        // Retry transient rate limiting (429) and 5xx with exponential backoff + Retry-After.
+        // Daily-quota 403s are not retried.
+        .AddResilienceHandler("googlebooks-retry", builder =>
+        {
+            builder.AddRetry(GoogleBooksResilience.CreateRetryOptions());
         });
     }
 

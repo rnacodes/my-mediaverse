@@ -76,10 +76,17 @@ namespace MyMediaVerse.Application.Utilities
 
             if (!string.IsNullOrWhiteSpace(identity.Title) && !string.IsNullOrWhiteSpace(identity.Author))
             {
+                // Author may hold a full list ("A, B") or only the primary author, depending on
+                // the source, so a row matches on the exact value or on the primary author.
                 var titleLower = identity.Title.Trim().ToLower();
                 var authorLower = identity.Author.Trim().ToLower();
+                var primaryLower = BookAuthors.Primary(identity.Author).ToLower();
+                var primaryPrefix = primaryLower + BookAuthors.Separator;
                 var match = await books.FirstOrDefaultAsync(b =>
-                    b.Title.ToLower() == titleLower && b.Author.ToLower() == authorLower);
+                    b.Title.ToLower() == titleLower
+                    && (b.Author.ToLower() == authorLower
+                        || b.Author.ToLower() == primaryLower
+                        || b.Author.ToLower().StartsWith(primaryPrefix)));
                 if (match != null) return match;
             }
 

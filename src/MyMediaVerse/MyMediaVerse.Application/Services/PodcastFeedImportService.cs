@@ -86,7 +86,8 @@ namespace MyMediaVerse.Application.Services
                 }
                 catch (PodcastFeedException ex)
                 {
-                    _logger.LogWarning(ex, "Could not read podcast feed {FeedUrl} ({Reason})", feedUrl, ex.Reason);
+                    // The reader already logged the underlying exception.
+                    _logger.LogWarning("Could not read podcast feed {FeedUrl} ({Reason}); saving a stub", feedUrl, ex.Reason);
                     warning = $"{ex.Message} The show was saved without feed details; enrichment will try the feed again later.";
                 }
             }
