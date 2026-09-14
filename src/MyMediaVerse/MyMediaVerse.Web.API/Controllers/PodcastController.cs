@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Application.Interfaces;
+using MyMediaVerse.Application.Services;
 using MyMediaVerse.Shared.Interfaces;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Web.API.Extensions;
@@ -14,8 +15,8 @@ namespace MyMediaVerse.Web.API.Controllers
     public class PodcastController : ControllerBase
     {
         private readonly IPodcastService _podcastService;
-        private readonly IListenNotesService _listenNotesService;
         private readonly IPodcastOpmlImportService _opmlImportService;
+        private readonly IPodcastFeedImportService _feedImportService;
         private readonly IImportReindexService _importReindexService;
         private readonly ILogger<PodcastController> _logger;
 
@@ -23,14 +24,14 @@ namespace MyMediaVerse.Web.API.Controllers
 
         public PodcastController(
             IPodcastService podcastService,
-            IListenNotesService listenNotesService,
             IPodcastOpmlImportService opmlImportService,
+            IPodcastFeedImportService feedImportService,
             IImportReindexService importReindexService,
             ILogger<PodcastController> logger)
         {
             _podcastService = podcastService;
-            _listenNotesService = listenNotesService;
             _opmlImportService = opmlImportService;
+            _feedImportService = feedImportService;
             _importReindexService = importReindexService;
             _logger = logger;
         }
@@ -337,6 +338,7 @@ namespace MyMediaVerse.Web.API.Controllers
         // POST: api/podcast/series/{seriesId}/sync
         // Explicit [Authorize] even though the fallback policy already requires a token: this endpoint
         // writes to the library and fetches from an external source per request.
+        // Returns 501 until episode sync is rebuilt on RSS feeds.
         [Authorize]
         [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
         [HttpPost("series/{seriesId}/sync")]
@@ -348,7 +350,7 @@ namespace MyMediaVerse.Web.API.Controllers
 
                 if (result == null)
                 {
-                    return NotFound(new { error = $"Podcast series with ID {seriesId} not found or has no external ID." });
+                    return NotFound(new { error = $"Podcast series with ID {seriesId} not found." });
                 }
 
                 _logger.LogInformation("Synced episodes for podcast series: {Title} (ID: {SeriesId}). New episodes: {NewEpisodesCount}",
@@ -363,6 +365,10 @@ namespace MyMediaVerse.Web.API.Controllers
                     lastSyncDate = result.LastSyncDate
                 });
             }
+            catch (NotSupportedException)
+            {
+                return StatusCode(501, new { error = "Episode sync is being rebuilt on RSS feeds." });
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while syncing episodes for podcast series {SeriesId}", seriesId);
@@ -370,54 +376,97 @@ namespace MyMediaVerse.Web.API.Controllers
             }
         }
 
-        // POST: api/podcast/series/from-api/{podcastId}
-        [HttpPost("series/from-api/{podcastId}")]
-        public async Task<IActionResult> ImportPodcastSeriesFromApi(string podcastId)
+        // POST: api/podcast/series/from-feed  { feedUrl?, applePodcastsId? }
+        // The directory resolves an Apple id to its feed, the feed fills the series. 201 for a new series
+        // (a stub with warningMessage when the feed could not be read), 200 when one already matches.
+        // Explicit [Authorize]: this endpoint writes to the library and fetches external sources per request.
+        [Authorize]
+        [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
+        [HttpPost("series/from-feed")]
+        public async Task<IActionResult> ImportSeriesFromFeed([FromBody] ImportPodcastFromFeedDto dto)
         {
             try
             {
-                _logger.LogInformation("Starting podcast series import from API for ID: {PodcastId}", podcastId);
+                var result = await _feedImportService.ImportSeriesFromFeedAsync(
+                    dto?.FeedUrl, dto?.ApplePodcastsId, HttpContext.RequestAborted);
 
-                var series = await _listenNotesService.ImportPodcastSeriesAsync(podcastId);
+                if (result.Created)
+                {
+                    await _importReindexService.ReindexItemAfterImportAsync(result.Series.Id, "podcast feed import");
+                }
 
-                _logger.LogInformation("Successfully imported podcast series: {Title} with ID: {Id}", series.Title, series.Id);
-                var response = MapToResponseDto(series);
-                return CreatedAtAction(nameof(GetPodcastSeries), new { id = series.Id }, response);
+                var response = new PodcastFeedImportResultDto
+                {
+                    Series = MapToResponseDto(result.Series),
+                    Created = result.Created,
+                    FeedRead = result.FeedRead,
+                    WarningMessage = result.WarningMessage
+                };
+
+                return result.Created
+                    ? CreatedAtAction(nameof(GetPodcastSeries), new { id = result.Series.Id }, response)
+                    : Ok(response);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogWarning(ex, "Podcast directory lookup failed for Apple id {AppleId}", dto?.ApplePodcastsId);
+                return StatusCode(502, new { error = "The podcast directory could not be reached." });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error importing podcast series from API with ID: {PodcastId}", podcastId);
-                return StatusCode(500, new { error = "Failed to import podcast series from API" });
+                _logger.LogError(ex, "Error importing podcast series from feed {FeedUrl}", dto?.FeedUrl);
+                return StatusCode(500, new { error = "Failed to import podcast series from feed" });
             }
         }
 
-        // POST: api/podcast/series/from-api/by-name
-        [HttpPost("series/from-api/by-name")]
-        public async Task<IActionResult> ImportPodcastSeriesByName([FromBody] ImportPodcastByNameDto dto)
+        // GET: api/podcast/directory/search?term=&limit=
+        // Searches Apple Podcasts. Each result carries existingSeriesId when the show is already in the library.
+        [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
+        [HttpGet("directory/search")]
+        public async Task<ActionResult<IEnumerable<PodcastDirectorySearchResultDto>>> SearchDirectory(
+            [FromQuery] string? term, [FromQuery] int limit = PodcastFeedImportService.DefaultSearchLimit)
         {
+            if (string.IsNullOrWhiteSpace(term))
+            {
+                return BadRequest(new { error = "The term parameter is required." });
+            }
+
             try
             {
-                if (string.IsNullOrWhiteSpace(dto?.PodcastName))
+                var hits = await _feedImportService.SearchDirectoryAsync(term, limit, HttpContext.RequestAborted);
+                return Ok(hits.Select(hit => new PodcastDirectorySearchResultDto
                 {
-                    return BadRequest(new { error = "Podcast name is required" });
-                }
-
-                _logger.LogInformation("Searching for podcast series by name: {PodcastName}", dto.PodcastName);
-
-                var series = await _listenNotesService.ImportPodcastSeriesByNameAsync(dto.PodcastName);
-                if (series == null)
-                {
-                    return NotFound(new { error = $"No podcast series found with name: {dto.PodcastName}" });
-                }
-
-                _logger.LogInformation("Successfully imported podcast series: {Title} with ID: {Id}", series.Title, series.Id);
-                var response = MapToResponseDto(series);
-                return CreatedAtAction(nameof(GetPodcastSeries), new { id = series.Id }, response);
+                    Title = hit.Podcast.Title,
+                    Publisher = hit.Podcast.Publisher,
+                    FeedUrl = hit.Podcast.FeedUrl,
+                    ApplePodcastsId = hit.Podcast.ApplePodcastsId,
+                    PodcastIndexId = hit.Podcast.PodcastIndexId,
+                    ArtworkUrl = hit.Podcast.ArtworkUrl,
+                    Genres = hit.Podcast.Genres.ToList(),
+                    EpisodeCount = hit.Podcast.EpisodeCount,
+                    StoreUrl = hit.Podcast.StoreUrl,
+                    LatestReleaseDate = hit.Podcast.LatestReleaseDate,
+                    Source = hit.Podcast.Source,
+                    ExistingSeriesId = hit.ExistingSeriesId
+                }).ToList());
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogWarning(ex, "Podcast directory search failed for {Term}", term);
+                return StatusCode(502, new { error = "The podcast directory could not be reached." });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error importing podcast series by name: {PodcastName}", dto?.PodcastName);
-                return StatusCode(500, new { error = "Failed to import podcast series by name" });
+                _logger.LogError(ex, "Error searching the podcast directory for {Term}", term);
+                return StatusCode(500, new { error = "Failed to search the podcast directory" });
             }
         }
 
@@ -600,41 +649,6 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 _logger.LogError(ex, "Error occurred while retrieving all podcast episodes");
                 return StatusCode(500, new { error = "Failed to retrieve podcast episodes" });
-            }
-        }
-
-        // POST: api/podcast/episodes/from-api/{episodeId}
-        [HttpPost("episodes/from-api/{episodeId}")]
-        public async Task<IActionResult> ImportPodcastEpisodeFromApi(string episodeId, [FromQuery] Guid seriesId)
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(episodeId))
-                {
-                    return BadRequest(new { error = "Episode ID is required" });
-                }
-
-                if (seriesId == Guid.Empty)
-                {
-                    return BadRequest(new { error = "Series ID is required" });
-                }
-
-                _logger.LogInformation("Importing podcast episode from API - Episode ID: {EpisodeId}, Series ID: {SeriesId}",
-                    episodeId, seriesId);
-
-                var episode = await _listenNotesService.ImportPodcastEpisodeAsync(episodeId, seriesId);
-
-                var response = MapToResponseDto(episode);
-
-                _logger.LogInformation("Successfully imported podcast episode: {Title} (ID: {Id})", episode.Title, episode.Id);
-
-                return CreatedAtAction(nameof(GetPodcastEpisode), new { id = episode.Id }, response);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error importing podcast episode from API - Episode ID: {EpisodeId}, Series ID: {SeriesId}",
-                    episodeId, seriesId);
-                return StatusCode(500, new { error = "Failed to import podcast episode from API" });
             }
         }
     }

@@ -13,20 +13,15 @@ namespace MyMediaVerse.UnitTests.Application
     [Trait("Category", "Unit")]
     public partial class PodcastServiceTests : InMemoryDbTestBase
     {
-        private readonly IListenNotesApiClient _mockListenNotesApiClient;
-        private readonly IPodcastMappingService _mockPodcastMappingService;
         private readonly ITypesenseService _mockTypesenseService;
         private readonly ILogger<PodcastService> _mockLogger;
         private readonly PodcastService _service;
 
         public PodcastServiceTests()
         {
-            _mockListenNotesApiClient = Substitute.For<IListenNotesApiClient>();
-            _mockPodcastMappingService = Substitute.For<IPodcastMappingService>();
             _mockTypesenseService = Substitute.For<ITypesenseService>();
             _mockLogger = Substitute.For<ILogger<PodcastService>>();
-            _service = new PodcastService(Context, _mockListenNotesApiClient,
-                _mockPodcastMappingService, _mockTypesenseService, _mockLogger);
+            _service = new PodcastService(Context, _mockTypesenseService, _mockLogger);
         }
 
         #region PodcastSeries Tests
@@ -239,5 +234,13 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         #endregion
+
+        [Fact]
+        public async Task SyncPodcastSeriesEpisodesAsync_IsNotSupportedUntilFeedSyncIsRebuilt()
+        {
+            var act = () => _service.SyncPodcastSeriesEpisodesAsync(Guid.NewGuid());
+
+            await act.Should().ThrowAsync<NotSupportedException>();
+        }
     }
 }

@@ -16,21 +16,15 @@ namespace MyMediaVerse.Application.Services
     public class PodcastService : IPodcastService
     {
         private readonly IApplicationDbContext _context;
-        private readonly IListenNotesApiClient _listenNotesApiClient;
-        private readonly IPodcastMappingService _podcastMappingService;
         private readonly ITypesenseService _typesenseService;
         private readonly ILogger<PodcastService> _logger;
 
         public PodcastService(
             IApplicationDbContext context,
-            IListenNotesApiClient listenNotesApiClient,
-            IPodcastMappingService podcastMappingService,
             ITypesenseService typesenseService,
             ILogger<PodcastService> logger)
         {
             _context = context;
-            _listenNotesApiClient = listenNotesApiClient;
-            _podcastMappingService = podcastMappingService;
             _typesenseService = typesenseService;
             _logger = logger;
         }
@@ -547,128 +541,11 @@ namespace MyMediaVerse.Application.Services
                 .ToListAsync();
         }
 
-        public async Task<PodcastSyncResultDto?> SyncPodcastSeriesEpisodesAsync(Guid seriesId)
-        {
-            var series = await GetPodcastSeriesByIdAsync(seriesId);
-
-            if (series == null || string.IsNullOrEmpty(series.ExternalId))
-            {
-                _logger.LogWarning("Cannot sync series {SeriesId}: series not found or has no external ID", seriesId);
-                return null;
-            }
-
-            try
-            {
-                _logger.LogInformation("Syncing episodes for podcast series: {Title} (External ID: {ExternalId})", 
-                    series.Title, series.ExternalId);
-
-                // Fetch podcast details from ListenNotes API (includes episodes)
-                var podcastDto = await _listenNotesApiClient.GetPodcastByIdAsync(series.ExternalId);
-
-                if (podcastDto?.Episodes == null || !podcastDto.Episodes.Any())
-                {
-                    _logger.LogInformation("No episodes found for podcast series: {Title}", series.Title);
-                    series.LastSyncDate = DateTime.UtcNow;
-                    await _context.SaveChangesAsync();
-
-                    return new PodcastSyncResultDto
-                    {
-                        SeriesTitle = series.Title,
-                        NewEpisodesCount = 0,
-                        TotalEpisodesCount = 0,
-                        LastSyncDate = series.LastSyncDate.Value
-                    };
-                }
-
-                int newEpisodesCount = 0;
-
-                // Process each episode from the API
-                foreach (var episodeDto in podcastDto.Episodes)
-                {
-                    // Check if episode already exists by external ID
-                    var existingEpisode = await _context.PodcastEpisodes
-                        .FirstOrDefaultAsync(e => e.ExternalId == episodeDto.Id);
-
-                    if (existingEpisode == null)
-                    {
-                        // Map and create new episode
-                        var createEpisodeDto = _podcastMappingService.MapFromListenNotesEpisodeDto(episodeDto);
-                        createEpisodeDto.SeriesId = seriesId;
-
-                        var newEpisode = new PodcastEpisode
-                        {
-                            Title = createEpisodeDto.Title,
-                            MediaType = MediaType.Podcast,
-                            SeriesId = seriesId,
-                            Link = createEpisodeDto.Link,
-                            Status = Status.Uncharted,
-                            AudioLink = createEpisodeDto.AudioLink,
-                            ExternalId = createEpisodeDto.ExternalId,
-                            Thumbnail = createEpisodeDto.Thumbnail,
-                            ReleaseDate = DateTimeNormalizer.ToUtc(createEpisodeDto.ReleaseDate),
-                            DurationInSeconds = createEpisodeDto.DurationInSeconds,
-                            Description = createEpisodeDto.Description,
-                            Publisher = createEpisodeDto.Publisher,
-                            EpisodeNumber = createEpisodeDto.EpisodeNumber,
-                            SeasonNumber = createEpisodeDto.SeasonNumber,
-                            DateAdded = DateTime.UtcNow
-                        };
-
-                        // Inherit topics from parent series
-                        if (series.Topics != null)
-                        {
-                            foreach (var topic in series.Topics)
-                            {
-                                var normalizedName = topic.Name.ToLower();
-                                var existingTopic = await _context.Topics
-                                    .FirstOrDefaultAsync(t => t.Name.ToLower() == normalizedName);
-                                newEpisode.Topics.Add(existingTopic ?? new Topic { Name = normalizedName });
-                            }
-                        }
-
-                        // Inherit genres from parent series
-                        if (series.Genres != null)
-                        {
-                            foreach (var genre in series.Genres)
-                            {
-                                var normalizedName = genre.Name.ToLower();
-                                var existingGenre = await _context.Genres
-                                    .FirstOrDefaultAsync(g => g.Name.ToLower() == normalizedName);
-                                newEpisode.Genres.Add(existingGenre ?? new Genre { Name = normalizedName });
-                            }
-                        }
-
-                        _context.Add(newEpisode);
-                        newEpisodesCount++;
-
-                        _logger.LogInformation("Added new episode: {Title} (External ID: {ExternalId})", 
-                            newEpisode.Title, newEpisode.ExternalId);
-                    }
-                }
-
-                // Update last sync date
-                series.LastSyncDate = DateTime.UtcNow;
-                await _context.SaveChangesAsync();
-
-                var totalEpisodeCount = await _context.PodcastEpisodes
-                    .CountAsync(e => e.SeriesId == seriesId);
-
-                _logger.LogInformation("Sync complete for {Title}: {NewCount} new episodes, {TotalCount} total episodes", 
-                    series.Title, newEpisodesCount, totalEpisodeCount);
-
-                return new PodcastSyncResultDto
-                {
-                    SeriesTitle = series.Title,
-                    NewEpisodesCount = newEpisodesCount,
-                    TotalEpisodesCount = totalEpisodeCount,
-                    LastSyncDate = series.LastSyncDate.Value
-                };
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error syncing episodes for podcast series {SeriesId}", seriesId);
-                throw;
-            }
-        }
+        /// <summary>
+        /// Episode sync is being rebuilt on RSS feeds; until then this always throws
+        /// <see cref="NotSupportedException"/>.
+        /// </summary>
+        public Task<PodcastSyncResultDto?> SyncPodcastSeriesEpisodesAsync(Guid seriesId) =>
+            throw new NotSupportedException("Episode sync is being rebuilt on RSS feeds.");
     }
 }

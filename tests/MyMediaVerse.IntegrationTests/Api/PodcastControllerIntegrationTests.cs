@@ -630,24 +630,5 @@ namespace MyMediaVerse.IntegrationTests.Api
         }
 
         #endregion
-
-        #region Import Tests
-
-        [Fact]
-        public async Task ImportPodcastByName_WithEmptyName_ShouldReturnBadRequest()
-        {
-            // Arrange
-            var importDto = new ImportPodcastByNameDto { PodcastName = "" };
-            var json = JsonSerializer.Serialize(importDto, _jsonOptions);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-            // Act
-            var response = await _client.PostAsync("/api/podcast/series/from-api/by-name", content);
-
-            // Assert
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        }
-
-        #endregion
     }
 }

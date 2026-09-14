@@ -3,7 +3,8 @@ using System.Text.Json.Serialization;
 namespace MyMediaVerse.Shared.DTOs.Itunes
 {
     /// <summary>
-    /// Response envelope from Apple's free iTunes Lookup API (https://itunes.apple.com/lookup).
+    /// Response envelope from Apple's free iTunes Lookup and Search APIs (https://itunes.apple.com/lookup,
+    /// https://itunes.apple.com/search); both return the same shape.
     /// Field names preserve Apple's external casing.
     /// </summary>
     public class ItunesLookupResponseDto
@@ -16,7 +17,7 @@ namespace MyMediaVerse.Shared.DTOs.Itunes
     }
 
     /// <summary>
-    /// A single podcast entry from the iTunes Lookup API.
+    /// A single podcast entry from the iTunes Lookup or Search API.
     /// </summary>
     public class ItunesPodcastDto
     {
@@ -46,5 +47,16 @@ namespace MyMediaVerse.Shared.DTOs.Itunes
 
         [JsonPropertyName("primaryGenreName")]
         public string? PrimaryGenreName { get; set; }
+
+        /// <summary>Genre names, including Apple's catch-all "Podcasts" genre.</summary>
+        [JsonPropertyName("genres")]
+        public List<string>? Genres { get; set; }
+
+        [JsonPropertyName("genreIds")]
+        public List<string>? GenreIds { get; set; }
+
+        /// <summary>Release date of the newest episode.</summary>
+        [JsonPropertyName("releaseDate")]
+        public DateTime? ReleaseDate { get; set; }
     }
 }

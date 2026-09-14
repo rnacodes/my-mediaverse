@@ -27,7 +27,7 @@ namespace MyMediaVerse.IntegrationTests.Fixtures
     /// - <c>ResetDatabaseAsync</c> resets to that checkpoint between tests.
     ///
     /// Background workers stay disabled (Program.cs short-circuits on the "Testing" environment).
-    /// External clients (Typesense, ListenNotes) are still substituted out.
+    /// External clients (Typesense, screenshots, Wayback, link checks, podcast directory and feeds) are still substituted out.
     /// </summary>
     public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     {
@@ -174,21 +174,11 @@ namespace MyMediaVerse.IntegrationTests.Fixtures
                 ReplaceWithSubstitute<IWaybackMachineClient>(services);
                 ReplaceWithSubstitute<ILinkChecker>(services);
 
-                // ListenNotes points at the public mock server when not substituted out elsewhere.
-                var listenNotesDescriptors = services.Where(d =>
-                    d.ServiceType == typeof(IListenNotesApiClient) ||
-                    d.ImplementationType?.Name == "ListenNotesApiClient")
-                    .ToList();
-                foreach (var descriptor in listenNotesDescriptors)
-                {
-                    services.Remove(descriptor);
-                }
-                services.AddHttpClient<IListenNotesApiClient,
-                    MyMediaVerse.Infrastructure.Clients.ListenNotes.ListenNotesApiClient>(client =>
-                {
-                    client.BaseAddress = new Uri("https://listen-api-test.listennotes.com/api/v2/");
-                    client.Timeout = TimeSpan.FromSeconds(30);
-                });
+                // Podcast directory search, Apple lookups and feed reads would call Apple and
+                // arbitrary feed hosts; tests drive them through these substitutes.
+                ReplaceWithSubstitute<IPodcastDirectory>(services);
+                ReplaceWithSubstitute<IPodcastFeedReader>(services);
+                ReplaceWithSubstitute<IItunesLookupClient>(services);
             });
         }
 

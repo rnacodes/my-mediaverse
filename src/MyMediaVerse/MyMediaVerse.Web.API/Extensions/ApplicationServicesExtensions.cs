@@ -10,7 +10,6 @@ public static class ApplicationServicesExtensions
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
         services.AddScoped<IAuthService, AuthService>();
-        services.AddScoped<IPodcastMappingService, PodcastMappingService>();
         services.AddScoped<IPodcastService, PodcastService>();
         services.AddScoped<IBookService, BookService>();
         services.AddScoped<IBookMappingService, BookMappingService>();
@@ -24,7 +23,6 @@ public static class ApplicationServicesExtensions
         services.AddScoped<IYouTubeChannelService, YouTubeChannelService>();
         services.AddScoped<IYouTubePlaylistService, YouTubePlaylistService>();
         services.AddScoped<ITmdbService, TmdbService>();
-        services.AddScoped<IListenNotesService, ListenNotesService>();
         services.AddScoped<IArticleService, ArticleService>();
         services.AddScoped<IArticleMappingService, ArticleMappingService>();
         services.AddScoped<IArticleDeduplicationService, ArticleDeduplicationService>();
@@ -35,6 +33,7 @@ public static class ApplicationServicesExtensions
         services.AddScoped<IBookmarkFileParser, MyMediaVerse.Application.Services.Bookmarks.NetscapeBookmarkParser>();
         services.AddScoped<IGoodreadsImportService, GoodreadsImportService>();
         services.AddScoped<IPodcastOpmlImportService, PodcastOpmlImportService>();
+        services.AddScoped<IPodcastFeedImportService, PodcastFeedImportService>();
         services.AddScoped<IMediaService, MediaService>();
         services.AddScoped<ITopicsService, TopicsService>();
         services.AddScoped<IGenresService, GenresService>();
@@ -57,7 +56,6 @@ public static class ApplicationServicesExtensions
         // External-source facades (narrow business surface; delegate to source services).
         services.AddScoped<IExternalMovieService, ExternalMovieService>();
         services.AddScoped<IExternalTvShowService, ExternalTvShowService>();
-        services.AddScoped<IExternalPodcastService, ExternalPodcastService>();
 
         services.AddScoped<INoteService, NoteService>();
         services.AddScoped<IAIService, AIService>();

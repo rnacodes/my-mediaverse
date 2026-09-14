@@ -736,7 +736,7 @@ namespace MyMediaVerse.Infrastructure.Services.Sync
 
         // Trakt returns lowercase, hyphenated slugs (e.g. "science-fiction"). Normalize to the project's
         // lowercase convention and replace hyphens with spaces so genres unify with other sources (TMDB,
-        // ListenNotes) rather than creating parallel rows.
+        // podcast feeds) rather than creating parallel rows.
         private static string NormalizeGenreName(string slug) =>
             string.IsNullOrWhiteSpace(slug)
                 ? string.Empty

@@ -21,7 +21,7 @@ namespace MyMediaVerse.Web.API.Controllers
         }
 
         /// <summary>
-        /// Gets the count of podcast series that need ListenNotes enrichment (have no ExternalId).
+        /// Gets the count of podcast series that have not been enriched yet.
         /// </summary>
         [HttpGet("status")]
         public async Task<ActionResult<PodcastEnrichmentStatusDto>> GetStatus()
@@ -43,7 +43,7 @@ namespace MyMediaVerse.Web.API.Controllers
         }
 
         /// <summary>
-        /// Triggers an on-demand podcast ListenNotes enrichment run.
+        /// Triggers an on-demand podcast enrichment run.
         /// </summary>
         /// <param name="request">Optional parameters for the enrichment run</param>
         [HttpPost("run")]
@@ -67,10 +67,10 @@ namespace MyMediaVerse.Web.API.Controllers
                 }
 
                 _logger.LogInformation(
-                    "Starting on-demand podcast ListenNotes enrichment. BatchSize: {BatchSize}, Delay: {Delay}ms",
+                    "Starting on-demand podcast enrichment. BatchSize: {BatchSize}, Delay: {Delay}ms",
                     batchSize, delayMs);
 
-                var result = await _enrichmentService.EnrichPodcastsWithoutListenNotesDataAsync(
+                var result = await _enrichmentService.EnrichPendingPodcastsAsync(
                     batchSize: batchSize,
                     delayBetweenCallsMs: delayMs);
 
@@ -89,7 +89,7 @@ namespace MyMediaVerse.Web.API.Controllers
 
         /// <summary>
         /// Runs enrichment for all podcasts until complete or limit reached.
-        /// Use with caution - ListenNotes has strict rate limits.
+        /// Stops early when a batch enriches nothing, since the remaining series cannot be enriched yet.
         /// </summary>
         /// <param name="request">Optional parameters for the enrichment run</param>
         [HttpPost("run-all")]
@@ -100,7 +100,7 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 var batchSize = request?.BatchSize ?? 25;
                 var delayMs = request?.DelayBetweenCallsMs ?? 1500;
-                var maxPodcasts = request?.MaxPodcasts ?? 100; // More conservative default due to API limits
+                var maxPodcasts = request?.MaxPodcasts ?? 100;
                 var pauseBetweenBatchesSeconds = request?.PauseBetweenBatchesSeconds ?? 60;
 
                 // Validate parameters
@@ -115,7 +115,7 @@ namespace MyMediaVerse.Web.API.Controllers
                 }
 
                 _logger.LogInformation(
-                    "Starting full podcast ListenNotes enrichment. BatchSize: {BatchSize}, MaxPodcasts: {MaxPodcasts}",
+                    "Starting full podcast enrichment. BatchSize: {BatchSize}, MaxPodcasts: {MaxPodcasts}",
                     batchSize, maxPodcasts);
 
                 var totalEnriched = 0;
@@ -129,7 +129,7 @@ namespace MyMediaVerse.Web.API.Controllers
 
                 while (pendingCount > 0 && totalProcessed < maxPodcasts)
                 {
-                    var result = await _enrichmentService.EnrichPodcastsWithoutListenNotesDataAsync(
+                    var result = await _enrichmentService.EnrichPendingPodcastsAsync(
                         batchSize: Math.Min(batchSize, maxPodcasts - totalProcessed),
                         delayBetweenCallsMs: delayMs);
 
@@ -140,9 +140,9 @@ namespace MyMediaVerse.Web.API.Controllers
                     allErrors.AddRange(result.Errors.Take(5));
                     batchesRun++;
 
-                    if (result.TotalProcessed == 0)
+                    if (result.TotalProcessed == 0 || result.EnrichedCount == 0)
                     {
-                        break; // No more podcasts to process
+                        break; // Nothing left that can be enriched right now
                     }
 
                     // Get updated count

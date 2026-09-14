@@ -43,5 +43,32 @@ namespace MyMediaVerse.Infrastructure.Clients.Itunes
                 throw;
             }
         }
+
+        /// <summary>The Search API query for podcasts (shows only, not episodes).</summary>
+        public static string BuildSearchQuery(string term, int limit) =>
+            $"search?media=podcast&entity=podcast&term={Uri.EscapeDataString(term)}&limit={limit}";
+
+        public async Task<IReadOnlyList<ItunesPodcastDto>> SearchPodcastsAsync(
+            string term, int limit, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                _logger.LogInformation("Searching Apple Podcasts for: {Term}", term);
+
+                var response = await _httpClient.GetAsync(BuildSearchQuery(term, limit), cancellationToken);
+                response.EnsureSuccessStatusCode();
+
+                var jsonContent = await response.Content.ReadAsStringAsync(cancellationToken);
+                var result = JsonSerializer.Deserialize<ItunesLookupResponseDto>(jsonContent);
+
+                return result?.Results.Where(r => r.Kind is null or "podcast").ToList()
+                    ?? new List<ItunesPodcastDto>();
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogError(ex, "Error searching Apple Podcasts for: {Term}", term);
+                throw;
+            }
+        }
     }
 }

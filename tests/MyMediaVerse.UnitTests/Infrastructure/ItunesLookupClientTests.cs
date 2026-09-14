@@ -87,5 +87,74 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             // Act & Assert
             await Assert.ThrowsAsync<HttpRequestException>(() => _client.GetPodcastByCollectionIdAsync("1200361736"));
         }
+
+        [Fact]
+        public async Task SearchPodcastsAsync_ShouldRequestSearchUrl_AndMapGenresAndReleaseDate()
+        {
+            // Arrange — trimmed from a real Search API response.
+            const string json = """
+            {
+              "resultCount": 2,
+              "results": [
+                {
+                  "wrapperType": "track",
+                  "kind": "podcast",
+                  "collectionId": 1296350485,
+                  "collectionName": "Darknet Diaries",
+                  "artistName": "Jack Rhysider",
+                  "feedUrl": "https://podcast.darknetdiaries.com",
+                  "artworkUrl600": "https://example.com/600x600bb.jpg",
+                  "trackCount": 198,
+                  "releaseDate": "2026-09-01T07:00:00Z",
+                  "primaryGenreName": "Technology",
+                  "genreIds": ["1318", "26"],
+                  "genres": ["Technology", "Podcasts"]
+                },
+                {
+                  "wrapperType": "track",
+                  "kind": "podcast-episode",
+                  "collectionId": 1,
+                  "collectionName": "Not a show"
+                }
+              ]
+            }
+            """;
+            _mockHttpMessageHandler.RespondWith(HttpStatusCode.OK, json);
+
+            // Act
+            var results = await _client.SearchPodcastsAsync("darknet diaries & more", 10);
+
+            // Assert
+            var podcast = results.Should().ContainSingle().Subject;
+            podcast.CollectionName.Should().Be("Darknet Diaries");
+            podcast.Genres.Should().Equal("Technology", "Podcasts");
+            podcast.GenreIds.Should().Equal("1318", "26");
+            podcast.ReleaseDate.Should().Be(new DateTime(2026, 9, 1, 7, 0, 0, DateTimeKind.Utc));
+
+            var uri = _mockHttpMessageHandler.Requests.Should().ContainSingle().Subject.RequestUri!;
+            uri.AbsolutePath.Should().Be("/search");
+            uri.Query.Should().Contain("media=podcast")
+                .And.Contain("entity=podcast")
+                .And.Contain("term=darknet%20diaries%20%26%20more")
+                .And.Contain("limit=10");
+        }
+
+        [Fact]
+        public async Task SearchPodcastsAsync_ShouldReturnEmpty_WhenNoResults()
+        {
+            _mockHttpMessageHandler.RespondWith(HttpStatusCode.OK, """{ "resultCount": 0, "results": [] }""");
+
+            var results = await _client.SearchPodcastsAsync("nothing", 5);
+
+            results.Should().BeEmpty();
+        }
+
+        [Fact]
+        public async Task SearchPodcastsAsync_ShouldThrow_WhenHttpRequestFails()
+        {
+            _mockHttpMessageHandler.RespondWith(HttpStatusCode.ServiceUnavailable, "down");
+
+            await Assert.ThrowsAsync<HttpRequestException>(() => _client.SearchPodcastsAsync("darknet", 5));
+        }
     }
 }

@@ -5,14 +5,13 @@ namespace MyMediaVerse.Application.Interfaces
     /// </summary>
     public enum GenreSource
     {
-        Tmdb,
-        ListenNotes
+        Tmdb
     }
 
     /// <summary>
-    /// Resolves external provider genre ids (TMDB, ListenNotes) to lowercase genre names
-    /// for use during media import. Maps are built from the existing TMDB/ListenNotes
-    /// genre-fetch services and cached in memory.
+    /// Resolves external provider genre ids (TMDB) to lowercase genre names for use during
+    /// media import. Maps are built from the existing TMDB genre-fetch service and cached in
+    /// memory.
     /// </summary>
     public interface IGenreMappingService
     {

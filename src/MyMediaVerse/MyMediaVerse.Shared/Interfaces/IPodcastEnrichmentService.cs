@@ -1,26 +1,26 @@
 namespace MyMediaVerse.Shared.Interfaces
 {
     /// <summary>
-    /// Service for enriching podcast series from ListenNotes API.
+    /// Fills gaps in podcast series that have not been enriched yet (<c>EnrichedAt</c> is null).
     /// Designed for background processing with batch support and rate limiting.
     /// </summary>
     public interface IPodcastEnrichmentService
     {
         /// <summary>
-        /// Enriches podcast series that are missing ListenNotes metadata by searching and fetching from the API.
-        /// Processes podcasts in batches with delays between API calls to respect rate limits.
+        /// Enriches podcast series that have not been enriched yet, filling only empty fields.
+        /// Processes podcasts in batches with delays between external calls.
         /// </summary>
         /// <param name="batchSize">Number of podcasts to process in this run (default: 25)</param>
         /// <param name="delayBetweenCallsMs">Delay between API calls in milliseconds (default: 1500)</param>
         /// <param name="cancellationToken">Cancellation token for stopping the operation</param>
         /// <returns>Result containing counts of processed, enriched, and failed podcasts</returns>
-        Task<PodcastEnrichmentResult> EnrichPodcastsWithoutListenNotesDataAsync(
+        Task<PodcastEnrichmentResult> EnrichPendingPodcastsAsync(
             int batchSize = 25,
             int delayBetweenCallsMs = 1500,
             CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Gets the count of podcast series that need ListenNotes enrichment (have no ExternalId).
+        /// Gets the count of podcast series that have not been enriched yet.
         /// </summary>
         Task<int> GetPodcastsNeedingEnrichmentCountAsync();
     }
@@ -36,7 +36,7 @@ namespace MyMediaVerse.Shared.Interfaces
         public int TotalProcessed { get; set; }
 
         /// <summary>
-        /// Number of podcasts successfully enriched with ListenNotes data.
+        /// Number of podcasts where at least one empty field was filled.
         /// </summary>
         public int EnrichedCount { get; set; }
 
@@ -46,7 +46,7 @@ namespace MyMediaVerse.Shared.Interfaces
         public int FailedCount { get; set; }
 
         /// <summary>
-        /// Number of podcasts where no ListenNotes match was found.
+        /// Number of podcasts where no source had anything to add.
         /// </summary>
         public int NotFoundCount { get; set; }
 
