@@ -234,6 +234,67 @@ namespace MyMediaVerse.UnitTests.Application
 
         #endregion
 
+        #region Feed URL lookup
+
+        [Fact]
+        public async Task ImportSeriesFromFeedAsync_FeedUrlOnly_DirectoryIdsFindAShowSavedByAppleId()
+        {
+            var existing = await SeedSeriesAsync(s => s.ApplePodcastsId = AppleId);
+            _directory.LookupByFeedUrlAsync(FeedUrl, Arg.Any<CancellationToken>())
+                .Returns(AppleHit() with { PodcastIndexId = 42, Source = DirectoryPodcast.PodcastIndexSource });
+
+            var result = await _service.ImportSeriesFromFeedAsync(FeedUrl, null);
+
+            result.Created.Should().BeFalse();
+            result.Series.Id.Should().Be(existing.Id);
+            _feedReader.ReceivedCalls().Should().BeEmpty();
+            var saved = await Context.PodcastSeries.SingleAsync();
+            saved.RssFeedUrl.Should().Be(FeedUrl);
+            saved.PodcastIndexId.Should().Be(42);
+        }
+
+        [Fact]
+        public async Task ImportSeriesFromFeedAsync_FeedUrlLookupFailure_DoesNotStopTheImport()
+        {
+            _directory.LookupByFeedUrlAsync(FeedUrl, Arg.Any<CancellationToken>()).ThrowsAsync(new HttpRequestException("down"));
+            _feedReader.ReadAsync(FeedUrl, 0, Arg.Any<CancellationToken>()).Returns(Feed());
+
+            var result = await _service.ImportSeriesFromFeedAsync(FeedUrl, null);
+
+            result.Created.Should().BeTrue();
+            result.FeedRead.Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task ImportSeriesFromFeedAsync_FeedUrlGivenWithAppleId_SkipsTheFeedUrlLookup()
+        {
+            _feedReader.ReadAsync(FeedUrl, 0, Arg.Any<CancellationToken>()).Returns(Feed());
+
+            await _service.ImportSeriesFromFeedAsync(FeedUrl, AppleId);
+
+            await _directory.DidNotReceive().LookupByFeedUrlAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task ImportSeriesFromFeedAsync_UnreachableFeedWithPodcastIndexHit_IsAPodcastIndexStub()
+        {
+            _directory.LookupByFeedUrlAsync(FeedUrl, Arg.Any<CancellationToken>())
+                .Returns(AppleHit() with { PodcastIndexId = 42, Source = DirectoryPodcast.PodcastIndexSource });
+            _feedReader.ReadAsync(FeedUrl, 0, Arg.Any<CancellationToken>())
+                .ThrowsAsync(new PodcastFeedException(PodcastFeedFailureReason.HttpError, "The feed returned HTTP 500."));
+
+            var result = await _service.ImportSeriesFromFeedAsync(FeedUrl, null);
+
+            result.Created.Should().BeTrue();
+            var saved = await Context.PodcastSeries.SingleAsync();
+            saved.MetadataSource.Should().Be(PodcastMetadataSources.PodcastIndex);
+            saved.PodcastIndexId.Should().Be(42);
+            saved.ApplePodcastsId.Should().Be(AppleId);
+            saved.Title.Should().Be("Darknet Diaries (Apple)");
+        }
+
+        #endregion
+
         #region Unreadable feeds
 
         [Fact]

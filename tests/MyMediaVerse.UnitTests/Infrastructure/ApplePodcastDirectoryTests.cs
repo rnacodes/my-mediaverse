@@ -1,5 +1,8 @@
 using AwesomeAssertions;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Options;
 using MyMediaVerse.Infrastructure.Services.Podcasts;
+using MyMediaVerse.Shared.Configuration;
 using MyMediaVerse.Shared.DTOs.Itunes;
 using MyMediaVerse.Shared.DTOs.Podcasts;
 using MyMediaVerse.Shared.Interfaces;
@@ -15,7 +18,8 @@ namespace MyMediaVerse.UnitTests.Infrastructure
 
         public ApplePodcastDirectoryTests()
         {
-            _directory = new ApplePodcastDirectory(_itunesClient);
+            _directory = new ApplePodcastDirectory(
+                _itunesClient, new MemoryCache(new MemoryCacheOptions()), Options.Create(new PodcastDirectoryOptions()));
         }
 
         private static ItunesPodcastDto Darknet() => new()

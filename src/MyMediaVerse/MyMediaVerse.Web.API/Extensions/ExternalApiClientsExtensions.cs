@@ -3,6 +3,7 @@ using MyMediaVerse.Infrastructure.Clients.Google;
 using MyMediaVerse.Infrastructure.Clients.Itunes;
 using MyMediaVerse.Infrastructure.Clients.Obsidian;
 using MyMediaVerse.Infrastructure.Clients.OpenLibrary;
+using MyMediaVerse.Infrastructure.Clients.PodcastIndex;
 using MyMediaVerse.Infrastructure.Clients.Paperless;
 using MyMediaVerse.Infrastructure.Clients.Readwise;
 using MyMediaVerse.Infrastructure.Clients.TMDB;
@@ -29,7 +30,7 @@ public static class ExternalApiClientsExtensions
         services.AddHttpClient();
 
         services.AddYouTubeApiClient();
-        services.AddItunesLookupClient();
+        services.AddPodcastDirectories(configuration, logger);
         services.AddPodcastFeedReader(configuration);
         services.AddReadwiseClients(configuration, logger);
         services.AddOpenLibraryApiClient();
@@ -60,19 +61,50 @@ public static class ExternalApiClientsExtensions
         });
     }
 
-    private static void AddItunesLookupClient(this IServiceCollection services)
+    private static void AddPodcastDirectories(this IServiceCollection services, IConfiguration configuration, ILogger logger)
     {
-        // Apple's iTunes Lookup API is free and requires no key. Used to resolve an Apple
-        // Podcasts collection id to its RSS feed url + basic metadata during enrichment.
+        services.Configure<PodcastDirectoryOptions>(configuration.GetSection(PodcastDirectoryOptions.SectionName));
+
+        // Apple's iTunes Search and Lookup APIs are free and keyless but rate limited, so every Apple call
+        // (directory requests and enrichment alike) takes a slot from one process-wide token bucket.
+        services.AddSingleton<ItunesRateLimiter>();
+        services.AddTransient<ItunesRateLimitHandler>();
         services.AddHttpClient<IItunesLookupClient, ItunesLookupClient>(client =>
         {
             client.BaseAddress = new Uri("https://itunes.apple.com/");
             client.DefaultRequestHeaders.Add("User-Agent", "MyMediaVerse/1.0");
             client.Timeout = TimeSpan.FromSeconds(30);
-        });
+        })
+        .AddHttpMessageHandler<ItunesRateLimitHandler>();
 
-        // Apple is the podcast directory for search and id lookups.
-        services.AddScoped<IPodcastDirectory, ApplePodcastDirectory>();
+        // Podcast Index is free with a key and secret; without them Apple is the only directory.
+        var credentials = new PodcastIndexCredentials(
+            configuration.GetEnvOrConfig("ApiKeys:PodcastIndexKey", "PODCASTINDEX_API_KEY"),
+            configuration.GetEnvOrConfig("ApiKeys:PodcastIndexSecret", "PODCASTINDEX_API_SECRET"));
+        if (!credentials.IsConfigured)
+        {
+            logger.LogWarning("Podcast Index is not configured; Apple Podcasts is the only podcast directory. Set PODCASTINDEX_API_KEY and PODCASTINDEX_API_SECRET to enable it.");
+        }
+
+        services.AddSingleton(credentials);
+        services.AddTransient<PodcastIndexAuthHandler>();
+        services.AddHttpClient<IPodcastIndexClient, PodcastIndexClient>(client =>
+        {
+            client.BaseAddress = new Uri(PodcastIndexClient.BaseUrl);
+            client.DefaultRequestHeaders.Add("User-Agent", "MyMediaVerse/1.0");
+            client.Timeout = TimeSpan.FromSeconds(15);
+        })
+        .AddHttpMessageHandler<PodcastIndexAuthHandler>();
+
+        // The application sees one directory: Apple first, Podcast Index as the fallback when configured.
+        services.AddScoped<ApplePodcastDirectory>();
+        services.AddScoped<PodcastIndexDirectory>();
+        services.AddScoped<IPodcastDirectory>(provider => new CompositePodcastDirectory(
+            provider.GetRequiredService<ApplePodcastDirectory>(),
+            provider.GetRequiredService<PodcastIndexCredentials>().IsConfigured
+                ? provider.GetRequiredService<PodcastIndexDirectory>()
+                : null,
+            provider.GetRequiredService<ILogger<CompositePodcastDirectory>>()));
     }
 
     private static void AddPodcastFeedReader(this IServiceCollection services, IConfiguration configuration)

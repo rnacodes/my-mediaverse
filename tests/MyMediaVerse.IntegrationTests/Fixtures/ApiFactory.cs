@@ -179,6 +179,7 @@ namespace MyMediaVerse.IntegrationTests.Fixtures
                 ReplaceWithSubstitute<IPodcastDirectory>(services);
                 ReplaceWithSubstitute<IPodcastFeedReader>(services);
                 ReplaceWithSubstitute<IItunesLookupClient>(services);
+                ReplaceWithSubstitute<IPodcastIndexClient>(services);
             });
         }
 

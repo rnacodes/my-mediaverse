@@ -9,6 +9,9 @@ namespace MyMediaVerse.Shared.DTOs.Podcasts
         /// <summary><see cref="Source"/> value for the Apple Podcasts directory.</summary>
         public const string AppleSource = "apple";
 
+        /// <summary><see cref="Source"/> value for the Podcast Index directory.</summary>
+        public const string PodcastIndexSource = "podcastindex";
+
         public string Title { get; init; } = string.Empty;
         public string? Publisher { get; init; }
         public string? FeedUrl { get; init; }

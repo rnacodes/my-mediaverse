@@ -57,9 +57,27 @@ namespace MyMediaVerse.Application.Services
                     ?? throw new KeyNotFoundException($"Apple Podcasts has no show with id {appleId}.");
                 feedUrl = UrlNormalizer.IsValid(directoryHit.FeedUrl) ? directoryHit.FeedUrl!.Trim() : null;
             }
+            else if (appleId == null)
+            {
+                // A feed URL alone: ask the directory which show it is, so directory ids join the identity
+                // probe and a show saved earlier by its Apple id is found. Best-effort.
+                try
+                {
+                    directoryHit = await _directory.LookupByFeedUrlAsync(feedUrl, cancellationToken);
+                }
+                catch (HttpRequestException ex)
+                {
+                    _logger.LogWarning(ex, "Directory lookup by feed URL failed for {FeedUrl}; continuing without it", feedUrl);
+                }
+            }
 
             // Probe before fetching, so a show already in the library costs no feed request.
-            var identity = new PodcastSeriesIdentity { FeedUrl = feedUrl, ApplePodcastsId = appleId };
+            var identity = new PodcastSeriesIdentity
+            {
+                FeedUrl = feedUrl,
+                ApplePodcastsId = appleId ?? directoryHit?.ApplePodcastsId,
+                PodcastIndexId = directoryHit?.PodcastIndexId
+            };
             var existing = await PodcastSeriesDuplicateFinder.FindExistingAsync(TrackedSeriesWithTags, identity);
             if (existing != null)
             {
@@ -136,7 +154,11 @@ namespace MyMediaVerse.Application.Services
             else
             {
                 genreNames = PodcastFeedMapper.ApplyDirectory(series, directoryHit);
-                series.MetadataSource = directoryHit != null ? PodcastMetadataSources.Apple : PodcastMetadataSources.Manual;
+                series.MetadataSource = directoryHit == null
+                    ? PodcastMetadataSources.Manual
+                    : directoryHit.Source == DirectoryPodcast.PodcastIndexSource
+                        ? PodcastMetadataSources.PodcastIndex
+                        : PodcastMetadataSources.Apple;
             }
 
             await AddGenresAsync(series, genreNames);

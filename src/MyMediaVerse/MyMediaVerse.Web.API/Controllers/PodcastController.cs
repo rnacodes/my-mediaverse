@@ -128,6 +128,12 @@ namespace MyMediaVerse.Web.API.Controllers
                 : Ok(response);
         }
 
+        // 503 when our own Apple rate limit refused the call (try again shortly); 502 when a directory failed.
+        private ObjectResult DirectoryUnavailable(HttpRequestException ex) =>
+            ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests
+                ? StatusCode(503, new { error = "The podcast directory is busy; try again in a minute." })
+                : StatusCode(502, new { error = "The podcast directory could not be reached." });
+
         // ============ PODCAST SERIES ENDPOINTS ============
 
         // GET: api/podcast/series
@@ -471,7 +477,7 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (HttpRequestException ex)
             {
                 _logger.LogWarning(ex, "Podcast directory lookup failed for Apple id {AppleId}", dto?.ApplePodcastsId);
-                return StatusCode(502, new { error = "The podcast directory could not be reached." });
+                return DirectoryUnavailable(ex);
             }
             catch (Exception ex)
             {
@@ -514,7 +520,7 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (HttpRequestException ex)
             {
                 _logger.LogWarning(ex, "Podcast directory search failed for {Term}", term);
-                return StatusCode(502, new { error = "The podcast directory could not be reached." });
+                return DirectoryUnavailable(ex);
             }
             catch (Exception ex)
             {
