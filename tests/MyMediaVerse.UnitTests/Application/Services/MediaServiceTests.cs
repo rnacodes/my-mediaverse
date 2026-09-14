@@ -119,7 +119,6 @@ namespace MyMediaVerse.UnitTests.Application.Services
 
         [Theory]
         [InlineData(MediaType.Article, typeof(Article))]
-        [InlineData(MediaType.Podcast, typeof(PodcastSeries))]
         [InlineData(MediaType.Video, typeof(Video))]
         [InlineData(MediaType.Movie, typeof(Movie))]
         [InlineData(MediaType.TVShow, typeof(TvShow))]
@@ -139,11 +138,14 @@ namespace MyMediaVerse.UnitTests.Application.Services
         }
 
         [Fact]
-        public async Task CreateMediaItemAsync_ShouldForcePodcastMediaType_OnPodcastSeries()
+        public async Task CreateMediaItemAsync_ShouldRejectPodcasts_WithGuidanceToPodcastEndpoint()
         {
-            var result = await _service.CreateMediaItemAsync(MakeDto("My Show", MediaType.Podcast));
+            // A series' identity is its feed; the podcast endpoint owns that duplicate check,
+            // so MediaController returns 400 and the service throws.
+            var act = () => _service.CreateMediaItemAsync(MakeDto("My Show", MediaType.Podcast));
 
-            result.MediaType.Should().Be(MediaType.Podcast);
+            await act.Should().ThrowAsync<NotSupportedException>()
+                .WithMessage("*POST /api/podcast/series*");
         }
 
         [Theory]
@@ -393,6 +395,57 @@ namespace MyMediaVerse.UnitTests.Application.Services
             await _service.DeleteMediaItemAsync(book.Id);
 
             await _mockThumbnailStorage.DidNotReceive().DeleteAsync(Arg.Any<string?>());
+        }
+
+        [Fact]
+        public async Task DeleteMediaItemAsync_PodcastSeries_RemovesItsEpisodesToo()
+        {
+            var series = new PodcastSeries { Title = "Show", MediaType = MediaType.Podcast };
+            var episode = new PodcastEpisode { Title = "Ep", MediaType = MediaType.Podcast, SeriesId = series.Id };
+            Context.PodcastSeries.Add(series);
+            Context.PodcastEpisodes.Add(episode);
+            await Context.SaveChangesAsync();
+            Context.ChangeTracker.Clear();
+
+            (await _service.DeleteMediaItemAsync(series.Id)).Should().BeTrue();
+
+            (await Context.MediaItems.CountAsync()).Should().Be(0);
+            await _mockTypesense.Received(1).DeleteMediaItemAsync(episode.Id);
+        }
+
+        [Fact]
+        public async Task DeleteMediaItemAsync_TvShow_RemovesItsEpisodesToo()
+        {
+            var show = new TvShow { Title = "Show", MediaType = MediaType.TVShow };
+            var episode = new TvShowEpisode { Title = "Pilot", MediaType = MediaType.TVShow, ShowId = show.Id };
+            Context.TvShows.Add(show);
+            Context.TvShowEpisodes.Add(episode);
+            await Context.SaveChangesAsync();
+            Context.ChangeTracker.Clear();
+
+            (await _service.DeleteMediaItemAsync(show.Id)).Should().BeTrue();
+
+            (await Context.MediaItems.CountAsync()).Should().Be(0);
+            await _mockTypesense.Received(1).DeleteMediaItemAsync(episode.Id);
+        }
+
+        [Fact]
+        public async Task BulkDeleteMediaItemsAsync_SeriesAndOneOfItsEpisodes_RemovesEverythingOnce()
+        {
+            var series = new PodcastSeries { Title = "Show", MediaType = MediaType.Podcast };
+            var ep1 = new PodcastEpisode { Title = "One", MediaType = MediaType.Podcast, SeriesId = series.Id };
+            var ep2 = new PodcastEpisode { Title = "Two", MediaType = MediaType.Podcast, SeriesId = series.Id };
+            Context.PodcastSeries.Add(series);
+            Context.PodcastEpisodes.AddRange(ep1, ep2);
+            await Context.SaveChangesAsync();
+            Context.ChangeTracker.Clear();
+
+            var (deletedCount, _) = await _service.BulkDeleteMediaItemsAsync(new List<Guid> { series.Id, ep1.Id });
+
+            deletedCount.Should().Be(2);
+            (await Context.MediaItems.CountAsync()).Should().Be(0);
+            await _mockTypesense.Received(1).DeleteMediaItemAsync(ep1.Id);
+            await _mockTypesense.Received(1).DeleteMediaItemAsync(ep2.Id);
         }
 
         [Fact]

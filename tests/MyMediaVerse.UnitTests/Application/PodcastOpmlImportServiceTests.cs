@@ -33,14 +33,14 @@ namespace MyMediaVerse.UnitTests.Application
                 {
                     var dto = ci.Arg<CreatePodcastSeriesDto>();
                     _created.Add(dto);
-                    return Task.FromResult(new PodcastSeries
+                    return Task.FromResult(new PodcastSeriesCreationResult(new PodcastSeries
                     {
                         Title = dto.Title,
                         RssFeedUrl = dto.RssFeedUrl,
                         ApplePodcastsId = dto.ApplePodcastsId,
                         IsSubscribed = dto.IsSubscribed,
                         Status = dto.Status
-                    });
+                    }, Created: true));
                 });
 
             _service = new PodcastOpmlImportService(_podcastService, _logger);
@@ -194,6 +194,48 @@ namespace MyMediaVerse.UnitTests.Application
             result.Imported.Should().Be(1);
             result.Skipped.Should().Be(1);
             await _podcastService.Received(1).CreatePodcastSeriesAsync(Arg.Any<CreatePodcastSeriesDto>());
+        }
+
+        [Fact]
+        public async Task ImportFromOpmlAsync_ExistingFeedUrlInAnotherVariant_Skips()
+        {
+            SeedExisting(new PodcastSeries { Title = "Different Title", RssFeedUrl = "https://feeds.example.com/dup" });
+
+            var opml = Opml(Feed("Some Podcast", "http://www.feeds.example.com/dup/", "999"));
+
+            var result = await _service.ImportFromOpmlAsync(Stream(opml));
+
+            result.Skipped.Should().Be(1);
+            result.Imported.Should().Be(0);
+        }
+
+        [Fact]
+        public async Task ImportFromOpmlAsync_ExistingAppleId_Skips()
+        {
+            SeedExisting(new PodcastSeries { Title = "Different Title", ApplePodcastsId = "1504494402" });
+
+            var opml = Opml(Feed("Some Podcast", "https://feeds.example.com/new", "1504494402"));
+
+            var result = await _service.ImportFromOpmlAsync(Stream(opml));
+
+            result.Skipped.Should().Be(1);
+            result.Imported.Should().Be(0);
+        }
+
+        [Fact]
+        public async Task ImportFromOpmlAsync_ServiceReturnsExistingRow_CountsAsSkipped()
+        {
+            // A match only the service's identity probe can see (e.g. podcast:guid) is still a skip.
+            _podcastService.CreatePodcastSeriesAsync(Arg.Any<CreatePodcastSeriesDto>())
+                .Returns(ci => Task.FromResult(new PodcastSeriesCreationResult(
+                    new PodcastSeries { Title = ci.Arg<CreatePodcastSeriesDto>().Title }, Created: false)));
+
+            var opml = Opml(Feed("Known Elsewhere", "https://feeds.example.com/known", "42"));
+
+            var result = await _service.ImportFromOpmlAsync(Stream(opml));
+
+            result.Imported.Should().Be(0);
+            result.Skipped.Should().Be(1);
         }
 
         #endregion

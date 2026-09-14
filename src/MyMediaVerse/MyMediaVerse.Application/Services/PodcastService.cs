@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using MyMediaVerse.Domain.Constants;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 using System;
@@ -17,19 +18,27 @@ namespace MyMediaVerse.Application.Services
         private readonly IApplicationDbContext _context;
         private readonly IListenNotesApiClient _listenNotesApiClient;
         private readonly IPodcastMappingService _podcastMappingService;
+        private readonly ITypesenseService _typesenseService;
         private readonly ILogger<PodcastService> _logger;
 
         public PodcastService(
             IApplicationDbContext context,
             IListenNotesApiClient listenNotesApiClient,
             IPodcastMappingService podcastMappingService,
+            ITypesenseService typesenseService,
             ILogger<PodcastService> logger)
         {
             _context = context;
             _listenNotesApiClient = listenNotesApiClient;
             _podcastMappingService = podcastMappingService;
+            _typesenseService = typesenseService;
             _logger = logger;
         }
+
+        /// <summary>Tracked series query with the tag collections loaded, for paths that write to the row.</summary>
+        private IQueryable<PodcastSeries> TrackedSeriesWithTags => _context.PodcastSeries
+            .Include(p => p.Topics)
+            .Include(p => p.Genres);
 
         // Podcast Series methods
         public async Task<IEnumerable<PodcastSeries>> GetAllPodcastSeriesAsync()
@@ -69,9 +78,12 @@ namespace MyMediaVerse.Application.Services
                 .ToListAsync();
         }
 
-        public async Task<PodcastSeries> CreatePodcastSeriesAsync(CreatePodcastSeriesDto dto)
+        public async Task<PodcastSeriesCreationResult> CreatePodcastSeriesAsync(
+            CreatePodcastSeriesDto dto, string metadataSource = PodcastMetadataSources.Manual)
         {
-            var series = new PodcastSeries
+            var feedUrl = NormalizeFeedUrlOrThrow(dto.RssFeedUrl);
+
+            var incoming = new PodcastSeries
             {
                 Title = dto.Title,
                 MediaType = MediaType.Podcast,
@@ -86,69 +98,75 @@ namespace MyMediaVerse.Application.Services
                 RelatedNotes = dto.RelatedNotes,
                 Thumbnail = dto.Thumbnail,
                 Publisher = dto.Publisher,
-                ExternalId = dto.ExternalId,
-                RssFeedUrl = dto.RssFeedUrl,
-                ApplePodcastsId = dto.ApplePodcastsId,
+                ExternalId = BlankToNull(dto.ExternalId),
+                RssFeedUrl = feedUrl,
+                FeedUrlKey = UrlNormalizer.GetComparisonKey(feedUrl),
+                FeedGuid = BlankToNull(dto.FeedGuid),
+                ApplePodcastsId = BlankToNull(dto.ApplePodcastsId),
+                PodcastIndexId = dto.PodcastIndexId,
+                Language = BlankToNull(dto.Language),
+                MetadataSource = metadataSource,
                 IsSubscribed = dto.IsSubscribed,
                 LastSyncDate = dto.LastSyncDate,
                 TotalEpisodes = dto.TotalEpisodes
             };
 
-            // Handle Topics array conversion
-            if (dto.Topics?.Length > 0)
-            {
-                foreach (var topicName in dto.Topics.Where(t => !string.IsNullOrWhiteSpace(t)))
-                {
-                    var normalizedTopicName = topicName.ToLower();
-                    var existingTopic = await _context.Topics
-                        .FirstOrDefaultAsync(t => t.Name.ToLower() == normalizedTopicName);
+            await ApplyTopicsAsync(incoming.Topics, dto.Topics);
+            await ApplyGenresAsync(incoming.Genres, dto.Genres);
 
-                    if (existingTopic != null)
-                    {
-                        series.Topics.Add(existingTopic);
-                    }
-                    else
-                    {
-                        series.Topics.Add(new Topic { Name = normalizedTopicName });
-                    }
+            var identity = PodcastSeriesIdentity.From(incoming);
+            var existing = await PodcastSeriesDuplicateFinder.FindExistingAsync(TrackedSeriesWithTags, identity);
+            if (existing != null)
+            {
+                var identityChanged = await PodcastSeriesDuplicateFinder.AbsorbIdentityAsync(
+                    _context.PodcastSeries, existing, identity);
+                var metadataChanged = PodcastSeriesDuplicateFinder.AbsorbMetadata(existing, incoming);
+                if (identityChanged || metadataChanged)
+                {
+                    await _context.SaveChangesAsync();
                 }
+
+                _logger.LogInformation("Podcast series already exists for {Title} (ID: {Id}); returning existing row",
+                    incoming.Title, existing.Id);
+                return new PodcastSeriesCreationResult(existing, Created: false);
             }
 
-            // Handle Genres array conversion
-            if (dto.Genres?.Length > 0)
-            {
-                foreach (var genreName in dto.Genres.Where(g => !string.IsNullOrWhiteSpace(g)))
-                {
-                    var normalizedGenreName = genreName.ToLower();
-                    var existingGenre = await _context.Genres
-                        .FirstOrDefaultAsync(g => g.Name.ToLower() == normalizedGenreName);
-
-                    if (existingGenre != null)
-                    {
-                        series.Genres.Add(existingGenre);
-                    }
-                    else
-                    {
-                        series.Genres.Add(new Genre { Name = normalizedGenreName });
-                    }
-                }
-            }
-
-            _context.Add(series);
+            _context.Add(incoming);
             await _context.SaveChangesAsync();
 
-            return series;
+            _logger.LogInformation("Created podcast series with ID: {Id}, Title: {Title}", incoming.Id, incoming.Title);
+            return new PodcastSeriesCreationResult(incoming, Created: true);
         }
 
         public async Task<PodcastSeries> UpdatePodcastSeriesAsync(Guid id, CreatePodcastSeriesDto dto)
         {
-            var series = await _context.PodcastSeries
-                .Include(p => p.Topics)
-                .Include(p => p.Genres)
-                .FirstOrDefaultAsync(p => p.Id == id);
+            var series = await TrackedSeriesWithTags.FirstOrDefaultAsync(p => p.Id == id);
             if (series == null)
             {
-                throw new InvalidOperationException($"Podcast series with ID {id} not found.");
+                throw new KeyNotFoundException($"Podcast series with ID {id} not found.");
+            }
+
+            var feedUrl = NormalizeFeedUrlOrThrow(dto.RssFeedUrl);
+            var feedKey = UrlNormalizer.GetComparisonKey(feedUrl);
+            var appleId = BlankToNull(dto.ApplePodcastsId);
+
+            // The feed URL and Apple id are unique identities; refuse an edit that would take one
+            // from another series rather than letting the unique index fail the save.
+            if (!string.IsNullOrEmpty(feedKey) && feedKey != series.FeedUrlKey)
+            {
+                var other = await PodcastSeriesDuplicateFinder.FindExistingAsync(
+                    _context.PodcastSeries, new PodcastSeriesIdentity { FeedUrl = feedUrl });
+                if (other != null && other.Id != id)
+                {
+                    throw new InvalidOperationException(
+                        $"Another podcast series already uses this feed URL (ID: {other.Id}).");
+                }
+            }
+
+            if (appleId != null && appleId != series.ApplePodcastsId &&
+                await _context.PodcastSeries.AnyAsync(p => p.Id != id && p.ApplePodcastsId == appleId))
+            {
+                throw new InvalidOperationException("Another podcast series already uses this Apple Podcasts id.");
             }
 
             series.Title = dto.Title;
@@ -162,8 +180,9 @@ namespace MyMediaVerse.Application.Services
             series.RelatedNotes = dto.RelatedNotes;
             series.Thumbnail = dto.Thumbnail;
             series.Publisher = dto.Publisher;
-            series.RssFeedUrl = dto.RssFeedUrl;
-            series.ApplePodcastsId = dto.ApplePodcastsId;
+            series.RssFeedUrl = feedUrl;
+            series.FeedUrlKey = feedKey;
+            series.ApplePodcastsId = appleId;
 
             series.Topics.Clear();
             series.Genres.Clear();
@@ -179,18 +198,36 @@ namespace MyMediaVerse.Application.Services
 
         public async Task<bool> DeletePodcastSeriesAsync(Guid id)
         {
-            var series = await _context.FindAsync<PodcastSeries>(id);
+            var series = await _context.PodcastSeries.FirstOrDefaultAsync(p => p.Id == id);
             if (series == null)
             {
                 return false;
             }
 
-            var seriesId = series.Id;
+            // Episodes are removed through EF rather than left to the database cascade on SeriesId.
+            // Each media type is split across MediaItems plus its own table, and that cascade only
+            // reaches the PodcastEpisodes rows — it would leave every episode's MediaItems row behind
+            // with no type, which breaks every query over all media.
+            var episodes = await _context.PodcastEpisodes.Where(e => e.SeriesId == id).ToListAsync();
+            foreach (var episode in episodes)
+            {
+                _context.Remove(episode);
+            }
 
-            // Cascade delete will automatically remove episodes
             _context.Remove(series);
             await _context.SaveChangesAsync();
 
+            // Eager search-index cleanup so the series and its episodes stop appearing in search
+            // immediately. Best effort: the next bulk reindex reconciles anything this misses.
+            await SearchIndexCleanup.TryDeleteAsync(
+                () => _typesenseService.DeleteMediaItemAsync(id), _logger, "podcast series", id);
+            foreach (var episode in episodes)
+            {
+                await SearchIndexCleanup.TryDeleteAsync(
+                    () => _typesenseService.DeleteMediaItemAsync(episode.Id), _logger, "podcast episode", episode.Id);
+            }
+
+            _logger.LogInformation("Deleted podcast series {Id} and {EpisodeCount} episode(s)", id, episodes.Count);
             return true;
         }
 
@@ -256,7 +293,7 @@ namespace MyMediaVerse.Application.Services
                 .ToListAsync();
         }
 
-        public async Task<PodcastEpisode> CreatePodcastEpisodeAsync(CreatePodcastEpisodeDto dto)
+        public async Task<PodcastEpisodeCreationResult> CreatePodcastEpisodeAsync(CreatePodcastEpisodeDto dto)
         {
             // Verify the parent series exists (include Topics/Genres for inheritance)
             var parentSeries = await _context.PodcastSeries
@@ -267,6 +304,30 @@ namespace MyMediaVerse.Application.Services
             if (parentSeries == null)
             {
                 throw new ArgumentException($"Parent podcast series with ID {dto.SeriesId} not found.");
+            }
+
+            var identity = new PodcastEpisodeIdentity
+            {
+                SeriesId = dto.SeriesId,
+                RssGuid = dto.RssGuid,
+                ExternalId = dto.ExternalId,
+                AudioLink = dto.AudioLink,
+                Title = dto.Title,
+                ReleaseDate = dto.ReleaseDate
+            };
+
+            var existing = await PodcastEpisodeDuplicateFinder.FindExistingAsync(
+                _context.PodcastEpisodes.Include(e => e.Series).Include(e => e.Topics).Include(e => e.Genres), identity);
+            if (existing != null)
+            {
+                if (await PodcastEpisodeDuplicateFinder.AbsorbIdentityAsync(_context.PodcastEpisodes, existing, identity))
+                {
+                    await _context.SaveChangesAsync();
+                }
+
+                _logger.LogInformation("Podcast episode already exists for {Title} (ID: {Id}); returning existing row",
+                    dto.Title, existing.Id);
+                return new PodcastEpisodeCreationResult(existing, Created: false);
             }
 
             var episode = new PodcastEpisode
@@ -289,66 +350,32 @@ namespace MyMediaVerse.Application.Services
                 DurationInSeconds = dto.DurationInSeconds,
                 EpisodeNumber = dto.EpisodeNumber,
                 SeasonNumber = dto.SeasonNumber,
-                ExternalId = dto.ExternalId,
+                ExternalId = BlankToNull(dto.ExternalId),
+                RssGuid = BlankToNull(dto.RssGuid),
                 Publisher = dto.Publisher
             };
 
-            // Handle Topics: use DTO topics if provided, otherwise inherit from parent series
+            // Topics and genres: use the DTO's when provided, otherwise inherit from the parent series
             var topicNames = dto.Topics?.Where(t => !string.IsNullOrWhiteSpace(t)).ToArray();
             if (topicNames == null || topicNames.Length == 0)
             {
-                // Inherit topics from parent series
                 topicNames = parentSeries.Topics?.Select(t => t.Name).ToArray() ?? Array.Empty<string>();
             }
+            await ApplyTopicsAsync(episode.Topics, topicNames);
 
-            foreach (var topicName in topicNames)
-            {
-                var normalizedTopicName = topicName.ToLower();
-                var existingTopic = await _context.Topics
-                    .FirstOrDefaultAsync(t => t.Name.ToLower() == normalizedTopicName);
-
-                if (existingTopic != null)
-                {
-                    episode.Topics.Add(existingTopic);
-                }
-                else
-                {
-                    episode.Topics.Add(new Topic { Name = normalizedTopicName });
-                }
-            }
-
-            // Handle Genres: use DTO genres if provided, otherwise inherit from parent series
             var genreNames = dto.Genres?.Where(g => !string.IsNullOrWhiteSpace(g)).ToArray();
             if (genreNames == null || genreNames.Length == 0)
             {
-                // Inherit genres from parent series
                 genreNames = parentSeries.Genres?.Select(g => g.Name).ToArray() ?? Array.Empty<string>();
             }
-
-            foreach (var genreName in genreNames)
-            {
-                var normalizedGenreName = genreName.ToLower();
-                var existingGenre = await _context.Genres
-                    .FirstOrDefaultAsync(g => g.Name.ToLower() == normalizedGenreName);
-
-                if (existingGenre != null)
-                {
-                    episode.Genres.Add(existingGenre);
-                }
-                else
-                {
-                    episode.Genres.Add(new Genre { Name = normalizedGenreName });
-                }
-            }
+            await ApplyGenresAsync(episode.Genres, genreNames);
 
             _context.Add(episode);
             await _context.SaveChangesAsync();
 
-            // Load the Series navigation property
-            episode.Series = await _context.PodcastSeries
-                .FirstOrDefaultAsync(s => s.Id == episode.SeriesId);
+            episode.Series = parentSeries;
 
-            return episode;
+            return new PodcastEpisodeCreationResult(episode, Created: true);
         }
 
         public async Task<PodcastEpisode> UpdatePodcastEpisodeAsync(Guid id, CreatePodcastEpisodeDto dto)
@@ -408,10 +435,11 @@ namespace MyMediaVerse.Application.Services
                 return false;
             }
 
-            var episodeId = episode.Id;
-
             _context.Remove(episode);
             await _context.SaveChangesAsync();
+
+            await SearchIndexCleanup.TryDeleteAsync(
+                () => _typesenseService.DeleteMediaItemAsync(id), _logger, "podcast episode", id);
 
             return true;
         }
@@ -428,52 +456,54 @@ namespace MyMediaVerse.Application.Services
                 .FirstOrDefaultAsync(e => e.SeriesId == seriesId && e.Title.ToLower() == episodeTitle.ToLower());
         }
 
-        // Resolve-or-create normalized (lowercase) topics into the target collection
-        private async Task ApplyTopicsAsync(ICollection<Topic> target, string[]? topics)
+        // Resolve-or-create normalized (trimmed, lowercase) topics into the target collection.
+        // The resolver registers new topics explicitly and dedupes repeats within one call.
+        private async Task ApplyTopicsAsync(ICollection<Topic> target, IEnumerable<string>? topics)
         {
-            foreach (var topicName in (topics ?? Array.Empty<string>()).Where(t => !string.IsNullOrWhiteSpace(t)))
+            var resolver = new TopicResolver(_context);
+            foreach (var name in (topics ?? Array.Empty<string>()).Where(t => !string.IsNullOrWhiteSpace(t)))
             {
-                var normalizedTopicName = topicName.ToLower();
-                var existingTopic = await _context.Topics
-                    .FirstOrDefaultAsync(t => t.Name.ToLower() == normalizedTopicName);
-                if (existingTopic != null)
+                var topic = await resolver.GetOrCreateAsync(name.Trim().ToLowerInvariant());
+                if (topic != null && !target.Contains(topic))
                 {
-                    target.Add(existingTopic);
-                }
-                else
-                {
-                    // Register the new topic explicitly so EF inserts it. A client-set Guid key
-                    // looks "already-set", so reached via a tracked parent EF would assume it
-                    // exists and skip the insert, breaking the join FK.
-                    var newTopic = new Topic { Name = normalizedTopicName };
-                    _context.Add(newTopic);
-                    target.Add(newTopic);
+                    target.Add(topic);
                 }
             }
         }
 
-        // Resolve-or-create normalized (lowercase) genres into the target collection
-        private async Task ApplyGenresAsync(ICollection<Genre> target, string[]? genres)
+        // Resolve-or-create normalized (trimmed, lowercase) genres into the target collection
+        private async Task ApplyGenresAsync(ICollection<Genre> target, IEnumerable<string>? genres)
         {
-            foreach (var genreName in (genres ?? Array.Empty<string>()).Where(g => !string.IsNullOrWhiteSpace(g)))
+            var resolver = new GenreResolver(_context);
+            foreach (var name in (genres ?? Array.Empty<string>()).Where(g => !string.IsNullOrWhiteSpace(g)))
             {
-                var normalizedGenreName = genreName.ToLower();
-                var existingGenre = await _context.Genres
-                    .FirstOrDefaultAsync(g => g.Name.ToLower() == normalizedGenreName);
-                if (existingGenre != null)
+                var genre = await resolver.GetOrCreateAsync(name.Trim().ToLowerInvariant());
+                if (genre != null && !target.Contains(genre))
                 {
-                    target.Add(existingGenre);
-                }
-                else
-                {
-                    // Register the new genre explicitly (see ApplyTopicsAsync) so EF inserts it
-                    // instead of assuming the client-set key already exists.
-                    var newGenre = new Genre { Name = normalizedGenreName };
-                    _context.Add(newGenre);
-                    target.Add(newGenre);
+                    target.Add(genre);
                 }
             }
         }
+
+        /// <summary>
+        /// Trims a feed URL and checks it is an absolute http(s) URL. Blank means "no feed".
+        /// The URL is stored as given (not normalized) so it stays fetchable exactly as published;
+        /// only the comparison key is normalized.
+        /// </summary>
+        private static string? NormalizeFeedUrlOrThrow(string? feedUrl)
+        {
+            if (string.IsNullOrWhiteSpace(feedUrl))
+                return null;
+
+            var trimmed = feedUrl.Trim();
+            if (!UrlNormalizer.IsValid(trimmed))
+                throw new ArgumentException("The RSS feed URL must be an absolute http or https URL.");
+
+            return trimmed;
+        }
+
+        private static string? BlankToNull(string? value) =>
+            string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
         // Subscription management methods
         public async Task<PodcastSeries?> SubscribeToPodcastSeriesAsync(Guid seriesId)

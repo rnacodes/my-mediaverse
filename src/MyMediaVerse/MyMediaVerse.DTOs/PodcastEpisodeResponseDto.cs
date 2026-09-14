@@ -58,7 +58,10 @@ namespace MyMediaVerse.DTOs
         
         [JsonPropertyName("externalId")]
         public string? ExternalId { get; set; }
-        
+
+        [JsonPropertyName("rssGuid")]
+        public string? RssGuid { get; set; }
+
         [JsonPropertyName("publisher")]
         public string? Publisher { get; set; }
 

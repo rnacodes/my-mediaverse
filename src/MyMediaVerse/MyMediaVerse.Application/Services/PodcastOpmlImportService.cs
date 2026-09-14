@@ -1,6 +1,7 @@
 using System.Xml.Linq;
 using Microsoft.Extensions.Logging;
 using MyMediaVerse.Application.Interfaces;
+using MyMediaVerse.Application.Utilities;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 
@@ -62,7 +63,7 @@ namespace MyMediaVerse.Application.Services
             var dedup = new DedupIndex();
             foreach (var series in await _podcastService.GetAllPodcastSeriesAsync())
             {
-                dedup.Add(series.Title, series.RssFeedUrl);
+                dedup.Add(series.Title, series.RssFeedUrl, series.ApplePodcastsId);
             }
 
             foreach (var feed in feeds)
@@ -77,7 +78,7 @@ namespace MyMediaVerse.Application.Services
                     continue;
                 }
 
-                if (dedup.Contains(title, rssFeedUrl))
+                if (dedup.Contains(title, rssFeedUrl, applePodcastsId))
                 {
                     result.Skipped++;
                     continue;
@@ -94,11 +95,21 @@ namespace MyMediaVerse.Application.Services
                         ApplePodcastsId = string.IsNullOrWhiteSpace(applePodcastsId) ? null : applePodcastsId
                     };
 
-                    await _podcastService.CreatePodcastSeriesAsync(dto);
+                    var creation = await _podcastService.CreatePodcastSeriesAsync(dto);
 
                     // Register the stub so a later duplicate row in the same file is skipped.
-                    dedup.Add(title, rssFeedUrl);
-                    result.Imported++;
+                    dedup.Add(title, rssFeedUrl, applePodcastsId);
+
+                    // The service's own identity probe is the final word: a match it found that the
+                    // in-memory index missed is still a skip, not an import.
+                    if (creation.Created)
+                    {
+                        result.Imported++;
+                    }
+                    else
+                    {
+                        result.Skipped++;
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -117,17 +128,24 @@ namespace MyMediaVerse.Application.Services
 
         /// <summary>
         /// In-memory dedup lookup for a single import run: existing (and newly created) series keyed
-        /// by RSS feed url (primary) and by normalized title (fallback), so each feed is matched
-        /// without a query.
+        /// by normalized feed URL and Apple Podcasts id (primary) and by normalized title (fallback),
+        /// so each feed is matched without a query.
         /// </summary>
         private sealed class DedupIndex
         {
-            private readonly HashSet<string> _byFeedUrl = new(StringComparer.OrdinalIgnoreCase);
+            private readonly HashSet<string> _byFeedKey = new(StringComparer.Ordinal);
+            private readonly HashSet<string> _byAppleId = new(StringComparer.Ordinal);
             private readonly HashSet<string> _byTitle = new(StringComparer.OrdinalIgnoreCase);
 
-            public bool Contains(string title, string? feedUrl)
+            public bool Contains(string title, string? feedUrl, string? applePodcastsId)
             {
-                if (!string.IsNullOrWhiteSpace(feedUrl) && _byFeedUrl.Contains(feedUrl.Trim()))
+                var feedKey = UrlNormalizer.GetComparisonKey(feedUrl);
+                if (!string.IsNullOrEmpty(feedKey) && _byFeedKey.Contains(feedKey))
+                {
+                    return true;
+                }
+
+                if (!string.IsNullOrWhiteSpace(applePodcastsId) && _byAppleId.Contains(applePodcastsId.Trim()))
                 {
                     return true;
                 }
@@ -135,11 +153,17 @@ namespace MyMediaVerse.Application.Services
                 return _byTitle.Contains(NormalizeTitle(title));
             }
 
-            public void Add(string title, string? feedUrl)
+            public void Add(string title, string? feedUrl, string? applePodcastsId)
             {
-                if (!string.IsNullOrWhiteSpace(feedUrl))
+                var feedKey = UrlNormalizer.GetComparisonKey(feedUrl);
+                if (!string.IsNullOrEmpty(feedKey))
                 {
-                    _byFeedUrl.Add(feedUrl.Trim());
+                    _byFeedKey.Add(feedKey);
+                }
+
+                if (!string.IsNullOrWhiteSpace(applePodcastsId))
+                {
+                    _byAppleId.Add(applePodcastsId.Trim());
                 }
 
                 if (!string.IsNullOrWhiteSpace(title))

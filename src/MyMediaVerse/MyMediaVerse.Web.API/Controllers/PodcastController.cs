@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Shared.Interfaces;
 using MyMediaVerse.DTOs;
-using System.Text.Json;
+using MyMediaVerse.Web.API.Extensions;
 
 namespace MyMediaVerse.Web.API.Controllers
 {
@@ -12,22 +14,21 @@ namespace MyMediaVerse.Web.API.Controllers
     public class PodcastController : ControllerBase
     {
         private readonly IPodcastService _podcastService;
-        private readonly IPodcastMappingService _podcastMappingService;
         private readonly IListenNotesService _listenNotesService;
         private readonly IPodcastOpmlImportService _opmlImportService;
         private readonly IImportReindexService _importReindexService;
         private readonly ILogger<PodcastController> _logger;
 
+        private const long MaxOpmlFileBytes = 10 * 1024 * 1024;
+
         public PodcastController(
             IPodcastService podcastService,
-            IPodcastMappingService podcastMappingService,
             IListenNotesService listenNotesService,
             IPodcastOpmlImportService opmlImportService,
             IImportReindexService importReindexService,
             ILogger<PodcastController> logger)
         {
             _podcastService = podcastService;
-            _podcastMappingService = podcastMappingService;
             _listenNotesService = listenNotesService;
             _opmlImportService = opmlImportService;
             _importReindexService = importReindexService;
@@ -53,6 +54,12 @@ namespace MyMediaVerse.Web.API.Controllers
                 ExternalId = series.ExternalId,
                 RssFeedUrl = series.RssFeedUrl,
                 ApplePodcastsId = series.ApplePodcastsId,
+                FeedGuid = series.FeedGuid,
+                PodcastIndexId = series.PodcastIndexId,
+                MetadataSource = series.MetadataSource,
+                Language = series.Language,
+                EnrichedAt = series.EnrichedAt,
+                LastEnrichmentAttemptAt = series.LastEnrichmentAttemptAt,
                 IsSubscribed = series.IsSubscribed,
                 LastSyncDate = series.LastSyncDate,
                 TotalEpisodes = series.TotalEpisodes,
@@ -87,11 +94,30 @@ namespace MyMediaVerse.Web.API.Controllers
                 EpisodeNumber = episode.EpisodeNumber,
                 SeasonNumber = episode.SeasonNumber,
                 ExternalId = episode.ExternalId,
+                RssGuid = episode.RssGuid,
                 Publisher = episode.Publisher,
                 Topics = episode.Topics?.Select(t => t.Name).ToList() ?? new List<string>(),
                 Genres = episode.Genres?.Select(g => g.Name).ToList() ?? new List<string>(),
                 PodcastType = "Episode"
             };
+        }
+
+        // 201 with a Location header when the series was inserted; 200 when an existing row with the
+        // same identity was returned instead.
+        private IActionResult CreatedOrExisting(PodcastSeriesCreationResult result)
+        {
+            var response = MapToResponseDto(result.Series);
+            return result.Created
+                ? CreatedAtAction(nameof(GetPodcastSeries), new { id = result.Series.Id }, response)
+                : Ok(response);
+        }
+
+        private IActionResult CreatedOrExisting(PodcastEpisodeCreationResult result)
+        {
+            var response = MapToResponseDto(result.Episode);
+            return result.Created
+                ? CreatedAtAction(nameof(GetPodcastEpisode), new { id = result.Episode.Id }, response)
+                : Ok(response);
         }
 
         // ============ PODCAST SERIES ENDPOINTS ============
@@ -109,7 +135,7 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while retrieving podcast series");
-                return StatusCode(500, new { error = "Failed to retrieve podcast series", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to retrieve podcast series" });
             }
         }
 
@@ -121,7 +147,7 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 if (string.IsNullOrWhiteSpace(query))
                 {
-                    return BadRequest("Query parameter is required");
+                    return BadRequest(new { error = "Query parameter is required" });
                 }
 
                 var series = await _podcastService.SearchPodcastSeriesAsync(query);
@@ -131,7 +157,7 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while searching podcast series with query: {Query}", query);
-                return StatusCode(500, new { error = "Failed to search podcast series", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to search podcast series" });
             }
         }
 
@@ -145,7 +171,7 @@ namespace MyMediaVerse.Web.API.Controllers
 
                 if (series == null)
                 {
-                    return NotFound($"Podcast series with ID {id} not found.");
+                    return NotFound(new { error = $"Podcast series with ID {id} not found." });
                 }
 
                 var response = MapToResponseDto(series);
@@ -154,11 +180,13 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while retrieving podcast series with ID {Id}", id);
-                return StatusCode(500, new { error = "Failed to retrieve podcast series", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to retrieve podcast series" });
             }
         }
 
         // POST: api/podcast/series
+        // Returns 201 for a new series, 200 with the existing row when the feed URL, a directory id,
+        // or title + publisher already identify one.
         [HttpPost("series")]
         public async Task<IActionResult> CreatePodcastSeries([FromBody] CreatePodcastSeriesDto dto)
         {
@@ -166,22 +194,21 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 if (dto == null)
                 {
-                    return BadRequest("Podcast series data is required");
+                    return BadRequest(new { error = "Podcast series data is required" });
                 }
 
-                var series = await _podcastService.CreatePodcastSeriesAsync(dto);
-                var response = MapToResponseDto(series);
-                return CreatedAtAction(nameof(GetPodcastSeries), new { id = series.Id }, response);
+                var result = await _podcastService.CreatePodcastSeriesAsync(dto);
+                return CreatedOrExisting(result);
             }
             catch (ArgumentException ex)
             {
                 _logger.LogWarning(ex, "Invalid argument while creating podcast series");
-                return BadRequest(ex.Message);
+                return BadRequest(new { error = ex.Message });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while creating podcast series");
-                return StatusCode(500, new { error = "Failed to create podcast series", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to create podcast series" });
             }
         }
 
@@ -193,21 +220,30 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 if (dto == null)
                 {
-                    return BadRequest("Podcast series data is required");
+                    return BadRequest(new { error = "Podcast series data is required" });
                 }
 
                 var series = await _podcastService.UpdatePodcastSeriesAsync(id, dto);
                 var response = MapToResponseDto(series);
                 return Ok(response);
             }
-            catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
+            catch (KeyNotFoundException)
             {
-                return NotFound($"Podcast series with ID {id} not found.");
+                return NotFound(new { error = $"Podcast series with ID {id} not found." });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                // The new feed URL or Apple id already belongs to another series.
+                return Conflict(new { error = ex.Message });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while updating podcast series with ID {Id}", id);
-                return StatusCode(500, new { error = "Failed to update podcast series", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to update podcast series" });
             }
         }
 
@@ -218,10 +254,10 @@ namespace MyMediaVerse.Web.API.Controllers
             try
             {
                 var deleted = await _podcastService.DeletePodcastSeriesAsync(id);
-                
+
                 if (!deleted)
                 {
-                    return NotFound($"Podcast series with ID {id} not found.");
+                    return NotFound(new { error = $"Podcast series with ID {id} not found." });
                 }
 
                 return NoContent();
@@ -229,7 +265,7 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while deleting podcast series with ID {Id}", id);
-                return StatusCode(500, new { error = "Failed to delete podcast series", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to delete podcast series" });
             }
         }
 
@@ -240,10 +276,10 @@ namespace MyMediaVerse.Web.API.Controllers
             try
             {
                 var series = await _podcastService.SubscribeToPodcastSeriesAsync(seriesId);
-                
+
                 if (series == null)
                 {
-                    return NotFound($"Podcast series with ID {seriesId} not found.");
+                    return NotFound(new { error = $"Podcast series with ID {seriesId} not found." });
                 }
 
                 _logger.LogInformation("Subscribed to podcast series: {Title} (ID: {SeriesId})", series.Title, seriesId);
@@ -253,7 +289,7 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while subscribing to podcast series {SeriesId}", seriesId);
-                return StatusCode(500, new { error = "Failed to subscribe to podcast series", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to subscribe to podcast series" });
             }
         }
 
@@ -264,10 +300,10 @@ namespace MyMediaVerse.Web.API.Controllers
             try
             {
                 var series = await _podcastService.UnsubscribeFromPodcastSeriesAsync(seriesId);
-                
+
                 if (series == null)
                 {
-                    return NotFound($"Podcast series with ID {seriesId} not found.");
+                    return NotFound(new { error = $"Podcast series with ID {seriesId} not found." });
                 }
 
                 _logger.LogInformation("Unsubscribed from podcast series: {Title} (ID: {SeriesId})", series.Title, seriesId);
@@ -277,7 +313,7 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while unsubscribing from podcast series {SeriesId}", seriesId);
-                return StatusCode(500, new { error = "Failed to unsubscribe from podcast series", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to unsubscribe from podcast series" });
             }
         }
 
@@ -294,29 +330,33 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while retrieving subscribed podcast series");
-                return StatusCode(500, new { error = "Failed to retrieve subscribed podcast series", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to retrieve subscribed podcast series" });
             }
         }
 
         // POST: api/podcast/series/{seriesId}/sync
+        // Explicit [Authorize] even though the fallback policy already requires a token: this endpoint
+        // writes to the library and fetches from an external source per request.
+        [Authorize]
+        [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
         [HttpPost("series/{seriesId}/sync")]
         public async Task<IActionResult> SyncPodcastSeriesEpisodes(Guid seriesId)
         {
             try
             {
                 var result = await _podcastService.SyncPodcastSeriesEpisodesAsync(seriesId);
-                
+
                 if (result == null)
                 {
-                    return NotFound($"Podcast series with ID {seriesId} not found or has no external ID.");
+                    return NotFound(new { error = $"Podcast series with ID {seriesId} not found or has no external ID." });
                 }
 
-                _logger.LogInformation("Synced episodes for podcast series: {Title} (ID: {SeriesId}). New episodes: {NewEpisodesCount}", 
+                _logger.LogInformation("Synced episodes for podcast series: {Title} (ID: {SeriesId}). New episodes: {NewEpisodesCount}",
                     result.SeriesTitle, seriesId, result.NewEpisodesCount);
 
-                return Ok(new { 
-                    message = "Successfully synced podcast series episodes", 
-                    seriesId, 
+                return Ok(new {
+                    message = "Successfully synced podcast series episodes",
+                    seriesId,
                     seriesTitle = result.SeriesTitle,
                     newEpisodesCount = result.NewEpisodesCount,
                     totalEpisodesCount = result.TotalEpisodesCount,
@@ -326,7 +366,7 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while syncing episodes for podcast series {SeriesId}", seriesId);
-                return StatusCode(500, new { error = "Failed to sync podcast series episodes", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to sync podcast series episodes" });
             }
         }
 
@@ -339,7 +379,7 @@ namespace MyMediaVerse.Web.API.Controllers
                 _logger.LogInformation("Starting podcast series import from API for ID: {PodcastId}", podcastId);
 
                 var series = await _listenNotesService.ImportPodcastSeriesAsync(podcastId);
-                
+
                 _logger.LogInformation("Successfully imported podcast series: {Title} with ID: {Id}", series.Title, series.Id);
                 var response = MapToResponseDto(series);
                 return CreatedAtAction(nameof(GetPodcastSeries), new { id = series.Id }, response);
@@ -347,7 +387,7 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error importing podcast series from API with ID: {PodcastId}", podcastId);
-                return StatusCode(500, new { error = "Failed to import podcast series from API", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to import podcast series from API" });
             }
         }
 
@@ -359,7 +399,7 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 if (string.IsNullOrWhiteSpace(dto?.PodcastName))
                 {
-                    return BadRequest("Podcast name is required");
+                    return BadRequest(new { error = "Podcast name is required" });
                 }
 
                 _logger.LogInformation("Searching for podcast series by name: {PodcastName}", dto.PodcastName);
@@ -367,7 +407,7 @@ namespace MyMediaVerse.Web.API.Controllers
                 var series = await _listenNotesService.ImportPodcastSeriesByNameAsync(dto.PodcastName);
                 if (series == null)
                 {
-                    return NotFound($"No podcast series found with name: {dto.PodcastName}");
+                    return NotFound(new { error = $"No podcast series found with name: {dto.PodcastName}" });
                 }
 
                 _logger.LogInformation("Successfully imported podcast series: {Title} with ID: {Id}", series.Title, series.Id);
@@ -377,12 +417,14 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error importing podcast series by name: {PodcastName}", dto?.PodcastName);
-                return StatusCode(500, new { error = "Failed to import podcast series by name", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to import podcast series by name" });
             }
         }
 
-        // POST: api/podcast/import-opml
-        [HttpPost("import-opml")]
+        // POST: api/podcast/series/from-opml
+        // Stubs land with feed URL + Apple id only (no external calls); duplicates are skipped.
+        [Authorize]
+        [HttpPost("series/from-opml")]
         public async Task<IActionResult> ImportPodcastsFromOpml(IFormFile file)
         {
             try
@@ -390,6 +432,11 @@ namespace MyMediaVerse.Web.API.Controllers
                 if (file == null || file.Length == 0)
                 {
                     return BadRequest(new { error = "No file uploaded" });
+                }
+
+                if (file.Length > MaxOpmlFileBytes)
+                {
+                    return BadRequest(new { error = "The OPML file must be 10 MB or smaller." });
                 }
 
                 if (!file.FileName.EndsWith(".opml", StringComparison.OrdinalIgnoreCase) &&
@@ -410,7 +457,7 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error processing podcast OPML import");
-                return StatusCode(500, new { error = "Failed to process podcast OPML import", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to process podcast OPML import" });
             }
         }
 
@@ -431,7 +478,7 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while retrieving episodes for series {SeriesId}", seriesId);
-                return StatusCode(500, new { error = "Failed to retrieve episodes", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to retrieve episodes" });
             }
         }
 
@@ -445,7 +492,7 @@ namespace MyMediaVerse.Web.API.Controllers
 
                 if (episode == null)
                 {
-                    return NotFound($"Podcast episode with ID {id} not found.");
+                    return NotFound(new { error = $"Podcast episode with ID {id} not found." });
                 }
 
                 var response = MapToResponseDto(episode);
@@ -455,11 +502,13 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while retrieving podcast episode with ID {Id}", id);
-                return StatusCode(500, new { error = "Failed to retrieve podcast episode", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to retrieve podcast episode" });
             }
         }
 
         // POST: api/podcast/episodes
+        // Returns 201 for a new episode, 200 with the existing row when the feed guid, external id,
+        // audio URL, or title + release date already identify one in the series.
         [HttpPost("episodes")]
         public async Task<IActionResult> CreatePodcastEpisode([FromBody] CreatePodcastEpisodeDto dto)
         {
@@ -467,24 +516,21 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 if (dto == null)
                 {
-                    return BadRequest("Podcast episode data is required");
+                    return BadRequest(new { error = "Podcast episode data is required" });
                 }
 
-                var episode = await _podcastService.CreatePodcastEpisodeAsync(dto);
-
-                var response = MapToResponseDto(episode);
-
-                return CreatedAtAction(nameof(GetPodcastEpisode), new { id = episode.Id }, response);
+                var result = await _podcastService.CreatePodcastEpisodeAsync(dto);
+                return CreatedOrExisting(result);
             }
             catch (ArgumentException ex)
             {
                 _logger.LogWarning(ex, "Invalid argument while creating podcast episode");
-                return BadRequest(ex.Message);
+                return BadRequest(new { error = ex.Message });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while creating podcast episode");
-                return StatusCode(500, new { error = "Failed to create podcast episode", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to create podcast episode" });
             }
         }
 
@@ -496,7 +542,7 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 if (dto == null)
                 {
-                    return BadRequest("Podcast episode data is required");
+                    return BadRequest(new { error = "Podcast episode data is required" });
                 }
 
                 var episode = await _podcastService.UpdatePodcastEpisodeAsync(id, dto);
@@ -507,12 +553,12 @@ namespace MyMediaVerse.Web.API.Controllers
             }
             catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
             {
-                return NotFound($"Podcast episode with ID {id} not found.");
+                return NotFound(new { error = $"Podcast episode with ID {id} not found." });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while updating podcast episode with ID {Id}", id);
-                return StatusCode(500, new { error = "Failed to update podcast episode", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to update podcast episode" });
             }
         }
 
@@ -523,10 +569,10 @@ namespace MyMediaVerse.Web.API.Controllers
             try
             {
                 var deleted = await _podcastService.DeletePodcastEpisodeAsync(id);
-                
+
                 if (!deleted)
                 {
-                    return NotFound($"Podcast episode with ID {id} not found.");
+                    return NotFound(new { error = $"Podcast episode with ID {id} not found." });
                 }
 
                 return NoContent();
@@ -534,7 +580,7 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while deleting podcast episode with ID {Id}", id);
-                return StatusCode(500, new { error = "Failed to delete podcast episode", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to delete podcast episode" });
             }
         }
 
@@ -553,7 +599,7 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while retrieving all podcast episodes");
-                return StatusCode(500, new { error = "Failed to retrieve podcast episodes", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to retrieve podcast episodes" });
             }
         }
 
@@ -565,15 +611,15 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 if (string.IsNullOrWhiteSpace(episodeId))
                 {
-                    return BadRequest("Episode ID is required");
+                    return BadRequest(new { error = "Episode ID is required" });
                 }
 
                 if (seriesId == Guid.Empty)
                 {
-                    return BadRequest("Series ID is required");
+                    return BadRequest(new { error = "Series ID is required" });
                 }
 
-                _logger.LogInformation("Importing podcast episode from API - Episode ID: {EpisodeId}, Series ID: {SeriesId}", 
+                _logger.LogInformation("Importing podcast episode from API - Episode ID: {EpisodeId}, Series ID: {SeriesId}",
                     episodeId, seriesId);
 
                 var episode = await _listenNotesService.ImportPodcastEpisodeAsync(episodeId, seriesId);
@@ -586,9 +632,9 @@ namespace MyMediaVerse.Web.API.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error importing podcast episode from API - Episode ID: {EpisodeId}, Series ID: {SeriesId}", 
+                _logger.LogError(ex, "Error importing podcast episode from API - Episode ID: {EpisodeId}, Series ID: {SeriesId}",
                     episodeId, seriesId);
-                return StatusCode(500, new { error = "Failed to import podcast episode from API", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to import podcast episode from API" });
             }
         }
     }

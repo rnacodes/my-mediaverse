@@ -140,7 +140,7 @@ namespace MyMediaVerse.Application.Services
                 createSeriesDto.IsSubscribed = true;
 
                 // Save to database through domain service
-                var savedSeries = await _podcastService.CreatePodcastSeriesAsync(createSeriesDto);
+                var savedSeries = (await _podcastService.CreatePodcastSeriesAsync(createSeriesDto)).Series;
                 
                 _logger.LogInformation("Successfully imported podcast series: {Title} (ListenNotes ID: {PodcastId})", 
                     podcastDto.Title, podcastId);
@@ -183,7 +183,7 @@ namespace MyMediaVerse.Application.Services
                 createEpisodeDto.SeriesId = seriesId;
 
                 // Save to database through domain service
-                var savedEpisode = await _podcastService.CreatePodcastEpisodeAsync(createEpisodeDto);
+                var savedEpisode = (await _podcastService.CreatePodcastEpisodeAsync(createEpisodeDto)).Episode;
                 
                 _logger.LogInformation("Successfully imported episode: {Title} (ListenNotes ID: {EpisodeId}, Internal ID: {InternalId})", 
                     episodeDto.Title, episodeId, savedEpisode.Id);

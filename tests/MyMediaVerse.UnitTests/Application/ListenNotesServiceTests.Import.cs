@@ -37,7 +37,7 @@ namespace MyMediaVerse.UnitTests.Application
 
             _mockPodcastService
                 .CreatePodcastSeriesAsync(createPodcastSeriesDto)
-                .Returns(expectedPodcastSeries);
+                .Returns(new PodcastSeriesCreationResult(expectedPodcastSeries, true));
 
             // Act
             var result = await _listenNotesService.ImportPodcastSeriesAsync(podcastId);
@@ -79,7 +79,7 @@ namespace MyMediaVerse.UnitTests.Application
 
             _mockPodcastService
                 .CreatePodcastSeriesAsync(createPodcastSeriesDto)
-                .Returns(expectedPodcastSeries);
+                .Returns(new PodcastSeriesCreationResult(expectedPodcastSeries, true));
 
             // Act
             await _listenNotesService.ImportPodcastSeriesAsync(podcastId);
@@ -143,7 +143,7 @@ namespace MyMediaVerse.UnitTests.Application
 
             _mockPodcastService
                 .CreatePodcastEpisodeAsync(Arg.Any<CreatePodcastEpisodeDto>())
-                .Returns(expectedPodcastEpisode);
+                .Returns(new PodcastEpisodeCreationResult(expectedPodcastEpisode, true));
 
             // Act
             var result = await _listenNotesService.ImportPodcastEpisodeAsync(episodeId, seriesId);

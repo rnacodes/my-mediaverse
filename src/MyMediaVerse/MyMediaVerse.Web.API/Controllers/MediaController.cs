@@ -59,6 +59,13 @@ namespace MyMediaVerse.Web.API.Controllers
                 return BadRequest(new { error = "Websites must be created via POST /api/website." });
             }
 
+            // A podcast series' identity is its feed and the podcast endpoints own that duplicate
+            // check; the generic path would insert a series with no feed and no dedup.
+            if (dto.MediaType == MediaType.Podcast)
+            {
+                return BadRequest(new { error = "Podcasts must be created via POST /api/podcast/series." });
+            }
+
             var response = await _mediaService.CreateMediaItemAsync(dto);
             return CreatedAtAction(nameof(GetMediaItem), new { id = response.Id }, response);
         }

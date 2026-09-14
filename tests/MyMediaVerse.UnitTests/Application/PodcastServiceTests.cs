@@ -15,6 +15,7 @@ namespace MyMediaVerse.UnitTests.Application
     {
         private readonly IListenNotesApiClient _mockListenNotesApiClient;
         private readonly IPodcastMappingService _mockPodcastMappingService;
+        private readonly ITypesenseService _mockTypesenseService;
         private readonly ILogger<PodcastService> _mockLogger;
         private readonly PodcastService _service;
 
@@ -22,9 +23,10 @@ namespace MyMediaVerse.UnitTests.Application
         {
             _mockListenNotesApiClient = Substitute.For<IListenNotesApiClient>();
             _mockPodcastMappingService = Substitute.For<IPodcastMappingService>();
+            _mockTypesenseService = Substitute.For<ITypesenseService>();
             _mockLogger = Substitute.For<ILogger<PodcastService>>();
-            _service = new PodcastService(Context, _mockListenNotesApiClient, 
-                _mockPodcastMappingService, _mockLogger);
+            _service = new PodcastService(Context, _mockListenNotesApiClient,
+                _mockPodcastMappingService, _mockTypesenseService, _mockLogger);
         }
 
         #region PodcastSeries Tests
@@ -125,7 +127,9 @@ namespace MyMediaVerse.UnitTests.Application
             };
 
             // Act
-            var result = await _service.CreatePodcastSeriesAsync(dto);
+            var creation = await _service.CreatePodcastSeriesAsync(dto);
+            creation.Created.Should().BeTrue();
+            var result = creation.Series;
 
             // Assert
             result.Should().NotBeNull();
