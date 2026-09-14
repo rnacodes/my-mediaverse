@@ -35,6 +35,7 @@ public static class ApplicationServicesExtensions
         services.AddScoped<IPodcastOpmlImportService, PodcastOpmlImportService>();
         services.AddScoped<IPodcastFeedImportService, PodcastFeedImportService>();
         services.AddScoped<IPodcastEpisodeSyncService, PodcastEpisodeSyncService>();
+        services.AddScoped<IPodcastFeedBrowserService, PodcastFeedBrowserService>();
         services.AddScoped<IMediaService, MediaService>();
         services.AddScoped<ITopicsService, TopicsService>();
         services.AddScoped<IGenresService, GenresService>();

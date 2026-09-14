@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Services;
+using MyMediaVerse.Shared.Exceptions;
 using MyMediaVerse.Shared.Interfaces;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Web.API.Extensions;
@@ -18,6 +19,7 @@ namespace MyMediaVerse.Web.API.Controllers
         private readonly IPodcastOpmlImportService _opmlImportService;
         private readonly IPodcastFeedImportService _feedImportService;
         private readonly IPodcastEpisodeSyncService _episodeSyncService;
+        private readonly IPodcastFeedBrowserService _feedBrowserService;
         private readonly IImportReindexService _importReindexService;
         private readonly ILogger<PodcastController> _logger;
 
@@ -28,6 +30,7 @@ namespace MyMediaVerse.Web.API.Controllers
             IPodcastOpmlImportService opmlImportService,
             IPodcastFeedImportService feedImportService,
             IPodcastEpisodeSyncService episodeSyncService,
+            IPodcastFeedBrowserService feedBrowserService,
             IImportReindexService importReindexService,
             ILogger<PodcastController> logger)
         {
@@ -35,6 +38,7 @@ namespace MyMediaVerse.Web.API.Controllers
             _opmlImportService = opmlImportService;
             _feedImportService = feedImportService;
             _episodeSyncService = episodeSyncService;
+            _feedBrowserService = feedBrowserService;
             _importReindexService = importReindexService;
             _logger = logger;
         }
@@ -560,6 +564,84 @@ namespace MyMediaVerse.Web.API.Controllers
         }
 
         // ============ PODCAST EPISODE ENDPOINTS ============
+
+        // GET: api/podcast/series/{seriesId}/feed-episodes?offset=&limit=&refresh=
+        // Pages through the series' live feed (cached briefly), marking items already in the library.
+        [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
+        [HttpGet("series/{seriesId}/feed-episodes")]
+        public async Task<ActionResult<PodcastFeedEpisodesPageDto>> GetFeedEpisodes(
+            Guid seriesId, [FromQuery] int offset = 0, [FromQuery] int limit = 20, [FromQuery] bool refresh = false)
+        {
+            try
+            {
+                return Ok(await _feedBrowserService.GetFeedEpisodesAsync(seriesId, offset, limit, refresh, HttpContext.RequestAborted));
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound(new { error = $"Podcast series with ID {seriesId} not found." });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (PodcastFeedException ex)
+            {
+                return StatusCode(502, new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error reading the feed episodes for podcast series {SeriesId}", seriesId);
+                return StatusCode(500, new { error = "Failed to read the podcast feed" });
+            }
+        }
+
+        // POST: api/podcast/episodes/from-feed  { seriesId, guid?, audioUrl? }
+        // Imports one item of the series' feed. 201 for a new episode, 200 when it is already in the library.
+        // Explicit [Authorize]: this endpoint writes to the library and fetches the feed per request.
+        [Authorize]
+        [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
+        [HttpPost("episodes/from-feed")]
+        public async Task<IActionResult> ImportEpisodeFromFeed([FromBody] ImportPodcastEpisodeFromFeedDto dto)
+        {
+            try
+            {
+                if (dto == null || dto.SeriesId == Guid.Empty)
+                {
+                    return BadRequest(new { error = "A series id is required." });
+                }
+
+                var result = await _feedBrowserService.ImportEpisodeFromFeedAsync(
+                    dto.SeriesId, dto.Guid, dto.AudioUrl, HttpContext.RequestAborted);
+
+                if (result.Created)
+                {
+                    await _importReindexService.ReindexItemAfterImportAsync(result.Episode.Id, "podcast episode import");
+                }
+
+                return CreatedOrExisting(result);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (PodcastFeedException ex)
+            {
+                return StatusCode(502, new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error importing an episode from the feed of podcast series {SeriesId}", dto?.SeriesId);
+                return StatusCode(500, new { error = "Failed to import the podcast episode" });
+            }
+        }
 
         // GET: api/podcast/series/{seriesId}/episodes
         [HttpGet("series/{seriesId}/episodes")]
