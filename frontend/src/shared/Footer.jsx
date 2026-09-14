@@ -42,6 +42,36 @@ const Footer = () => {
            My MediaVerse is not affiliated with any of the brands or websites used in the application.
           </Typography>
 
+          {/* Data source credit */}
+          <Typography
+            variant="body2"
+            sx={{
+              color: COLORS.text.secondary,
+              textAlign: 'center',
+              fontSize: '0.95rem'
+            }}
+          >
+            Book information and covers from{' '}
+            <Link
+              href="https://books.google.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              sx={{ color: COLORS.text.secondary, textDecoration: 'underline' }}
+            >
+              Google Books
+            </Link>
+            {' '}and{' '}
+            <Link
+              href="https://openlibrary.org"
+              target="_blank"
+              rel="noopener noreferrer"
+              sx={{ color: COLORS.text.secondary, textDecoration: 'underline' }}
+            >
+              Open Library
+            </Link>
+            .
+          </Typography>
+
           {/* Links */}
           <Box
             sx={{

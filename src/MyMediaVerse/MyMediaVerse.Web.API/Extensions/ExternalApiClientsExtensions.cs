@@ -30,7 +30,7 @@ public static class ExternalApiClientsExtensions
 
         services.AddYouTubeApiClient();
         services.AddItunesLookupClient();
-        services.AddPodcastFeedReader();
+        services.AddPodcastFeedReader(configuration);
         services.AddReadwiseClients(configuration, logger);
         services.AddOpenLibraryApiClient();
         services.AddPaperlessApiClient(configuration, logger);
@@ -75,8 +75,11 @@ public static class ExternalApiClientsExtensions
         services.AddScoped<IPodcastDirectory, ApplePodcastDirectory>();
     }
 
-    private static void AddPodcastFeedReader(this IServiceCollection services)
+    private static void AddPodcastFeedReader(this IServiceCollection services, IConfiguration configuration)
     {
+        // Episode sync and the feed-episodes browser read their limits from "PodcastSync" (code defaults).
+        services.Configure<PodcastSyncOptions>(configuration.GetSection(PodcastSyncOptions.SectionName));
+
         // Podcast feeds are fetched from arbitrary hosts; the reader enforces the size cap and
         // applies this timeout to the whole read, not just the headers.
         services.AddHttpClient<IPodcastFeedReader, RssPodcastFeedReader>(client =>

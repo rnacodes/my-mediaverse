@@ -12,17 +12,20 @@ namespace MyMediaVerse.Web.API.Controllers
     {
         private readonly IBookDescriptionEnrichmentService _enrichmentService;
         private readonly IBookRatingEnrichmentService _ratingEnrichmentService;
+        private readonly IBookAuthorRefreshService _authorRefreshService;
         private readonly IImportReindexService _importReindexService;
         private readonly ILogger<BookEnrichmentController> _logger;
 
         public BookEnrichmentController(
             IBookDescriptionEnrichmentService enrichmentService,
             IBookRatingEnrichmentService ratingEnrichmentService,
+            IBookAuthorRefreshService authorRefreshService,
             IImportReindexService importReindexService,
             ILogger<BookEnrichmentController> logger)
         {
             _enrichmentService = enrichmentService;
             _ratingEnrichmentService = ratingEnrichmentService;
+            _authorRefreshService = authorRefreshService;
             _importReindexService = importReindexService;
             _logger = logger;
         }
@@ -264,6 +267,42 @@ namespace MyMediaVerse.Web.API.Controllers
                 summary.ErrorMessage = "Full enrichment run failed unexpectedly";
                 return StatusCode(500, summary);
             }
+        }
+
+        /// <summary>
+        /// Restores full author lists on books imported when only the first author was kept. Looks
+        /// each book up again by its Google Books volume id (or Open Library key) and replaces the
+        /// Author only when it is exactly the source's first author, so hand-edited authors stay.
+        /// Reindexes when anything changed, since the author is searchable.
+        /// </summary>
+        /// <param name="request">Optional pacing and limit for the run</param>
+        [HttpPost("refresh-authors")]
+        public async Task<ActionResult<BookAuthorRefreshResult>> RefreshAuthors(
+            [FromBody] RefreshAuthorsRequest? request = null)
+        {
+            var delayMs = request?.DelayBetweenCallsMs ?? 500;
+            var maxBooks = request?.MaxBooks ?? 5000;
+
+            if (delayMs < 0 || delayMs > 10000)
+            {
+                return BadRequest(new { error = "DelayBetweenCallsMs must be between 0 and 10000" });
+            }
+
+            if (maxBooks < 1 || maxBooks > 10000)
+            {
+                return BadRequest(new { error = "MaxBooks must be between 1 and 10000" });
+            }
+
+            var result = await _authorRefreshService.RefreshAuthorsAsync(delayMs, maxBooks, HttpContext.RequestAborted);
+
+            if (!result.Success)
+            {
+                return StatusCode(500, result);
+            }
+
+            await _importReindexService.ReindexAfterImportAsync(result.UpdatedCount, "book author refresh");
+
+            return Ok(result);
         }
 
         /// <summary>

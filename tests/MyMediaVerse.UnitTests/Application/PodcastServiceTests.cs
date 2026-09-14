@@ -234,13 +234,5 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         #endregion
-
-        [Fact]
-        public async Task SyncPodcastSeriesEpisodesAsync_IsNotSupportedUntilFeedSyncIsRebuilt()
-        {
-            var act = () => _service.SyncPodcastSeriesEpisodesAsync(Guid.NewGuid());
-
-            await act.Should().ThrowAsync<NotSupportedException>();
-        }
     }
 }

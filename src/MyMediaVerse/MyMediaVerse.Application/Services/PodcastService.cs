@@ -324,30 +324,7 @@ namespace MyMediaVerse.Application.Services
                 return new PodcastEpisodeCreationResult(existing, Created: false);
             }
 
-            var episode = new PodcastEpisode
-            {
-                Title = dto.Title,
-                MediaType = MediaType.Podcast,
-                Link = dto.Link,
-                Notes = dto.Notes,
-                Status = dto.Status,
-                DateAdded = DateTime.UtcNow,
-                DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted),
-                Rating = dto.Rating,
-                OwnershipStatus = dto.OwnershipStatus,
-                Description = dto.Description,
-                RelatedNotes = dto.RelatedNotes,
-                Thumbnail = dto.Thumbnail,
-                SeriesId = dto.SeriesId,
-                AudioLink = dto.AudioLink,
-                ReleaseDate = DateTimeNormalizer.ToUtc(dto.ReleaseDate),
-                DurationInSeconds = dto.DurationInSeconds,
-                EpisodeNumber = dto.EpisodeNumber,
-                SeasonNumber = dto.SeasonNumber,
-                ExternalId = BlankToNull(dto.ExternalId),
-                RssGuid = BlankToNull(dto.RssGuid),
-                Publisher = dto.Publisher
-            };
+            var episode = PodcastEpisodeFactory.Create(dto);
 
             // Topics and genres: use the DTO's when provided, otherwise inherit from the parent series
             var topicNames = dto.Topics?.Where(t => !string.IsNullOrWhiteSpace(t)).ToArray();
@@ -540,12 +517,5 @@ namespace MyMediaVerse.Application.Services
                 .Include(p => p.Genres)
                 .ToListAsync();
         }
-
-        /// <summary>
-        /// Episode sync is being rebuilt on RSS feeds; until then this always throws
-        /// <see cref="NotSupportedException"/>.
-        /// </summary>
-        public Task<PodcastSyncResultDto?> SyncPodcastSeriesEpisodesAsync(Guid seriesId) =>
-            throw new NotSupportedException("Episode sync is being rebuilt on RSS feeds.");
     }
 }

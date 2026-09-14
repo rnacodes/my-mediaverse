@@ -57,6 +57,5 @@ namespace MyMediaVerse.Application.Interfaces
         Task<PodcastSeries?> SubscribeToPodcastSeriesAsync(Guid seriesId);
         Task<PodcastSeries?> UnsubscribeFromPodcastSeriesAsync(Guid seriesId);
         Task<IEnumerable<PodcastSeries>> GetSubscribedPodcastSeriesAsync();
-        Task<PodcastSyncResultDto?> SyncPodcastSeriesEpisodesAsync(Guid seriesId);
     }
 }

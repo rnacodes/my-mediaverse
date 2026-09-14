@@ -34,6 +34,7 @@ public static class ApplicationServicesExtensions
         services.AddScoped<IGoodreadsImportService, GoodreadsImportService>();
         services.AddScoped<IPodcastOpmlImportService, PodcastOpmlImportService>();
         services.AddScoped<IPodcastFeedImportService, PodcastFeedImportService>();
+        services.AddScoped<IPodcastEpisodeSyncService, PodcastEpisodeSyncService>();
         services.AddScoped<IMediaService, MediaService>();
         services.AddScoped<ITopicsService, TopicsService>();
         services.AddScoped<IGenresService, GenresService>();

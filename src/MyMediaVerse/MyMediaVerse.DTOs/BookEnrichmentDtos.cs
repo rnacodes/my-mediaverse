@@ -28,6 +28,22 @@ namespace MyMediaVerse.DTOs
     }
 
     /// <summary>
+    /// Request body for POST /api/bookenrichment/refresh-authors.
+    /// </summary>
+    public class RefreshAuthorsRequest
+    {
+        /// <summary>
+        /// Delay between book lookups in milliseconds (0-10000, default: 500)
+        /// </summary>
+        public int? DelayBetweenCallsMs { get; set; }
+
+        /// <summary>
+        /// Maximum books to check (1-10000, default: 5000)
+        /// </summary>
+        public int? MaxBooks { get; set; }
+    }
+
+    /// <summary>
     /// Request body for POST /api/bookenrichment/run-all.
     /// </summary>
     public class RunEnrichmentAllRequest

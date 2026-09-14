@@ -17,6 +17,7 @@ namespace MyMediaVerse.Web.API.Controllers
         private readonly IPodcastService _podcastService;
         private readonly IPodcastOpmlImportService _opmlImportService;
         private readonly IPodcastFeedImportService _feedImportService;
+        private readonly IPodcastEpisodeSyncService _episodeSyncService;
         private readonly IImportReindexService _importReindexService;
         private readonly ILogger<PodcastController> _logger;
 
@@ -26,12 +27,14 @@ namespace MyMediaVerse.Web.API.Controllers
             IPodcastService podcastService,
             IPodcastOpmlImportService opmlImportService,
             IPodcastFeedImportService feedImportService,
+            IPodcastEpisodeSyncService episodeSyncService,
             IImportReindexService importReindexService,
             ILogger<PodcastController> logger)
         {
             _podcastService = podcastService;
             _opmlImportService = opmlImportService;
             _feedImportService = feedImportService;
+            _episodeSyncService = episodeSyncService;
             _importReindexService = importReindexService;
             _logger = logger;
         }
@@ -336,43 +339,89 @@ namespace MyMediaVerse.Web.API.Controllers
         }
 
         // POST: api/podcast/series/{seriesId}/sync
-        // Explicit [Authorize] even though the fallback policy already requires a token: this endpoint
-        // writes to the library and fetches from an external source per request.
-        // Returns 501 until episode sync is rebuilt on RSS feeds.
+        // Imports new episodes from the series' RSS feed. 200 with the reporting-contract result when the
+        // run completed (warnings included); 500 with the same body when it aborted.
+        // Explicit [Authorize]: this endpoint writes to the library and fetches the feed per request.
         [Authorize]
         [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
         [HttpPost("series/{seriesId}/sync")]
-        public async Task<IActionResult> SyncPodcastSeriesEpisodes(Guid seriesId)
+        public async Task<ActionResult<PodcastEpisodeSyncResultDto>> SyncPodcastSeriesEpisodes(Guid seriesId)
         {
             try
             {
-                var result = await _podcastService.SyncPodcastSeriesEpisodesAsync(seriesId);
-
-                if (result == null)
+                var result = await _episodeSyncService.SyncSeriesAsync(seriesId, HttpContext.RequestAborted);
+                if (!result.Success)
                 {
-                    return NotFound(new { error = $"Podcast series with ID {seriesId} not found." });
+                    return StatusCode(500, result);
                 }
 
-                _logger.LogInformation("Synced episodes for podcast series: {Title} (ID: {SeriesId}). New episodes: {NewEpisodesCount}",
-                    result.SeriesTitle, seriesId, result.NewEpisodesCount);
+                var changed = result.CreatedCount + result.UpdatedCount;
+                if (changed > 0)
+                {
+                    await _importReindexService.ReindexAfterImportAsync(changed, "podcast episode sync");
+                    result.ReindexTriggered = true;
+                }
 
-                return Ok(new {
-                    message = "Successfully synced podcast series episodes",
-                    seriesId,
-                    seriesTitle = result.SeriesTitle,
-                    newEpisodesCount = result.NewEpisodesCount,
-                    totalEpisodesCount = result.TotalEpisodesCount,
-                    lastSyncDate = result.LastSyncDate
-                });
+                return Ok(result);
             }
-            catch (NotSupportedException)
+            catch (KeyNotFoundException)
             {
-                return StatusCode(501, new { error = "Episode sync is being rebuilt on RSS feeds." });
+                return NotFound(new { error = $"Podcast series with ID {seriesId} not found." });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (OperationCanceledException) when (HttpContext.RequestAborted.IsCancellationRequested)
+            {
+                return StatusCode(StatusCodes.Status499ClientClosedRequest);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while syncing episodes for podcast series {SeriesId}", seriesId);
-                return StatusCode(500, new { error = "Failed to sync podcast series episodes" });
+                return StatusCode(500, new PodcastEpisodeSyncResultDto
+                {
+                    SeriesId = seriesId,
+                    Success = false,
+                    StartedAt = DateTime.UtcNow,
+                    ErrorMessage = "Episode sync failed."
+                });
+            }
+        }
+
+        // POST: api/podcast/series/sync-all
+        // Syncs every subscribed series with a feed (the daily N8N job). One series failing is reported
+        // in the body, not as an error status; 500 only when the run itself aborted.
+        [Authorize]
+        [HttpPost("series/sync-all")]
+        public async Task<ActionResult<PodcastSyncAllResultDto>> SyncAllSubscribedSeries()
+        {
+            try
+            {
+                var result = await _episodeSyncService.SyncSubscribedAsync(HttpContext.RequestAborted);
+                if (!result.Success)
+                {
+                    return StatusCode(500, result);
+                }
+
+                var changed = result.CreatedCount + result.UpdatedCount;
+                if (changed > 0)
+                {
+                    await _importReindexService.ReindexAfterImportAsync(changed, "podcast sync-all");
+                    result.ReindexTriggered = true;
+                }
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while syncing all subscribed podcast series");
+                return StatusCode(500, new PodcastSyncAllResultDto
+                {
+                    Success = false,
+                    StartedAt = DateTime.UtcNow,
+                    ErrorMessage = "Podcast sync-all failed."
+                });
             }
         }
 

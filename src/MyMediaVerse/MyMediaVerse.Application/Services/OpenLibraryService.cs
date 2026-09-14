@@ -82,21 +82,9 @@ namespace MyMediaVerse.Application.Services
                 var cleanKey = openLibraryKey.Replace("/works/", "");
                 var workData = await _openLibraryApiClient.GetBookByOpenLibraryIdAsync(cleanKey);
 
-                // Fetch the actual author name from the author ID
-                var authorName = "Unknown Author";
-                var authorKey = workData.Authors?.FirstOrDefault()?.Author?.Key?.Replace("/authors/", "");
-                if (!string.IsNullOrWhiteSpace(authorKey))
-                {
-                    try
-                    {
-                        var authorData = await _openLibraryApiClient.GetAuthorAsync(authorKey);
-                        authorName = authorData.Name ?? authorData.PersonalName ?? authorKey;
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Could not fetch author details for key: {AuthorKey}", authorKey);
-                    }
-                }
+                // Resolve every credited author from their author IDs
+                var authorNames = await OpenLibraryAuthorResolver.ResolveNamesAsync(
+                    _openLibraryApiClient, workData.Authors, _logger);
 
                 // Try to get ISBN and edition metadata by searching for the book
                 OpenLibraryBookDto? searchDoc = null;
@@ -117,7 +105,7 @@ namespace MyMediaVerse.Application.Services
                 {
                     Key = workData.Key,
                     Title = workData.Title,
-                    AuthorName = new[] { authorName },
+                    AuthorName = authorNames.Count > 0 ? authorNames.ToArray() : null,
                     Isbn = isbn != null ? new[] { isbn } : null,
                     CoverId = workData.Covers?.FirstOrDefault()
                 };

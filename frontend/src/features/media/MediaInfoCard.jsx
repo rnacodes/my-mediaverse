@@ -1,6 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { Box, CardMedia, Chip, Typography, Button } from '@mui/material';
+import { OpenInNew } from '@mui/icons-material';
 import { getAspectRatio, getObjectFit, resolveMediaImage, getPlaceholderImage } from '@/utils/mediaImageUtils';
+import { getGoogleBooksUrl } from '@/utils/googleBooks';
+import WhiteOutlineButton from '@/shared/WhiteOutlineButton';
 
 function MediaInfoCard({
   mediaItem,
@@ -21,6 +24,10 @@ function MediaInfoCard({
   const imageUrl = useMemo(() => resolveMediaImage(mediaItem), [mediaItem]);
 
   const description = mediaItem?.description || mediaItem?.notes;
+
+  // A Google Books volume id means some of this book's details came from Google Books,
+  // which requires a credit and a prominent link back to the book's Google Books page.
+  const googleVolumeId = mediaItem?.mediaType === 'Book' ? mediaItem.googleVolumeId : null;
 
   // Extract plain text from HTML, properly decoding entities like &nbsp;
   const getTextFromHtml = (htmlString) => {
@@ -109,6 +116,22 @@ function MediaInfoCard({
             }}
           />
         </Box>
+        {googleVolumeId && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, mb: 2 }}>
+            <WhiteOutlineButton
+              size="small"
+              href={getGoogleBooksUrl(googleVolumeId)}
+              target="_blank"
+              rel="noopener noreferrer"
+              endIcon={<OpenInNew fontSize="small" />}
+            >
+              View on Google Books
+            </WhiteOutlineButton>
+            <Typography variant="caption" color="text.secondary">
+              Book information from Google Books
+            </Typography>
+          </Box>
+        )}
       </Box>
 
       {/* Media information (chips, description, and rating) */}

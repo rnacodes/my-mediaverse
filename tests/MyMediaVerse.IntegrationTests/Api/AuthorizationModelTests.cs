@@ -85,6 +85,7 @@ namespace MyMediaVerse.IntegrationTests.Api
                 ["BookEnrichment.ConvertGoodreadsRatings"] = Authorized,
                 ["BookEnrichment.EnrichSingleBook"] = Authorized,
                 ["BookEnrichment.GetStatus"] = Authorized,
+                ["BookEnrichment.RefreshAuthors"] = Authorized,
                 ["BookEnrichment.RunEnrichment"] = Authorized,
                 ["BookEnrichment.RunEnrichmentAll"] = Authorized,
                 // Demo.GenerateSecret is absent: it is environment-gated to Development

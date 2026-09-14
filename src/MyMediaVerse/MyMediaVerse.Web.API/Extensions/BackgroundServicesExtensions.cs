@@ -31,6 +31,7 @@ public static class BackgroundServicesExtensions
         // Derives the MMV Rating enum from the raw GoodreadsRating stored at import time (pure local
         // op, no external API — no background worker needed; triggered via the enrichment controller).
         services.AddScoped<IBookRatingEnrichmentService, BookRatingEnrichmentService>();
+        services.AddScoped<IBookAuthorRefreshService, BookAuthorRefreshService>();
 
         // Website enrichment runs on demand only (paged endpoints); scheduling is handled outside
         // the API, so there is no hosted worker for it.
