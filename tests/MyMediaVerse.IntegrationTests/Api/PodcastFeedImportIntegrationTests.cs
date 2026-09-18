@@ -266,20 +266,5 @@ namespace MyMediaVerse.IntegrationTests.Api
         }
 
         #endregion
-
-        [Fact]
-        public async Task SyncSeries_Returns501UntilFeedSyncIsRebuilt()
-        {
-            var (client, _, _) = CreateClient();
-            var seeded = await PostJson(client, "/api/podcast/series",
-                new CreatePodcastSeriesDto { Title = "Darknet Diaries", RssFeedUrl = FeedUrl });
-            var series = await Read<PodcastSeriesResponseDto>(seeded);
-
-            var response = await client.PostAsync($"/api/podcast/series/{series.Id}/sync", null);
-
-            response.StatusCode.Should().Be(HttpStatusCode.NotImplemented);
-            (await Read<JsonElement>(response)).GetProperty("error").GetString()
-                .Should().Be("Episode sync is being rebuilt on RSS feeds.");
-        }
     }
 }
