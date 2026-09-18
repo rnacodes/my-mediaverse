@@ -156,5 +156,17 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
         /// Initial delay in minutes before the first run. Default: 10
         /// </summary>
         public int InitialDelayMinutes { get; set; } = 10;
+
+        /// <summary>
+        /// How long to leave a series alone after an attempt that could not fill it, in days. A feed
+        /// host that is unreachable today is usually back later, so a failed attempt is not final.
+        /// Default: 7
+        /// </summary>
+        public int RetryAfterDays { get; set; } = 7;
+
+        /// <summary>
+        /// Directory results considered when resolving a series that has no feed URL. Default: 10
+        /// </summary>
+        public int DirectorySearchLimit { get; set; } = 10;
     }
 }

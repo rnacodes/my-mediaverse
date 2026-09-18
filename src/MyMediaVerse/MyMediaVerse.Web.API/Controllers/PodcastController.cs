@@ -20,6 +20,7 @@ namespace MyMediaVerse.Web.API.Controllers
         private readonly IPodcastFeedImportService _feedImportService;
         private readonly IPodcastEpisodeSyncService _episodeSyncService;
         private readonly IPodcastFeedBrowserService _feedBrowserService;
+        private readonly IPodcastEnrichmentService _enrichmentService;
         private readonly IImportReindexService _importReindexService;
         private readonly ILogger<PodcastController> _logger;
 
@@ -31,6 +32,7 @@ namespace MyMediaVerse.Web.API.Controllers
             IPodcastFeedImportService feedImportService,
             IPodcastEpisodeSyncService episodeSyncService,
             IPodcastFeedBrowserService feedBrowserService,
+            IPodcastEnrichmentService enrichmentService,
             IImportReindexService importReindexService,
             ILogger<PodcastController> logger)
         {
@@ -39,6 +41,7 @@ namespace MyMediaVerse.Web.API.Controllers
             _feedImportService = feedImportService;
             _episodeSyncService = episodeSyncService;
             _feedBrowserService = feedBrowserService;
+            _enrichmentService = enrichmentService;
             _importReindexService = importReindexService;
             _logger = logger;
         }
@@ -435,6 +438,52 @@ namespace MyMediaVerse.Web.API.Controllers
             }
         }
 
+        // POST: api/podcast/series/{seriesId}/enrich?force=
+        // Fills one series from its feed. Without force an already-filled series is left alone; with it
+        // the feed's values replace what is stored, which is how a series with stale data is repaired.
+        // Explicit [Authorize]: this endpoint writes to the library and fetches the feed per request.
+        [Authorize]
+        [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
+        [HttpPost("series/{seriesId}/enrich")]
+        public async Task<ActionResult<PodcastEnrichmentResult>> EnrichSeries(Guid seriesId, [FromQuery] bool force = false)
+        {
+            try
+            {
+                var result = await _enrichmentService.EnrichSeriesAsync(seriesId, force, HttpContext.RequestAborted);
+                if (!result.Success)
+                {
+                    return StatusCode(500, result);
+                }
+
+                if (result.EnrichedCount > 0)
+                {
+                    await _importReindexService.ReindexItemAfterImportAsync(seriesId, "podcast enrichment");
+                    result.ReindexTriggered = true;
+                }
+
+                return Ok(result);
+            }
+            catch (KeyNotFoundException)
+            {
+                return NotFound(new { error = $"Podcast series with ID {seriesId} not found." });
+            }
+            catch (OperationCanceledException) when (HttpContext.RequestAborted.IsCancellationRequested)
+            {
+                return StatusCode(StatusCodes.Status499ClientClosedRequest);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while filling podcast series {SeriesId} from its feed", seriesId);
+                return StatusCode(500, new PodcastEnrichmentResult
+                {
+                    Success = false,
+                    StartedAt = DateTime.UtcNow,
+                    TotalProcessed = 1,
+                    ErrorMessage = "Podcast enrichment failed."
+                });
+            }
+        }
+
         // POST: api/podcast/series/from-feed  { feedUrl?, applePodcastsId? }
         // The directory resolves an Apple id to its feed, the feed fills the series. 201 for a new series
         // (a stub with warningMessage when the feed could not be read), 200 when one already matches.
@@ -558,7 +607,16 @@ namespace MyMediaVerse.Web.API.Controllers
                 using var stream = file.OpenReadStream();
                 var result = await _opmlImportService.ImportFromOpmlAsync(stream);
 
-                await _importReindexService.ReindexAfterImportAsync(result.Imported, "podcast OPML");
+                if (!result.Success)
+                {
+                    return StatusCode(500, result);
+                }
+
+                if (result.CreatedCount > 0)
+                {
+                    await _importReindexService.ReindexAfterImportAsync(result.CreatedCount, "podcast OPML");
+                    result.ReindexTriggered = true;
+                }
 
                 return Ok(result);
             }

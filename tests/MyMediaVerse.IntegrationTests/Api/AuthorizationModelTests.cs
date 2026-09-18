@@ -190,6 +190,7 @@ namespace MyMediaVerse.IntegrationTests.Api
                 ["Podcast.CreatePodcastSeries"] = Unclassified,
                 ["Podcast.DeletePodcastEpisode"] = Unclassified,
                 ["Podcast.DeletePodcastSeries"] = Unclassified,
+                ["Podcast.EnrichSeries"] = Authorized,
                 ["Podcast.GetAllPodcastEpisodes"] = Unclassified,
                 ["Podcast.GetEpisodesBySeries"] = Unclassified,
                 ["Podcast.GetFeedEpisodes"] = Unclassified,

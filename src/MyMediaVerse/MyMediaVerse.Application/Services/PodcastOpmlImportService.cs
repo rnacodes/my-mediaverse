@@ -28,7 +28,7 @@ namespace MyMediaVerse.Application.Services
 
         public async Task<OpmlImportResultDto> ImportFromOpmlAsync(Stream opmlStream)
         {
-            var result = new OpmlImportResultDto();
+            var result = new OpmlImportResultDto { StartedAt = DateTime.UtcNow };
 
             XDocument document;
             try
@@ -39,12 +39,9 @@ namespace MyMediaVerse.Application.Services
             {
                 // Malformed XML: nothing parseable, report a single clear failure rather than throwing.
                 _logger.LogError(ex, "Failed to parse OPML file");
-                result.Failed++;
-                result.Failures.Add(new OpmlImportFailureDto
-                {
-                    Title = "(file)",
-                    Reason = $"Could not parse OPML: {ex.Message}"
-                });
+                result.Success = false;
+                result.ErrorMessage = "The file could not be read as OPML.";
+                result.CompletedAt = DateTime.UtcNow;
                 return result;
             }
 
@@ -54,7 +51,7 @@ namespace MyMediaVerse.Application.Services
                 .Where(o => string.Equals((string?)o.Attribute("type"), "rss", StringComparison.OrdinalIgnoreCase))
                 .ToList();
 
-            result.Total = feeds.Count;
+            result.TotalProcessed = feeds.Count;
             _logger.LogInformation("Processing {Count} podcast feeds from OPML", feeds.Count);
 
             // Preload existing series once into an in-memory index so each feed is deduplicated
@@ -74,13 +71,13 @@ namespace MyMediaVerse.Application.Services
 
                 if (string.IsNullOrWhiteSpace(title))
                 {
-                    result.Skipped++;
+                    result.SkippedCount++;
                     continue;
                 }
 
                 if (dedup.Contains(title, rssFeedUrl, applePodcastsId))
                 {
-                    result.Skipped++;
+                    result.SkippedCount++;
                     continue;
                 }
 
@@ -104,24 +101,34 @@ namespace MyMediaVerse.Application.Services
                     // in-memory index missed is still a skip, not an import.
                     if (creation.Created)
                     {
-                        result.Imported++;
+                        result.CreatedCount++;
                     }
                     else
                     {
-                        result.Skipped++;
+                        result.SkippedCount++;
                     }
                 }
                 catch (Exception ex)
                 {
-                    // Isolate per-feed failures so one bad feed never aborts the whole import.
-                    result.Failed++;
-                    result.Failures.Add(new OpmlImportFailureDto { Title = title, Reason = ex.Message });
+                    // Isolate per-feed failures so one bad feed never aborts the whole import. The
+                    // reason stays generic; the exception goes to the log, not to the caller.
+                    const string reason = "Could not be imported.";
+                    result.FailedCount++;
+                    result.Failures.Add(new OpmlImportFailureDto { Title = title, Reason = reason });
+                    result.Errors.Add($"{title}: {reason}");
                     _logger.LogError(ex, "Error importing podcast feed: {Title}", title);
                 }
             }
 
+            if (result.FailedCount > 0)
+            {
+                result.WarningMessage = $"{result.FailedCount} of {result.TotalProcessed} feeds could not be imported.";
+            }
+
+            result.CompletedAt = DateTime.UtcNow;
+
             _logger.LogInformation("OPML import complete: {Imported} imported, {Skipped} skipped, {Failed} failed",
-                result.Imported, result.Skipped, result.Failed);
+                result.CreatedCount, result.SkippedCount, result.FailedCount);
 
             return result;
         }

@@ -52,10 +52,10 @@ namespace MyMediaVerse.IntegrationTests.Api
             var result = JsonSerializer.Deserialize<OpmlImportResultDto>(
                 await response.Content.ReadAsStringAsync(), _jsonOptions);
             Assert.NotNull(result);
-            Assert.Equal(2, result.Total);
-            Assert.Equal(2, result.Imported);
-            Assert.Equal(0, result.Skipped);
-            Assert.Equal(0, result.Failed);
+            Assert.Equal(2, result.TotalProcessed);
+            Assert.Equal(2, result.CreatedCount);
+            Assert.Equal(0, result.SkippedCount);
+            Assert.Equal(0, result.FailedCount);
 
             // Assert - the stubs actually landed with the mapped fields
             var seriesResponse = await _client.GetAsync("/api/podcast/series");
@@ -80,15 +80,15 @@ namespace MyMediaVerse.IntegrationTests.Api
                 await (await _client.PostAsync("/api/podcast/series/from-opml", OpmlForm(opml))).Content.ReadAsStringAsync(),
                 _jsonOptions);
             Assert.NotNull(first);
-            Assert.Equal(1, first.Imported);
+            Assert.Equal(1, first.CreatedCount);
 
             // Re-importing the same export must be idempotent: nothing new, the feed is skipped.
             var second = JsonSerializer.Deserialize<OpmlImportResultDto>(
                 await (await _client.PostAsync("/api/podcast/series/from-opml", OpmlForm(opml))).Content.ReadAsStringAsync(),
                 _jsonOptions);
             Assert.NotNull(second);
-            Assert.Equal(0, second.Imported);
-            Assert.Equal(1, second.Skipped);
+            Assert.Equal(0, second.CreatedCount);
+            Assert.Equal(1, second.SkippedCount);
 
             // Only one row exists in the DB.
             var seriesResponse = await _client.GetAsync("/api/podcast/series");

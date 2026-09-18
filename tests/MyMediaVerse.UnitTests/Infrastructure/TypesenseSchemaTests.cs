@@ -35,6 +35,52 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         }
 
         [Fact]
+        public void MediaBaseFields_CarriesThePodcastFields_WithTheirFacetAndTypeSettings()
+        {
+            var fields = TypesenseService.MediaBaseFields().ToDictionary(f => f.Name);
+
+            fields.Should().ContainKey("podcast_type").WhoseValue.Should().Match<Field>(f =>
+                f.Type == FieldType.String && f.Facet == true && f.Optional == true);
+            fields.Should().ContainKey("series_title").WhoseValue.Should().Match<Field>(f =>
+                f.Type == FieldType.String && f.Facet == true && f.Optional == true);
+            fields.Should().ContainKey("is_subscribed").WhoseValue.Should().Match<Field>(f =>
+                f.Type == FieldType.Bool && f.Facet == true && f.Optional == true);
+            fields.Should().ContainKey("metadata_source").WhoseValue.Should().Match<Field>(f =>
+                f.Type == FieldType.String && f.Facet == true && f.Optional == true);
+        }
+
+        [Fact]
+        public void ComputeMissingFields_ProposesThePodcastFields_ForACollectionThatPredatesThem()
+        {
+            // A deployed collection without them must pick them up by alter, not by a destructive reset.
+            var live = TypesenseService.MediaBaseFields()
+                .Select(f => f.Name)
+                .Where(n => n is not ("podcast_type" or "series_title" or "is_subscribed" or "metadata_source"));
+
+            var missing = TypesenseService.ComputeMissingFields(TypesenseService.MediaBaseFields(), live);
+
+            missing.Select(f => f.Name).Should().BeEquivalentTo(
+                "podcast_type", "series_title", "is_subscribed", "metadata_source");
+        }
+
+        [Fact]
+        public void MediaItemDocument_SerializesThePodcastFields_UnderTheSchemaNames()
+        {
+            var document = new MyMediaVerse.Infrastructure.Models.MediaItemDocument
+            {
+                Id = "1", Title = "Episode 1", MediaType = "Podcast", Status = "Uncharted",
+                PodcastType = "Episode", SeriesTitle = "Darknet Diaries", IsSubscribed = true, MetadataSource = "rss"
+            };
+
+            var json = System.Text.Json.JsonSerializer.Serialize(document);
+
+            json.Should().Contain("\"podcast_type\":\"Episode\"")
+                .And.Contain("\"series_title\":\"Darknet Diaries\"")
+                .And.Contain("\"is_subscribed\":true")
+                .And.Contain("\"metadata_source\":\"rss\"");
+        }
+
+        [Fact]
         public void MediaBaseFields_LeavesTheEmbeddingPairToTheRuntimeConfig()
         {
             TypesenseService.MediaBaseFields().Select(f => f.Name).Should().NotContain(new[] { "embedding", "embedding_source" });

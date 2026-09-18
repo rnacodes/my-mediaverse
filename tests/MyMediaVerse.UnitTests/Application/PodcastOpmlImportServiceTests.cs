@@ -59,10 +59,16 @@ namespace MyMediaVerse.UnitTests.Application
 
             var result = await _service.ImportFromOpmlAsync(Stream(opml));
 
-            result.Total.Should().Be(1);
-            result.Imported.Should().Be(1);
-            result.Skipped.Should().Be(0);
-            result.Failed.Should().Be(0);
+            result.Success.Should().BeTrue();
+            result.Operation.Should().Be(OpmlImportResultDto.OpmlImportOperation);
+            result.TotalProcessed.Should().Be(1);
+            result.CreatedCount.Should().Be(1);
+            result.SkippedCount.Should().Be(0);
+            result.FailedCount.Should().Be(0);
+            result.UpdatedCount.Should().Be(0);
+            result.WarningMessage.Should().BeNull();
+            result.CompletedAt.Should().NotBeNull();
+            result.Duration.Should().NotBeNull();
 
             _created.Should().ContainSingle();
             var dto = _created.Single();
@@ -80,7 +86,7 @@ namespace MyMediaVerse.UnitTests.Application
 
             var result = await _service.ImportFromOpmlAsync(Stream(opml));
 
-            result.Imported.Should().Be(1);
+            result.CreatedCount.Should().Be(1);
             _created.Single().ApplePodcastsId.Should().BeNull();
             _created.Single().RssFeedUrl.Should().Be("https://feeds.example.com/x");
         }
@@ -93,7 +99,7 @@ namespace MyMediaVerse.UnitTests.Application
 
             var result = await _service.ImportFromOpmlAsync(Stream(opml));
 
-            result.Imported.Should().Be(1);
+            result.CreatedCount.Should().Be(1);
             _created.Single().Title.Should().Be("I'd Rather Be Writing Podcast");
         }
 
@@ -105,8 +111,8 @@ namespace MyMediaVerse.UnitTests.Application
 
             var result = await _service.ImportFromOpmlAsync(Stream(opml));
 
-            result.Total.Should().Be(1);
-            result.Imported.Should().Be(1);
+            result.TotalProcessed.Should().Be(1);
+            result.CreatedCount.Should().Be(1);
         }
 
         #endregion
@@ -123,11 +129,11 @@ namespace MyMediaVerse.UnitTests.Application
 
             var result = await _service.ImportFromOpmlAsync(Stream(opml));
 
-            result.Total.Should().Be(3);
-            result.Imported.Should().Be(3);
-            result.Skipped.Should().Be(0);
-            result.Failed.Should().Be(0);
-            (result.Imported + result.Skipped + result.Failed).Should().Be(result.Total);
+            result.TotalProcessed.Should().Be(3);
+            result.CreatedCount.Should().Be(3);
+            result.SkippedCount.Should().Be(0);
+            result.FailedCount.Should().Be(0);
+            (result.CreatedCount + result.SkippedCount + result.FailedCount).Should().Be(result.TotalProcessed);
             await _podcastService.Received(3).CreatePodcastSeriesAsync(Arg.Any<CreatePodcastSeriesDto>());
         }
 
@@ -138,9 +144,9 @@ namespace MyMediaVerse.UnitTests.Application
 
             var result = await _service.ImportFromOpmlAsync(Stream(opml));
 
-            result.Total.Should().Be(1);
-            result.Skipped.Should().Be(1);
-            result.Imported.Should().Be(0);
+            result.TotalProcessed.Should().Be(1);
+            result.SkippedCount.Should().Be(1);
+            result.CreatedCount.Should().Be(0);
             await _podcastService.DidNotReceive().CreatePodcastSeriesAsync(Arg.Any<CreatePodcastSeriesDto>());
         }
 
@@ -161,8 +167,8 @@ namespace MyMediaVerse.UnitTests.Application
 
             var result = await _service.ImportFromOpmlAsync(Stream(opml));
 
-            result.Skipped.Should().Be(1);
-            result.Imported.Should().Be(0);
+            result.SkippedCount.Should().Be(1);
+            result.CreatedCount.Should().Be(0);
             await _podcastService.DidNotReceive().CreatePodcastSeriesAsync(Arg.Any<CreatePodcastSeriesDto>());
         }
 
@@ -177,8 +183,8 @@ namespace MyMediaVerse.UnitTests.Application
 
             var result = await _service.ImportFromOpmlAsync(Stream(opml));
 
-            result.Skipped.Should().Be(1);
-            result.Imported.Should().Be(0);
+            result.SkippedCount.Should().Be(1);
+            result.CreatedCount.Should().Be(0);
         }
 
         [Fact]
@@ -190,9 +196,9 @@ namespace MyMediaVerse.UnitTests.Application
 
             var result = await _service.ImportFromOpmlAsync(Stream(opml));
 
-            result.Total.Should().Be(2);
-            result.Imported.Should().Be(1);
-            result.Skipped.Should().Be(1);
+            result.TotalProcessed.Should().Be(2);
+            result.CreatedCount.Should().Be(1);
+            result.SkippedCount.Should().Be(1);
             await _podcastService.Received(1).CreatePodcastSeriesAsync(Arg.Any<CreatePodcastSeriesDto>());
         }
 
@@ -205,8 +211,8 @@ namespace MyMediaVerse.UnitTests.Application
 
             var result = await _service.ImportFromOpmlAsync(Stream(opml));
 
-            result.Skipped.Should().Be(1);
-            result.Imported.Should().Be(0);
+            result.SkippedCount.Should().Be(1);
+            result.CreatedCount.Should().Be(0);
         }
 
         [Fact]
@@ -218,8 +224,8 @@ namespace MyMediaVerse.UnitTests.Application
 
             var result = await _service.ImportFromOpmlAsync(Stream(opml));
 
-            result.Skipped.Should().Be(1);
-            result.Imported.Should().Be(0);
+            result.SkippedCount.Should().Be(1);
+            result.CreatedCount.Should().Be(0);
         }
 
         [Fact]
@@ -234,8 +240,8 @@ namespace MyMediaVerse.UnitTests.Application
 
             var result = await _service.ImportFromOpmlAsync(Stream(opml));
 
-            result.Imported.Should().Be(0);
-            result.Skipped.Should().Be(1);
+            result.CreatedCount.Should().Be(0);
+            result.SkippedCount.Should().Be(1);
         }
 
         #endregion
@@ -256,23 +262,29 @@ namespace MyMediaVerse.UnitTests.Application
 
             var result = await _service.ImportFromOpmlAsync(Stream(opml));
 
-            result.Total.Should().Be(3);
-            result.Imported.Should().Be(2);
-            result.Failed.Should().Be(1);
+            result.TotalProcessed.Should().Be(3);
+            result.CreatedCount.Should().Be(2);
+            result.FailedCount.Should().Be(1);
             result.Failures.Should().ContainSingle();
             result.Failures.Single().Title.Should().Be("Bad Feed");
-            result.Failures.Single().Reason.Should().Contain("db exploded");
+            result.Failures.Single().Reason.Should().Be("Could not be imported.");
+            result.Errors.Should().ContainSingle().Which.Should().StartWith("Bad Feed:");
+            result.WarningMessage.Should().Contain("1 of 3");
+            // The exception text belongs in the log, not in the response.
+            result.Failures.Single().Reason.Should().NotContain("db exploded");
+            result.Errors.Single().Should().NotContain("db exploded");
         }
 
         [Fact]
-        public async Task ImportFromOpmlAsync_MalformedXml_ReturnsGracefullyWithFailure()
+        public async Task ImportFromOpmlAsync_MalformedXml_ReportsAFailedRun()
         {
             var result = await _service.ImportFromOpmlAsync(Stream("this is not xml <<<"));
 
-            result.Imported.Should().Be(0);
-            result.Total.Should().Be(0);
-            result.Failed.Should().Be(1);
-            result.Failures.Should().ContainSingle();
+            result.Success.Should().BeFalse();
+            result.ErrorMessage.Should().Be("The file could not be read as OPML.");
+            result.CreatedCount.Should().Be(0);
+            result.TotalProcessed.Should().Be(0);
+            result.CompletedAt.Should().NotBeNull();
             await _podcastService.DidNotReceive().CreatePodcastSeriesAsync(Arg.Any<CreatePodcastSeriesDto>());
         }
 
@@ -284,10 +296,10 @@ namespace MyMediaVerse.UnitTests.Application
 
             var result = await _service.ImportFromOpmlAsync(Stream(opml));
 
-            result.Total.Should().Be(0);
-            result.Imported.Should().Be(0);
-            result.Skipped.Should().Be(0);
-            result.Failed.Should().Be(0);
+            result.TotalProcessed.Should().Be(0);
+            result.CreatedCount.Should().Be(0);
+            result.SkippedCount.Should().Be(0);
+            result.FailedCount.Should().Be(0);
         }
 
         #endregion
