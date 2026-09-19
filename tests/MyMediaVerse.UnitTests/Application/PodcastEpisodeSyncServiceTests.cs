@@ -144,6 +144,37 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         [Fact]
+        public async Task FirstSync_AfterAnOldEpisodeWasImportedByHand_StillImportsTheNewestWindow()
+        {
+            _options.FirstSyncEpisodeCount = 3;
+            var series = await SeedSeriesAsync();
+            // g8 is back catalog, added from the feed episode list before the series ever synced.
+            await SeedEpisodeAsync(series.Id, "g8", "https://cdn.example.com/8.mp3", Newest.AddDays(-8));
+            FeedReturns(Feed(10));
+
+            var result = await _service.SyncSeriesAsync(series.Id);
+
+            result.CreatedCount.Should().Be(3);
+            result.SkippedCount.Should().Be(1);
+            result.BacklogCount.Should().Be(6);
+            (await Context.PodcastEpisodes.Select(e => e.RssGuid).ToListAsync()).Should().BeEquivalentTo("g0", "g1", "g2", "g8");
+        }
+
+        [Fact]
+        public async Task FirstSync_WhenPartOfTheNewestWindowIsAlreadyStored_DoesNotReachIntoTheBackCatalog()
+        {
+            _options.FirstSyncEpisodeCount = 3;
+            var series = await SeedSeriesAsync();
+            await SeedEpisodeAsync(series.Id, "g1", "https://cdn.example.com/1.mp3", Newest.AddDays(-1));
+            FeedReturns(Feed(10));
+
+            var result = await _service.SyncSeriesAsync(series.Id);
+
+            result.CreatedCount.Should().Be(2);
+            (await Context.PodcastEpisodes.Select(e => e.RssGuid).ToListAsync()).Should().BeEquivalentTo("g0", "g1", "g2");
+        }
+
+        [Fact]
         public async Task SecondSync_WithNothingNew_CreatesNothing()
         {
             var series = await SeedSeriesAsync();
@@ -162,7 +193,7 @@ namespace MyMediaVerse.UnitTests.Application
         [Fact]
         public async Task LaterSync_ImportsOnlyEpisodesNewerThanTheNewestStored()
         {
-            var series = await SeedSeriesAsync();
+            var series = await SeedSeriesAsync(lastSync: Newest.AddDays(-40));
             await SeedEpisodeAsync(series.Id, "g1", "https://cdn.example.com/1.mp3", Newest.AddDays(-1));
             // g0 is newer than the stored g1; g2..g4 are older back catalog.
             FeedReturns(Feed(5));
@@ -179,7 +210,7 @@ namespace MyMediaVerse.UnitTests.Application
         public async Task LaterSync_WithMoreNewEpisodesThanTheLimit_WarnsAndImportsTheNewest()
         {
             _options.MaxEpisodesPerSync = 3;
-            var series = await SeedSeriesAsync();
+            var series = await SeedSeriesAsync(lastSync: Newest.AddDays(-40));
             await SeedEpisodeAsync(series.Id, "old", "https://cdn.example.com/old.mp3", Newest.AddDays(-30));
             FeedReturns(Feed(5));
 

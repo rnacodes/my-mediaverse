@@ -196,6 +196,26 @@ describe('PodcastSeriesProfile', () => {
     expect(screen.getByText(/130 older episodes are available in all episodes/i)).toBeInTheDocument();
   });
 
+  it('explains on hover that a first sync adds the 25 newest episodes', async () => {
+    seedSeries({ lastSyncDate: null });
+    const { user } = render();
+
+    await loaded();
+    await user.hover(screen.getByRole('button', { name: /^sync$/i }));
+
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(/adds the 25 newest episodes to your library/i);
+  });
+
+  it('explains on hover that a later sync adds only what is new', async () => {
+    seedSeries({ lastSyncDate: '2026-09-01T10:00:00Z' });
+    const { user } = render();
+
+    await loaded();
+    await user.hover(screen.getByRole('button', { name: /^sync$/i }));
+
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(/released since the last sync/i);
+  });
+
   it('shows the result body\'s message when a sync fails', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     seedSeries();

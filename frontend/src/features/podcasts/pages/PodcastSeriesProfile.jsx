@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Box, Typography, Button, Card, CardContent, Chip, Divider, CircularProgress, Alert, Accordion, AccordionSummary, AccordionDetails, List, Dialog, DialogTitle, DialogContent, DialogActions, Snackbar, ListItemButton } from '@mui/material';
+import { Box, Typography, Button, Card, CardContent, Chip, Divider, CircularProgress, Alert, Accordion, AccordionSummary, AccordionDetails, List, Dialog, DialogTitle, DialogContent, DialogActions, Snackbar, ListItemButton, Tooltip } from '@mui/material';
 import {
     OpenInNew, Sync, Delete, ExpandMore, Visibility,
     NotificationsActive, NotificationsNone, AutoFixHigh
@@ -23,6 +23,7 @@ import {
 } from '@/hooks/usePodcast';
 import FeedEpisodeBrowserDialog from '@/features/podcasts/FeedEpisodeBrowserDialog';
 import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
+import { useDemoWriteBlocked } from '@/features/demo/useDemoWriteBlocked';
 import { useAllMixlists } from '@/hooks/useMixlist';
 import { useReindexMediaItem } from '@/hooks/useTypesense';
 import {
@@ -40,6 +41,14 @@ const METADATA_SOURCE_LABELS = {
     apple: 'Details from Apple Podcasts',
     podcastindex: 'Details from Podcast Index',
 };
+
+// Matches the API's first-sync episode count; only the first sync takes a batch of older episodes.
+const FIRST_SYNC_EPISODE_COUNT = 25;
+
+const syncHint = (series) =>
+    series?.lastSyncDate
+        ? 'Adds episodes released since the last sync. Older episodes are in All Episodes.'
+        : `Adds the ${FIRST_SYNC_EPISODE_COUNT} newest episodes to your library. Older episodes are in All Episodes.`;
 
 // A failed sync or enrich still answers with the result body, so prefer its message.
 const resultErrorText = (err, fallback) =>
@@ -80,6 +89,7 @@ function PodcastSeriesProfile() {
 
     const syncMutation = useSyncPodcastSeriesEpisodes();
     const syncing = syncMutation.isPending;
+    const demoWriteBlocked = useDemoWriteBlocked();
     const deleteMutation = useDeletePodcastSeries();
     const subscribeMutation = useSubscribeToPodcastSeries();
     const unsubscribeMutation = useUnsubscribeFromPodcastSeries();
@@ -269,9 +279,14 @@ function PodcastSeriesProfile() {
                             {series.isSubscribed ? 'Unsubscribe' : 'Subscribe'}
                         </Button>
                     </DemoWriteGuard>
-                    <DemoWriteGuard>
-                        <Button variant="contained" size="small" startIcon={<Sync />} onClick={handleSync} disabled={syncing}>{syncing ? <CircularProgress size={20} /> : 'Sync'}</Button>
-                    </DemoWriteGuard>
+                    {/* The demo guard brings its own tooltip, so the hint stays out of its way there. */}
+                    <Tooltip title={demoWriteBlocked ? '' : syncHint(series)}>
+                        <span style={{ display: 'inline-flex' }}>
+                            <DemoWriteGuard>
+                                <Button variant="contained" size="small" startIcon={<Sync />} onClick={handleSync} disabled={syncing}>{syncing ? <CircularProgress size={20} /> : 'Sync'}</Button>
+                            </DemoWriteGuard>
+                        </span>
+                    </Tooltip>
                     <Button variant="contained" size="small" startIcon={<Visibility />} onClick={() => setViewAllEpisodesDialog(true)}>All Episodes</Button>
                     <DemoWriteGuard>
                         <Button

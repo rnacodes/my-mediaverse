@@ -67,7 +67,9 @@ namespace MyMediaVerse.Application.Services
 
             var index = await PodcastEpisodeIdentityIndex.BuildAsync(_context.PodcastEpisodes, series.Id, cancellationToken);
             var newestStored = index.NewestReleaseDate;
+            var isFirstSync = series.LastSyncDate == null;
 
+            var feedItems = new List<CreatePodcastEpisodeDto>();
             var candidates = new List<CreatePodcastEpisodeDto>();
             var guidFills = new Dictionary<Guid, string>();
 
@@ -79,6 +81,8 @@ namespace MyMediaVerse.Application.Services
                     result.IgnoredCount++;
                     continue;
                 }
+
+                feedItems.Add(dto);
 
                 var match = index.Find(dto.RssGuid, dto.AudioLink, dto.Title, dto.ReleaseDate);
                 if (match != null)
@@ -100,7 +104,7 @@ namespace MyMediaVerse.Application.Services
                 candidates.Add(dto);
             }
 
-            var toCreate = SelectEpisodesToCreate(candidates, newestStored, result);
+            var toCreate = SelectEpisodesToCreate(feedItems, candidates, isFirstSync, newestStored, result);
 
             foreach (var dto in toCreate)
             {
@@ -154,12 +158,15 @@ namespace MyMediaVerse.Application.Services
         }
 
         /// <summary>
-        /// A first sync (no stored episode has a release date) takes the newest FirstSyncEpisodeCount episodes.
+        /// A first sync (the series has never synced, or no stored episode has a release date) covers the
+        /// feed's newest FirstSyncEpisodeCount items and creates the ones not stored yet, so episodes
+        /// imported by hand beforehand do not turn it into a later sync.
         /// Later syncs take only episodes newer than the newest stored one; older or undated items are
         /// back catalog and left for one-at-a-time import.
         /// </summary>
         private List<CreatePodcastEpisodeDto> SelectEpisodesToCreate(
-            List<CreatePodcastEpisodeDto> candidates, DateTime? newestStored, PodcastEpisodeSyncResultDto result)
+            List<CreatePodcastEpisodeDto> feedItems, List<CreatePodcastEpisodeDto> candidates,
+            bool isFirstSync, DateTime? newestStored, PodcastEpisodeSyncResultDto result)
         {
             var max = Math.Max(1, _options.MaxEpisodesPerSync);
             var newestFirst = candidates
@@ -168,9 +175,14 @@ namespace MyMediaVerse.Application.Services
                 .ToList();
 
             List<CreatePodcastEpisodeDto> selected;
-            if (newestStored == null)
+            if (isFirstSync || newestStored == null)
             {
-                selected = newestFirst.Take(Math.Max(1, _options.FirstSyncEpisodeCount)).ToList();
+                var window = feedItems
+                    .OrderByDescending(c => c.ReleaseDate.HasValue)
+                    .ThenByDescending(c => c.ReleaseDate)
+                    .Take(Math.Max(1, _options.FirstSyncEpisodeCount))
+                    .ToHashSet();
+                selected = newestFirst.Where(window.Contains).ToList();
             }
             else
             {
