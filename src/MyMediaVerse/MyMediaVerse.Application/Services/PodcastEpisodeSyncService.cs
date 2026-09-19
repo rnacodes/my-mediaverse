@@ -154,7 +154,7 @@ namespace MyMediaVerse.Application.Services
         }
 
         /// <summary>
-        /// A first sync (no stored episode has a release date) takes the newest episodes up to the limit.
+        /// A first sync (no stored episode has a release date) takes the newest FirstSyncEpisodeCount episodes.
         /// Later syncs take only episodes newer than the newest stored one; older or undated items are
         /// back catalog and left for one-at-a-time import.
         /// </summary>
@@ -170,7 +170,7 @@ namespace MyMediaVerse.Application.Services
             List<CreatePodcastEpisodeDto> selected;
             if (newestStored == null)
             {
-                selected = newestFirst.Take(max).ToList();
+                selected = newestFirst.Take(Math.Max(1, _options.FirstSyncEpisodeCount)).ToList();
             }
             else
             {

@@ -26,7 +26,7 @@ namespace MyMediaVerse.UnitTests.Application
 
         private readonly IPodcastFeedReader _reader = Substitute.For<IPodcastFeedReader>();
         private readonly ISyncStateService _syncState = Substitute.For<ISyncStateService>();
-        private readonly PodcastSyncOptions _options = new() { MaxEpisodesPerSync = 50, HostDelayMs = 0, RunTimeBudgetSeconds = 0 };
+        private readonly PodcastSyncOptions _options = new() { FirstSyncEpisodeCount = 25, MaxEpisodesPerSync = 50, HostDelayMs = 0, RunTimeBudgetSeconds = 0 };
         private readonly PodcastEpisodeSyncService _service;
 
         public PodcastEpisodeSyncServiceTests()
@@ -99,7 +99,7 @@ namespace MyMediaVerse.UnitTests.Application
         #region SyncSeriesAsync
 
         [Fact]
-        public async Task FirstSync_ImportsTheNewestEpisodesUpToTheLimit_AndLeavesTheRestAsBacklog()
+        public async Task FirstSync_ImportsTheNewestEpisodesUpToTheFirstSyncCount_AndLeavesTheRestAsBacklog()
         {
             var series = await SeedSeriesAsync();
             FeedReturns(Feed(60));
@@ -108,16 +108,16 @@ namespace MyMediaVerse.UnitTests.Application
 
             result.Success.Should().BeTrue();
             result.Operation.Should().Be(PodcastEpisodeSyncResultDto.SyncOperation);
-            result.CreatedCount.Should().Be(50);
-            result.BacklogCount.Should().Be(10);
+            result.CreatedCount.Should().Be(25);
+            result.BacklogCount.Should().Be(35);
             result.SkippedCount.Should().Be(0);
             result.FeedItemCount.Should().Be(60);
             result.WarningMessage.Should().BeNull();
             result.CompletedAt.Should().NotBeNull();
 
             var stored = await Context.PodcastEpisodes.Include(e => e.Topics).Include(e => e.Genres).ToListAsync();
-            stored.Should().HaveCount(50);
-            stored.Select(e => e.RssGuid).Should().BeEquivalentTo(Enumerable.Range(0, 50).Select(i => $"g{i}"));
+            stored.Should().HaveCount(25);
+            stored.Select(e => e.RssGuid).Should().BeEquivalentTo(Enumerable.Range(0, 25).Select(i => $"g{i}"));
             stored.Should().OnlyContain(e => e.Topics.Any(t => t.Name == "security") && e.Genres.Any(g => g.Name == "technology"));
             stored.Should().OnlyContain(e => e.Publisher == "Host" && e.Status == Status.Uncharted);
 
@@ -125,6 +125,22 @@ namespace MyMediaVerse.UnitTests.Application
             saved.LastSyncDate.Should().NotBeNull();
             saved.TotalEpisodes.Should().Be(60);
             saved.FeedGuid.Should().Be("feed-guid");
+        }
+
+        [Fact]
+        public async Task FirstSync_UsesItsOwnCount_NotTheLaterSyncCap()
+        {
+            _options.FirstSyncEpisodeCount = 2;
+            _options.MaxEpisodesPerSync = 50;
+            var series = await SeedSeriesAsync();
+            FeedReturns(Feed(5));
+
+            var result = await _service.SyncSeriesAsync(series.Id);
+
+            result.CreatedCount.Should().Be(2);
+            result.BacklogCount.Should().Be(3);
+            result.WarningMessage.Should().BeNull();
+            (await Context.PodcastEpisodes.Select(e => e.RssGuid).ToListAsync()).Should().BeEquivalentTo("g0", "g1");
         }
 
         [Fact]
@@ -138,9 +154,9 @@ namespace MyMediaVerse.UnitTests.Application
             var result = await _service.SyncSeriesAsync(series.Id);
 
             result.CreatedCount.Should().Be(0);
-            result.SkippedCount.Should().Be(50);
-            result.BacklogCount.Should().Be(10);
-            (await Context.PodcastEpisodes.CountAsync()).Should().Be(50);
+            result.SkippedCount.Should().Be(25);
+            result.BacklogCount.Should().Be(35);
+            (await Context.PodcastEpisodes.CountAsync()).Should().Be(25);
         }
 
         [Fact]

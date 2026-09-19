@@ -27,9 +27,9 @@ namespace MyMediaVerse.IntegrationTests.Api
         private const string FeedUrl = "https://feeds.example.com/darknet.xml";
         private const string OtherFeedUrl = "https://feeds.example.com/other.xml";
 
-        // One sync imports at most 50 episodes; a 60-item feed therefore leaves a backlog of 10.
+        // A first sync imports the newest 25 episodes; a 60-item feed therefore leaves a backlog of 35.
         private const int FeedItemCount = 60;
-        private const int MaxPerSync = 50;
+        private const int MaxPerSync = 25;
 
         private static readonly DateTime NewestPublished = new(2026, 9, 1, 12, 0, 0, DateTimeKind.Utc);
 
@@ -338,7 +338,7 @@ namespace MyMediaVerse.IntegrationTests.Api
             });
 
             var backlogPage = await Read<PodcastFeedEpisodesPageDto>(
-                await client.GetAsync($"/api/podcast/series/{series.Id}/feed-episodes?offset={MaxPerSync}&limit=10"));
+                await client.GetAsync($"/api/podcast/series/{series.Id}/feed-episodes?offset={MaxPerSync}&limit={FeedItemCount - MaxPerSync}"));
 
             backlogPage.Offset.Should().Be(MaxPerSync);
             backlogPage.Items.Should().HaveCount(FeedItemCount - MaxPerSync);

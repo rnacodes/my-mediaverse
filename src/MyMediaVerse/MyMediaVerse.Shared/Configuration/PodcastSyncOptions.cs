@@ -9,8 +9,14 @@ namespace MyMediaVerse.Shared.Configuration
         public const string SectionName = "PodcastSync";
 
         /// <summary>
-        /// Most episodes one series sync creates. A first sync imports this many of the newest
-        /// episodes; the rest of the back catalog stays in the feed for the browser.
+        /// How many of the newest episodes a series' first sync imports. The rest of the back
+        /// catalog stays in the feed for the browser.
+        /// </summary>
+        public int FirstSyncEpisodeCount { get; set; } = 25;
+
+        /// <summary>
+        /// Most episodes a later sync creates. It only comes into play when a show has published
+        /// more than this since its last sync; the result then carries a warning.
         /// </summary>
         public int MaxEpisodesPerSync { get; set; } = 50;
 
