@@ -184,6 +184,21 @@ namespace MyMediaVerse.IntegrationTests.Api
             (await response.Content.ReadAsStringAsync()).Should().NotContain("Apple is down");
         }
 
+        [Fact]
+        public async Task FromFeed_DirectoryRateLimited_Returns503WithRetryMessage()
+        {
+            var (client, _, _) = CreateClient(d =>
+                d.LookupByAppleIdAsync(AppleId, Arg.Any<CancellationToken>())
+                    .ThrowsAsync(new HttpRequestException("Rate limit exceeded", null, HttpStatusCode.TooManyRequests)));
+
+            var response = await PostJson(client, "/api/podcast/series/from-feed", new ImportPodcastFromFeedDto { ApplePodcastsId = AppleId });
+
+            response.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+            var error = (await Read<JsonElement>(response)).GetProperty("error").GetString();
+            error.Should().Contain("try again");
+            error.Should().NotContain("Rate limit exceeded");
+        }
+
         [Theory]
         [InlineData(null, null)]
         [InlineData("ftp://feeds.example.com/darknet.xml", null)]
@@ -263,6 +278,21 @@ namespace MyMediaVerse.IntegrationTests.Api
             var response = await client.GetAsync("/api/podcast/directory/search?term=darknet");
 
             response.StatusCode.Should().Be(HttpStatusCode.BadGateway);
+        }
+
+        [Fact]
+        public async Task DirectorySearch_DirectoryRateLimited_Returns503WithRetryMessage()
+        {
+            var (client, _, _) = CreateClient(d =>
+                d.SearchAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                    .ThrowsAsync(new HttpRequestException("Rate limit exceeded", null, HttpStatusCode.TooManyRequests)));
+
+            var response = await client.GetAsync("/api/podcast/directory/search?term=darknet");
+
+            response.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+            var error = (await Read<JsonElement>(response)).GetProperty("error").GetString();
+            error.Should().Contain("try again");
+            error.Should().NotContain("Rate limit exceeded");
         }
 
         #endregion

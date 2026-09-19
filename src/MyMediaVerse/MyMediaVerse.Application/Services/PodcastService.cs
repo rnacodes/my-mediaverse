@@ -94,7 +94,8 @@ namespace MyMediaVerse.Application.Services
                 Publisher = dto.Publisher,
                 ExternalId = BlankToNull(dto.ExternalId),
                 RssFeedUrl = feedUrl,
-                FeedUrlKey = UrlNormalizer.GetComparisonKey(feedUrl),
+                // No feed means no key: the unique index exempts NULL only, so "" would collide.
+                FeedUrlKey = BlankToNull(UrlNormalizer.GetComparisonKey(feedUrl)),
                 FeedGuid = BlankToNull(dto.FeedGuid),
                 ApplePodcastsId = BlankToNull(dto.ApplePodcastsId),
                 PodcastIndexId = dto.PodcastIndexId,
@@ -141,7 +142,7 @@ namespace MyMediaVerse.Application.Services
             }
 
             var feedUrl = NormalizeFeedUrlOrThrow(dto.RssFeedUrl);
-            var feedKey = UrlNormalizer.GetComparisonKey(feedUrl);
+            var feedKey = BlankToNull(UrlNormalizer.GetComparisonKey(feedUrl));
             var appleId = BlankToNull(dto.ApplePodcastsId);
 
             // The feed URL and Apple id are unique identities; refuse an edit that would take one

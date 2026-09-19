@@ -87,7 +87,7 @@ namespace MyMediaVerse.UnitTests.Application
             result.Should().BeNull();
         }
 
-        [Fact(Skip = "ILike is PostgreSQL-specific and not supported in InMemory database. Test in integration tests instead.")]
+        [Fact]
         public async Task SearchPodcastSeriesAsync_ShouldReturnMatchingSeries()
         {
             // Arrange

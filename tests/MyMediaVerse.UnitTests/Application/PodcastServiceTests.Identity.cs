@@ -115,6 +115,22 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         [Fact]
+        public async Task SeriesWithoutAFeed_HasNoFeedUrlKey_OnCreateAndOnUpdate()
+        {
+            // The unique index on the key exempts NULL only; an empty key would let one feedless series exist.
+            var a = await _service.CreatePodcastSeriesAsync(new CreatePodcastSeriesDto { Title = "A" });
+            var b = await _service.CreatePodcastSeriesAsync(
+                new CreatePodcastSeriesDto { Title = "B", RssFeedUrl = "https://b.example.com/feed" });
+
+            await _service.UpdatePodcastSeriesAsync(b.Series.Id, new CreatePodcastSeriesDto { Title = "B" });
+
+            var stored = await Context.PodcastSeries.AsNoTracking().ToListAsync();
+            stored.Should().HaveCount(2);
+            stored.Should().OnlyContain(s => s.FeedUrlKey == null);
+            a.Created.Should().BeTrue();
+        }
+
+        [Fact]
         public async Task DeletePodcastSeriesAsync_RemovesEpisodesCompletely_AndCleansTheSearchIndex()
         {
             var series = await _service.CreatePodcastSeriesAsync(new CreatePodcastSeriesDto { Title = "Show" });
