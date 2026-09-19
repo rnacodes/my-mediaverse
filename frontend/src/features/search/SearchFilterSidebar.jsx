@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Typography, TextField, InputAdornment, Grid, Button, Divider, Accordion, AccordionSummary, AccordionDetails, FormGroup, FormControlLabel, Checkbox, Paper } from '@mui/material';
+import { Box, Typography, TextField, InputAdornment, Grid, Button, Divider, Accordion, AccordionSummary, AccordionDetails, FormGroup, FormControlLabel, Checkbox, Paper, ToggleButtonGroup, ToggleButton } from '@mui/material';
 import { Search as SearchIcon, Clear, TuneRounded, ExpandMore } from '@mui/icons-material';
 import { getRatingIcon } from '@/utils/formatters';
 
@@ -24,6 +24,8 @@ export const SearchFilterSidebar = React.memo(({
     searchMode,
     selectedMediaTypes,
     setSelectedMediaTypes,
+    podcastType = '',
+    setPodcastType,
     selectedTopics,
     setSelectedTopics,
     selectedGenres,
@@ -140,6 +142,30 @@ export const SearchFilterSidebar = React.memo(({
                                         />
                                     ))}
                                 </FormGroup>
+                                {selectedMediaTypes.includes('Podcast') && setPodcastType && (
+                                    <Box sx={{ mt: 1 }}>
+                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                                            Podcasts: show
+                                        </Typography>
+                                        <ToggleButtonGroup
+                                            value={podcastType}
+                                            exclusive
+                                            size="small"
+                                            fullWidth
+                                            aria-label="Podcast series or episodes"
+                                            // Clicking the active button hands back null; keep the current choice.
+                                            onChange={(_event, value) => value !== null && setPodcastType(value)}
+                                            sx={{
+                                                '& .MuiToggleButton-root': { color: 'white', textTransform: 'none', py: 0.25 },
+                                                '& .MuiToggleButton-root.Mui-selected': { color: 'white', bgcolor: 'rgba(255, 255, 255, 0.16)' },
+                                            }}
+                                        >
+                                            <ToggleButton value="">All</ToggleButton>
+                                            <ToggleButton value="Series">Series</ToggleButton>
+                                            <ToggleButton value="Episode">Episodes</ToggleButton>
+                                        </ToggleButtonGroup>
+                                    </Box>
+                                )}
                             </AccordionDetails>
                         </Accordion>
 

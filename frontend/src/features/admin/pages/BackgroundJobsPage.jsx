@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Container, Paper, Typography, Button, Box, Alert, CircularProgress, Card, CardContent, Grid, Chip, Slider, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
+import { Container, Paper, Typography, Button, Box, Alert, CircularProgress, Card, CardContent, Grid, Chip, Slider, Accordion, AccordionSummary, AccordionDetails, Divider } from '@mui/material';
 import {
     Refresh as RefreshIcon,
     PlayArrow as PlayIcon,
@@ -10,12 +10,14 @@ import {
     Info as InfoIcon,
     Movie as MovieIcon,
     Podcasts as PodcastsIcon,
+    Sync as SyncIcon,
 } from '@mui/icons-material';
 import {
     useBookEnrichmentStatus, useRunBookEnrichment, useRunBookEnrichmentAll,
     useMovieTvEnrichmentStatus, useRunMovieEnrichment, useRunTvShowEnrichment, useRunMovieTvEnrichmentAll,
     usePodcastEnrichmentStatus, useRunPodcastEnrichment, useRunPodcastEnrichmentAll,
 } from '@/hooks/useBackgroundJobs';
+import { useSyncAllPodcastSeries } from '@/hooks/usePodcast';
 
 // Pull the API error message out of an axios error the same way across sections.
 const errMsg = (error, fallback) =>
@@ -132,14 +134,23 @@ const BackgroundJobsPage = () => {
     };
 
     const handleRunPodcastAll = () => {
-        if (!window.confirm(`This will process up to ${maxPodcasts} podcasts. ListenNotes has strict rate limits. Continue?`)) return;
+        if (!window.confirm(`This will read the feeds of up to ${maxPodcasts} podcasts. Continue?`)) return;
         podcastAllMutation.mutate({
             batchSize: podcastBatchSize, delayBetweenCallsMs: podcastDelayMs,
             maxPodcasts, pauseBetweenBatchesSeconds: podcastPause,
         });
     };
 
-    const isPodcastRunning = runningPodcastBatch || runningPodcastAll;
+    const podcastSyncAllMutation = useSyncAllPodcastSeries();
+    const runningPodcastSyncAll = podcastSyncAllMutation.isPending;
+    const podcastSyncAllResult = podcastSyncAllMutation.data ?? null;
+    // A failed run still answers with the result body, so prefer its message.
+    const podcastSyncAllError = podcastSyncAllMutation.error
+        ? podcastSyncAllMutation.error.response?.data?.errorMessage
+            || errMsg(podcastSyncAllMutation.error, 'Failed to sync subscribed podcasts')
+        : null;
+
+    const isPodcastRunning = runningPodcastBatch || runningPodcastAll || runningPodcastSyncAll;
 
     // ==========================================
     // Shared helper: render error list
@@ -485,19 +496,19 @@ const BackgroundJobsPage = () => {
             </Paper>
 
             {/* ==========================================
-                PODCAST LISTENNOTES ENRICHMENT
+                PODCAST FEED ENRICHMENT + SYNC
                ========================================== */}
             <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
                     <PodcastsIcon sx={{ fontSize: 32 }} />
                     <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
-                        Podcast ListenNotes Enrichment
+                        Podcast Feed Enrichment
                     </Typography>
                 </Box>
 
                 <Alert severity="info" icon={<InfoIcon />} sx={{ mb: 3 }}>
-                    Fetches podcast metadata from ListenNotes for podcast series without an external ID.
-                    ListenNotes has strict rate limits — use conservative settings.
+                    Fills in podcast series that have never been enriched, straight from each show&apos;s RSS feed.
+                    A series with no feed URL is looked up in Apple Podcasts first; a feed that can&apos;t be read is retried after a few days.
                 </Alert>
 
                 <Card variant="outlined" sx={{ mb: 3 }}>
@@ -591,9 +602,13 @@ const BackgroundJobsPage = () => {
                         <Grid container spacing={2}>
                             <Grid item xs={6} sm={3}><StatBox value={podcastBatchResult.totalProcessed} label="Processed" /></Grid>
                             <Grid item xs={6} sm={3}><StatBox value={podcastBatchResult.enrichedCount} label="Enriched" color="success.main" /></Grid>
+                            <Grid item xs={6} sm={3}><StatBox value={podcastBatchResult.unchangedCount ?? 0} label="Unchanged" /></Grid>
                             <Grid item xs={6} sm={3}><StatBox value={podcastBatchResult.notFoundCount} label="Not Found" color="warning.main" /></Grid>
                             <Grid item xs={6} sm={3}><StatBox value={podcastBatchResult.failedCount} label="Failed" color="error.main" /></Grid>
+                            <Grid item xs={6} sm={3}><StatBox value={podcastBatchResult.skippedCount ?? 0} label="Skipped" /></Grid>
+                            <Grid item xs={6} sm={3}><StatBox value={podcastBatchResult.pendingCount ?? 0} label="Still Pending" color="info.main" /></Grid>
                         </Grid>
+                        {podcastBatchResult.warningMessage && <Alert severity="warning" sx={{ mt: 2 }}>{podcastBatchResult.warningMessage}</Alert>}
                         {renderErrors(podcastBatchResult.errors)}
                     </CardContent></Card>
                 )}
@@ -612,11 +627,38 @@ const BackgroundJobsPage = () => {
                     </CardContent></Card>
                 )}
 
-                <Alert severity="info" icon={<ScheduleIcon />}>
+                <Alert severity="info" icon={<ScheduleIcon />} sx={{ mb: 3 }}>
                     <Typography variant="body2">
-                        <strong>Rate Limits:</strong> ListenNotes has strict rate limits. Use higher delays (1.5s+) and smaller batches to avoid throttling.
+                        <strong>Rate Limits:</strong> Feeds have no quota, but Apple Podcasts lookups are limited to about 15 a minute. Keep the delay at 1.5s or more when many series have no feed URL.
                     </Typography>
                 </Alert>
+
+                <Divider sx={{ mb: 3 }} />
+
+                <Typography variant="h6" gutterBottom>Sync Subscribed Podcasts</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Checks the feed of every subscribed series and adds the episodes published since its last sync.
+                </Typography>
+                <Button variant="contained" color="primary" sx={{ mb: 2 }}
+                    startIcon={runningPodcastSyncAll ? <CircularProgress size={20} color="inherit" /> : <SyncIcon />}
+                    onClick={() => podcastSyncAllMutation.mutate()} disabled={isPodcastRunning}>
+                    {runningPodcastSyncAll ? 'Syncing...' : 'Sync All Subscribed Podcasts'}
+                </Button>
+
+                {podcastSyncAllError && <Alert severity="error" sx={{ mb: 2 }}><strong>Sync Failed:</strong> {podcastSyncAllError}</Alert>}
+                {podcastSyncAllResult && (
+                    <Card variant="outlined" sx={{ mb: 2, bgcolor: 'success.dark' }}><CardContent>
+                        <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold' }}>Podcast Sync Complete</Typography>
+                        <Grid container spacing={2}>
+                            <Grid item xs={6} sm={3}><StatBox value={podcastSyncAllResult.seriesChecked} label="Series Checked" /></Grid>
+                            <Grid item xs={6} sm={3}><StatBox value={podcastSyncAllResult.createdCount} label="New Episodes" color="success.main" /></Grid>
+                            <Grid item xs={6} sm={3}><StatBox value={podcastSyncAllResult.seriesFailed} label="Series Failed" color="error.main" /></Grid>
+                            <Grid item xs={6} sm={3}><StatBox value={podcastSyncAllResult.pendingSeriesCount ?? 0} label="Not Reached" color="warning.main" /></Grid>
+                        </Grid>
+                        {podcastSyncAllResult.warningMessage && <Alert severity="warning" sx={{ mt: 2 }}>{podcastSyncAllResult.warningMessage}</Alert>}
+                        {renderErrors(podcastSyncAllResult.errors)}
+                    </CardContent></Card>
+                )}
             </Paper>
 
         </Container>

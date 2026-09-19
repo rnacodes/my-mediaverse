@@ -10,6 +10,7 @@ import {
   useTraktSyncAll,
 } from '@/hooks/useTrakt';
 import './TraktSyncPage.css';
+import AttributionBadge from '@/shared/AttributionBadge';
 
 const TraktSyncPage = () => {
   const [error, setError] = useState(null);
@@ -415,13 +416,7 @@ const TraktSyncPage = () => {
       </section>
 
       {/* Trakt attribution */}
-      <div className="trakt-attribution">
-      <a href="https://trakt.tv" target="_blank" rel="noopener noreferrer">
-      <img src="/trakt-logo-dark.svg" alt="Trakt logo" style={{ height: '50px', width: 'auto' }} />
-      </a>
-      <br />
-      <p style={{ fontSize: '20px' }}>  Powered by <a href="https://trakt.tv" target="_blank" rel="noopener noreferrer">Trakt</a></p>
-      </div>
+      <AttributionBadge provider="trakt" size="large" className="trakt-attribution" />
     </div>
   );
 };

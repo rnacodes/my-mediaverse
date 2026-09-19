@@ -18,9 +18,12 @@ function SourceDirectoryPage() {
         {
             id: 'podcasts',
             name: 'Podcasts',
-            providers: [{ label: 'ListenNotes', url: 'https://www.listennotes.com' }],
+            providers: [
+                { label: 'Apple Podcasts', url: 'https://podcasts.apple.com' },
+                { label: 'Podcast Index', url: 'https://podcastindex.org' },
+            ],
             icon: <Podcasts sx={{ fontSize: 48 }} />,
-            description: 'Search and import podcasts from the largest podcast database. Import individual episodes or entire series.',
+            description: "Find shows through Apple Podcasts or paste a feed URL. Series and episodes are filled straight from each show's RSS feed.",
             color: COLORS.mediaTypes.podcast,
             available: true,
             connected: false,

@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Box, Typography, Button, Card, CardContent, Chip, Divider, IconButton, CircularProgress, Alert, Accordion, AccordionSummary, AccordionDetails, List, Dialog, DialogTitle, DialogContent, DialogActions, Snackbar, ListItemButton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper } from '@mui/material';
+import { Box, Typography, Button, Card, CardContent, Chip, Divider, CircularProgress, Alert, Accordion, AccordionSummary, AccordionDetails, List, Dialog, DialogTitle, DialogContent, DialogActions, Snackbar, ListItemButton } from '@mui/material';
 import {
-    OpenInNew, Sync, Delete,
-    ExpandMore, Visibility, Add, CheckCircle, Close as CloseIcon
+    OpenInNew, Sync, Delete, ExpandMore, Visibility,
+    NotificationsActive, NotificationsNone, AutoFixHigh
 } from '@mui/icons-material';
-import { getPodcastFromApi } from '@/api/podcastService';
 import MediaHeader from '@/features/media/MediaHeader';
 import MediaInfoCard from '@/features/media/MediaInfoCard';
 import MediaDetailAccordion from '@/features/media/MediaDetailAccordion';
@@ -18,8 +17,12 @@ import {
     useEpisodesBySeriesId,
     useSyncPodcastSeriesEpisodes,
     useDeletePodcastSeries,
-    useImportPodcastEpisodeFromApi,
+    useSubscribeToPodcastSeries,
+    useUnsubscribeFromPodcastSeries,
+    useEnrichPodcastSeries,
 } from '@/hooks/usePodcast';
+import FeedEpisodeBrowserDialog from '@/features/podcasts/FeedEpisodeBrowserDialog';
+import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
 import { useAllMixlists } from '@/hooks/useMixlist';
 import { useReindexMediaItem } from '@/hooks/useTypesense';
 import {
@@ -31,18 +34,23 @@ import {
     getRatingText
 } from '@/utils/formatters';
 
+// Where the stored details came from, in the words shown under the action bar.
+const METADATA_SOURCE_LABELS = {
+    rss: "Details from the show's RSS feed",
+    apple: 'Details from Apple Podcasts',
+    podcastindex: 'Details from Podcast Index',
+};
+
+// A failed sync or enrich still answers with the result body, so prefer its message.
+const resultErrorText = (err, fallback) =>
+    err?.response?.data?.errorMessage || err?.response?.data?.error || fallback;
+
 function PodcastSeriesProfile() {
     const [currentMixlists, setCurrentMixlists] = useState([]);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
     const [deleteConfirmDialog, setDeleteConfirmDialog] = useState(false);
     const [viewAllEpisodesDialog, setViewAllEpisodesDialog] = useState(false);
-
-    const [allEpisodesFromApi, setAllEpisodesFromApi] = useState([]);
-    const [displayedEpisodes, setDisplayedEpisodes] = useState([]);
-    const [loadingAllEpisodes, setLoadingAllEpisodes] = useState(false);
-
-    const [importedEpisodes, setImportedEpisodes] = useState(new Map());
-    const [importingEpisode, setImportingEpisode] = useState(null);
+    const [refreshConfirmDialog, setRefreshConfirmDialog] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
 
     const { id } = useParams();
@@ -73,7 +81,11 @@ function PodcastSeriesProfile() {
     const syncMutation = useSyncPodcastSeriesEpisodes();
     const syncing = syncMutation.isPending;
     const deleteMutation = useDeletePodcastSeries();
-    const importEpisodeMutation = useImportPodcastEpisodeFromApi();
+    const subscribeMutation = useSubscribeToPodcastSeries();
+    const unsubscribeMutation = useUnsubscribeFromPodcastSeries();
+    const subscriptionPending = subscribeMutation.isPending || unsubscribeMutation.isPending;
+    const enrichMutation = useEnrichPodcastSeries();
+    const enriching = enrichMutation.isPending;
 
     const reindexMutation = useReindexMediaItem();
     const reindexing = reindexMutation.isPending;
@@ -119,83 +131,57 @@ function PodcastSeriesProfile() {
         }
     }, [series, availableMixlistsFromQuery]);
 
-    // --- Pagination & API Logic ---
-    const handleViewAllEpisodes = async () => {
-        if (!series?.externalId) {
-            setSnackbar({ open: true, message: 'No external ID available for this series', severity: 'error' });
-            return;
-        }
-
-        try {
-            setLoadingAllEpisodes(true);
-            setViewAllEpisodesDialog(true);
-
-            let allEpisodes = [];
-            let nextDate = null;
-            let hasMore = true;
-
-            // Fetch episodes until the ListenNotes API has no more pages
-            while (hasMore) {
-                const data = await getPodcastFromApi(series.externalId, nextDate);
-                const fetched = data.episodes || [];
-                allEpisodes = [...allEpisodes, ...fetched];
-
-                // Documentation: ListenNotes uses next_episode_pub_date for pagination
-                nextDate = data.next_episode_pub_date || data.nextEpisodePubDate;
-                hasMore = nextDate !== null && nextDate !== undefined && allEpisodes.length < 500; // Limit to 500 for performance
-            }
-            
-            setAllEpisodesFromApi(allEpisodes);
-            setDisplayedEpisodes(allEpisodes.slice(0, 10)); // Start by showing first 10
-            checkImportedEpisodes();
-        } catch (error) {
-            console.error('Error fetching all episodes:', error);
-            setSnackbar({ open: true, message: 'Failed to fetch episodes from ListenNotes', severity: 'error' });
-            setViewAllEpisodesDialog(false);
-        } finally {
-            setLoadingAllEpisodes(false);
-        }
-    };
-
-    const loadMoreLocal = () => {
-        const currentCount = displayedEpisodes.length;
-        const nextBatch = allEpisodesFromApi.slice(0, currentCount + 10);
-        setDisplayedEpisodes(nextBatch);
-    };
-
-    const checkImportedEpisodes = () => {
-        const importedMap = new Map();
-        (episodes || []).forEach(ep => {
-            if (ep.externalId) importedMap.set(ep.externalId, ep.id);
+    const handleToggleSubscription = () => {
+        const subscribed = !!series?.isSubscribed;
+        const mutation = subscribed ? unsubscribeMutation : subscribeMutation;
+        mutation.mutate(id, {
+            onSuccess: () => setSnackbar({
+                open: true,
+                message: subscribed ? 'Unsubscribed. New episodes will no longer sync.' : 'Subscribed! New episodes sync with your subscriptions.',
+                severity: 'success'
+            }),
+            onError: () => setSnackbar({ open: true, message: subscribed ? 'Failed to unsubscribe' : 'Failed to subscribe', severity: 'error' }),
         });
-        setImportedEpisodes(importedMap);
-    };
-
-    const handleImportEpisode = async (episode) => {
-        if (!episode.id) return;
-        try {
-            setImportingEpisode(episode.id);
-            const importedEp = await importEpisodeMutation.mutateAsync({ episodeId: episode.id, seriesId: id });
-            const newImportedMap = new Map(importedEpisodes);
-            newImportedMap.set(episode.id, importedEp.id);
-            setImportedEpisodes(newImportedMap);
-            setSnackbar({ open: true, message: `Successfully imported "${episode.title}"!`, severity: 'success' });
-        } catch {
-            setSnackbar({ open: true, message: 'Failed to import episode', severity: 'error' });
-        } finally {
-            setImportingEpisode(null);
-        }
     };
 
     const handleSync = () => {
         syncMutation.mutate(id, {
             // The sync hook's mutationFn returns response.data, so `data` here is that payload.
-            onSuccess: (data) => setSnackbar({
-                open: true,
-                message: `Synced! ${data?.newEpisodesCount || 0} new episodes found.`,
-                severity: 'success'
-            }),
-            onError: () => setSnackbar({ open: true, message: 'Failed to sync episodes', severity: 'error' }),
+            onSuccess: (data) => {
+                const created = data?.createdCount || 0;
+                const backlog = data?.backlogCount || 0;
+                const parts = [`Synced! ${created} new ${created === 1 ? 'episode' : 'episodes'} added.`];
+                if (backlog > 0) parts.push(`${backlog} older ${backlog === 1 ? 'episode is' : 'episodes are'} available in All Episodes.`);
+                if (data?.warningMessage) parts.push(data.warningMessage);
+                setSnackbar({ open: true, message: parts.join(' '), severity: data?.warningMessage ? 'warning' : 'success' });
+            },
+            onError: (error) => setSnackbar({ open: true, message: resultErrorText(error, 'Failed to sync episodes'), severity: 'error' }),
+        });
+    };
+
+    const handleEnrich = (force) => {
+        setRefreshConfirmDialog(false);
+        enrichMutation.mutate({ seriesId: id, force }, {
+            onSuccess: (data) => {
+                let message = 'Nothing to update.';
+                let severity = 'info';
+                if (data?.enrichedCount > 0) {
+                    message = "Details updated from the show's feed.";
+                    severity = 'success';
+                } else if (data?.unchangedCount > 0) {
+                    message = 'Already up to date — the feed had nothing new.';
+                } else if (data?.notFoundCount > 0) {
+                    message = "Couldn't find a feed for this show. Add its RSS feed URL and try again.";
+                    severity = 'warning';
+                } else if (data?.failedCount > 0) {
+                    message = data?.warningMessage || "Couldn't read this show's feed. It will be retried later.";
+                    severity = 'warning';
+                } else if (data?.warningMessage) {
+                    message = data.warningMessage;
+                }
+                setSnackbar({ open: true, message, severity });
+            },
+            onError: (error) => setSnackbar({ open: true, message: resultErrorText(error, 'Failed to update details from the feed'), severity: 'error' }),
         });
     };
 
@@ -210,20 +196,20 @@ function PodcastSeriesProfile() {
         setDeleteConfirmDialog(false);
     };
 
-    const formatDuration = (seconds) => {
-        if (!seconds) return 'N/A';
-        const h = Math.floor(seconds / 3600);
-        const m = Math.floor((seconds % 3600) / 60);
-        const s = seconds % 60;
-        return h > 0 ? `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}` : `${m}:${s.toString().padStart(2, '0')}`;
+    const getExternalLink = () => {
+        if (series?.applePodcastsId) {
+            return { label: 'Apple Podcasts', url: `https://podcasts.apple.com/podcast/id${series.applePodcastsId}` };
+        }
+        return series?.link ? { label: 'Website', url: series.link } : null;
     };
 
-    const getListenNotesUrl = () => {
-        return series?.externalId ? `https://www.listennotes.com/podcasts/${series.externalId}/` : series?.link || null;
-    };
-
+    // A successful delete drops the series from the cache, so without this the page would
+    // flash "not found" (and lose the snackbar) for the moment before it navigates away.
+    if (deleteMutation.isSuccess) return <Box p={3}><Alert severity="success">Podcast series deleted</Alert></Box>;
     if (loading) return <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh"><CircularProgress /></Box>;
     if (!series) return <Box p={3}><Alert severity="error">Podcast series not found</Alert></Box>;
+
+    const externalLink = getExternalLink();
 
     return (
         <Box sx={{ minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', py: { xs: 2, sm: 4 }, px: { xs: 1, sm: 2 } }}>
@@ -270,11 +256,41 @@ function PodcastSeriesProfile() {
 
                 {/* Main Action Bar */}
                 <Box display="flex" gap={1} flexWrap="wrap" my={3}>
-                    {getListenNotesUrl() && <Button variant="contained" size="small" startIcon={<OpenInNew />} href={getListenNotesUrl()} target="_blank">ListenNotes</Button>}
-                    <Button variant="contained" size="small" startIcon={<Sync />} onClick={handleSync} disabled={syncing}>{syncing ? <CircularProgress size={20} /> : 'Sync'}</Button>
-                    <Button variant="contained" size="small" startIcon={<Visibility />} onClick={handleViewAllEpisodes}>All Episodes</Button>
+                    {externalLink && <Button variant="contained" size="small" startIcon={<OpenInNew />} href={externalLink.url} target="_blank" rel="noopener noreferrer">{externalLink.label}</Button>}
+                    <DemoWriteGuard>
+                        <Button
+                            variant={series.isSubscribed ? 'outlined' : 'contained'}
+                            size="small"
+                            startIcon={series.isSubscribed ? <NotificationsActive /> : <NotificationsNone />}
+                            onClick={handleToggleSubscription}
+                            disabled={subscriptionPending}
+                            sx={series.isSubscribed ? { color: '#fcfafa', borderColor: '#fcfafa' } : undefined}
+                        >
+                            {series.isSubscribed ? 'Unsubscribe' : 'Subscribe'}
+                        </Button>
+                    </DemoWriteGuard>
+                    <DemoWriteGuard>
+                        <Button variant="contained" size="small" startIcon={<Sync />} onClick={handleSync} disabled={syncing}>{syncing ? <CircularProgress size={20} /> : 'Sync'}</Button>
+                    </DemoWriteGuard>
+                    <Button variant="contained" size="small" startIcon={<Visibility />} onClick={() => setViewAllEpisodesDialog(true)}>All Episodes</Button>
+                    <DemoWriteGuard>
+                        <Button
+                            variant="contained"
+                            size="small"
+                            startIcon={<AutoFixHigh />}
+                            onClick={() => (series.enrichedAt ? setRefreshConfirmDialog(true) : handleEnrich(false))}
+                            disabled={enriching}
+                        >
+                            {enriching ? <CircularProgress size={20} /> : series.enrichedAt ? 'Refresh from feed' : 'Enrich now'}
+                        </Button>
+                    </DemoWriteGuard>
                     <Button variant="contained" size="small" startIcon={<Delete />} onClick={() => setDeleteConfirmDialog(true)} color="error">Delete</Button>
                 </Box>
+                {METADATA_SOURCE_LABELS[series.metadataSource] && (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: -2, mb: 3 }}>
+                        {METADATA_SOURCE_LABELS[series.metadataSource]}
+                    </Typography>
+                )}
 
                 {/* Local Episodes (Already Imported) */}
                 <Accordion defaultExpanded sx={{ borderRadius: 2 }}>
@@ -299,57 +315,21 @@ function PodcastSeriesProfile() {
 
             {/* --- Dialogs --- */}
 
-            {/* View All Episodes (API Browser) */}
-            <Dialog open={viewAllEpisodesDialog} onClose={() => setViewAllEpisodesDialog(false)} maxWidth="md" fullWidth>
-                <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    ListenNotes Episode Browser
-                    <IconButton onClick={() => setViewAllEpisodesDialog(false)} size="small"><CloseIcon /></IconButton>
-                </DialogTitle>
-                <DialogContent dividers>
-                    {loadingAllEpisodes ? (
-                        <Box textAlign="center" py={4}><CircularProgress /><Typography sx={{ mt: 2 }}>Fetching full catalog...</Typography></Box>
-                    ) : (
-                        <>
-                            <TableContainer component={Paper} sx={{ maxHeight: 400 }}>
-                                <Table stickyHeader size="small">
-                                    <TableHead>
-                                        <TableRow>
-                                            <TableCell>Status</TableCell>
-                                            <TableCell>Episode Title</TableCell>
-                                            <TableCell>Length</TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {displayedEpisodes.map((ep) => (
-                                            <TableRow key={ep.id} hover>
-                                                <TableCell>
-                                                    {importedEpisodes.has(ep.id) ? (
-                                                        <CheckCircle color="success" />
-                                                    ) : (
-                                                        <IconButton onClick={() => handleImportEpisode(ep)} disabled={importingEpisode === ep.id}>
-                                                            {importingEpisode === ep.id ? <CircularProgress size={20} /> : <Add />}
-                                                        </IconButton>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell sx={{ fontWeight: 500 }}>{ep.title}</TableCell>
-                                                <TableCell>{formatDuration(ep.audio_length_sec)}</TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-                            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <Typography variant="caption" color="text.secondary">
-                                    Showing {displayedEpisodes.length} of {allEpisodesFromApi.length} available episodes
-                                </Typography>
-                                {displayedEpisodes.length < allEpisodesFromApi.length && (
-                                    <Button size="small" variant="contained" onClick={loadMoreLocal}>Load 10 More</Button>
-                                )}
-                            </Box>
-                        </>
-                    )}
-                </DialogContent>
-                <DialogActions><Button onClick={() => setViewAllEpisodesDialog(false)} sx={{ color: '#fcfafa' }}>Close</Button></DialogActions>
+            <FeedEpisodeBrowserDialog
+                open={viewAllEpisodesDialog}
+                onClose={() => setViewAllEpisodesDialog(false)}
+                seriesId={id}
+                onSnackbar={setSnackbar}
+            />
+
+            {/* Refresh-from-feed Dialog */}
+            <Dialog open={refreshConfirmDialog} onClose={() => setRefreshConfirmDialog(false)}>
+                <DialogTitle>Refresh from feed?</DialogTitle>
+                <DialogContent><Typography>This re-reads the show&apos;s feed and overwrites the stored details (description, publisher, artwork, genres) with what the feed says.</Typography></DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setRefreshConfirmDialog(false)} sx={{ color: '#fcfafa' }}>Cancel</Button>
+                    <Button onClick={() => handleEnrich(true)} variant="contained">Refresh</Button>
+                </DialogActions>
             </Dialog>
 
             {/* Delete Dialog */}

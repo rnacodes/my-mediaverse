@@ -103,3 +103,29 @@ describe('SearchResultCard website link health', () => {
     expect(screen.queryByText('Link broken')).not.toBeInTheDocument();
   });
 });
+
+describe('SearchResultCard podcasts', () => {
+  it('links a series to its profile page and an episode to the media page', () => {
+    renderCard({ id: 'series-1', title: 'The Show', mediaType: 'Podcast', podcastType: 'Series' });
+    expect(screen.getByRole('link', { name: /the show/i })).toHaveAttribute('href', '/podcast-series/series-1');
+
+    renderCard({ id: 'ep-1', title: 'Pilot', mediaType: 'Podcast', podcastType: 'Episode', seriesId: 'series-1' });
+    expect(screen.getByRole('link', { name: /pilot/i })).toHaveAttribute('href', '/media/ep-1');
+  });
+
+  it('trusts podcastType over a missing seriesId', () => {
+    // An episode whose parent id did not make it into the result must not route as a series.
+    renderCard({ id: 'ep-2', title: 'Orphan', mediaType: 'Podcast', podcastType: 'Episode' });
+
+    expect(screen.getByRole('link', { name: /orphan/i })).toHaveAttribute('href', '/media/ep-2');
+  });
+
+  it('credits an episode to its show', () => {
+    renderCard({
+      id: 'ep-3', title: 'Pilot', mediaType: 'Podcast', podcastType: 'Episode',
+      seriesId: 'series-1', seriesTitle: 'The Show', publisher: 'Test Network',
+    });
+
+    expect(screen.getByText('The Show')).toBeInTheDocument();
+  });
+});

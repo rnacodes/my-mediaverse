@@ -7,6 +7,7 @@ import {
 import { LiveTv, ExpandMore, OpenInNew } from '@mui/icons-material';
 import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
 import { DEMO_SECTION_BLOCKED } from '@/features/demo/demoMessages';
+import AttributionBadge from '@/shared/AttributionBadge';
 
 function TraktImportSection({ expanded, onAccordionChange }) {
     const navigate = useNavigate();
@@ -53,13 +54,7 @@ function TraktImportSection({ expanded, onAccordionChange }) {
             </AccordionSummary>
             <AccordionDetails>
                 <Box sx={{ padding: 2 }}>
-                <div className="trakt-attribution">
-      <a href="https://trakt.tv" target="_blank" rel="noopener noreferrer">
-      <img src="/trakt-logo-dark.svg" alt="Trakt logo" style={{ height: '40px', width: 'auto' }} />
-      </a>
-      <br />
-      <p style={{ fontSize: '13px', marginTop: '0px' }}>  Powered by <a href="https://trakt.tv" target="_blank" rel="noopener noreferrer" style={{ color: '#FFFFFF' }}>Trakt</a></p>
-      </div>
+                <AttributionBadge provider="trakt" sx={{ mb: 2 }} />
       <Typography variant="body1" paragraph>
                         Sync your movie and TV show data from Trakt:
                     </Typography>

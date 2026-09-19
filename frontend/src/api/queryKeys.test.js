@@ -67,6 +67,7 @@ describe('podcastKeys', () => {
   it('roots under ["podcast"] with a top-level search', () => {
     expect(podcastKeys.all).toEqual(['podcast']);
     expect(podcastKeys.search('serial')).toEqual(['podcast', 'search', 'serial']);
+    expect(podcastKeys.directory('serial')).toEqual(['podcast', 'directory', 'serial']);
   });
 
   it('namespaces series keys under ["podcast","series"]', () => {
@@ -76,6 +77,13 @@ describe('podcastKeys', () => {
     expect(podcastKeys.series.search('serial')).toEqual(['podcast', 'series', 'search', 'serial']);
     expect(podcastKeys.series.subscribed()).toEqual(['podcast', 'series', 'subscribed']);
     expect(podcastKeys.series.episodes('s-1')).toEqual(['podcast', 'series', 'episodes', 's-1']);
+  });
+
+  it('nests the feed-episodes pages under the series prefix so one invalidation clears them all', () => {
+    expect(podcastKeys.series.feedEpisodesAll('s-1')).toEqual(['podcast', 'series', 'feedEpisodes', 's-1']);
+    expect(podcastKeys.series.feedEpisodes('s-1', 20)).toEqual([
+      'podcast', 'series', 'feedEpisodes', 's-1', { limit: 20 },
+    ]);
   });
 
   it('namespaces episode keys under ["podcast","episode"]', () => {

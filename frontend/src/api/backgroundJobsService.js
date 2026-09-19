@@ -120,11 +120,11 @@ export const runMovieTvEnrichmentAll = async (options = {}) => {
     return response.data;
 };
 
-// Podcast ListenNotes Enrichment
+// Podcast Feed Enrichment
 // ============================================
 
 /**
- * Get the status of podcast ListenNotes enrichment
+ * Get the status of podcast feed enrichment
  * Returns count of podcasts needing enrichment
  */
 export const getPodcastEnrichmentStatus = async () => {
@@ -133,7 +133,7 @@ export const getPodcastEnrichmentStatus = async () => {
 };
 
 /**
- * Run a single batch of podcast ListenNotes enrichment
+ * Run a single batch of podcast feed enrichment
  * @param {Object} options - Optional parameters
  * @param {number} options.batchSize - Number of podcasts to process (1-100, default: 25)
  * @param {number} options.delayBetweenCallsMs - Delay between API calls in ms (500-30000, default: 1500)
@@ -147,7 +147,7 @@ export const runPodcastEnrichment = async (options = {}) => {
 };
 
 /**
- * Run podcast enrichment for all podcasts without ListenNotes data
+ * Run podcast enrichment for every series that has not been filled from its feed
  * @param {Object} options - Optional parameters
  * @param {number} options.batchSize - Podcasts per batch (1-50, default: 25)
  * @param {number} options.delayBetweenCallsMs - Delay between API calls in ms (default: 1500)

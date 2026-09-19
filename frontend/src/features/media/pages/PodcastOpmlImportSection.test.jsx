@@ -5,6 +5,25 @@ import { server } from '@/test/mocks/server';
 import { API_BASE } from '@/test/mocks/handlers';
 import PodcastOpmlImportSection from './PodcastOpmlImportSection';
 
+// POST /podcast/series/from-opml answers with a reporting-contract body.
+const opmlResult = (overrides = {}) => ({
+  success: true,
+  operation: 'podcast-opml-import',
+  totalProcessed: 0,
+  createdCount: 0,
+  updatedCount: 0,
+  skippedCount: 0,
+  failedCount: 0,
+  errors: [],
+  failures: [],
+  errorMessage: null,
+  warningMessage: null,
+  startedAt: '2024-01-15T10:00:00Z',
+  completedAt: '2024-01-15T10:00:01Z',
+  reindexTriggered: false,
+  ...overrides,
+});
+
 const makeOpmlFile = (name = 'subscriptions.opml') =>
   new File(['<opml><body></body></opml>'], name, { type: 'text/xml' });
 
@@ -32,8 +51,10 @@ describe('PodcastOpmlImportSection', () => {
 
   it('shows the result summary after a successful import', async () => {
     server.use(
-      http.post(`${API_BASE}/podcast/import-opml`, () =>
-        HttpResponse.json({ total: 5, imported: 4, skipped: 1, failed: 0, failures: [] }),
+      http.post(`${API_BASE}/podcast/series/from-opml`, () =>
+        HttpResponse.json(
+          opmlResult({ totalProcessed: 5, createdCount: 4, skippedCount: 1, reindexTriggered: true }),
+        ),
       ),
     );
 
@@ -47,18 +68,21 @@ describe('PodcastOpmlImportSection', () => {
     expect(statValue('Imported')).toBe('4');
     expect(statValue('Skipped')).toBe('1');
     expect(statValue('Failed')).toBe('0');
+    expect(screen.getByText(/being added to search/i)).toBeInTheDocument();
   });
 
   it('lists the failed feeds with their reasons', async () => {
     server.use(
-      http.post(`${API_BASE}/podcast/import-opml`, () =>
-        HttpResponse.json({
-          total: 2,
-          imported: 1,
-          skipped: 0,
-          failed: 1,
-          failures: [{ title: 'Broken Feed', reason: 'Missing xmlUrl attribute' }],
-        }),
+      http.post(`${API_BASE}/podcast/series/from-opml`, () =>
+        HttpResponse.json(
+          opmlResult({
+            totalProcessed: 2,
+            createdCount: 1,
+            failedCount: 1,
+            warningMessage: '1 feed could not be imported.',
+            failures: [{ title: 'Broken Feed', reason: 'Missing xmlUrl attribute' }],
+          }),
+        ),
       ),
     );
 
@@ -71,12 +95,33 @@ describe('PodcastOpmlImportSection', () => {
     await user.click(await screen.findByText(/failed feeds \(1\)/i));
     expect(await screen.findByText('Broken Feed')).toBeInTheDocument();
     expect(screen.getByText('Missing xmlUrl attribute')).toBeInTheDocument();
+    expect(screen.getByText('1 feed could not be imported.')).toBeInTheDocument();
+  });
+
+  it('reads errorMessage from the result body when the run itself fails', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    server.use(
+      http.post(`${API_BASE}/podcast/series/from-opml`, () =>
+        HttpResponse.json(
+          opmlResult({ success: false, errorMessage: 'The OPML import could not be completed.' }),
+          { status: 500 },
+        ),
+      ),
+    );
+
+    const { user, container } = renderWithProviders(<PodcastOpmlImportSection />);
+
+    await selectFile(user, container, makeOpmlFile());
+    await user.click(screen.getByRole('button', { name: /import podcasts/i }));
+
+    expect(await screen.findByText('The OPML import could not be completed.')).toBeInTheDocument();
+    consoleError.mockRestore();
   });
 
   it('surfaces a server error without crashing', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     server.use(
-      http.post(`${API_BASE}/podcast/import-opml`, () =>
+      http.post(`${API_BASE}/podcast/series/from-opml`, () =>
         HttpResponse.json({ error: 'Failed to process podcast OPML import' }, { status: 500 }),
       ),
     );

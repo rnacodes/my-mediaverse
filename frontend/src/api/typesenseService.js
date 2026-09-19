@@ -136,6 +136,7 @@ export const typesenseSearch = async (query, mediaType = 'all', page = 1, perPag
  * @param {Object} options - Search options
  * @param {string} options.query - Search query (default: '*' for all)
  * @param {Array<string>} options.mediaTypes - Array of media types to filter by
+ * @param {string} options.podcastType - 'Series' or 'Episode' to narrow podcasts (other media types are unaffected)
  * @param {Array<string>} options.topics - Array of topics to filter by
  * @param {Array<string>} options.genres - Array of genres to filter by
  * @param {string|Array<string>} options.status - Status filter, one or many (Uncharted, ActivelyExploring, Completed, Abandoned)
@@ -150,6 +151,7 @@ export const typesenseAdvancedSearch = async (options) => {
         const {
             query = '*',
             mediaTypes = [],
+            podcastType = null,
             topics = [],
             genres = [],
             status = null,
@@ -164,7 +166,12 @@ export const typesenseAdvancedSearch = async (options) => {
 
         // Media type filter
         if (mediaTypes.length > 0 && !mediaTypes.includes('all')) {
-            const mediaTypeFilter = mediaTypes.map(type => `media_type:=${type}`).join(' || ');
+            // Series/Episode narrows only the podcast term, so other selected types still match.
+            const mediaTypeFilter = mediaTypes.map(type => (
+                type === 'Podcast' && podcastType
+                    ? `(media_type:=Podcast && podcast_type:=${podcastType})`
+                    : `media_type:=${type}`
+            )).join(' || ');
             filters.push(`(${mediaTypeFilter})`);
         }
 
@@ -229,6 +236,9 @@ export const mapTypesenseMediaDocument = (doc = {}) => ({
     dateAdded: doc.date_added ? new Date(doc.date_added * 1000).toISOString() : null,
     description: doc.description || '',
     seriesId: doc.series_id ?? null,
+    podcastType: doc.podcast_type ?? null,
+    seriesTitle: doc.series_title ?? null,
+    isSubscribed: doc.is_subscribed ?? null,
     author: doc.author ?? null,
     director: doc.director ?? null,
     creator: doc.creator ?? null,

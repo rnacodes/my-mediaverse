@@ -146,7 +146,7 @@ describe('MediaDetailAccordion', () => {
     };
 
     it('renders a download link pointing at the raw audio URL when present', async () => {
-      const audioLink = 'https://audio.listennotes.com/e/p/abc123/';
+      const audioLink = 'https://example.com/audio/abc123.mp3';
       const { user } = renderWithProviders(
         <MediaDetailAccordion mediaItem={makePodcastEpisode({ audioLink })} navigate={() => {}} />,
       );

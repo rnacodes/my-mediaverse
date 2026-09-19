@@ -4,13 +4,14 @@ import { Box, Card, CardContent, CardMedia, Chip, Typography, Checkbox } from '@
 import { Star, AccessTime, LinkOff } from '@mui/icons-material';
 import { formatMediaType, formatStatus, getRatingIcon } from '@/utils/formatters';
 import { isBrokenLink } from '@/features/media/websiteStatus';
+import { isPodcastSeries } from '@/features/podcasts/isPodcastSeries';
 
 // Determine navigation path based on item type
 const getItemPath = (item) => {
     if (item.isMixlist) return `/mixlist/${item.id}`;
     if (item.isNote) return `/note/${item.id}`;
     if (item.isHighlight) return `/highlight/${item.id}`;
-    if (item.mediaType === 'Podcast' && !item.seriesId) return `/podcast-series/${item.id}`;
+    if (item.mediaType === 'Podcast' && isPodcastSeries(item)) return `/podcast-series/${item.id}`;
     if (item.mediaType === 'Channel') return `/youtube-channel/${item.id}`;
     return `/media/${item.id}`;
 };
@@ -44,7 +45,8 @@ export const SearchResultCard = React.memo(({ item, isSelected = false, onToggle
             case 'Video':
                 return item.channel || item.platform;
             case 'Podcast':
-                return item.publisher;
+                // An episode is credited to its show; a series to its publisher.
+                return item.seriesTitle || item.publisher;
             case 'Mixlist':
                 return null; // Mixlists don't have a primary credit
             case 'Highlight':

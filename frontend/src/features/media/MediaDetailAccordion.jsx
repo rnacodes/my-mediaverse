@@ -210,7 +210,7 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
                   <strong>Type:</strong>
                 </Typography>
                 <Typography variant="body1" sx={{ fontSize: '0.875rem' }}>
-                  {mediaItem.podcastType === 'Series' || mediaItem.podcastType === 0 ? 'Podcast Series' : 'Podcast Episode'}
+                  {mediaItem.podcastType === 'Series' ? 'Podcast Series' : 'Podcast Episode'}
                 </Typography>
               </Box>
             )}

@@ -23,6 +23,8 @@ export const podcastKeys = {
     search: (query) => [...podcastKeys.series.all, 'search', query],
     subscribed: () => [...podcastKeys.series.all, 'subscribed'],
     episodes: (seriesId) => [...podcastKeys.series.all, 'episodes', seriesId],
+    feedEpisodesAll: (seriesId) => [...podcastKeys.series.all, 'feedEpisodes', seriesId],
+    feedEpisodes: (seriesId, limit) => [...podcastKeys.series.feedEpisodesAll(seriesId), { limit }],
   },
   episodes: {
     all: ['podcast', 'episode'],
@@ -30,6 +32,7 @@ export const podcastKeys = {
     detail: (id) => [...podcastKeys.episodes.all, 'detail', id],
   },
   search: (query) => [...podcastKeys.all, 'search', query],
+  directory: (term) => [...podcastKeys.all, 'directory', term],
 };
 
 export const bookKeys = {
