@@ -267,6 +267,16 @@ The API starts at `http://localhost:5033`.
 | `OPENAI_API_KEY`                | OpenAI embeddings        |
 | `GRADIENT_API_KEY`              | DigitalOcean Gradient AI |
 
+Podcast episode sync is tuned through the optional `PodcastSync` configuration section (the defaults apply when it is absent):
+
+| Setting                 | Default | Meaning                                                                                         |
+| ----------------------- | ------- | ----------------------------------------------------------------------------------------------- |
+| `FirstSyncEpisodeCount` | 25      | Newest episodes imported the first time a series syncs; older ones stay available to add by hand |
+| `MaxEpisodesPerSync`    | 50      | Most new episodes a later sync imports (a warning reports any that were left)                   |
+| `RunTimeBudgetSeconds`  | 600     | Wall-clock budget for one sync of all subscribed series (`0` disables it)                       |
+| `HostDelayMs`           | 250     | Pause between reads of the same feed host                                                       |
+| `FeedCacheMinutes`      | 15      | How long the feed episode browser caches a feed                                                 |
+
 #### Local-only (manual migrations)
 
 These are read from your local shell when running `dotnet ef database update` against each environment.
@@ -382,7 +392,7 @@ Version 2 expands the feature set on top of the v1.5 foundation:
 ### In flight
 
 - **Search Refactor** — queued/batched Typesense indexing, delete propagation, and a cleaner frontend search flow, hardening search for a full-size library
-- **Initial Data Sync** — building the remaining import features (Goodreads chunked upload, genre mapping, podcast OPML) and running the first full data population
+- **Initial Data Sync** — building the remaining import features (Goodreads chunked upload, genre mapping) and running the first full data population
 
 ---
 
