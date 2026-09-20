@@ -1,8 +1,10 @@
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Shared.DTOs.TMDB;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Domain.Entities;
+using MyMediaVerse.Web.API.Extensions;
 using System.Text.Json;
 
 namespace MyMediaVerse.Web.API.Controllers
@@ -175,6 +177,7 @@ namespace MyMediaVerse.Web.API.Controllers
 
         // POST: api/tvshow/from-tmdb/{tvShowId}
         [HttpPost("from-tmdb/{tvShowId}")]
+        [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
         public async Task<IActionResult> ImportTvShowFromTmdb(int tvShowId)
         {
             try
@@ -342,6 +345,7 @@ namespace MyMediaVerse.Web.API.Controllers
 
         // GET: api/tvshow/search-tmdb
         [HttpGet("search-tmdb")]
+        [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
         public async Task<ActionResult<IEnumerable<TvShowSearchResultDto>>> SearchTmdbTvShows([FromQuery] string query, [FromQuery] int page = 1)
         {
             try

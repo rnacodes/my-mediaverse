@@ -318,10 +318,12 @@ public static class ExternalApiClientsExtensions
         services.AddHttpClient<ITmdbApiClient, TmdbApiClient>(client =>
         {
             client.BaseAddress = new Uri("https://api.themoviedb.org/3/");
-            if (hasApiKey)
-            {
-                client.DefaultRequestHeaders.Add("User-Agent", "MyMediaVerse/1.0 (https://github.com/yourrepo/projectloopbreaker)");
-            }
+            client.DefaultRequestHeaders.Add("User-Agent", "MyMediaVerse/1.0 (https://github.com/rnacodes/my-mediaverse)");
+        })
+        // Back off when TMDB asks: retry 429 and 5xx with exponential backoff + Retry-After.
+        .AddResilienceHandler("tmdb-retry", builder =>
+        {
+            builder.AddRetry(TmdbResilience.CreateRetryOptions());
         });
     }
 

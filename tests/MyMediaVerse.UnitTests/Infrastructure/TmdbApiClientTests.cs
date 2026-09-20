@@ -12,6 +12,9 @@ using MyMediaVerse.UnitTests.TestHelpers;
 
 namespace MyMediaVerse.UnitTests.Infrastructure
 {
+    // Both TMDB client test classes set the TMDB_API_KEY process variable, so they share a
+    // collection to keep xUnit from running them side by side.
+    [Collection("TmdbApiKeyEnvironment")]
     [Trait("Category", "Unit")]
     public class TmdbApiClientTests
     {
@@ -149,7 +152,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             result.Title.Should().Be("Inception");
             result.Runtime.Should().Be(148);
 
-            VerifyHttpRequest("GET", $"movie/{movieId}?api_key=test-api-key&language=en-US");
+            VerifyHttpRequest("GET", $"movie/{movieId}?api_key=test-api-key&language=en-US&append_to_response=credits,release_dates");
         }
 
         [Fact]
@@ -171,7 +174,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             result.Name.Should().Be("Game of Thrones");
             result.NumberOfSeasons.Should().Be(8);
 
-            VerifyHttpRequest("GET", $"tv/{tvShowId}?api_key=test-api-key&language=en-US");
+            VerifyHttpRequest("GET", $"tv/{tvShowId}?api_key=test-api-key&language=en-US&append_to_response=credits,content_ratings");
         }
 
         [Fact]
@@ -356,7 +359,76 @@ namespace MyMediaVerse.UnitTests.Infrastructure
 
         #endregion
 
+        #region Appended Details Tests
+
+        [Fact]
+        public async Task GetMovieDetailsAsync_ShouldDeserializeGenresCreditsAndCertifications_FromAppendedPayload()
+        {
+            SetupHttpResponse(HttpStatusCode.OK, ReadFixture("movie-details-appended.json"));
+
+            var result = await _tmdbApiClient.GetMovieDetailsAsync(27205);
+
+            result.Genres.Select(g => g.Name).Should().Equal("Action", "Science Fiction", "Adventure");
+            result.Credits.Should().NotBeNull();
+            result.Credits!.Cast.Should().HaveCount(3);
+            result.Credits.Crew.Should().Contain(c => c.Name == "Christopher Nolan" && c.Job == "Director");
+            result.ReleaseDates!.Results.Should().Contain(r => r.Iso31661 == "US");
+
+            TmdbDetailsExtractor.GetDirector(result).Should().Be("Christopher Nolan");
+            TmdbDetailsExtractor.GetCast(result.Credits).Should().Be("Leonardo DiCaprio, Joseph Gordon-Levitt, Ken Watanabe");
+            TmdbDetailsExtractor.GetMpaaRating(result).Should().Be("PG-13");
+        }
+
+        [Fact]
+        public async Task GetTvShowDetailsAsync_ShouldDeserializeGenresCreatorsAndRatings_FromAppendedPayload()
+        {
+            SetupHttpResponse(HttpStatusCode.OK, ReadFixture("tv-details-appended.json"));
+
+            var result = await _tmdbApiClient.GetTvShowDetailsAsync(1399);
+
+            result.Genres.Select(g => g.Name).Should().Equal("Sci-Fi & Fantasy", "Drama", "Action & Adventure");
+            result.CreatedBy.Select(c => c.Name).Should().Equal("David Benioff", "D. B. Weiss");
+
+            TmdbDetailsExtractor.GetCreator(result).Should().Be("David Benioff, D. B. Weiss");
+            TmdbDetailsExtractor.GetCast(result.Credits).Should().Be("Emilia Clarke, Kit Harington");
+            TmdbDetailsExtractor.GetContentRating(result).Should().Be("TV-MA");
+        }
+
+        #endregion
+
+        #region API Key Tests
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("TMDB_API_KEY")]
+        public async Task AnyCall_ShouldThrowInvalidOperationException_WhenApiKeyIsNotConfigured(string? configuredKey)
+        {
+            var previous = Environment.GetEnvironmentVariable("TMDB_API_KEY");
+            Environment.SetEnvironmentVariable("TMDB_API_KEY", null);
+            try
+            {
+                var configuration = Substitute.For<IConfiguration>();
+                configuration["ApiKeys:TMDB"].Returns(configuredKey);
+                var client = new TmdbApiClient(_httpClient, _mockLogger, configuration);
+
+                var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => client.GetMovieDetailsAsync(27205));
+
+                exception.Message.Should().Contain("TMDB API key is not configured");
+                _mockHttpMessageHandler.Requests.Should().BeEmpty();
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("TMDB_API_KEY", previous);
+            }
+        }
+
+        #endregion
+
         #region Helper Methods
+
+        private static string ReadFixture(string name)
+            => File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "Tmdb", name));
 
         private void SetupHttpResponse(HttpStatusCode statusCode, string content)
             => _mockHttpMessageHandler.RespondWith(statusCode, content);

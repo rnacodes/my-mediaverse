@@ -1,0 +1,33 @@
+{
+  "id": 1399,
+  "name": "Game of Thrones",
+  "original_name": "Game of Thrones",
+  "overview": "Seven noble families fight for control of the mythical land of Westeros.",
+  "first_air_date": "2011-04-17",
+  "last_air_date": "2019-05-19",
+  "number_of_seasons": 8,
+  "number_of_episodes": 73,
+  "vote_average": 8.5,
+  "created_by": [
+    { "id": 9813, "name": "David Benioff" },
+    { "id": 228068, "name": "D. B. Weiss" }
+  ],
+  "genres": [
+    { "id": 10765, "name": "Sci-Fi & Fantasy" },
+    { "id": 18, "name": "Drama" },
+    { "id": 10759, "name": "Action & Adventure" }
+  ],
+  "credits": {
+    "cast": [
+      { "id": 239019, "name": "Kit Harington", "character": "Jon Snow", "order": 1 },
+      { "id": 1223786, "name": "Emilia Clarke", "character": "Daenerys Targaryen", "order": 0 }
+    ],
+    "crew": []
+  },
+  "content_ratings": {
+    "results": [
+      { "iso_3166_1": "DE", "rating": "16" },
+      { "iso_3166_1": "US", "rating": "TV-MA" }
+    ]
+  }
+}

@@ -40,6 +40,20 @@ namespace MyMediaVerse.Shared.DTOs.TMDB
         [JsonPropertyName("genre_ids")]
         public int[] GenreIds { get; set; } = Array.Empty<int>();
 
+        // Details payloads carry named genres; search payloads carry only genre_ids.
+        [JsonPropertyName("genres")]
+        public List<TmdbGenreDto> Genres { get; set; } = new();
+
+        [JsonPropertyName("created_by")]
+        public List<TmdbCreatedByDto> CreatedBy { get; set; } = new();
+
+        // Present only when requested through append_to_response.
+        [JsonPropertyName("credits")]
+        public TmdbCreditsDto? Credits { get; set; }
+
+        [JsonPropertyName("content_ratings")]
+        public TmdbContentRatingsDto? ContentRatings { get; set; }
+
         [JsonPropertyName("origin_country")]
         public string[] OriginCountry { get; set; } = Array.Empty<string>();
 

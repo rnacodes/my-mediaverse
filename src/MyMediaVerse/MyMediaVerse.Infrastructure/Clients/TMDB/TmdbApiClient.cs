@@ -11,15 +11,16 @@ namespace MyMediaVerse.Infrastructure.Clients.TMDB
         private readonly HttpClient _httpClient;
         private readonly ILogger<TmdbApiClient> _logger;
         private readonly JsonSerializerOptions _jsonOptions;
-        private readonly string _apiKey;
+        private readonly string? _configuredApiKey;
 
         public TmdbApiClient(HttpClient httpClient, ILogger<TmdbApiClient> logger, IConfiguration configuration)
         {
             _httpClient = httpClient;
             _logger = logger;
-            _apiKey = Environment.GetEnvironmentVariable("TMDB_API_KEY") ?? 
-                     configuration["ApiKeys:TMDB"] ?? 
-                     "TMDB_API_KEY";
+            var apiKey = Environment.GetEnvironmentVariable("TMDB_API_KEY") ??
+                         configuration["ApiKeys:TMDB"];
+            // The literal variable name is what an unfilled config template carries.
+            _configuredApiKey = string.IsNullOrWhiteSpace(apiKey) || apiKey == "TMDB_API_KEY" ? null : apiKey;
             _jsonOptions = new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true,
@@ -27,14 +28,18 @@ namespace MyMediaVerse.Infrastructure.Clients.TMDB
             };
         }
 
+        // Resolved on first use so the app still starts without a key; only TMDB calls fail.
+        private string ApiKey => _configuredApiKey ?? throw new InvalidOperationException(
+            "TMDB API key is not configured. Set the TMDB_API_KEY environment variable or ApiKeys:TMDB.");
+
         public async Task<TmdbMovieSearchResultDto> SearchMoviesAsync(string query, int page = 1, string language = "en-US")
         {
             try
             {
                 var encodedQuery = Uri.EscapeDataString(query);
-                var url = $"search/movie?api_key={_apiKey}&query={encodedQuery}&page={page}&language={language}";
+                var url = $"search/movie?api_key={ApiKey}&query={encodedQuery}&page={page}&language={language}";
                 
-                _logger.LogInformation($"Searching movies with query: {query}, page: {page}");
+                _logger.LogInformation("Searching movies with query: {Query}, page: {Page}", query, page);
                 
                 var response = await _httpClient.GetAsync(url);
                 response.EnsureSuccessStatusCode();
@@ -56,9 +61,9 @@ namespace MyMediaVerse.Infrastructure.Clients.TMDB
             try
             {
                 var encodedQuery = Uri.EscapeDataString(query);
-                var url = $"search/tv?api_key={_apiKey}&query={encodedQuery}&page={page}&language={language}";
+                var url = $"search/tv?api_key={ApiKey}&query={encodedQuery}&page={page}&language={language}";
                 
-                _logger.LogInformation($"Searching TV shows with query: {query}, page: {page}");
+                _logger.LogInformation("Searching TV shows with query: {Query}, page: {Page}", query, page);
                 
                 var response = await _httpClient.GetAsync(url);
                 response.EnsureSuccessStatusCode();
@@ -80,9 +85,9 @@ namespace MyMediaVerse.Infrastructure.Clients.TMDB
             try
             {
                 var encodedQuery = Uri.EscapeDataString(query);
-                var url = $"search/multi?api_key={_apiKey}&query={encodedQuery}&page={page}&language={language}";
+                var url = $"search/multi?api_key={ApiKey}&query={encodedQuery}&page={page}&language={language}";
                 
-                _logger.LogInformation($"Searching multi with query: {query}, page: {page}");
+                _logger.LogInformation("Searching multi with query: {Query}, page: {Page}", query, page);
                 
                 var response = await _httpClient.GetAsync(url);
                 response.EnsureSuccessStatusCode();
@@ -103,9 +108,10 @@ namespace MyMediaVerse.Infrastructure.Clients.TMDB
         {
             try
             {
-                var url = $"movie/{movieId}?api_key={_apiKey}&language={language}";
+                // Credits and certifications ride along on the details call instead of costing extra requests.
+                var url = $"movie/{movieId}?api_key={ApiKey}&language={language}&append_to_response=credits,release_dates";
                 
-                _logger.LogInformation($"Getting movie details for ID: {movieId}");
+                _logger.LogInformation("Getting movie details for ID: {MovieId}", movieId);
                 
                 var response = await _httpClient.GetAsync(url);
                 response.EnsureSuccessStatusCode();
@@ -131,9 +137,9 @@ namespace MyMediaVerse.Infrastructure.Clients.TMDB
         {
             try
             {
-                var url = $"tv/{tvShowId}?api_key={_apiKey}&language={language}";
+                var url = $"tv/{tvShowId}?api_key={ApiKey}&language={language}&append_to_response=credits,content_ratings";
                 
-                _logger.LogInformation($"Getting TV show details for ID: {tvShowId}");
+                _logger.LogInformation("Getting TV show details for ID: {TvShowId}", tvShowId);
                 
                 var response = await _httpClient.GetAsync(url);
                 response.EnsureSuccessStatusCode();
@@ -159,7 +165,7 @@ namespace MyMediaVerse.Infrastructure.Clients.TMDB
         {
             try
             {
-                var url = $"genre/movie/list?api_key={_apiKey}&language={language}";
+                var url = $"genre/movie/list?api_key={ApiKey}&language={language}";
                 
                 _logger.LogInformation("Getting movie genres");
                 
@@ -182,7 +188,7 @@ namespace MyMediaVerse.Infrastructure.Clients.TMDB
         {
             try
             {
-                var url = $"genre/tv/list?api_key={_apiKey}&language={language}";
+                var url = $"genre/tv/list?api_key={ApiKey}&language={language}";
                 
                 _logger.LogInformation("Getting TV genres");
                 
@@ -205,9 +211,9 @@ namespace MyMediaVerse.Infrastructure.Clients.TMDB
         {
             try
             {
-                var url = $"movie/popular?api_key={_apiKey}&page={page}&language={language}";
+                var url = $"movie/popular?api_key={ApiKey}&page={page}&language={language}";
                 
-                _logger.LogInformation($"Getting popular movies, page: {page}");
+                _logger.LogInformation("Getting popular movies, page: {Page}", page);
                 
                 var response = await _httpClient.GetAsync(url);
                 response.EnsureSuccessStatusCode();
@@ -228,9 +234,9 @@ namespace MyMediaVerse.Infrastructure.Clients.TMDB
         {
             try
             {
-                var url = $"tv/popular?api_key={_apiKey}&page={page}&language={language}";
+                var url = $"tv/popular?api_key={ApiKey}&page={page}&language={language}";
                 
-                _logger.LogInformation($"Getting popular TV shows, page: {page}");
+                _logger.LogInformation("Getting popular TV shows, page: {Page}", page);
                 
                 var response = await _httpClient.GetAsync(url);
                 response.EnsureSuccessStatusCode();
