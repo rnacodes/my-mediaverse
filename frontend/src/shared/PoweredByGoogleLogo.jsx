@@ -4,7 +4,7 @@ import poweredByGoogle from '@/assets/branding/powered-by-google.png';
 
 /**
  * The official "powered by Google" logo from the Google Books branding guidelines.
- * Shown once beside a block of Google Books results. The artwork is drawn for a white
+ * Shown once beside a block of Google Books results and on book profiles. The artwork is drawn for a white
  * background, so it sits on a small light chip to stay legible on the dark theme.
  */
 function PoweredByGoogleLogo({ sx }) {

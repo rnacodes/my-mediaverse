@@ -372,7 +372,7 @@ function BookImportSection({ expanded, onAccordionChange }) {
 
                             {displayedResults.length > 0 && (
                                 <Box sx={{ mt: 2 }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', mb: 1 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', mb: 1 }}>
                                         <Typography variant="h6">
                                             {bookSource === 'googlebooks' ? 'Google Books search results' : 'Search Results'} ({bookSearchResults.length})
                                         </Typography>
