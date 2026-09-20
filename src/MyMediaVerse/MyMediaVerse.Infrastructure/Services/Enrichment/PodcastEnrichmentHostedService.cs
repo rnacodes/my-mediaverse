@@ -7,8 +7,8 @@ using MyMediaVerse.Shared.Interfaces;
 namespace MyMediaVerse.Infrastructure.Services.Enrichment
 {
     /// <summary>
-    /// Background hosted service that periodically enriches podcast series
-    /// from ListenNotes API.
+    /// Background hosted service that periodically enriches podcast series that have not been
+    /// enriched yet.
     /// </summary>
     public class PodcastEnrichmentHostedService : BackgroundService
     {
@@ -30,12 +30,12 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
         {
             if (!_options.Enabled)
             {
-                _logger.LogInformation("Podcast ListenNotes enrichment background service is disabled (ongoing cadence handled by N8N)");
+                _logger.LogInformation("Podcast enrichment background service is disabled (ongoing cadence handled by N8N)");
                 return;
             }
 
             _logger.LogInformation(
-                "Podcast ListenNotes enrichment background service started. " +
+                "Podcast enrichment background service started. " +
                 "Schedule: every {Hours} hours, Batch size: {BatchSize}, Delay between calls: {Delay}ms",
                 _options.IntervalHours, _options.BatchSize, _options.DelayBetweenCallsMs);
 
@@ -50,12 +50,12 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
-                    _logger.LogError(ex, "Error in Podcast ListenNotes enrichment background service");
+                    _logger.LogError(ex, "Error in podcast enrichment background service");
                 }
 
                 // Wait for the next scheduled run
                 var nextRunDelay = TimeSpan.FromHours(_options.IntervalHours);
-                _logger.LogInformation("Next Podcast ListenNotes enrichment run scheduled in {Hours} hours", _options.IntervalHours);
+                _logger.LogInformation("Next podcast enrichment run scheduled in {Hours} hours", _options.IntervalHours);
 
                 await Task.Delay(nextRunDelay, stoppingToken);
             }
@@ -63,14 +63,14 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
 
         private async Task RunEnrichmentAsync(CancellationToken stoppingToken)
         {
-            _logger.LogInformation("Starting scheduled Podcast ListenNotes enrichment run");
+            _logger.LogInformation("Starting scheduled podcast enrichment run");
 
             using var scope = _serviceProvider.CreateScope();
             var enrichmentService = scope.ServiceProvider.GetRequiredService<IPodcastEnrichmentService>();
 
             // Get count of podcasts needing enrichment
             var pendingCount = await enrichmentService.GetPodcastsNeedingEnrichmentCountAsync();
-            _logger.LogInformation("Found {Count} podcasts needing ListenNotes enrichment", pendingCount);
+            _logger.LogInformation("Found {Count} podcasts needing enrichment", pendingCount);
 
             if (pendingCount == 0)
             {
@@ -83,7 +83,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
 
             while (pendingCount > 0 && !stoppingToken.IsCancellationRequested)
             {
-                var result = await enrichmentService.EnrichPodcastsWithoutListenNotesDataAsync(
+                var result = await enrichmentService.EnrichPendingPodcastsAsync(
                     batchSize: _options.BatchSize,
                     delayBetweenCallsMs: _options.DelayBetweenCallsMs,
                     cancellationToken: stoppingToken);
@@ -96,8 +96,8 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                     break;
                 }
 
-                // If nothing was processed, we're done
-                if (result.TotalProcessed == 0)
+                // Done when nothing was processed, or nothing in the batch could be enriched.
+                if (result.TotalProcessed == 0 || result.EnrichedCount == 0)
                 {
                     break;
                 }
@@ -105,7 +105,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                 // Get updated count for next iteration
                 pendingCount = await enrichmentService.GetPodcastsNeedingEnrichmentCountAsync();
 
-                // Add a pause between batches to be nice to the API
+                // Pause between batches to go easy on external services
                 if (pendingCount > 0)
                 {
                     _logger.LogInformation("Pausing before next batch. Remaining: {Count} podcasts", pendingCount);
@@ -114,13 +114,13 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
             }
 
             _logger.LogInformation(
-                "Scheduled Podcast ListenNotes enrichment run completed. Total enriched: {Enriched}, Total failed/not found: {Failed}",
+                "Scheduled podcast enrichment run completed. Total enriched: {Enriched}, Total failed/not found: {Failed}",
                 totalEnriched, totalFailed);
         }
     }
 
     /// <summary>
-    /// Configuration options for the Podcast ListenNotes enrichment background service.
+    /// Configuration options for the podcast enrichment background service.
     /// </summary>
     public class PodcastEnrichmentOptions
     {
@@ -134,19 +134,16 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
 
         /// <summary>
         /// Hours between enrichment runs. Default: 72 (every 3 days)
-        /// More conservative due to ListenNotes API limits.
         /// </summary>
         public int IntervalHours { get; set; } = 72;
 
         /// <summary>
         /// Number of podcasts to process per batch. Default: 25
-        /// Smaller batches due to ListenNotes API limits.
         /// </summary>
         public int BatchSize { get; set; } = 25;
 
         /// <summary>
-        /// Delay in milliseconds between API calls. Default: 1500
-        /// ListenNotes has stricter rate limits (5 requests/second, 500/month on free tier).
+        /// Delay in milliseconds between external calls. Default: 1500
         /// </summary>
         public int DelayBetweenCallsMs { get; set; } = 1500;
 
@@ -159,5 +156,17 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
         /// Initial delay in minutes before the first run. Default: 10
         /// </summary>
         public int InitialDelayMinutes { get; set; } = 10;
+
+        /// <summary>
+        /// How long to leave a series alone after an attempt that could not fill it, in days. A feed
+        /// host that is unreachable today is usually back later, so a failed attempt is not final.
+        /// Default: 7
+        /// </summary>
+        public int RetryAfterDays { get; set; } = 7;
+
+        /// <summary>
+        /// Directory results considered when resolving a series that has no feed URL. Default: 10
+        /// </summary>
+        public int DirectorySearchLimit { get; set; } = 10;
     }
 }

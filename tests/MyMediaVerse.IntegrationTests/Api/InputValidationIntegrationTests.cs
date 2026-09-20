@@ -355,24 +355,5 @@ namespace MyMediaVerse.IntegrationTests.Api
 
         #endregion
 
-        #region Podcast Import Validation Tests
-
-        [Fact]
-        public async Task ImportPodcastByName_WithEmptyName_ShouldReturnBadRequest()
-        {
-            // Arrange
-            var data = new { name = "" };
-
-            // Act
-            var response = await _client.PostAsync("/api/podcast/series/from-api/by-name", CreateJsonContent(data));
-
-            // Assert
-            Assert.True(
-                response.StatusCode == HttpStatusCode.BadRequest ||
-                response.StatusCode == HttpStatusCode.InternalServerError,
-                $"Expected error response but got {(int)response.StatusCode}");
-        }
-
-        #endregion
     }
 }

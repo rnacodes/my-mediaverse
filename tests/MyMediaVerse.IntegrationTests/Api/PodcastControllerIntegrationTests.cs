@@ -79,6 +79,53 @@ namespace MyMediaVerse.IntegrationTests.Api
             Assert.NotNull(results);
         }
 
+        [Theory]
+        [InlineData("darknet")]
+        [InlineData("DIARIES")]
+        [InlineData("net Dia")]
+        public async Task SearchPodcastSeries_PartialTitleInAnyCase_ShouldFindTheSeries(string query)
+        {
+            // Arrange
+            foreach (var title in new[] { "Darknet Diaries", "Planet Money" })
+            {
+                var json = JsonSerializer.Serialize(new CreatePodcastSeriesDto { Title = title, Status = Status.Uncharted }, _jsonOptions);
+                var created = await _client.PostAsync("/api/podcast/series", new StringContent(json, Encoding.UTF8, "application/json"));
+                Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+            }
+
+            // Act
+            var response = await _client.GetAsync($"/api/podcast/series/search?query={Uri.EscapeDataString(query)}");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+            var content = await response.Content.ReadAsStringAsync();
+            var results = JsonSerializer.Deserialize<List<PodcastSeriesResponseDto>>(content, _jsonOptions);
+            Assert.NotNull(results);
+            var match = Assert.Single(results);
+            Assert.Equal("Darknet Diaries", match.Title);
+        }
+
+        [Fact]
+        public async Task SearchPodcastSeries_WithNoMatch_ShouldReturnEmptyList()
+        {
+            // Arrange
+            var json = JsonSerializer.Serialize(new CreatePodcastSeriesDto { Title = "Darknet Diaries", Status = Status.Uncharted }, _jsonOptions);
+            var created = await _client.PostAsync("/api/podcast/series", new StringContent(json, Encoding.UTF8, "application/json"));
+            Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+
+            // Act
+            var response = await _client.GetAsync("/api/podcast/series/search?query=zzz-no-such-show");
+
+            // Assert
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+            var content = await response.Content.ReadAsStringAsync();
+            var results = JsonSerializer.Deserialize<List<PodcastSeriesResponseDto>>(content, _jsonOptions);
+            Assert.NotNull(results);
+            Assert.Empty(results);
+        }
+
         [Fact]
         public async Task SearchPodcastSeries_WithEmptyQuery_ShouldReturnBadRequest()
         {
@@ -627,25 +674,6 @@ namespace MyMediaVerse.IntegrationTests.Api
             var response = await _client.PutAsync($"/api/podcast/episodes/{Guid.NewGuid()}", content);
 
             Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        }
-
-        #endregion
-
-        #region Import Tests
-
-        [Fact]
-        public async Task ImportPodcastByName_WithEmptyName_ShouldReturnBadRequest()
-        {
-            // Arrange
-            var importDto = new ImportPodcastByNameDto { PodcastName = "" };
-            var json = JsonSerializer.Serialize(importDto, _jsonOptions);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-            // Act
-            var response = await _client.PostAsync("/api/podcast/series/from-api/by-name", content);
-
-            // Assert
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
         #endregion

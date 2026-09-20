@@ -68,7 +68,9 @@ Create themed playlists called **Mixlists** that can hold *any combination* of m
 
 | Service                  | What it does                                                          |
 | ------------------------ | -------------------------------------------------------------------- |
-| **ListenNotes**          | Search and import podcast series & episodes with rich metadata       |
+| **Apple Podcasts**       | Podcast directory search; resolves shows to their RSS feeds (no key) |
+| **Podcast RSS feeds**    | Each show's own feed is the source of its metadata                   |
+| **Podcast Index**        | Fallback podcast directory, including lookup by feed URL              |
 | **TMDB**                 | Movie and TV show metadata enrichment                                |
 | **Trakt**                | Import your TV watch history, watchlist, and ratings                 |
 | **YouTube Data API**     | Import videos, channels, and playlists                               |
@@ -253,16 +255,27 @@ The API starts at `http://localhost:5033`.
 
 | Variable                        | Description              |
 | ------------------------------- | ------------------------ |
-| `LISTENNOTES_API_KEY`           | ListenNotes podcast API  |
 | `TMDB_API_KEY`                  | TMDB movie/TV API        |
 | `YOUTUBE_API_KEY`               | YouTube Data API         |
 | `READWISE_API_KEY`              | Readwise / Reader API    |
 | `TYPESENSE_ADMIN_API_KEY`       | Typesense search         |
 | `TYPESENSE_HOST`                | Typesense server URL     |
+| `PODCASTINDEX_API_KEY`          | Podcast Index directory  |
+| `PODCASTINDEX_API_SECRET`       | Podcast Index directory  |
 | `DIGITALOCEANSPACES__ACCESSKEY` | DO Spaces access         |
 | `DIGITALOCEANSPACES__SECRETKEY` | DO Spaces secret         |
 | `OPENAI_API_KEY`                | OpenAI embeddings        |
 | `GRADIENT_API_KEY`              | DigitalOcean Gradient AI |
+
+Podcast episode sync is tuned through the optional `PodcastSync` configuration section (the defaults apply when it is absent):
+
+| Setting                 | Default | Meaning                                                                                         |
+| ----------------------- | ------- | ----------------------------------------------------------------------------------------------- |
+| `FirstSyncEpisodeCount` | 25      | Newest episodes imported the first time a series syncs; older ones stay available to add by hand |
+| `MaxEpisodesPerSync`    | 50      | Most new episodes a later sync imports (a warning reports any that were left)                   |
+| `RunTimeBudgetSeconds`  | 600     | Wall-clock budget for one sync of all subscribed series (`0` disables it)                       |
+| `HostDelayMs`           | 250     | Pause between reads of the same feed host                                                       |
+| `FeedCacheMinutes`      | 15      | How long the feed episode browser caches a feed                                                 |
 
 #### Local-only (manual migrations)
 
@@ -288,7 +301,7 @@ The API is RESTful with a base URL of `/api`. Controllers are organized by respo
 | Book       | `/api/book`      | Book-specific operations            |
 | Movie      | `/api/movie`     | Movie operations (TMDB)             |
 | TVShow     | `/api/tvshow`    | TV show operations                  |
-| Podcast    | `/api/podcast`   | Podcast series & episodes           |
+| Podcast    | `/api/podcast`   | Podcast series & episodes, feed import, episode sync, directory search |
 | YouTube    | `/api/youtube`   | Videos, channels, playlists         |
 | Article    | `/api/article`   | Article operations                  |
 | Website    | `/api/website`   | Website operations                  |
@@ -312,7 +325,6 @@ The API is RESTful with a base URL of `/api`. Controllers are organized by respo
 | ----------- | ----------------- | ------------------------------------ |
 | Readwise    | `/api/readwise`   | Readwise + Reader sync               |
 | Trakt       | `/api/trakt`      | Trakt TV watch-history sync          |
-| ListenNotes | `/api/listennotes`| Podcast search proxy                 |
 | TMDB        | `/api/tmdb`       | Movie / TV search proxy              |
 
 ### AI, Admin & Ops
@@ -380,7 +392,7 @@ Version 2 expands the feature set on top of the v1.5 foundation:
 ### In flight
 
 - **Search Refactor** — queued/batched Typesense indexing, delete propagation, and a cleaner frontend search flow, hardening search for a full-size library
-- **Initial Data Sync** — building the remaining import features (Goodreads chunked upload, genre mapping, podcast OPML) and running the first full data population
+- **Initial Data Sync** — building the remaining import features (Goodreads chunked upload, genre mapping) and running the first full data population
 
 ---
 
@@ -430,7 +442,8 @@ See [LICENSE](./LICENSE.txt) for full terms, or reach out to discuss a use case.
 
 This project integrates with and is grateful for the following services and APIs:
 
-- [ListenNotes](https://www.listennotes.com/) — Podcast search API
+- [Apple iTunes Search API](https://performance-partners.apple.com/search-api) — Podcast directory search and lookup
+- [Podcast Index](https://podcastindex.org/) — Open podcast directory, used as a fallback and for feed-URL lookups
 - [TMDB](https://www.themoviedb.org/) — Movie and TV database
 - [Trakt](https://trakt.tv/) — TV watch-history and tracking API
 - [YouTube Data API](https://developers.google.com/youtube/v3) — Video platform integration

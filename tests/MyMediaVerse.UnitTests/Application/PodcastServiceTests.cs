@@ -13,18 +13,15 @@ namespace MyMediaVerse.UnitTests.Application
     [Trait("Category", "Unit")]
     public partial class PodcastServiceTests : InMemoryDbTestBase
     {
-        private readonly IListenNotesApiClient _mockListenNotesApiClient;
-        private readonly IPodcastMappingService _mockPodcastMappingService;
+        private readonly ITypesenseService _mockTypesenseService;
         private readonly ILogger<PodcastService> _mockLogger;
         private readonly PodcastService _service;
 
         public PodcastServiceTests()
         {
-            _mockListenNotesApiClient = Substitute.For<IListenNotesApiClient>();
-            _mockPodcastMappingService = Substitute.For<IPodcastMappingService>();
+            _mockTypesenseService = Substitute.For<ITypesenseService>();
             _mockLogger = Substitute.For<ILogger<PodcastService>>();
-            _service = new PodcastService(Context, _mockListenNotesApiClient, 
-                _mockPodcastMappingService, _mockLogger);
+            _service = new PodcastService(Context, _mockTypesenseService, _mockLogger);
         }
 
         #region PodcastSeries Tests
@@ -90,7 +87,7 @@ namespace MyMediaVerse.UnitTests.Application
             result.Should().BeNull();
         }
 
-        [Fact(Skip = "ILike is PostgreSQL-specific and not supported in InMemory database. Test in integration tests instead.")]
+        [Fact]
         public async Task SearchPodcastSeriesAsync_ShouldReturnMatchingSeries()
         {
             // Arrange
@@ -125,7 +122,9 @@ namespace MyMediaVerse.UnitTests.Application
             };
 
             // Act
-            var result = await _service.CreatePodcastSeriesAsync(dto);
+            var creation = await _service.CreatePodcastSeriesAsync(dto);
+            creation.Created.Should().BeTrue();
+            var result = creation.Series;
 
             // Assert
             result.Should().NotBeNull();

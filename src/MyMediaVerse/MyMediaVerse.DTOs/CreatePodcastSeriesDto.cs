@@ -65,6 +65,17 @@ namespace MyMediaVerse.DTOs
         [JsonPropertyName("applePodcastsId")]
         public string? ApplePodcastsId { get; set; }
 
+        [StringLength(100)]
+        [JsonPropertyName("feedGuid")]
+        public string? FeedGuid { get; set; }
+
+        [JsonPropertyName("podcastIndexId")]
+        public long? PodcastIndexId { get; set; }
+
+        [StringLength(20)]
+        [JsonPropertyName("language")]
+        public string? Language { get; set; }
+
         [JsonPropertyName("isSubscribed")]
         public bool IsSubscribed { get; set; } = false;
         

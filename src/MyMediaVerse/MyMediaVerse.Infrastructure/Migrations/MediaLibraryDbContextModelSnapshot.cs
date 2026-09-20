@@ -997,6 +997,10 @@ namespace MyMediaVerse.Infrastructure.Migrations
                     b.Property<DateTime?>("ReleaseDate")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("RssGuid")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<int?>("SeasonNumber")
                         .HasColumnType("integer");
 
@@ -1010,6 +1014,10 @@ namespace MyMediaVerse.Infrastructure.Migrations
                     b.HasIndex("SeriesId", "ExternalId")
                         .IsUnique()
                         .HasFilter("\"ExternalId\" IS NOT NULL");
+
+                    b.HasIndex("SeriesId", "RssGuid")
+                        .IsUnique()
+                        .HasFilter("\"RssGuid\" IS NOT NULL");
 
                     b.ToTable("PodcastEpisodes", (string)null);
                 });
@@ -1029,13 +1037,38 @@ namespace MyMediaVerse.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<string>("FeedGuid")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("FeedUrlKey")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
                     b.Property<bool>("IsSubscribed")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
                         .HasDefaultValue(false);
 
+                    b.Property<string>("Language")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime?>("LastEnrichmentAttemptAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime?>("LastSyncDate")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("MetadataSource")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasDefaultValue("manual");
+
+                    b.Property<long?>("PodcastIndexId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Publisher")
                         .HasMaxLength(500)
@@ -1050,11 +1083,27 @@ namespace MyMediaVerse.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasDefaultValue(0);
 
+                    b.HasIndex("ApplePodcastsId")
+                        .IsUnique()
+                        .HasFilter("\"ApplePodcastsId\" IS NOT NULL");
+
                     b.HasIndex("ExternalId")
                         .IsUnique()
                         .HasFilter("\"ExternalId\" IS NOT NULL");
 
+                    b.HasIndex("FeedGuid")
+                        .IsUnique()
+                        .HasFilter("\"FeedGuid\" IS NOT NULL");
+
+                    b.HasIndex("FeedUrlKey")
+                        .IsUnique()
+                        .HasFilter("\"FeedUrlKey\" IS NOT NULL");
+
                     b.HasIndex("IsSubscribed");
+
+                    b.HasIndex("PodcastIndexId")
+                        .IsUnique()
+                        .HasFilter("\"PodcastIndexId\" IS NOT NULL");
 
                     b.ToTable("PodcastSeries", (string)null);
                 });

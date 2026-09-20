@@ -47,6 +47,24 @@ namespace MyMediaVerse.DTOs
         [JsonPropertyName("applePodcastsId")]
         public string? ApplePodcastsId { get; set; }
 
+        [JsonPropertyName("feedGuid")]
+        public string? FeedGuid { get; set; }
+
+        [JsonPropertyName("podcastIndexId")]
+        public long? PodcastIndexId { get; set; }
+
+        [JsonPropertyName("metadataSource")]
+        public string MetadataSource { get; set; } = string.Empty;
+
+        [JsonPropertyName("language")]
+        public string? Language { get; set; }
+
+        [JsonPropertyName("enrichedAt")]
+        public DateTime? EnrichedAt { get; set; }
+
+        [JsonPropertyName("lastEnrichmentAttemptAt")]
+        public DateTime? LastEnrichmentAttemptAt { get; set; }
+
         [JsonPropertyName("isSubscribed")]
         public bool IsSubscribed { get; set; }
         

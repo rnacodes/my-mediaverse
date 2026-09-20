@@ -165,12 +165,12 @@ namespace MyMediaVerse.IntegrationTests.Api
             for (var i = 0; i < 60; i++)
             {
                 var permitted = await _testingClient.SendAsync(RequestFrom(
-                    HttpMethod.Get, "/api/listennotes/genres", ip));
+                    HttpMethod.Get, "/api/podcast/directory/search?term=x", ip));
                 Assert.NotEqual(HttpStatusCode.TooManyRequests, permitted.StatusCode);
             }
 
             var sixtyFirst = await _testingClient.SendAsync(RequestFrom(
-                HttpMethod.Get, "/api/listennotes/genres", ip));
+                HttpMethod.Get, "/api/podcast/directory/search?term=x", ip));
             Assert.Equal(HttpStatusCode.TooManyRequests, sixtyFirst.StatusCode);
         }
     }

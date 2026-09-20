@@ -1,158 +1,118 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    TextField, Button, Box, Typography,
-    Select, MenuItem, InputLabel, FormControl,
+    TextField, Button, Box, Typography, Tabs, Tab,
     Card, CardContent, CircularProgress, Alert, Chip,
     Accordion, AccordionSummary, AccordionDetails
 } from '@mui/material';
-import { Search, Download, Podcasts, ExpandMore, OpenInNew } from '@mui/icons-material';
-import { searchPodcasts, importPodcastSeriesFromApi, importPodcastSeriesByName } from '@/api/podcastService';
+import { Search, Download, Podcasts, ExpandMore, OpenInNew, Visibility } from '@mui/icons-material';
+import { usePodcastDirectorySearch, useImportPodcastSeriesFromFeed } from '@/hooks/usePodcast';
 import WhiteOutlineButton from '@/shared/WhiteOutlineButton';
 import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
+import { useDemoWriteBlocked } from '@/features/demo/useDemoWriteBlocked';
 import { DEMO_IMPORT_BLOCKED } from '@/features/demo/demoMessages';
 import { getPlaceholderImage } from '@/utils/mediaImageUtils';
+import AttributionBadge from '@/shared/AttributionBadge';
+import SafeImage from './SafeImage';
+import { parseFeedInput } from './parseFeedInput';
+
+const PAGE_SIZE = 10;
+
+const errorText = (err, fallback) => err?.response?.data?.error || fallback;
+
+const resultKey = (podcast) =>
+    podcast.applePodcastsId || podcast.feedUrl || podcast.podcastIndexId || podcast.title;
 
 function PodcastImportSection({ expanded, onAccordionChange, onSnackbar }) {
     const navigate = useNavigate();
+    const writeBlocked = useDemoWriteBlocked();
 
-    const [podcastImportMethod, setPodcastImportMethod] = useState('search');
-    const [podcastSearchQuery, setPodcastSearchQuery] = useState('');
-    const [podcastId, setPodcastId] = useState('');
-    const [podcastName, setPodcastName] = useState('');
-    const [podcastSearchResults, setPodcastSearchResults] = useState([]);
-    const [podcastIsLoading, setPodcastIsLoading] = useState(false);
-    const [podcastError, setPodcastError] = useState('');
-    const [displayedCount, setDisplayedCount] = useState(10);
-    const [hasSearched, setHasSearched] = useState(false);
+    const [activeTab, setActiveTab] = useState('search');
+    const [searchInput, setSearchInput] = useState('');
+    const [submittedTerm, setSubmittedTerm] = useState('');
+    const [feedInput, setFeedInput] = useState('');
+    const [inputError, setInputError] = useState('');
+    const [displayedCount, setDisplayedCount] = useState(PAGE_SIZE);
 
-    const handlePodcastSearch = async () => {
-        if (!podcastSearchQuery.trim()) {
-            setPodcastError('Please enter a search term');
+    const directorySearch = usePodcastDirectorySearch(submittedTerm);
+    const importSeries = useImportPodcastSeriesFromFeed();
+
+    const results = directorySearch.data || [];
+    const displayedResults = results.slice(0, displayedCount);
+    const isSearching = directorySearch.isFetching;
+    const isImporting = importSeries.isPending;
+
+    const handleTabChange = (_event, tab) => {
+        setActiveTab(tab);
+        setInputError('');
+        importSeries.reset();
+    };
+
+    const handleSearch = () => {
+        const term = searchInput.trim();
+        if (!term) {
+            setInputError('Please enter a search term');
             return;
         }
 
-        setPodcastIsLoading(true);
-        setPodcastError('');
-        setPodcastSearchResults([]);
-        setDisplayedCount(10);
-        setHasSearched(true);
+        setInputError('');
+        setDisplayedCount(PAGE_SIZE);
+        importSeries.reset();
 
-        try {
-            const data = await searchPodcasts(podcastSearchQuery);
-
-            const transformedResults = data.results?.map(podcast => ({
-                id: podcast.id,
-                title: podcast.title_original || podcast.title_highlighted || 'Unknown Title',
-                publisher: podcast.publisher_original || podcast.publisher_highlighted || 'Unknown Publisher',
-                description: podcast.description_original || podcast.description_highlighted || 'No description available',
-                image: podcast.image || getPlaceholderImage('Podcast'),
-                total_episodes: podcast.total_episodes || 0,
-                listennotes_url: podcast.listennotes_url || null
-            })) || [];
-
-            setPodcastSearchResults(transformedResults);
-            setPodcastIsLoading(false);
-
-        } catch (err) {
-            console.error('Search error:', err);
-            setPodcastError('Failed to search podcasts. Please try again.');
-            setPodcastIsLoading(false);
+        // Same term again: the query key is unchanged, so ask for a fresh read.
+        if (term === submittedTerm) {
+            directorySearch.refetch();
+        } else {
+            setSubmittedTerm(term);
         }
     };
 
-    const handlePodcastImportById = async () => {
-        if (!podcastId.trim()) {
-            setPodcastError('Please enter a podcast ID');
+    const importFromFeed = (payload, title) => {
+        setInputError('');
+        importSeries.mutate(payload, {
+            onSuccess: ({ status, data }) => {
+                const name = data?.series?.title || title || 'Podcast';
+                const created = status === 201;
+
+                onSnackbar?.({
+                    open: true,
+                    message: data?.warningMessage
+                        || (created ? `"${name}" imported successfully!` : `"${name}" is already in your library.`),
+                    severity: data?.warningMessage ? 'warning' : created ? 'success' : 'info',
+                });
+                setFeedInput('');
+
+                const seriesId = data?.series?.id;
+                setTimeout(() => {
+                    navigate(seriesId ? `/podcast-series/${seriesId}` : '/all-media');
+                }, 1500);
+            },
+        });
+    };
+
+    const handleImportFromInput = () => {
+        // Enter in the text box reaches here without going through the guarded button.
+        if (writeBlocked) return;
+
+        const payload = parseFeedInput(feedInput);
+        if (!payload) {
+            setInputError('Enter a feed URL, an Apple Podcasts link, or an Apple Podcasts id');
             return;
         }
-
-        setPodcastIsLoading(true);
-        setPodcastError('');
-
-        try {
-            const result = await importPodcastSeriesFromApi(podcastId);
-            const responseData = result.data || result;
-
-            onSnackbar?.({ open: true, message: 'Podcast series imported successfully!', severity: 'success' });
-            setPodcastIsLoading(false);
-            setPodcastId('');
-
-            console.log('Podcast imported successfully:', responseData);
-
-            const mediaId = responseData.id || responseData.Id;
-            setTimeout(() => {
-                navigate(mediaId ? `/podcast-series/${mediaId}` : '/all-media');
-            }, 1500);
-
-        } catch (err) {
-            console.error('Import by ID error:', err);
-            setPodcastError('Failed to import podcast. Please check the ID and try again.');
-            setPodcastIsLoading(false);
-        }
+        importFromFeed(payload);
     };
 
-    const handlePodcastImportByName = async () => {
-        if (!podcastName.trim()) {
-            setPodcastError('Please enter a podcast name');
-            return;
-        }
-
-        setPodcastIsLoading(true);
-        setPodcastError('');
-
-        try {
-            const result = await importPodcastSeriesByName(podcastName);
-            const responseData = result.data || result;
-
-            onSnackbar?.({ open: true, message: 'Podcast series imported successfully!', severity: 'success' });
-            setPodcastIsLoading(false);
-            setPodcastName('');
-
-            console.log('Podcast imported successfully:', responseData);
-
-            const mediaId = responseData.id || responseData.Id;
-            setTimeout(() => {
-                navigate(mediaId ? `/podcast-series/${mediaId}` : '/all-media');
-            }, 1500);
-
-        } catch (err) {
-            console.error('Import by name error:', err);
-            setPodcastError('Failed to import podcast. Please check the name and try again.');
-            setPodcastIsLoading(false);
-        }
+    const handleImportResult = (podcast) => {
+        importFromFeed(
+            { feedUrl: podcast.feedUrl || undefined, applePodcastsId: podcast.applePodcastsId || undefined },
+            podcast.title,
+        );
     };
 
-    const handleImportPodcast = async (podcast) => {
-        setPodcastIsLoading(true);
-        setPodcastError('');
-
-        try {
-            const result = await importPodcastSeriesFromApi(podcast.id);
-            const responseData = result.data || result;
-
-            onSnackbar?.({ open: true, message: `"${podcast.title}" imported successfully!`, severity: 'success' });
-            setPodcastIsLoading(false);
-
-            console.log('Podcast imported successfully:', responseData);
-
-            const mediaId = responseData.id || responseData.Id;
-            setTimeout(() => {
-                navigate(mediaId ? `/podcast-series/${mediaId}` : '/all-media');
-            }, 1500);
-
-        } catch (err) {
-            console.error('Import podcast error:', err);
-            setPodcastError('Failed to import podcast. Please try again.');
-            setPodcastIsLoading(false);
-        }
-    };
-
-    const handleLoadMore = () => {
-        setDisplayedCount(prev => prev + 10);
-    };
-
-    const displayedResults = podcastSearchResults.slice(0, displayedCount);
+    const errorMessage = inputError
+        || (importSeries.isError && errorText(importSeries.error, 'Failed to import podcast. Please try again.'))
+        || (activeTab === 'search' && directorySearch.isError
+            && errorText(directorySearch.error, 'Failed to search podcasts. Please try again.'));
 
     return (
         <Accordion
@@ -170,70 +130,45 @@ function PodcastImportSection({ expanded, onAccordionChange, onSnackbar }) {
                     <Typography variant="h6">
                         Podcasts
                     </Typography>
-                    <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="body2" color="text.secondary">
-                            Powered by
-                        </Typography>
-                        <Button
-                            variant="text"
-                            size="small"
-                            href="https://www.listennotes.com"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            endIcon={<OpenInNew fontSize="small" />}
-                            sx={{
-                                minWidth: 'auto',
-                                textTransform: 'none',
-                                color: '#ffffff',
-                                '&:hover': { backgroundColor: 'transparent', textDecoration: 'underline' }
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            ListenNotes
-                        </Button>
-                    </Box>
                 </Box>
             </AccordionSummary>
             <AccordionDetails>
                 <Box sx={{ padding: 2 }}>
-                    <FormControl fullWidth margin="normal">
-                        <InputLabel>Import Method</InputLabel>
-                        <Select
-                            value={podcastImportMethod}
-                            label="Import Method"
-                            onChange={(e) => setPodcastImportMethod(e.target.value)}
-                        >
-                            <MenuItem value="search">Search and Select</MenuItem>
-                            <MenuItem value="id">By Podcast ID</MenuItem>
-                            <MenuItem value="name">By Podcast Name</MenuItem>
-                        </Select>
-                    </FormControl>
+                    <Tabs
+                        value={activeTab}
+                        onChange={handleTabChange}
+                        textColor="inherit"
+                        sx={{ mb: 2 }}
+                    >
+                        <Tab value="search" label="Search Apple Podcasts" />
+                        <Tab value="feed" label="Paste a feed URL" />
+                    </Tabs>
 
-                    {podcastImportMethod === 'search' && (
+                    {activeTab === 'search' && (
                         <Box>
                             <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
                                 <TextField
                                     label="Search Podcasts"
-                                    value={podcastSearchQuery}
-                                    onChange={(e) => setPodcastSearchQuery(e.target.value)}
+                                    value={searchInput}
+                                    onChange={(e) => setSearchInput(e.target.value)}
                                     variant="outlined"
                                     fullWidth
-                                    onKeyPress={(e) => e.key === 'Enter' && handlePodcastSearch()}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                                     InputLabelProps={{
                                         sx: { color: 'white' }
                                     }}
                                 />
                                 <Button
                                     variant="contained"
-                                    onClick={handlePodcastSearch}
-                                    disabled={podcastIsLoading}
+                                    onClick={handleSearch}
+                                    disabled={isSearching}
                                     startIcon={<Search />}
                                 >
                                     Search
                                 </Button>
                             </Box>
 
-                            {hasSearched && !podcastIsLoading && podcastSearchResults.length === 0 && !podcastError && (
+                            {directorySearch.isSuccess && !isSearching && results.length === 0 && (
                                 <Alert severity="info" sx={{ mt: 2 }}>
                                     No results found. Try a different search term.
                                 </Alert>
@@ -241,15 +176,17 @@ function PodcastImportSection({ expanded, onAccordionChange, onSnackbar }) {
 
                             {displayedResults.length > 0 && (
                                 <Box sx={{ mt: 2 }}>
-                                    <Typography variant="h6" gutterBottom>
-                                        Search Results ({podcastSearchResults.length})
+                                    <Typography variant="h6">
+                                        Search Results ({results.length})
                                     </Typography>
+                                    <AttributionBadge provider="apple" sx={{ mb: 2 }} />
                                     {displayedResults.map((podcast) => (
-                                        <Card key={podcast.id} sx={{ mb: 2 }}>
+                                        <Card key={resultKey(podcast)} sx={{ mb: 2 }}>
                                             <CardContent>
                                                 <Box sx={{ display: 'flex', gap: 2 }}>
-                                                    <img
-                                                        src={podcast.image}
+                                                    <SafeImage
+                                                        src={podcast.artworkUrl}
+                                                        fallbackSrc={getPlaceholderImage('Podcast')}
                                                         alt={podcast.title}
                                                         style={{
                                                             width: 80,
@@ -263,56 +200,73 @@ function PodcastImportSection({ expanded, onAccordionChange, onSnackbar }) {
                                                             {podcast.title}
                                                         </Typography>
                                                         <Typography variant="body2" color="text.secondary" gutterBottom>
-                                                            {podcast.publisher}
+                                                            {podcast.publisher || 'Unknown Publisher'}
                                                         </Typography>
-                                                        <Typography variant="body2" sx={{ mb: 1 }}>
-                                                            {podcast.description.length > 200
-                                                                ? `${podcast.description.substring(0, 200)}...`
-                                                                : podcast.description}
-                                                        </Typography>
-                                                        <Chip
-                                                            label={`${podcast.total_episodes} episodes`}
-                                                            size="small"
-                                                            sx={{ mb: 1 }}
-                                                        />
+                                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1 }}>
+                                                            {podcast.episodeCount != null && (
+                                                                <Chip label={`${podcast.episodeCount} episodes`} size="small" />
+                                                            )}
+                                                            {(podcast.genres || []).slice(0, 3).map((genre) => (
+                                                                <Chip key={genre} label={genre} size="small" variant="outlined" />
+                                                            ))}
+                                                            {podcast.existingSeriesId && (
+                                                                <Chip label="In your library" size="small" color="success" />
+                                                            )}
+                                                        </Box>
+                                                        {podcast.source === 'podcastindex' && (
+                                                            <AttributionBadge provider="podcastindex" sx={{ mb: 1 }} />
+                                                        )}
                                                         <Box sx={{ display: 'flex', gap: 1 }}>
-                                                            <WhiteOutlineButton
-                                                                size="small"
-                                                                href={podcast.listennotes_url || `https://www.listennotes.com/podcasts/${podcast.id}/`}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                endIcon={<OpenInNew fontSize="small" />}
-                                                            >
-                                                                View Details
-                                                            </WhiteOutlineButton>
-                                                            <DemoWriteGuard title={DEMO_IMPORT_BLOCKED}>
+                                                            {podcast.storeUrl && (
+                                                                <WhiteOutlineButton
+                                                                    size="small"
+                                                                    href={podcast.storeUrl}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    endIcon={<OpenInNew fontSize="small" />}
+                                                                >
+                                                                    View on Apple Podcasts
+                                                                </WhiteOutlineButton>
+                                                            )}
+                                                            {podcast.existingSeriesId ? (
                                                                 <Button
                                                                     variant="contained"
                                                                     size="small"
-                                                                    onClick={() => handleImportPodcast(podcast)}
-                                                                    disabled={podcastIsLoading}
-                                                                    startIcon={<Download />}
+                                                                    onClick={() => navigate(`/podcast-series/${podcast.existingSeriesId}`)}
+                                                                    startIcon={<Visibility />}
                                                                 >
-                                                                    Import
+                                                                    View in library
                                                                 </Button>
-                                                            </DemoWriteGuard>
+                                                            ) : (
+                                                                <DemoWriteGuard title={DEMO_IMPORT_BLOCKED}>
+                                                                    <Button
+                                                                        variant="contained"
+                                                                        size="small"
+                                                                        onClick={() => handleImportResult(podcast)}
+                                                                        disabled={isImporting}
+                                                                        startIcon={<Download />}
+                                                                    >
+                                                                        Import
+                                                                    </Button>
+                                                                </DemoWriteGuard>
+                                                            )}
                                                         </Box>
                                                     </Box>
                                                 </Box>
                                             </CardContent>
                                         </Card>
                                     ))}
-                                    {displayedResults.length < podcastSearchResults.length && (
+                                    {displayedResults.length < results.length && (
                                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
                                             <Typography variant="body2" color="text.secondary">
-                                                Showing {displayedResults.length} of {podcastSearchResults.length} results
+                                                Showing {displayedResults.length} of {results.length} results
                                             </Typography>
                                             <Button
                                                 variant="contained"
                                                 size="small"
-                                                onClick={handleLoadMore}
+                                                onClick={() => setDisplayedCount(prev => prev + PAGE_SIZE)}
                                             >
-                                                Load 10 More
+                                                Load {PAGE_SIZE} More
                                             </Button>
                                         </Box>
                                     )}
@@ -321,67 +275,46 @@ function PodcastImportSection({ expanded, onAccordionChange, onSnackbar }) {
                         </Box>
                     )}
 
-                    {podcastImportMethod === 'id' && (
-                        <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-                            <TextField
-                                label="Podcast ID"
-                                value={podcastId}
-                                onChange={(e) => setPodcastId(e.target.value)}
-                                variant="outlined"
-                                fullWidth
-                                onKeyPress={(e) => e.key === 'Enter' && handlePodcastImportById()}
-                                InputLabelProps={{
-                                    sx: { color: 'white' }
-                                }}
-                            />
-                            <DemoWriteGuard title={DEMO_IMPORT_BLOCKED}>
-                                <Button
-                                    variant="contained"
-                                    onClick={handlePodcastImportById}
-                                    disabled={podcastIsLoading}
-                                    startIcon={<Download />}
-                                >
-                                    Import
-                                </Button>
-                            </DemoWriteGuard>
+                    {activeTab === 'feed' && (
+                        <Box>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                                Paste the show&apos;s RSS feed URL, an Apple Podcasts link, or an Apple Podcasts id.
+                            </Typography>
+                            <Box sx={{ display: 'flex', gap: 2 }}>
+                                <TextField
+                                    label="Feed URL or Apple Podcasts link"
+                                    value={feedInput}
+                                    onChange={(e) => setFeedInput(e.target.value)}
+                                    variant="outlined"
+                                    fullWidth
+                                    onKeyDown={(e) => e.key === 'Enter' && handleImportFromInput()}
+                                    InputLabelProps={{
+                                        sx: { color: 'white' }
+                                    }}
+                                />
+                                <DemoWriteGuard title={DEMO_IMPORT_BLOCKED}>
+                                    <Button
+                                        variant="contained"
+                                        onClick={handleImportFromInput}
+                                        disabled={isImporting}
+                                        startIcon={<Download />}
+                                    >
+                                        Import
+                                    </Button>
+                                </DemoWriteGuard>
+                            </Box>
                         </Box>
                     )}
 
-                    {podcastImportMethod === 'name' && (
-                        <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-                            <TextField
-                                label="Podcast Name"
-                                value={podcastName}
-                                onChange={(e) => setPodcastName(e.target.value)}
-                                variant="outlined"
-                                fullWidth
-                                onKeyPress={(e) => e.key === 'Enter' && handlePodcastImportByName()}
-                                InputLabelProps={{
-                                    sx: { color: 'white' }
-                                }}
-                            />
-                            <DemoWriteGuard title={DEMO_IMPORT_BLOCKED}>
-                                <Button
-                                    variant="contained"
-                                    onClick={handlePodcastImportByName}
-                                    disabled={podcastIsLoading}
-                                    startIcon={<Download />}
-                                >
-                                    Import
-                                </Button>
-                            </DemoWriteGuard>
-                        </Box>
-                    )}
-
-                    {podcastIsLoading && (
+                    {(isSearching || isImporting) && (
                         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
                             <CircularProgress />
                         </Box>
                     )}
 
-                    {podcastError && (
+                    {errorMessage && (
                         <Alert severity="error" sx={{ mt: 2 }}>
-                            {podcastError}
+                            {errorMessage}
                         </Alert>
                     )}
                 </Box>

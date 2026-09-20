@@ -45,17 +45,17 @@ namespace MyMediaVerse.IntegrationTests.Api
                 Feed("Hello Internet", "http://www.hellointernet.fm/podcast?format=rss", "811377230"));
 
             // Act
-            var response = await _client.PostAsync("/api/podcast/import-opml", OpmlForm(opml));
+            var response = await _client.PostAsync("/api/podcast/series/from-opml", OpmlForm(opml));
 
             // Assert - summary
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var result = JsonSerializer.Deserialize<OpmlImportResultDto>(
                 await response.Content.ReadAsStringAsync(), _jsonOptions);
             Assert.NotNull(result);
-            Assert.Equal(2, result.Total);
-            Assert.Equal(2, result.Imported);
-            Assert.Equal(0, result.Skipped);
-            Assert.Equal(0, result.Failed);
+            Assert.Equal(2, result.TotalProcessed);
+            Assert.Equal(2, result.CreatedCount);
+            Assert.Equal(0, result.SkippedCount);
+            Assert.Equal(0, result.FailedCount);
 
             // Assert - the stubs actually landed with the mapped fields
             var seriesResponse = await _client.GetAsync("/api/podcast/series");
@@ -77,18 +77,18 @@ namespace MyMediaVerse.IntegrationTests.Api
             var opml = Opml(Feed("The Bike Shed", "https://feeds.fireside.fm/bikeshed/rss", "935763119"));
 
             var first = JsonSerializer.Deserialize<OpmlImportResultDto>(
-                await (await _client.PostAsync("/api/podcast/import-opml", OpmlForm(opml))).Content.ReadAsStringAsync(),
+                await (await _client.PostAsync("/api/podcast/series/from-opml", OpmlForm(opml))).Content.ReadAsStringAsync(),
                 _jsonOptions);
             Assert.NotNull(first);
-            Assert.Equal(1, first.Imported);
+            Assert.Equal(1, first.CreatedCount);
 
             // Re-importing the same export must be idempotent: nothing new, the feed is skipped.
             var second = JsonSerializer.Deserialize<OpmlImportResultDto>(
-                await (await _client.PostAsync("/api/podcast/import-opml", OpmlForm(opml))).Content.ReadAsStringAsync(),
+                await (await _client.PostAsync("/api/podcast/series/from-opml", OpmlForm(opml))).Content.ReadAsStringAsync(),
                 _jsonOptions);
             Assert.NotNull(second);
-            Assert.Equal(0, second.Imported);
-            Assert.Equal(1, second.Skipped);
+            Assert.Equal(0, second.CreatedCount);
+            Assert.Equal(1, second.SkippedCount);
 
             // Only one row exists in the DB.
             var seriesResponse = await _client.GetAsync("/api/podcast/series");
@@ -108,12 +108,12 @@ namespace MyMediaVerse.IntegrationTests.Api
             var opml = Opml(Feed("Reply All", "https://feeds.megaphone.fm/replyall", "941907967"));
 
             // First import creates a new series → exactly one media reindex fires.
-            var first = await client.PostAsync("/api/podcast/import-opml", OpmlForm(opml));
+            var first = await client.PostAsync("/api/podcast/series/from-opml", OpmlForm(opml));
             Assert.Equal(HttpStatusCode.OK, first.StatusCode);
             await typesense.Received(1).BulkReindexAllMediaItemsAsync();
 
             // Re-importing the same feed imports nothing new → the reindex is skipped (still 1 total).
-            var second = await client.PostAsync("/api/podcast/import-opml", OpmlForm(opml));
+            var second = await client.PostAsync("/api/podcast/series/from-opml", OpmlForm(opml));
             Assert.Equal(HttpStatusCode.OK, second.StatusCode);
             await typesense.Received(1).BulkReindexAllMediaItemsAsync();
         }
@@ -123,7 +123,7 @@ namespace MyMediaVerse.IntegrationTests.Api
         {
             using var form = new MultipartFormDataContent();
 
-            var response = await _client.PostAsync("/api/podcast/import-opml", form);
+            var response = await _client.PostAsync("/api/podcast/series/from-opml", form);
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
@@ -136,7 +136,7 @@ namespace MyMediaVerse.IntegrationTests.Api
             fileContent.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
             form.Add(fileContent, "file", "notes.txt");
 
-            var response = await _client.PostAsync("/api/podcast/import-opml", form);
+            var response = await _client.PostAsync("/api/podcast/series/from-opml", form);
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }

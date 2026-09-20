@@ -140,7 +140,7 @@ namespace MyMediaVerse.Application.Services
             BaseMediaItem mediaItem = dto.MediaType switch
             {
                 MediaType.Article => CreateArticle(dto),
-                MediaType.Podcast => CreatePodcast(dto),
+                MediaType.Podcast => throw new NotSupportedException("Podcasts must be created via POST /api/podcast/series."),
                 MediaType.Video => CreateVideo(dto),
                 MediaType.Movie => CreateMovie(dto),
                 MediaType.TVShow => CreateTvShow(dto),
@@ -226,6 +226,8 @@ namespace MyMediaVerse.Application.Services
             mediaItem.Topics.Clear();
             mediaItem.Genres.Clear();
 
+            var childIds = await RemoveChildEpisodesAsync(mediaItem);
+
             _context.Remove(mediaItem);
             await _context.SaveChangesAsync();
 
@@ -233,8 +235,43 @@ namespace MyMediaVerse.Application.Services
             // Best effort: the next bulk reindex reconciles anything this misses.
             await SearchIndexCleanup.TryDeleteAsync(
                 () => _typesenseService.DeleteMediaItemAsync(id), _logger, "media item", id);
+            foreach (var childId in childIds)
+            {
+                await SearchIndexCleanup.TryDeleteAsync(
+                    () => _typesenseService.DeleteMediaItemAsync(childId), _logger, "media item", childId);
+            }
 
             return true;
+        }
+
+        /// <summary>
+        /// Marks a podcast series' or TV show's episodes for removal and returns their ids. Episodes
+        /// are media items of their own, split across MediaItems plus their type table; the database
+        /// cascade from the parent reaches only the type table, so they are removed through EF to
+        /// take both rows. A leftover typeless MediaItems row breaks every query over all media.
+        /// </summary>
+        private async Task<List<Guid>> RemoveChildEpisodesAsync(BaseMediaItem parent)
+        {
+            var childIds = new List<Guid>();
+
+            if (parent is PodcastSeries)
+            {
+                foreach (var episode in await _context.PodcastEpisodes.Where(e => e.SeriesId == parent.Id).ToListAsync())
+                {
+                    _context.Remove(episode);
+                    childIds.Add(episode.Id);
+                }
+            }
+            else if (parent is TvShow)
+            {
+                foreach (var episode in await _context.TvShowEpisodes.Where(e => e.ShowId == parent.Id).ToListAsync())
+                {
+                    _context.Remove(episode);
+                    childIds.Add(episode.Id);
+                }
+            }
+
+            return childIds;
         }
 
         public async Task<(int deletedCount, List<string> thumbnailErrors)> BulkDeleteMediaItemsAsync(List<Guid> ids)
@@ -248,6 +285,7 @@ namespace MyMediaVerse.Application.Services
 
             var deletedCount = 0;
             var thumbnailErrors = new List<string>();
+            var removedChildIds = new HashSet<Guid>();
 
             foreach (var mediaItem in mediaItems)
             {
@@ -267,11 +305,20 @@ namespace MyMediaVerse.Application.Services
                 mediaItem.Topics.Clear();
                 mediaItem.Genres.Clear();
 
+                removedChildIds.UnionWith(await RemoveChildEpisodesAsync(mediaItem));
+
                 _context.Remove(mediaItem);
                 deletedCount++;
             }
 
             await _context.SaveChangesAsync();
+
+            removedChildIds.ExceptWith(mediaItems.Select(m => m.Id));
+            foreach (var childId in removedChildIds)
+            {
+                await SearchIndexCleanup.TryDeleteAsync(
+                    () => _typesenseService.DeleteMediaItemAsync(childId), _logger, "media item", childId);
+            }
 
             // Eager search-index cleanup per deleted row; each call is best effort and never throws.
             foreach (var mediaItem in mediaItems)
@@ -513,25 +560,6 @@ namespace MyMediaVerse.Application.Services
                 ReadingProgress = 0,
                 IsStarred = false,
                 IsArchived = false
-            };
-        }
-
-        private static PodcastSeries CreatePodcast(CreateMediaItemDto dto)
-        {
-            return new PodcastSeries
-            {
-                Title = dto.Title,
-                MediaType = MediaType.Podcast,
-                Link = dto.Link,
-                Notes = dto.Notes,
-                Status = dto.Status,
-                DateAdded = DateTime.UtcNow,
-                DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted),
-                Rating = dto.Rating,
-                OwnershipStatus = dto.OwnershipStatus,
-                Description = dto.Description,
-                RelatedNotes = dto.RelatedNotes,
-                Thumbnail = dto.Thumbnail
             };
         }
 

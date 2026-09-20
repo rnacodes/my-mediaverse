@@ -337,12 +337,33 @@ namespace MyMediaVerse.Infrastructure.Data
                     
                 entity.Property(e => e.TotalEpisodes)
                     .HasDefaultValue(0);
-                    
-                // Unique index on ExternalId to make ListenNotes imports idempotent.
-                // Filtered so manually-added series (no ExternalId) are unaffected.
+
+                entity.Property(e => e.MetadataSource)
+                    .HasMaxLength(50)
+                    .HasDefaultValue("manual");
+
+                // Unique index on ExternalId to make dataset imports idempotent.
+                // Filtered so series without one are unaffected.
                 entity.HasIndex(e => e.ExternalId)
                     .IsUnique()
                     .HasFilter("\"ExternalId\" IS NOT NULL");
+
+                // The normalized feed URL is a series' identity: one row per feed.
+                entity.HasIndex(e => e.FeedUrlKey)
+                    .IsUnique()
+                    .HasFilter("\"FeedUrlKey\" IS NOT NULL");
+
+                entity.HasIndex(e => e.FeedGuid)
+                    .IsUnique()
+                    .HasFilter("\"FeedGuid\" IS NOT NULL");
+
+                entity.HasIndex(e => e.ApplePodcastsId)
+                    .IsUnique()
+                    .HasFilter("\"ApplePodcastsId\" IS NOT NULL");
+
+                entity.HasIndex(e => e.PodcastIndexId)
+                    .IsUnique()
+                    .HasFilter("\"PodcastIndexId\" IS NOT NULL");
 
                 // Create index on IsSubscribed for subscription queries
                 entity.HasIndex(e => e.IsSubscribed);
@@ -378,6 +399,11 @@ namespace MyMediaVerse.Infrastructure.Data
                 entity.HasIndex(e => new { e.SeriesId, e.ExternalId })
                     .IsUnique()
                     .HasFilter("\"ExternalId\" IS NOT NULL");
+
+                // The feed item guid identifies an episode within its series.
+                entity.HasIndex(e => new { e.SeriesId, e.RssGuid })
+                    .IsUnique()
+                    .HasFilter("\"RssGuid\" IS NOT NULL");
 
                 // Create index on ReleaseDate for chronological queries
                 entity.HasIndex(e => e.ReleaseDate);

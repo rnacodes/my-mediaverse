@@ -17,8 +17,8 @@ public static class RateLimitingExtensions
     public const string ExpensiveReadPolicy = "expensive-read";
 
     /// <summary>
-    /// Named policy for endpoints that proxy metered third-party APIs (TMDB, YouTube,
-    /// ListenNotes, book search) on the app's own keys. Bounds per-visitor quota burn.
+    /// Named policy for endpoints that proxy third-party APIs (TMDB, YouTube, book search,
+    /// podcast directories and feeds) on the app's own keys or network. Bounds per-visitor quota burn.
     /// </summary>
     public const string ExternalProxyPolicy = "external-proxy";
 

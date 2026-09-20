@@ -1,13 +1,12 @@
 #!/bin/bash
 # =============================================================================
-# Podcast ListenNotes Enrichment Cron Job
+# Podcast Enrichment Cron Job
 # =============================================================================
-# This script calls the podcast enrichment API endpoint to fetch metadata
-# from ListenNotes for podcast series that don't have an ExternalId.
+# This script calls the podcast enrichment API endpoint to fill in missing
+# metadata for podcast series that have not been enriched yet.
 #
-# IMPORTANT: ListenNotes has stricter rate limits than other APIs:
-# - Free tier: 5 requests/second, 500 requests/month
-# - Use conservative settings to avoid exceeding quotas
+# The run spaces out its external calls and stops early when a batch has
+# nothing left it can enrich.
 #
 # SETUP INSTRUCTIONS:
 # 1. Copy this script to your DigitalOcean VM
@@ -41,7 +40,6 @@ API_URL="https://www.api.mymediaverseuniverse.com/api"
 API_TOKEN="YOUR_JWT_TOKEN_HERE"
 
 # Enrichment parameters
-# NOTE: Conservative settings due to ListenNotes API limits
 BATCH_SIZE=25                    # Podcasts per batch (1-50)
 DELAY_MS=1500                    # Delay between API calls in ms (minimum 200ms, recommend 1000+)
 MAX_PODCASTS=100                 # Maximum podcasts to process per run
@@ -56,7 +54,7 @@ LOG_PREFIX="[PodcastEnrichment]"
 
 echo ""
 echo "=============================================="
-echo "$LOG_PREFIX Starting Podcast ListenNotes enrichment run"
+echo "$LOG_PREFIX Starting podcast enrichment run"
 echo "$LOG_PREFIX $(date '+%Y-%m-%d %H:%M:%S')"
 echo "=============================================="
 
@@ -97,8 +95,6 @@ echo "$LOG_PREFIX   - Batch size: $BATCH_SIZE"
 echo "$LOG_PREFIX   - Max podcasts: $MAX_PODCASTS"
 echo "$LOG_PREFIX   - Delay: ${DELAY_MS}ms"
 echo "$LOG_PREFIX   - Pause between batches: ${PAUSE_BETWEEN_BATCHES}s"
-echo ""
-echo "$LOG_PREFIX NOTE: Using conservative settings due to ListenNotes API limits"
 echo ""
 
 RESPONSE=$(curl -s -w "\n%{http_code}" \

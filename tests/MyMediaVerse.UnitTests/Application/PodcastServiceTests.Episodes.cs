@@ -138,7 +138,7 @@ namespace MyMediaVerse.UnitTests.Application
             };
 
             // Act
-            var result = await _service.CreatePodcastEpisodeAsync(dto);
+            var result = (await _service.CreatePodcastEpisodeAsync(dto)).Episode;
 
             // Assert
             result.Should().NotBeNull();
@@ -257,7 +257,7 @@ namespace MyMediaVerse.UnitTests.Application
             };
 
             // Act
-            var result = await _service.CreatePodcastEpisodeAsync(dto);
+            var result = (await _service.CreatePodcastEpisodeAsync(dto)).Episode;
 
             // Assert
             result.Should().NotBeNull();
@@ -298,7 +298,7 @@ namespace MyMediaVerse.UnitTests.Application
             };
 
             // Act
-            var result = await _service.CreatePodcastEpisodeAsync(dto);
+            var result = (await _service.CreatePodcastEpisodeAsync(dto)).Episode;
 
             // Assert
             result.Should().NotBeNull();
@@ -332,7 +332,7 @@ namespace MyMediaVerse.UnitTests.Application
             };
 
             // Act
-            var result = await _service.CreatePodcastEpisodeAsync(dto);
+            var result = (await _service.CreatePodcastEpisodeAsync(dto)).Episode;
 
             // Assert
             result.Should().NotBeNull();

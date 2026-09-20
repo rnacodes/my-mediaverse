@@ -389,7 +389,7 @@ namespace MyMediaVerse.Application.Services
         }
 
         private static string BuildTitleAuthorKey(string title, string author) =>
-            $"{title.Trim().ToLowerInvariant()}|{author.Trim().ToLowerInvariant()}";
+            $"{title.Trim().ToLowerInvariant()}|{BookAuthors.Primary(author).ToLowerInvariant()}";
 
         /// <summary>
         /// In-memory dedup lookup for a single import run: existing (and newly created) books keyed

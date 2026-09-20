@@ -14,6 +14,7 @@ import WhiteOutlineButton from '@/shared/WhiteOutlineButton';
 import { getPlaceholderImage } from '@/utils/mediaImageUtils';
 import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
 import { DEMO_IMPORT_BLOCKED } from '@/features/demo/demoMessages';
+import AttributionBadge from '@/shared/AttributionBadge';
 
 function TmdbImportSection({ expanded, onAccordionChange }) {
     const navigate = useNavigate();
@@ -246,33 +247,7 @@ function TmdbImportSection({ expanded, onAccordionChange }) {
                             </Button>
                         </Box>
 
-                        {/* TMDB Credit */}
-                        <Box sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 1,
-                            mb: 2,
-                            justifyContent: 'center',
-                            py: 1
-                        }}>
-                            <img
-                                src="/tmdb-primary-short-logo.svg"
-                                alt="TMDB"
-                                style={{
-                                    height: '20px',
-                                    width: 'auto'
-                                }}
-                            />
-                            <Typography
-                                variant="caption"
-                                sx={{
-                                    color: 'text.secondary',
-                                    fontSize: '0.75rem'
-                                }}
-                            >
-                                This product uses the TMDB API but is not endorsed or certified by TMDB
-                            </Typography>
-                        </Box>
+                        <AttributionBadge provider="tmdb" sx={{ mb: 2, py: 1 }} />
 
                         {hasSearched && !tmdbIsLoading && tmdbSearchResults.length === 0 && !tmdbError && (
                             <Alert severity="info" sx={{ mt: 2 }}>

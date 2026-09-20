@@ -1,35 +1,30 @@
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using MyMediaVerse.Application.Interfaces;
-using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.Application.Services
 {
     /// <summary>
     /// Builds and caches in-memory <c>externalId → lowercase genre name</c> maps from the
-    /// existing TMDB and ListenNotes genre-fetch services. The first lookup per source builds
-    /// the map (one API round-trip each); subsequent lookups are served from <see cref="IMemoryCache"/>
-    /// until the entry expires.
+    /// existing TMDB genre-fetch service. The first lookup per source builds the map (one API
+    /// round-trip); subsequent lookups are served from <see cref="IMemoryCache"/> until the entry
+    /// expires.
     /// </summary>
     public class GenreMappingService : IGenreMappingService
     {
         private const string TmdbCacheKey = "genremap:tmdb";
-        private const string ListenNotesCacheKey = "genremap:listennotes";
         private static readonly TimeSpan CacheTtl = TimeSpan.FromHours(24);
 
         private readonly ITmdbService _tmdbService;
-        private readonly IListenNotesApiClient _listenNotesApiClient;
         private readonly IMemoryCache _cache;
         private readonly ILogger<GenreMappingService> _logger;
 
         public GenreMappingService(
             ITmdbService tmdbService,
-            IListenNotesApiClient listenNotesApiClient,
             IMemoryCache cache,
             ILogger<GenreMappingService> logger)
         {
             _tmdbService = tmdbService;
-            _listenNotesApiClient = listenNotesApiClient;
             _cache = cache;
             _logger = logger;
         }
@@ -69,7 +64,6 @@ namespace MyMediaVerse.Application.Services
         private Task<IReadOnlyDictionary<int, string>> GetMapAsync(GenreSource source) => source switch
         {
             GenreSource.Tmdb => GetTmdbMapAsync(),
-            GenreSource.ListenNotes => GetListenNotesMapAsync(),
             _ => throw new ArgumentOutOfRangeException(nameof(source), source, "Unsupported genre source.")
         };
 
@@ -88,24 +82,6 @@ namespace MyMediaVerse.Application.Services
                 foreach (var genre in movieGenres.Genres.Concat(tvGenres.Genres))
                 {
                     AddGenre(map, genre.Id, genre.Name, GenreSource.Tmdb);
-                }
-
-                return (IReadOnlyDictionary<int, string>)map;
-            }))!;
-        }
-
-        private async Task<IReadOnlyDictionary<int, string>> GetListenNotesMapAsync()
-        {
-            return (await _cache.GetOrCreateAsync(ListenNotesCacheKey, async entry =>
-            {
-                entry.SlidingExpiration = CacheTtl;
-
-                var map = new Dictionary<int, string>();
-                var genres = await _listenNotesApiClient.GetGenresAsync();
-
-                foreach (var genre in genres.Genres)
-                {
-                    AddGenre(map, genre.Id, genre.Name, GenreSource.ListenNotes);
                 }
 
                 return (IReadOnlyDictionary<int, string>)map;

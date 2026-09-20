@@ -4,6 +4,7 @@ import { Box, Paper, Typography, Grid, Checkbox, Chip } from '@mui/material';
 import { Star, LinkOff } from '@mui/icons-material';
 import { formatMediaType, formatStatus, getRatingIcon } from '@/utils/formatters';
 import { isBrokenLink } from '@/features/media/websiteStatus';
+import { isPodcastSeries } from '@/features/podcasts/isPodcastSeries';
 
 export const MediaListItem = React.memo(({ item, isSelected = false, onToggleSelect, showCheckbox = false }) => {
     const navigate = useNavigate();
@@ -18,9 +19,8 @@ export const MediaListItem = React.memo(({ item, isSelected = false, onToggleSel
         } else if (item.isHighlight) {
             // Navigate highlights to their dedicated profile page
             navigate(`/highlight/${item.id}`);
-        } else if (item.mediaType === 'Podcast' && !item.seriesId) {
+        } else if (item.mediaType === 'Podcast' && isPodcastSeries(item)) {
             // Navigate podcast series to their dedicated profile page
-            // Podcast episodes have seriesId, series don't
             navigate(`/podcast-series/${item.id}`);
         } else if (item.mediaType === 'Channel') {
             // Navigate YouTube channels to their dedicated profile page
@@ -50,7 +50,8 @@ export const MediaListItem = React.memo(({ item, isSelected = false, onToggleSel
             case 'Video':
                 return item.channel || item.platform;
             case 'Podcast':
-                return item.publisher;
+                // An episode is credited to its show; a series to its publisher.
+                return item.seriesTitle || item.publisher;
             case 'Highlight':
                 // Show the linked media title if available, otherwise the source title
                 return item.linkedMediaTitle || (item.author ? `From: ${item.author}` : null);

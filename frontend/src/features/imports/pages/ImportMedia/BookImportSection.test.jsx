@@ -55,7 +55,7 @@ describe('BookImportSection', () => {
     await searchFor(user, 'dune');
 
     expect(await screen.findByText('Google Result')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /view details/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /view on google books/i })).toHaveAttribute(
       'href',
       'https://books.google.com/books?id=EMMWDwAAQBAJ',
     );
@@ -100,7 +100,7 @@ describe('BookImportSection', () => {
     await searchFor(user, 'dune');
 
     expect(await screen.findByText('Open Library Result')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /view details/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /view on open library/i })).toHaveAttribute(
       'href',
       'https://openlibrary.org/works/OL45883W',
     );

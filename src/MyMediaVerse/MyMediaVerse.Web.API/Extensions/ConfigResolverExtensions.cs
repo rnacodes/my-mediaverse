@@ -2,8 +2,8 @@ namespace MyMediaVerse.Web.API.Extensions;
 
 /// <summary>
 /// Helpers for the env-var-OR-config pattern used throughout registration. We can't rely on
-/// ASP.NET's default <c>__</c> env var mapping because our env var names (e.g. <c>LISTENNOTES_API_KEY</c>)
-/// don't align with configuration keys (<c>ApiKeys:ListenNotes</c>).
+/// ASP.NET's default <c>__</c> env var mapping because our env var names (e.g. <c>READWISE_API_KEY</c>)
+/// don't align with configuration keys (<c>ApiKeys:Readwise</c>).
 /// </summary>
 public static class ConfigResolverExtensions
 {

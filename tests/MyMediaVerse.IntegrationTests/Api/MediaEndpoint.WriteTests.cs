@@ -123,16 +123,15 @@ namespace MyMediaVerse.IntegrationTests.Api
         }
 
         [Fact]
-        public async Task CreateMediaItem_WithPodcastType_ShouldReturnCreated()
+        public async Task CreateMediaItem_WithPodcastType_ShouldReturnBadRequest()
         {
+            // A series' identity is its feed; POST /api/podcast/series owns podcast creation.
             var createDto = new CreateMediaItemDto
             {
                 Title = "New Test Podcast",
                 Description = "A test podcast description",
                 MediaType = MediaType.Podcast,
-                Status = Status.Uncharted,
-                Topics = new[] { "interview", "business" },
-                Genres = new[] { "entrepreneurship" }
+                Status = Status.Uncharted
             };
 
             var content = new StringContent(
@@ -143,14 +142,7 @@ namespace MyMediaVerse.IntegrationTests.Api
 
             var response = await _client.PostAsync("/api/media", content);
 
-            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-
-            var responseContent = await response.Content.ReadAsStringAsync();
-            var createdMedia = JsonSerializer.Deserialize<MediaItemResponseDto>(responseContent, _jsonOptions);
-
-            Assert.NotNull(createdMedia);
-            Assert.Equal("New Test Podcast", createdMedia!.Title);
-            Assert.Equal(MediaType.Podcast, createdMedia.MediaType);
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
         [Fact]

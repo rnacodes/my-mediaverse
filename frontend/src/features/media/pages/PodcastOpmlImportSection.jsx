@@ -1,11 +1,12 @@
 import React, { useState, useRef } from 'react';
 import {
     Paper, Box, Typography, Button, Alert, AlertTitle,
-    CircularProgress, Card, CardContent, Accordion, AccordionSummary,
+    CircularProgress, Accordion, AccordionSummary,
     AccordionDetails, List, ListItem, ListItemText, Divider
 } from '@mui/material';
 import { Podcasts, FileUpload, CheckCircle, ExpandMore } from '@mui/icons-material';
 import { useImportPodcastOpml } from '@/hooks/useUpload';
+import StatTiles from '@/features/imports/pages/WebsiteImport/StatTiles';
 
 const OUTLINED_BUTTON_SX = {
     borderColor: 'rgba(255, 255, 255, 0.7)',
@@ -52,8 +53,9 @@ function PodcastOpmlImportSection() {
         importMutation.mutate(file, {
             onSuccess: (data) => setResult(data),
             onError: (err) => {
-                console.error('OPML import error:', err);
+                // A failed run still answers with the result body, which carries errorMessage.
                 setError(
+                    err.response?.data?.errorMessage ||
                     err.response?.data?.error ||
                     err.response?.data?.details ||
                     err.message ||
@@ -75,13 +77,13 @@ function PodcastOpmlImportSection() {
 
     const stats = result
         ? [
-            { label: 'Total', value: result.total, color: 'text.primary' },
-            { label: 'Imported', value: result.imported, color: 'success.main' },
-            { label: 'Skipped', value: result.skipped, color: 'text.secondary' },
+            { label: 'Total', value: result.totalProcessed ?? 0, color: 'text.primary' },
+            { label: 'Imported', value: result.createdCount ?? 0, color: 'success.main' },
+            { label: 'Skipped', value: result.skippedCount ?? 0, color: 'text.secondary' },
             {
                 label: 'Failed',
-                value: result.failed,
-                color: result.failed > 0 ? 'warning.main' : 'text.secondary',
+                value: result.failedCount ?? 0,
+                color: result.failedCount > 0 ? 'warning.main' : 'text.secondary',
             },
         ]
         : [];
@@ -163,27 +165,21 @@ function PodcastOpmlImportSection() {
                         </Typography>
                     </Box>
 
-                    <Box
-                        sx={{
-                            display: 'flex',
-                            gap: 2,
-                            flexWrap: 'wrap',
-                            mb: result.failures?.length ? 3 : 0,
-                        }}
-                    >
-                        {stats.map((stat) => (
-                            <Card key={stat.label} sx={{ flex: '1 1 120px', minWidth: 100 }}>
-                                <CardContent sx={{ textAlign: 'center', py: 2 }}>
-                                    <Typography variant="h4" sx={{ fontWeight: 700, color: stat.color }}>
-                                        {stat.value ?? 0}
-                                    </Typography>
-                                    <Typography variant="body2" color="text.secondary">
-                                        {stat.label}
-                                    </Typography>
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </Box>
+                    <StatTiles stats={stats} />
+
+                    {result.warningMessage && (
+                        <Alert severity="warning" sx={{ mb: 2 }}>
+                            {result.warningMessage}
+                        </Alert>
+                    )}
+
+                    {result.createdCount > 0 && (
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                            {result.reindexTriggered
+                                ? 'The new shows are being added to search.'
+                                : 'The new shows will appear in search after the next reindex.'}
+                        </Typography>
+                    )}
 
                     {result.failures && result.failures.length > 0 && (
                         <Accordion>

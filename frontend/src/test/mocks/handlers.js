@@ -1,7 +1,7 @@
 import { http, HttpResponse } from 'msw';
 import { makeMedia, makeBook } from '../factories/media';
 import { makeMixlist } from '../factories/mixlist';
-import { makePodcastSeries } from '../factories/podcast';
+import { makePodcastSeries, makeDirectoryResult, makeFeedEpisodesPage } from '../factories/podcast';
 import { makeYouTubeChannel, makeYouTubePlaylist } from '../factories/youtube';
 import { makeNote } from '../factories/note';
 
@@ -57,6 +57,10 @@ export const handlers = [
     HttpResponse.json(makePodcastSeries({ id: params.id })),
   ),
   http.get(`${API_BASE}/podcast/series/:seriesId/episodes`, () => HttpResponse.json([])),
+  http.get(`${API_BASE}/podcast/series/:seriesId/feed-episodes`, ({ params }) =>
+    HttpResponse.json(makeFeedEpisodesPage({ seriesId: params.seriesId })),
+  ),
+  http.get(`${API_BASE}/podcast/directory/search`, () => HttpResponse.json([makeDirectoryResult()])),
 
   // --- YouTube ---
   http.get(`${API_BASE}/youtube/channels/:id`, ({ params }) =>

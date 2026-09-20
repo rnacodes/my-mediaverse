@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<rss version="2.0"
+  xmlns:atom="http://www.w3.org/2005/Atom"
+  xmlns:cc="http://web.resource.org/cc/"
+  xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"
+  xmlns:media="http://search.yahoo.com/mrss/"
+  xmlns:content="http://purl.org/rss/1.0/modules/content/"
+  xmlns:podcast="https://podcastindex.org/namespace/1.0"
+  xmlns:googleplay="http://www.google.com/schemas/play-podcasts/1.0"
+  xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+
+  <channel>
+    <atom:link href="https://rss.libsyn.com/shows/257627/destinations/1951892.xml" rel="self" type="application/rss+xml"/>
+    <title>The Building a Second Brain Podcast</title>
+    <pubDate>Mon, 15 Dec 2025 06:31:29 +0000</pubDate>
+    <lastBuildDate>Mon, 15 Dec 2025 06:31:29 +0000</lastBuildDate>
+    <generator>Libsyn RSSgen 1.0</generator>
+    <link>http://secondbrain.libsyn.com/website</link>
+    <language>en</language>
+    <copyright><![CDATA[]]></copyright>
+    <docs>http://secondbrain.libsyn.com/website</docs>
+    <itunes:summary><![CDATA[Learn how to save your ideas, organize your learning, and dramatically expand your creative output with digital notetaking. My name is Tiago Forte, and I am your host and the creator of the Building a Second Brain course, where I've taught people from around the world how to build their own "Second Brain" – a trusted place outside their head where they can collect their most important ideas and insights, and use them to do their best work and live a better life.]]></itunes:summary>
+    <image>
+      <url>https://static.libsyn.com/p/assets/3/b/5/3/3b53b29586dd520916c3140a3186d450/BASB_PodcastSqDot_220525.png</url>
+      <title>The Building a Second Brain Podcast</title>
+      <link><![CDATA[http://secondbrain.libsyn.com/website]]></link>
+    </image>
+    <itunes:author>Tiago Forte</itunes:author>
+		<itunes:category text="Education">
+  <itunes:category text="Self-Improvement" />
+</itunes:category>
+<itunes:category text="Education">
+  <itunes:category text="Courses" />
+</itunes:category>
+    <itunes:image href="https://static.libsyn.com/p/assets/3/b/5/3/3b53b29586dd520916c3140a3186d450/BASB_PodcastSqDot_220525.png" />
+    <itunes:explicit>false</itunes:explicit>
+    <itunes:owner>
+      <itunes:name>Tiago Forte</itunes:name>
+      <itunes:email>hello@fortelabs.co</itunes:email>
+    </itunes:owner>
+    <description><![CDATA[Learn how to save your ideas, organize your learning, and dramatically expand your creative output with digital notetaking. My name is Tiago Forte, and I am your host and the creator of the Building a Second Brain course, where I've taught people from around the world how to build their own "Second Brain" – a trusted place outside their head where they can collect their most important ideas and insights, and use them to do their best work and live a better life.]]></description>
+    
+    <itunes:type>serial</itunes:type>
+    
+
+    <itunes:keywords />
+
+    
+
+    
+    <podcast:locked owner="hello@fortelabs.co">no</podcast:locked>
+    
+    
+    
+    
+    
+    <item>
+      <title>The 9 Biggest Myths about Building a Second Brain</title>
+      <itunes:title>The 9 Biggest Myths about Building a Second Brain</itunes:title>
+      <pubDate>Mon, 19 Apr 2021 17:33:23 +0000</pubDate>
+      <guid isPermaLink="false"><![CDATA[c84134cc-0a37-484a-acfa-306041a69ddf]]></guid>
+      <link><![CDATA[https://secondbrain.libsyn.com/the-9-biggest-myths-about-building-a-second-brain]]></link>
+      <description><![CDATA[<p>Overwhelmed by the information you have to consume and keep track of?</p> <p>The Building a Second Brain Podcast gives you the tools to overcome Information Overload and thrive in the Information Age. Tiago Forte will teach you how to build your own "Second Brain" – a trusted place outside your head where you can collect your most important ideas and insights, and use them to do your best work.</p> <p>You'll discover how myths and misconceptions about the creative process hold us back, and how replacing them with a more strategic, intentional approach can unlock your true creative potential. You'll be amazed at how your productivity radically expands with the right frame of mind and the best tools. Tiago draws on years of experience teaching, speaking, and writing about productivity, learning, organizing, and note-taking for our modern, connected era.</p>]]></description>
+      
+      <content:encoded><![CDATA[<p>Overwhelmed by the information you have to consume and keep track of?</p> <p>The Building a Second Brain Podcast gives you the tools to overcome Information Overload and thrive in the Information Age. Tiago Forte will teach you how to build your own "Second Brain" – a trusted place outside your head where you can collect your most important ideas and insights, and use them to do your best work.</p> <p>You'll discover how myths and misconceptions about the creative process hold us back, and how replacing them with a more strategic, intentional approach can unlock your true creative potential. You'll be amazed at how your productivity radically expands with the right frame of mind and the best tools. Tiago draws on years of experience teaching, speaking, and writing about productivity, learning, organizing, and note-taking for our modern, connected era.</p>]]></content:encoded>
+      
+      
+      <enclosure url="https://traffic.libsyn.com/secure/secondbrain/0_Intro.mp3?dest-id=1951892" length="5472596" type="audio/mpeg" />
+      <itunes:duration>05:43</itunes:duration>
+      <itunes:explicit>false</itunes:explicit>
+      
+      <itunes:keywords />
+      
+      <itunes:season>2</itunes:season>
+      
+      
+      <itunes:episode>1</itunes:episode>
+      
+      
+      <itunes:episodeType>full</itunes:episodeType>
+      
+      
+      
+    </item>
+<item>
+      <title>Myth: I haven't built a Second Brain yet</title>
+      <itunes:title>Myth 1: I haven&#39;t built a Second Brain yet</itunes:title>
+      <pubDate>Mon, 19 Apr 2021 16:22:15 +0000</pubDate>
+      <guid isPermaLink="false"><![CDATA[5abb5a1c-99c3-4a95-9ada-af0b34991713]]></guid>
+      <link><![CDATA[https://secondbrain.libsyn.com/myth-1-i-havent-built-a-second-brain-yet]]></link>
+      <description><![CDATA[<p>Overwhelmed by the information you have to consume and keep track of?</p> <p>The Building a Second Brain Podcast gives you the tools to overcome Information Overload and thrive in the Information Age. Tiago Forte will teach you how to build your own "Second Brain" – a trusted place outside your head where you can collect your most important ideas and insights, and use them to do your best work.</p> <p>You'll discover how myths and misconceptions about the creative process hold us back, and how replacing them with a more strategic, intentional approach can unlock your true creative potential. You'll be amazed at how your productivity radically expands with the right frame of mind and the best tools. Tiago draws on years of experience teaching, speaking, and writing about productivity, learning, organizing, and note-taking for our modern, connected era.</p>]]></description>
+      
+      <content:encoded><![CDATA[<p>Overwhelmed by the information you have to consume and keep track of?</p> <p>The Building a Second Brain Podcast gives you the tools to overcome Information Overload and thrive in the Information Age. Tiago Forte will teach you how to build your own "Second Brain" – a trusted place outside your head where you can collect your most important ideas and insights, and use them to do your best work.</p> <p>You'll discover how myths and misconceptions about the creative process hold us back, and how replacing them with a more strategic, intentional approach can unlock your true creative potential. You'll be amazed at how your productivity radically expands with the right frame of mind and the best tools. Tiago draws on years of experience teaching, speaking, and writing about productivity, learning, organizing, and note-taking for our modern, connected era.</p>]]></content:encoded>
+      
+      
+      <enclosure url="https://traffic.libsyn.com/secure/secondbrain/1_One_System.mp3?dest-id=1951892" length="8735604" type="audio/mpeg" />
+      <itunes:duration>09:06</itunes:duration>
+      <itunes:explicit>false</itunes:explicit>
+      
+      <itunes:keywords />
+      
+      <itunes:season>2</itunes:season>
+      
+      
+      <itunes:episode>2</itunes:episode>
+      
+      
+      <itunes:episodeType>full</itunes:episodeType>
+      
+      
+      
+    </item>
+<item>
+      <title>Myth: A Second Brain means tediously overhauling and restructuring my entire digital life</title>
+      <itunes:title>Myth 2: A Second Brain means tediously overhauling and restructuring my entire digital life</itunes:title>
+      <pubDate>Mon, 19 Apr 2021 16:21:10 +0000</pubDate>
+      <guid isPermaLink="false"><![CDATA[830c9f49-6da1-4d38-af1a-9830deb1da8e]]></guid>
+      <link><![CDATA[https://secondbrain.libsyn.com/myth-2-a-second-brain-means-tediously-overhauling-and-restructuring-my-entire-digital-life]]></link>
+      <description><![CDATA[<p>Overwhelmed by the information you have to consume and keep track of?</p> <p>The Building a Second Brain Podcast gives you the tools to overcome Information Overload and thrive in the Information Age. Tiago Forte will teach you how to build your own "Second Brain" – a trusted place outside your head where you can collect your most important ideas and insights, and use them to do your best work.</p> <p>You'll discover how myths and misconceptions about the creative process hold us back, and how replacing them with a more strategic, intentional approach can unlock your true creative potential. You'll be amazed at how your productivity radically expands with the right frame of mind and the best tools. Tiago draws on years of experience teaching, speaking, and writing about productivity, learning, organizing, and note-taking for our modern, connected era.</p>]]></description>
+      
+      <content:encoded><![CDATA[<p>Overwhelmed by the information you have to consume and keep track of?</p> <p>The Building a Second Brain Podcast gives you the tools to overcome Information Overload and thrive in the Information Age. Tiago Forte will teach you how to build your own "Second Brain" – a trusted place outside your head where you can collect your most important ideas and insights, and use them to do your best work.</p> <p>You'll discover how myths and misconceptions about the creative process hold us back, and how replacing them with a more strategic, intentional approach can unlock your true creative potential. You'll be amazed at how your productivity radically expands with the right frame of mind and the best tools. Tiago draws on years of experience teaching, speaking, and writing about productivity, learning, organizing, and note-taking for our modern, connected era.</p>]]></content:encoded>
+      
+      
+      <enclosure url="https://traffic.libsyn.com/secure/secondbrain/2_Implement_Whole_System.mp3?dest-id=1951892" length="12707052" type="audio/mpeg" />
+      <itunes:duration>13:15</itunes:duration>
+      <itunes:explicit>false</itunes:explicit>
+      
+      <itunes:keywords />
+      
+      <itunes:season>2</itunes:season>
+      
+      
+      <itunes:episode>3</itunes:episode>
+      
+      
+      <itunes:episodeType>full</itunes:episodeType>
+      
+      
+      
+    </item>
+<item>
+      <title>Myth: A Second Brain is just a bunch of random 'life hacks' for knowledge work</title>
+      <itunes:title>Myth 3: A Second Brain is just a bunch of random &#39;life hacks&#39; for knowledge work</itunes:title>
+      <pubDate>Mon, 19 Apr 2021 16:20:45 +0000</pubDate>
+      <guid isPermaLink="false"><![CDATA[24318bf4-2a91-4d54-b3c3-c0596838eb6b]]></guid>
+      <link><![CDATA[https://secondbrain.libsyn.com/myth-3-a-second-brain-is-just-a-bunch-of-random-life-hacks-for-knowledge-work]]></link>
+      <description><![CDATA[<p>Overwhelmed by the information you have to consume and keep track of?</p> <p>The Building a Second Brain Podcast gives you the tools to overcome Information Overload and thrive in the Information Age. Tiago Forte will teach you how to build your own "Second Brain" – a trusted place outside your head where you can collect your most important ideas and insights, and use them to do your best work.</p> <p>You'll discover how myths and misconceptions about the creative process hold us back, and how replacing them with a more strategic, intentional approach can unlock your true creative potential. You'll be amazed at how your productivity radically expands with the right frame of mind and the best tools. Tiago draws on years of experience teaching, speaking, and writing about productivity, learning, organizing, and note-taking for our modern, connected era.</p>]]></description>
+      
+      <content:encoded><![CDATA[<p>Overwhelmed by the information you have to consume and keep track of?</p> <p>The Building a Second Brain Podcast gives you the tools to overcome Information Overload and thrive in the Information Age. Tiago Forte will teach you how to build your own "Second Brain" – a trusted place outside your head where you can collect your most important ideas and insights, and use them to do your best work.</p> <p>You'll discover how myths and misconceptions about the creative process hold us back, and how replacing them with a more strategic, intentional approach can unlock your true creative potential. You'll be amazed at how your productivity radically expands with the right frame of mind and the best tools. Tiago draws on years of experience teaching, speaking, and writing about productivity, learning, organizing, and note-taking for our modern, connected era.</p>]]></content:encoded>
+      
+      
+      <enclosure url="https://traffic.libsyn.com/secure/secondbrain/3_Random_Life_Hacks1.mp3?dest-id=1951892" length="6647190" type="audio/mpeg" />
+      <itunes:duration>06:56</itunes:duration>
+      <itunes:explicit>false</itunes:explicit>
+      
+      <itunes:keywords />
+      
+      <itunes:season>2</itunes:season>
+      
+      
+      <itunes:episode>4</itunes:episode>
+      
+      
+      <itunes:episodeType>full</itunes:episodeType>
+      
+      
+      
+    </item>
+<item>
+      <title>Myth: Building a Second Brain is just self-help for note-taking nerds</title>
+      <itunes:title>Myth 4: Building a Second Brain is just self-help for note-taking nerds</itunes:title>
+      <pubDate>Mon, 19 Apr 2021 16:17:00 +0000</pubDate>
+      <guid isPermaLink="false"><![CDATA[842810f0-99ff-45c9-9a1a-4fd8fdac0fc6]]></guid>
+      <link><![CDATA[https://secondbrain.libsyn.com/myth-4-building-a-second-brain-is-just-self-help-for-note-taking-nerds]]></link>
+      <description><![CDATA[<p>Overwhelmed by the information you have to consume and keep track of?</p> <p>The Building a Second Brain Podcast gives you the tools to overcome Information Overload and thrive in the Information Age. Tiago Forte will teach you how to build your own "Second Brain" – a trusted place outside your head where you can collect your most important ideas and insights, and use them to do your best work.</p> <p>You'll discover how myths and misconceptions about the creative process hold us back, and how replacing them with a more strategic, intentional approach can unlock your true creative potential. You'll be amazed at how your productivity radically expands with the right frame of mind and the best tools. Tiago draws on years of experience teaching, speaking, and writing about productivity, learning, organizing, and note-taking for our modern, connected era.</p>]]></description>
+      
+      <content:encoded><![CDATA[<p>Overwhelmed by the information you have to consume and keep track of?</p> <p>The Building a Second Brain Podcast gives you the tools to overcome Information Overload and thrive in the Information Age. Tiago Forte will teach you how to build your own "Second Brain" – a trusted place outside your head where you can collect your most important ideas and insights, and use them to do your best work.</p> <p>You'll discover how myths and misconceptions about the creative process hold us back, and how replacing them with a more strategic, intentional approach can unlock your true creative potential. You'll be amazed at how your productivity radically expands with the right frame of mind and the best tools. Tiago draws on years of experience teaching, speaking, and writing about productivity, learning, organizing, and note-taking for our modern, connected era.</p>]]></content:encoded>
+      
+      
+      <enclosure url="https://traffic.libsyn.com/secure/secondbrain/4_Self_Help.mp3?dest-id=1951892" length="6963039" type="audio/mpeg" />
+      <itunes:duration>07:16</itunes:duration>
+      <itunes:explicit>false</itunes:explicit>
+      
+      <itunes:keywords />
+      
+      <itunes:season>2</itunes:season>
+      
+      
+      <itunes:episode>5</itunes:episode>
+      
+      
+      <itunes:episodeType>full</itunes:episodeType>
+      
+      
+      
+    </item>
+
+    
+  </channel>
+</rss>

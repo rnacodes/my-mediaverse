@@ -42,7 +42,7 @@ namespace MyMediaVerse.Domain.Entities
         /// <summary>
         /// Thumbnail image URL for the media item.
         /// This field stores the FULL URL to the thumbnail image, not just a path.
-        /// For media imported from external APIs (e.g., TMDb for movies/TV shows, ListenNotes for podcasts),
+        /// For media imported from external sources (e.g., TMDb for movies/TV shows, RSS feeds for podcasts),
         /// this should contain the complete, publicly accessible URL constructed from the API's image path.
         /// Example: "https://image.tmdb.org/t/p/w500/path-to-poster.jpg"
         /// </summary>

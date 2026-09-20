@@ -28,10 +28,18 @@ namespace MyMediaVerse.Domain.Entities
         // Optional season grouping
         public int? SeasonNumber { get; set; }
         
-        // External API identifier (for imported episodes from ListenNotes)
+        /// <summary>
+        /// ListenNotes episode id. Populated only by ListenNotes dataset imports.
+        /// </summary>
         [StringLength(200)]
         public string? ExternalId { get; set; }
-        
+
+        /// <summary>
+        /// The feed item's guid. Unique within a series; the primary episode identity.
+        /// </summary>
+        [StringLength(500)]
+        public string? RssGuid { get; set; }
+
         // Publisher information (often inherited from series)
         [StringLength(500)]
         public string? Publisher { get; set; }

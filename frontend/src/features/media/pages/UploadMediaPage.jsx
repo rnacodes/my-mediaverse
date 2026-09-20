@@ -506,7 +506,7 @@ function UploadMediaPage() {
                         <br />• Your CSV file MUST include a &quot;MediaType&quot; column
                         <br />• <strong>NEW:</strong> You can mix different media types in the same CSV! Each row can have its own MediaType.
                         <br />• Only these types are supported via CSV: Article, Book, Movie, TVShow, Video, Website
-                        <br />• For Podcasts, use the Import Media page (ListenNotes integration)
+                        <br />• For Podcasts, use the Import Media page (Apple Podcasts search or a feed URL)
                         <br />• Ensure your CSV file is properly formatted with commas as separators
                         <br />• Use quotes around text that contains commas
                         <br />• For boolean fields, use &quot;TRUE&quot; or &quot;FALSE&quot; (case-insensitive)

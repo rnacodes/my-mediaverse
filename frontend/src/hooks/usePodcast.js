@@ -1,8 +1,6 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  searchPodcasts,
-  getPodcastFromApi,
-  importPodcastFromApi,
+  searchPodcastDirectory,
   getAllPodcastSeries,
   getPodcastSeriesById,
   searchPodcastSeries,
@@ -13,9 +11,11 @@ import {
   unsubscribeFromPodcastSeries,
   getSubscribedPodcastSeries,
   syncPodcastSeriesEpisodes,
-  importPodcastSeriesFromApi,
-  importPodcastSeriesByName,
-  importPodcastEpisodeFromApi,
+  syncAllPodcastSeries,
+  enrichPodcastSeries,
+  importPodcastSeriesFromFeed,
+  getPodcastFeedEpisodes,
+  importPodcastEpisodeFromFeed,
   getEpisodesBySeriesId,
   getPodcastEpisodeById,
   getAllPodcastEpisodes,
@@ -25,22 +25,13 @@ import {
 } from '../api/podcastService';
 import { podcastKeys, mediaKeys } from '../api/queryKeys';
 
-// ----- External (ListenNotes) queries -----
+// ----- Directory queries -----
 
-export function usePodcastExternalSearch(query, options = {}) {
+export function usePodcastDirectorySearch(term, options = {}) {
   return useQuery({
-    queryKey: [...podcastKeys.all, 'externalSearch', query],
-    queryFn: () => searchPodcasts(query),
-    enabled: !!query && query.length > 0,
-    ...options,
-  });
-}
-
-export function usePodcastFromApi(id, options = {}) {
-  return useQuery({
-    queryKey: [...podcastKeys.all, 'externalDetail', id],
-    queryFn: () => getPodcastFromApi(id),
-    enabled: !!id,
+    queryKey: podcastKeys.directory(term),
+    queryFn: async () => (await searchPodcastDirectory(term)).data,
+    enabled: !!term && term.length > 0,
     ...options,
   });
 }
@@ -87,6 +78,34 @@ export function useEpisodesBySeriesId(seriesId, options = {}) {
     queryFn: async () => (await getEpisodesBySeriesId(seriesId)).data,
     enabled: !!seriesId,
     ...options,
+  });
+}
+
+// Pages through the series' feed (not the library). Each page is an offset into
+// the feed; there is another page while the offset has not reached feedItemCount.
+export function usePodcastFeedEpisodes(seriesId, { limit = 20 } = {}, options = {}) {
+  return useInfiniteQuery({
+    queryKey: podcastKeys.series.feedEpisodes(seriesId, limit),
+    queryFn: async ({ pageParam }) => (await getPodcastFeedEpisodes(seriesId, { offset: pageParam, limit })).data,
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => {
+      const next = lastPage.offset + lastPage.items.length;
+      return lastPage.items.length > 0 && next < lastPage.feedItemCount ? next : undefined;
+    },
+    enabled: !!seriesId,
+    ...options,
+  });
+}
+
+// Makes the server re-read the feed (it caches each feed for a few minutes),
+// then drops the pages already loaded so the browser starts again from the top.
+export function useRefreshPodcastFeedEpisodes() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (seriesId) =>
+      getPodcastFeedEpisodes(seriesId, { offset: 0, limit: 1, refresh: true }).then((r) => r.data),
+    onSuccess: (_data, seriesId) =>
+      queryClient.resetQueries({ queryKey: podcastKeys.series.feedEpisodesAll(seriesId) }),
   });
 }
 
@@ -179,32 +198,36 @@ export function useSyncPodcastSeriesEpisodes() {
   });
 }
 
-export function useImportPodcastSeriesFromApi() {
+export function useSyncAllPodcastSeries() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (podcastId) => importPodcastSeriesFromApi(podcastId).then((r) => r.data),
+    mutationFn: () => syncAllPodcastSeries().then((r) => r.data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: podcastKeys.series.lists() });
+      queryClient.invalidateQueries({ queryKey: podcastKeys.all });
       queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
     },
   });
 }
 
-export function useImportPodcastSeriesByName() {
+export function useEnrichPodcastSeries() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (podcastName) => importPodcastSeriesByName(podcastName).then((r) => r.data),
-    onSuccess: () => {
+    mutationFn: ({ seriesId, force = false }) => enrichPodcastSeries(seriesId, force).then((r) => r.data),
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: podcastKeys.series.lists() });
+      queryClient.invalidateQueries({ queryKey: podcastKeys.series.detail(variables.seriesId) });
       queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
     },
   });
 }
 
-export function useImportPodcastFromApi() {
+// Resolves to { status, data } because the status is the only thing that tells
+// a new import (201) from a series that was already in the library (200).
+export function useImportPodcastSeriesFromFeed() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (podcastData) => importPodcastFromApi(podcastData),
+    mutationFn: ({ feedUrl, applePodcastsId }) =>
+      importPodcastSeriesFromFeed({ feedUrl, applePodcastsId }).then((r) => ({ status: r.status, data: r.data })),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: podcastKeys.all });
       queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
@@ -250,13 +273,15 @@ export function useDeletePodcastEpisode() {
   });
 }
 
-export function useImportPodcastEpisodeFromApi() {
+export function useImportPodcastEpisodeFromFeed() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ episodeId, seriesId }) => importPodcastEpisodeFromApi(episodeId, seriesId),
+    mutationFn: ({ seriesId, guid, audioUrl }) =>
+      importPodcastEpisodeFromFeed({ seriesId, guid, audioUrl }).then((r) => ({ status: r.status, data: r.data })),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: podcastKeys.episodes.lists() });
       queryClient.invalidateQueries({ queryKey: podcastKeys.series.episodes(variables.seriesId) });
+      queryClient.invalidateQueries({ queryKey: podcastKeys.series.feedEpisodesAll(variables.seriesId) });
     },
   });
 }

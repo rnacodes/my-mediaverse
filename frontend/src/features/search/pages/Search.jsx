@@ -89,6 +89,7 @@ const transformMediaHits = (hits) => hits.map(hit => {
         durationInSeconds: doc.duration_in_seconds || null,
         seriesId: doc.series_id || null,
         podcastType: doc.podcast_type || null,
+        seriesTitle: doc.series_title || null,
         publication: doc.publication || null,
         estimatedReadingTimeMinutes: doc.estimated_reading_time_minutes || null,
         wordCount: doc.word_count || null,
@@ -139,6 +140,8 @@ export default function Search({ defaultMediaTypes = [] }) {
     // bulk actions can route ids to the right endpoints, even across result pages.
     const [selectedItems, setSelectedItems] = useState(new Map());
     const [selectedMediaTypes, setSelectedMediaTypes] = useState(defaultMediaTypes); // Empty = show "please select" message
+    // '' = every podcast; 'Series' or 'Episode' narrows them. Only applies while Podcast is a selected type.
+    const [podcastType, setPodcastType] = useState('');
     const [selectedTopics, setSelectedTopics] = useState([]);
     const [selectedGenres, setSelectedGenres] = useState([]);
     const [selectedStatuses, setSelectedStatuses] = useState([]);
@@ -338,6 +341,7 @@ export default function Search({ defaultMediaTypes = [] }) {
         const genres = searchParams.get('genres');
         const status = searchParams.get('status');
         const mode = searchParams.get('searchMode');
+        const podcastTypeParam = searchParams.get('podcastType');
 
         let mediaTypes = mediaTypeParam ? mediaTypeParam.split(',').map(t => t.trim()) : [];
         let resolvedMode = ['mixlists', 'notes', 'highlights'].includes(mode) ? mode : 'media';
@@ -358,6 +362,9 @@ export default function Search({ defaultMediaTypes = [] }) {
 
         setSearchQuery(query || '');
         setSelectedMediaTypes(mediaTypes.length > 0 ? mediaTypes : defaultMediaTypes);
+        setPodcastType(
+            mediaTypes.includes('Podcast') && ['Series', 'Episode'].includes(podcastTypeParam) ? podcastTypeParam : ''
+        );
         setSelectedTopics(topics ? topics.split(',').map(t => t.trim()) : []);
         setSelectedGenres(genres ? genres.split(',').map(g => g.trim()) : []);
         setSelectedStatuses(status ? status.split(',').map(s => s.trim()).filter(s => s && s !== 'all') : []);
@@ -372,6 +379,7 @@ export default function Search({ defaultMediaTypes = [] }) {
         debouncedSearchQuery,
         searchMode,
         selectedMediaTypes,
+        podcastType,
         selectedTopics,
         selectedGenres,
         selectedStatuses,
@@ -400,6 +408,13 @@ export default function Search({ defaultMediaTypes = [] }) {
     // Everywhere else 'all' is only a no-selection sentinel and must not count as a chosen
     // filter, or arriving with ?mediaType=all and no query lists the entire library.
     const browseAllMode = defaultMediaTypes.includes('all');
+
+    // The Series/Episodes choice only means something while Podcast is selected.
+    useEffect(() => {
+        if (podcastType && !selectedMediaTypes.includes('Podcast')) {
+            setPodcastType('');
+        }
+    }, [podcastType, selectedMediaTypes]);
 
     const hasMediaFilters = searchMode === 'media' && (
         browseAllMode ||
@@ -509,6 +524,7 @@ export default function Search({ defaultMediaTypes = [] }) {
                 const searchOptions = {
                     query: debouncedSearchQuery || '*',
                     mediaTypes: selectedMediaTypes.includes('all') ? [] : mediaTypesFiltered,
+                    podcastType: podcastType || null,
                     topics: selectedTopics,
                     genres: selectedGenres,
                     status: selectedStatuses,
@@ -577,6 +593,7 @@ export default function Search({ defaultMediaTypes = [] }) {
 
     const handleClearFilters = () => {
         setSelectedMediaTypes([]);
+        setPodcastType('');
         setSelectedTopics([]);
         setSelectedGenres([]);
         setSelectedStatuses([]);
@@ -646,6 +663,8 @@ export default function Search({ defaultMediaTypes = [] }) {
                             searchMode={searchMode}
                             selectedMediaTypes={selectedMediaTypes}
                             setSelectedMediaTypes={setSelectedMediaTypes}
+                            podcastType={podcastType}
+                            setPodcastType={setPodcastType}
                             selectedTopics={selectedTopics}
                             setSelectedTopics={setSelectedTopics}
                             selectedGenres={selectedGenres}
@@ -686,6 +705,8 @@ export default function Search({ defaultMediaTypes = [] }) {
                             selectedTopics={selectedTopics}
                             selectedGenres={selectedGenres}
                             selectedMediaTypes={selectedMediaTypes}
+                            podcastType={podcastType}
+                            onClearPodcastType={() => setPodcastType('')}
                             handleTopicToggle={handleTopicToggle}
                             handleGenreToggle={handleGenreToggle}
                             handleMediaTypeToggle={handleMediaTypeToggle}

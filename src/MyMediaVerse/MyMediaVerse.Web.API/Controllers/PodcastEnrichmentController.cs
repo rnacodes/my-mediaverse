@@ -10,18 +10,21 @@ namespace MyMediaVerse.Web.API.Controllers
     public class PodcastEnrichmentController : ControllerBase
     {
         private readonly IPodcastEnrichmentService _enrichmentService;
+        private readonly IImportReindexService _importReindexService;
         private readonly ILogger<PodcastEnrichmentController> _logger;
 
         public PodcastEnrichmentController(
             IPodcastEnrichmentService enrichmentService,
+            IImportReindexService importReindexService,
             ILogger<PodcastEnrichmentController> logger)
         {
             _enrichmentService = enrichmentService;
+            _importReindexService = importReindexService;
             _logger = logger;
         }
 
         /// <summary>
-        /// Gets the count of podcast series that need ListenNotes enrichment (have no ExternalId).
+        /// Gets the count of podcast series waiting to be filled from their feed.
         /// </summary>
         [HttpGet("status")]
         public async Task<ActionResult<PodcastEnrichmentStatusDto>> GetStatus()
@@ -38,12 +41,13 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting podcast enrichment status");
-                return StatusCode(500, new { error = "Failed to get enrichment status", details = ex.Message });
+                return StatusCode(500, new { error = "Failed to get enrichment status" });
             }
         }
 
         /// <summary>
-        /// Triggers an on-demand podcast ListenNotes enrichment run.
+        /// Triggers an on-demand podcast feed-fill run. 200 with the reporting-contract result when the
+        /// run completed (failures included); 500 with the same body when the run itself aborted.
         /// </summary>
         /// <param name="request">Optional parameters for the enrichment run</param>
         [HttpPost("run")]
@@ -67,29 +71,41 @@ namespace MyMediaVerse.Web.API.Controllers
                 }
 
                 _logger.LogInformation(
-                    "Starting on-demand podcast ListenNotes enrichment. BatchSize: {BatchSize}, Delay: {Delay}ms",
+                    "Starting on-demand podcast enrichment. BatchSize: {BatchSize}, Delay: {Delay}ms",
                     batchSize, delayMs);
 
-                var result = await _enrichmentService.EnrichPodcastsWithoutListenNotesDataAsync(
+                var result = await _enrichmentService.EnrichPendingPodcastsAsync(
                     batchSize: batchSize,
-                    delayBetweenCallsMs: delayMs);
+                    delayBetweenCallsMs: delayMs,
+                    cancellationToken: HttpContext.RequestAborted);
+
+                if (!result.Success)
+                {
+                    return StatusCode(500, result);
+                }
+
+                await ReindexAsync(result);
 
                 _logger.LogInformation(
-                    "On-demand podcast enrichment completed. Enriched: {Enriched}, NotFound: {NotFound}, Failed: {Failed}",
-                    result.EnrichedCount, result.NotFoundCount, result.FailedCount);
+                    "On-demand podcast enrichment completed. Filled: {Enriched}, unchanged: {Unchanged}, no feed: {NotFound}, failed: {Failed}",
+                    result.EnrichedCount, result.UnchangedCount, result.NotFoundCount, result.FailedCount);
 
                 return Ok(result);
+            }
+            catch (OperationCanceledException) when (HttpContext.RequestAborted.IsCancellationRequested)
+            {
+                return StatusCode(StatusCodes.Status499ClientClosedRequest);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error running on-demand podcast enrichment");
-                return StatusCode(500, new { error = "Podcast enrichment run failed", details = ex.Message });
+                return StatusCode(500, new { error = "Podcast enrichment run failed" });
             }
         }
 
         /// <summary>
         /// Runs enrichment for all podcasts until complete or limit reached.
-        /// Use with caution - ListenNotes has strict rate limits.
+        /// Stops early when a batch fills nothing, since the remaining series cannot be filled yet.
         /// </summary>
         /// <param name="request">Optional parameters for the enrichment run</param>
         [HttpPost("run-all")]
@@ -100,7 +116,7 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 var batchSize = request?.BatchSize ?? 25;
                 var delayMs = request?.DelayBetweenCallsMs ?? 1500;
-                var maxPodcasts = request?.MaxPodcasts ?? 100; // More conservative default due to API limits
+                var maxPodcasts = request?.MaxPodcasts ?? 100;
                 var pauseBetweenBatchesSeconds = request?.PauseBetweenBatchesSeconds ?? 60;
 
                 // Validate parameters
@@ -115,10 +131,11 @@ namespace MyMediaVerse.Web.API.Controllers
                 }
 
                 _logger.LogInformation(
-                    "Starting full podcast ListenNotes enrichment. BatchSize: {BatchSize}, MaxPodcasts: {MaxPodcasts}",
+                    "Starting full podcast enrichment. BatchSize: {BatchSize}, MaxPodcasts: {MaxPodcasts}",
                     batchSize, maxPodcasts);
 
                 var totalEnriched = 0;
+                var totalUnchanged = 0;
                 var totalNotFound = 0;
                 var totalFailed = 0;
                 var totalProcessed = 0;
@@ -129,52 +146,85 @@ namespace MyMediaVerse.Web.API.Controllers
 
                 while (pendingCount > 0 && totalProcessed < maxPodcasts)
                 {
-                    var result = await _enrichmentService.EnrichPodcastsWithoutListenNotesDataAsync(
+                    var result = await _enrichmentService.EnrichPendingPodcastsAsync(
                         batchSize: Math.Min(batchSize, maxPodcasts - totalProcessed),
-                        delayBetweenCallsMs: delayMs);
+                        delayBetweenCallsMs: delayMs,
+                        cancellationToken: HttpContext.RequestAborted);
 
                     totalEnriched += result.EnrichedCount;
+                    totalUnchanged += result.UnchangedCount;
                     totalNotFound += result.NotFoundCount;
                     totalFailed += result.FailedCount;
                     totalProcessed += result.TotalProcessed;
                     allErrors.AddRange(result.Errors.Take(5));
                     batchesRun++;
 
-                    if (result.TotalProcessed == 0)
+                    if (result.WasCancelled)
                     {
-                        break; // No more podcasts to process
+                        break;
                     }
 
-                    // Get updated count
-                    pendingCount = await _enrichmentService.GetPodcastsNeedingEnrichmentCountAsync();
+                    // Nothing left that can be filled right now.
+                    if (result.TotalProcessed == 0 || result.EnrichedCount == 0)
+                    {
+                        pendingCount = result.PendingCount;
+                        break;
+                    }
+
+                    pendingCount = result.PendingCount;
 
                     // Pause between batches if there are more to process
                     if (pendingCount > 0 && totalProcessed < maxPodcasts)
                     {
-                        await Task.Delay(TimeSpan.FromSeconds(pauseBetweenBatchesSeconds));
+                        await Task.Delay(TimeSpan.FromSeconds(pauseBetweenBatchesSeconds), HttpContext.RequestAborted);
                     }
                 }
 
+                // One reindex for the whole run rather than one per batch.
+                var reindexTriggered = false;
+                if (totalEnriched > 0)
+                {
+                    await _importReindexService.ReindexAfterImportAsync(totalEnriched, "podcast enrichment");
+                    reindexTriggered = true;
+                }
+
                 _logger.LogInformation(
-                    "Full podcast enrichment completed. Batches: {Batches}, Enriched: {Enriched}, NotFound: {NotFound}, Failed: {Failed}, Remaining: {Remaining}",
-                    batchesRun, totalEnriched, totalNotFound, totalFailed, pendingCount);
+                    "Full podcast enrichment completed. Batches: {Batches}, Filled: {Enriched}, unchanged: {Unchanged}, no feed: {NotFound}, failed: {Failed}, remaining: {Remaining}",
+                    batchesRun, totalEnriched, totalUnchanged, totalNotFound, totalFailed, pendingCount);
 
                 return Ok(new PodcastEnrichmentRunAllResult
                 {
                     TotalProcessed = totalProcessed,
                     TotalEnriched = totalEnriched,
+                    TotalUnchanged = totalUnchanged,
                     TotalNotFound = totalNotFound,
                     TotalFailed = totalFailed,
                     BatchesRun = batchesRun,
                     RemainingPodcasts = pendingCount,
+                    ReindexTriggered = reindexTriggered,
                     Errors = allErrors.Take(20).ToList()
                 });
+            }
+            catch (OperationCanceledException) when (HttpContext.RequestAborted.IsCancellationRequested)
+            {
+                return StatusCode(StatusCodes.Status499ClientClosedRequest);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error running full podcast enrichment");
-                return StatusCode(500, new { error = "Full enrichment run failed", details = ex.Message });
+                return StatusCode(500, new { error = "Full enrichment run failed" });
             }
+        }
+
+        private async Task ReindexAsync(PodcastEnrichmentResult result)
+        {
+            if (result.EnrichedCount <= 0)
+            {
+                return;
+            }
+
+            await _importReindexService.ReindexAfterImportAsync(result.EnrichedCount, "podcast enrichment");
+            result.ReindexTriggered = true;
         }
     }
 
@@ -223,10 +273,12 @@ namespace MyMediaVerse.Web.API.Controllers
     {
         public int TotalProcessed { get; set; }
         public int TotalEnriched { get; set; }
+        public int TotalUnchanged { get; set; }
         public int TotalNotFound { get; set; }
         public int TotalFailed { get; set; }
         public int BatchesRun { get; set; }
         public int RemainingPodcasts { get; set; }
+        public bool ReindexTriggered { get; set; }
         public List<string> Errors { get; set; } = new List<string>();
     }
 }

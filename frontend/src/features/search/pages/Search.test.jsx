@@ -1,9 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { Link } from 'react-router-dom';
 import { server } from '@/test/mocks/server';
 import { API_BASE } from '@/test/mocks/handlers';
-import { renderWithProviders, screen, within } from '@/test/test-utils';
+import { renderWithProviders, screen, within, waitFor } from '@/test/test-utils';
 import Search from './Search';
 
 // Serves one highlight from the highlights search endpoint.
@@ -84,6 +84,84 @@ describe('Search page', () => {
     // Only media items render even though the highlights endpoint has results.
     expect(await screen.findByText('Test Book')).toBeInTheDocument();
     expect(screen.queryByText('Test highlight text')).not.toBeInTheDocument();
+  });
+});
+
+describe('Search podcast Series/Episodes filter', () => {
+  vi.setConfig({ testTimeout: 30000 });
+
+  // Records each /search filter string and answers with one series and one episode.
+  const servePodcasts = () => {
+    const filters = [];
+    const doc = (id, title, podcastType, extra = {}) => ({
+      document: {
+        id, title, media_type: 'Podcast', podcast_type: podcastType, status: 'Uncharted',
+        topics: [], genres: [], date_added: 1700000000, description: '', ...extra,
+      },
+    });
+    server.use(
+      http.get(`${API_BASE}/search`, ({ request }) => {
+        const filter = new URL(request.url).searchParams.get('filter') || '';
+        filters.push(filter);
+        let hits = [
+          doc('ts-series', 'The Show', 'Series'),
+          doc('ts-episode', 'Pilot Episode', 'Episode', { series_id: 'ts-series', series_title: 'The Show' }),
+        ];
+        if (filter.includes('podcast_type:=Series')) hits = [hits[0]];
+        else if (filter.includes('podcast_type:=Episode')) hits = [hits[1]];
+        return HttpResponse.json({ found: hits.length, out_of: 2, page: 1, hits });
+      }),
+    );
+    return filters;
+  };
+
+  it('only offers the toggle while Podcast is a selected media type', async () => {
+    renderWithProviders(<Search defaultMediaTypes={['all']} />, { route: '/all-media?mediaType=Book' });
+
+    await screen.findByText('Test Book');
+    expect(screen.queryByRole('group', { name: /podcast series or episodes/i })).not.toBeInTheDocument();
+  });
+
+  it('narrows podcasts to episodes and back, filtering on podcast_type', async () => {
+    const filters = servePodcasts();
+    const { user } = renderWithProviders(<Search defaultMediaTypes={['all']} />, {
+      route: '/all-media?mediaType=Podcast',
+    });
+
+    expect(await screen.findByText('Pilot Episode')).toBeInTheDocument();
+    expect(screen.getAllByText('The Show').length).toBeGreaterThan(0);
+
+    const toggle = screen.getByRole('group', { name: /podcast series or episodes/i });
+    await user.click(within(toggle).getByRole('button', { name: 'Series' }));
+
+    await waitFor(() => expect(screen.queryByText('Pilot Episode')).not.toBeInTheDocument());
+    expect(filters.at(-1)).toBe('((media_type:=Podcast && podcast_type:=Series))');
+    expect(screen.getByText('Podcast series only')).toBeInTheDocument();
+
+    await user.click(within(toggle).getByRole('button', { name: 'All' }));
+
+    expect(await screen.findByText('Pilot Episode')).toBeInTheDocument();
+    expect(filters.at(-1)).toBe('(media_type:=Podcast)');
+  });
+
+  it('reads the choice from the podcastType URL param', async () => {
+    const filters = servePodcasts();
+    renderWithProviders(<Search defaultMediaTypes={['all']} />, {
+      route: '/all-media?mediaType=Podcast&podcastType=Episode',
+    });
+
+    expect(await screen.findByText('Pilot Episode')).toBeInTheDocument();
+    expect(filters.at(-1)).toBe('((media_type:=Podcast && podcast_type:=Episode))');
+  });
+
+  it('keeps other selected media types in the results when podcasts are narrowed', async () => {
+    const filters = servePodcasts();
+    renderWithProviders(<Search defaultMediaTypes={['all']} />, {
+      route: '/all-media?mediaType=Podcast,Book&podcastType=Series',
+    });
+
+    await screen.findByText('The Show');
+    expect(filters.at(-1)).toBe('((media_type:=Podcast && podcast_type:=Series) || media_type:=Book)');
   });
 });
 

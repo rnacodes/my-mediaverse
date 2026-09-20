@@ -6,12 +6,14 @@ import {
     Card, CardContent, CircularProgress, Alert, Chip,
     Accordion, AccordionSummary, AccordionDetails
 } from '@mui/material';
-import { Search, Download, MenuBook, ExpandMore, OpenInNew } from '@mui/icons-material';
+import { Search, Add, MenuBook, ExpandMore, OpenInNew } from '@mui/icons-material';
 import {
     searchBooksFromGoogleBooks, importBookFromGoogleBooks,
     searchBooksFromOpenLibrary, importBookFromOpenLibrary
 } from '@/api/bookService';
 import WhiteOutlineButton from '@/shared/WhiteOutlineButton';
+import PoweredByGoogleLogo from '@/shared/PoweredByGoogleLogo';
+import { getGoogleBooksUrl } from '@/utils/googleBooks';
 import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
 import { DEMO_IMPORT_BLOCKED } from '@/features/demo/demoMessages';
 
@@ -19,7 +21,7 @@ const BOOK_SOURCES = {
     googlebooks: {
         label: 'Google Books',
         homeUrl: 'https://books.google.com',
-        getDetailsUrl: (key) => `https://books.google.com/books?id=${key}`
+        getDetailsUrl: getGoogleBooksUrl
     },
     openlibrary: {
         label: 'Open Library',
@@ -269,36 +271,30 @@ function BookImportSection({ expanded, onAccordionChange }) {
                     <Typography variant="h6">
                         Books
                     </Typography>
+                    {/* Only the selected source is credited: Google's branding rules don't allow its
+                        logo alongside other search services, and the "powered by Google" logo itself
+                        sits beside the Google Books results below rather than repeating here. */}
                     <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                         <Typography variant="body2" color="text.secondary">
-                            Powered by
+                            Source:
                         </Typography>
-                        {Object.entries(BOOK_SOURCES).map(([key, provider], index) => (
-                            <React.Fragment key={key}>
-                                {index > 0 && (
-                                    <Typography variant="body2" color="text.secondary">
-                                        and
-                                    </Typography>
-                                )}
-                                <Button
-                                    variant="text"
-                                    size="small"
-                                    href={provider.homeUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    endIcon={<OpenInNew fontSize="small" />}
-                                    sx={{
-                                        minWidth: 'auto',
-                                        textTransform: 'none',
-                                        color: '#ffffff',
-                                        '&:hover': { backgroundColor: 'transparent', textDecoration: 'underline' }
-                                    }}
-                                    onClick={(e) => e.stopPropagation()}
-                                >
-                                    {provider.label}
-                                </Button>
-                            </React.Fragment>
-                        ))}
+                        <Button
+                            variant="text"
+                            size="small"
+                            href={source.homeUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            endIcon={<OpenInNew fontSize="small" />}
+                            sx={{
+                                minWidth: 'auto',
+                                textTransform: 'none',
+                                color: '#ffffff',
+                                '&:hover': { backgroundColor: 'transparent', textDecoration: 'underline' }
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {source.label}
+                        </Button>
                     </Box>
                 </Box>
             </AccordionSummary>
@@ -376,9 +372,12 @@ function BookImportSection({ expanded, onAccordionChange }) {
 
                             {displayedResults.length > 0 && (
                                 <Box sx={{ mt: 2 }}>
-                                    <Typography variant="h6" gutterBottom>
-                                        Search Results ({bookSearchResults.length})
-                                    </Typography>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', mb: 1 }}>
+                                        <Typography variant="h6">
+                                            {bookSource === 'googlebooks' ? 'Google Books search results' : 'Search Results'} ({bookSearchResults.length})
+                                        </Typography>
+                                        {bookSource === 'googlebooks' && <PoweredByGoogleLogo />}
+                                    </Box>
                                     {displayedResults.map((book, index) => (
                                         <Card key={book.key || index} sx={{ mb: 2 }}>
                                             <CardContent>
@@ -437,7 +436,7 @@ function BookImportSection({ expanded, onAccordionChange }) {
                                                                 rel="noopener noreferrer"
                                                                 endIcon={<OpenInNew fontSize="small" />}
                                                             >
-                                                                View Details
+                                                                View on {source.label}
                                                             </WhiteOutlineButton>
                                                             <DemoWriteGuard title={DEMO_IMPORT_BLOCKED}>
                                                                 <Button
@@ -445,7 +444,7 @@ function BookImportSection({ expanded, onAccordionChange }) {
                                                                     size="small"
                                                                     onClick={() => handleImportBook(book)}
                                                                     disabled={bookIsLoading}
-                                                                    startIcon={<Download />}
+                                                                    startIcon={<Add />}
                                                                 >
                                                                     Import
                                                                 </Button>
@@ -494,7 +493,7 @@ function BookImportSection({ expanded, onAccordionChange }) {
                                     variant="contained"
                                     onClick={handleBookImportByIsbn}
                                     disabled={bookIsLoading}
-                                    startIcon={<Download />}
+                                    startIcon={<Add />}
                                 >
                                     Import
                                 </Button>
@@ -531,7 +530,7 @@ function BookImportSection({ expanded, onAccordionChange }) {
                                     variant="contained"
                                     onClick={handleBookImportByTitleAuthor}
                                     disabled={bookIsLoading}
-                                    startIcon={<Download />}
+                                    startIcon={<Add />}
                                     sx={{ mt: 1 }}
                                 >
                                     Import

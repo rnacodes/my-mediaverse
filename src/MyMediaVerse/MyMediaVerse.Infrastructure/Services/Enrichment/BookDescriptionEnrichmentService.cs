@@ -252,7 +252,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
             {
                 _logger.LogDebug("Looking up {Title} by title and author {Author}", book.Title, book.Author);
                 var byTitleAuthor = await _googleBooksClient.SearchBooksAsync(
-                    $"intitle:{book.Title} inauthor:{book.Author}", maxResults: TitleAuthorSearchResults);
+                    $"intitle:{book.Title} inauthor:{BookAuthors.Primary(book.Author)}", maxResults: TitleAuthorSearchResults);
                 volume = byTitleAuthor?.Items?.FirstOrDefault(v => AuthorMatches(v, book.Author));
             }
 
@@ -359,8 +359,12 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
             var authors = volume.VolumeInfo?.Authors;
             if (authors == null || authors.Length == 0) return false;
 
+            // A stored author may be a full list ("A, B"); its primary author is enough to match.
             var wanted = author.Trim();
-            return authors.Any(a => string.Equals(a?.Trim(), wanted, StringComparison.OrdinalIgnoreCase));
+            var primary = BookAuthors.Primary(author);
+            return authors.Any(a =>
+                string.Equals(a?.Trim(), wanted, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(a?.Trim(), primary, StringComparison.OrdinalIgnoreCase));
         }
     }
 }

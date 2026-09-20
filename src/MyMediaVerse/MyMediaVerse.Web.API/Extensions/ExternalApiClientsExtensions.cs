@@ -1,15 +1,16 @@
 using MyMediaVerse.Infrastructure.Clients.AI;
 using MyMediaVerse.Infrastructure.Clients.Google;
 using MyMediaVerse.Infrastructure.Clients.Itunes;
-using MyMediaVerse.Infrastructure.Clients.ListenNotes;
 using MyMediaVerse.Infrastructure.Clients.Obsidian;
 using MyMediaVerse.Infrastructure.Clients.OpenLibrary;
+using MyMediaVerse.Infrastructure.Clients.PodcastIndex;
 using MyMediaVerse.Infrastructure.Clients.Paperless;
 using MyMediaVerse.Infrastructure.Clients.Readwise;
 using MyMediaVerse.Infrastructure.Clients.TMDB;
 using MyMediaVerse.Infrastructure.Clients.Trakt;
 using MyMediaVerse.Infrastructure.Clients.Wayback;
 using MyMediaVerse.Infrastructure.Clients.YouTube;
+using MyMediaVerse.Infrastructure.Services.Podcasts;
 using MyMediaVerse.Infrastructure.Services.Web;
 using Microsoft.Extensions.Options;
 using MyMediaVerse.Application.Services;
@@ -29,8 +30,8 @@ public static class ExternalApiClientsExtensions
         services.AddHttpClient();
 
         services.AddYouTubeApiClient();
-        services.AddListenNotesApiClient(configuration, logger);
-        services.AddItunesLookupClient();
+        services.AddPodcastDirectories(configuration, logger);
+        services.AddPodcastFeedReader(configuration);
         services.AddReadwiseClients(configuration, logger);
         services.AddOpenLibraryApiClient();
         services.AddPaperlessApiClient(configuration, logger);
@@ -60,37 +61,63 @@ public static class ExternalApiClientsExtensions
         });
     }
 
-    private static void AddListenNotesApiClient(this IServiceCollection services, IConfiguration configuration, ILogger logger)
+    private static void AddPodcastDirectories(this IServiceCollection services, IConfiguration configuration, ILogger logger)
     {
-        var apiKey = configuration.GetEnvOrConfig("ApiKeys:ListenNotes", "LISTENNOTES_API_KEY");
-        var hasApiKey = !string.IsNullOrEmpty(apiKey) && apiKey != "LISTENNOTES_API_KEY";
+        services.Configure<PodcastDirectoryOptions>(configuration.GetSection(PodcastDirectoryOptions.SectionName));
 
-        if (!hasApiKey)
-        {
-            logger.LogWarning("No valid ListenNotes API key found. ListenNotes functionality will be limited. Set LISTENNOTES_API_KEY env var or ApiKeys:ListenNotes in configuration.");
-        }
-
-        services.AddHttpClient<IListenNotesApiClient, ListenNotesApiClient>(client =>
-        {
-            client.BaseAddress = new Uri("https://listen-api.listennotes.com/api/v2/");
-            client.Timeout = TimeSpan.FromSeconds(30);
-
-            if (hasApiKey)
-            {
-                client.DefaultRequestHeaders.Add("X-ListenAPI-Key", apiKey);
-            }
-        });
-    }
-
-    private static void AddItunesLookupClient(this IServiceCollection services)
-    {
-        // Apple's iTunes Lookup API is free and requires no key. Used to resolve an Apple
-        // Podcasts collection id to its RSS feed url + basic metadata during enrichment.
+        // Apple's iTunes Search and Lookup APIs are free and keyless but rate limited, so every Apple call
+        // (directory requests and enrichment alike) takes a slot from one process-wide token bucket.
+        services.AddSingleton<ItunesRateLimiter>();
+        services.AddTransient<ItunesRateLimitHandler>();
         services.AddHttpClient<IItunesLookupClient, ItunesLookupClient>(client =>
         {
             client.BaseAddress = new Uri("https://itunes.apple.com/");
             client.DefaultRequestHeaders.Add("User-Agent", "MyMediaVerse/1.0");
             client.Timeout = TimeSpan.FromSeconds(30);
+        })
+        .AddHttpMessageHandler<ItunesRateLimitHandler>();
+
+        // Podcast Index is free with a key and secret; without them Apple is the only directory.
+        var credentials = new PodcastIndexCredentials(
+            configuration.GetEnvOrConfig("ApiKeys:PodcastIndexKey", "PODCASTINDEX_API_KEY"),
+            configuration.GetEnvOrConfig("ApiKeys:PodcastIndexSecret", "PODCASTINDEX_API_SECRET"));
+        if (!credentials.IsConfigured)
+        {
+            logger.LogWarning("Podcast Index is not configured; Apple Podcasts is the only podcast directory. Set PODCASTINDEX_API_KEY and PODCASTINDEX_API_SECRET to enable it.");
+        }
+
+        services.AddSingleton(credentials);
+        services.AddTransient<PodcastIndexAuthHandler>();
+        services.AddHttpClient<IPodcastIndexClient, PodcastIndexClient>(client =>
+        {
+            client.BaseAddress = new Uri(PodcastIndexClient.BaseUrl);
+            client.DefaultRequestHeaders.Add("User-Agent", "MyMediaVerse/1.0");
+            client.Timeout = TimeSpan.FromSeconds(15);
+        })
+        .AddHttpMessageHandler<PodcastIndexAuthHandler>();
+
+        // The application sees one directory: Apple first, Podcast Index as the fallback when configured.
+        services.AddScoped<ApplePodcastDirectory>();
+        services.AddScoped<PodcastIndexDirectory>();
+        services.AddScoped<IPodcastDirectory>(provider => new CompositePodcastDirectory(
+            provider.GetRequiredService<ApplePodcastDirectory>(),
+            provider.GetRequiredService<PodcastIndexCredentials>().IsConfigured
+                ? provider.GetRequiredService<PodcastIndexDirectory>()
+                : null,
+            provider.GetRequiredService<ILogger<CompositePodcastDirectory>>()));
+    }
+
+    private static void AddPodcastFeedReader(this IServiceCollection services, IConfiguration configuration)
+    {
+        // Episode sync and the feed-episodes browser read their limits from "PodcastSync" (code defaults).
+        services.Configure<PodcastSyncOptions>(configuration.GetSection(PodcastSyncOptions.SectionName));
+
+        // Podcast feeds are fetched from arbitrary hosts; the reader enforces the size cap and
+        // applies this timeout to the whole read, not just the headers.
+        services.AddHttpClient<IPodcastFeedReader, RssPodcastFeedReader>(client =>
+        {
+            client.DefaultRequestHeaders.Add("User-Agent", "MyMediaVerse/1.0");
+            client.Timeout = TimeSpan.FromSeconds(15);
         });
     }
 
@@ -171,6 +198,12 @@ public static class ExternalApiClientsExtensions
         {
             client.BaseAddress = new Uri("https://www.googleapis.com/books/v1/");
             client.DefaultRequestHeaders.Add("User-Agent", "MyMediaVerse/1.0");
+        })
+        // Retry transient rate limiting (429) and 5xx with exponential backoff + Retry-After.
+        // Daily-quota 403s are not retried.
+        .AddResilienceHandler("googlebooks-retry", builder =>
+        {
+            builder.AddRetry(GoogleBooksResilience.CreateRetryOptions());
         });
     }
 

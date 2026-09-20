@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using MyMediaVerse.Application.Interfaces;
+using MyMediaVerse.Domain.Constants;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Infrastructure.Models;
 using MyMediaVerse.Shared.DTOs.Search;
@@ -361,7 +362,11 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 new Field("goodreads_rating", FieldType.Float, true, optional: true), // Books: facetable star rating
                 new Field("domain", FieldType.String, true, optional: true), // Websites: facetable site grouping
                 new Field("has_rss", FieldType.Bool, true, optional: true), // Websites: facetable feed presence
-                new Field("link_status", FieldType.Int32, false, optional: true) // Websites: last HTTP status (0 = unreachable)
+                new Field("link_status", FieldType.Int32, false, optional: true), // Websites: last HTTP status (0 = unreachable)
+                new Field("podcast_type", FieldType.String, true, optional: true), // Podcasts: facetable Series/Episode split
+                new Field("series_title", FieldType.String, true, optional: true), // Podcast episodes: searchable parent show
+                new Field("is_subscribed", FieldType.Bool, true, optional: true), // Podcast series: facetable subscription
+                new Field("metadata_source", FieldType.String, true, optional: true) // Podcasts: facetable provenance
             };
         }
 
@@ -742,22 +747,35 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     break;
 
                 case "Podcast":
-                    // Check if it's a podcast episode first (episodes have SeriesId)
+                    // Check if it's a podcast episode first (episodes have SeriesId). The parent show's
+                    // title comes back in the same query so a search for the show finds its episodes.
                     var episode = await _context.PodcastEpisodes.AsNoTracking()
-                        .FirstOrDefaultAsync(e => e.Id == item.Id);
+                        .Where(e => e.Id == item.Id)
+                        .Select(e => new { e.SeriesId, e.Publisher, SeriesTitle = e.Series!.Title })
+                        .FirstOrDefaultAsync();
                     if (episode != null)
                     {
+                        additionalFields["podcast_type"] = PodcastDocumentTypes.Episode;
                         additionalFields["series_id"] = episode.SeriesId.ToString();
                         if (episode.Publisher != null)
                             additionalFields["publisher"] = episode.Publisher;
+                        if (!string.IsNullOrWhiteSpace(episode.SeriesTitle))
+                            additionalFields["series_title"] = episode.SeriesTitle;
                     }
                     else
                     {
                         // It's a podcast series
                         var podcast = await _context.PodcastSeries.AsNoTracking()
                             .FirstOrDefaultAsync(p => p.Id == item.Id);
-                        if (podcast?.Publisher != null)
-                            additionalFields["publisher"] = podcast.Publisher;
+                        if (podcast != null)
+                        {
+                            additionalFields["podcast_type"] = PodcastDocumentTypes.Series;
+                            additionalFields["is_subscribed"] = podcast.IsSubscribed;
+                            if (podcast.Publisher != null)
+                                additionalFields["publisher"] = podcast.Publisher;
+                            if (!string.IsNullOrWhiteSpace(podcast.MetadataSource))
+                                additionalFields["metadata_source"] = podcast.MetadataSource;
+                        }
                     }
                     break;
 
@@ -819,6 +837,14 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 document.HasRss = Convert.ToBoolean(hasRss);
             if (additionalFields.TryGetValue("link_status", out var linkStatus) && linkStatus != null)
                 document.LinkStatus = Convert.ToInt32(linkStatus);
+            if (additionalFields.TryGetValue("podcast_type", out var podcastType))
+                document.PodcastType = podcastType?.ToString();
+            if (additionalFields.TryGetValue("series_title", out var seriesTitle))
+                document.SeriesTitle = seriesTitle?.ToString();
+            if (additionalFields.TryGetValue("is_subscribed", out var isSubscribed) && isSubscribed != null)
+                document.IsSubscribed = Convert.ToBoolean(isSubscribed);
+            if (additionalFields.TryGetValue("metadata_source", out var metadataSource))
+                document.MetadataSource = metadataSource?.ToString();
         }
 
         /// <summary>

@@ -146,6 +146,32 @@ namespace MyMediaVerse.Infrastructure.Models
         public int? LinkStatus { get; set; }
 
         /// <summary>
+        /// "Series" or "Episode" (for Podcasts) - both are media items of type Podcast, so this is what
+        /// separates a show from its episodes in search
+        /// </summary>
+        [JsonPropertyName("podcast_type")]
+        public string? PodcastType { get; set; }
+
+        /// <summary>
+        /// Title of the parent show (for podcast episodes) - makes a search for the show return its episodes
+        /// </summary>
+        [JsonPropertyName("series_title")]
+        public string? SeriesTitle { get; set; }
+
+        /// <summary>
+        /// Whether the show is subscribed (for podcast series) - facetable, so lists can show only followed shows
+        /// </summary>
+        [JsonPropertyName("is_subscribed")]
+        public bool? IsSubscribed { get; set; }
+
+        /// <summary>
+        /// Where a podcast series' stored metadata came from (rss, apple, podcastindex, ...) - drives the
+        /// attribution shown beside it
+        /// </summary>
+        [JsonPropertyName("metadata_source")]
+        public string? MetadataSource { get; set; }
+
+        /// <summary>
         /// Text composed for semantic embedding. Typesense auto-embeds this via the collection's
         /// embedding field, so keyword and vector search stay sourced from one place. Serialized
         /// on write; ignored when search hits are deserialized back (no setter).

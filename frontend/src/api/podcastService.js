@@ -1,58 +1,15 @@
 import { apiClient } from './apiClient';
 
 // ============================================
-// Podcast Search Functions - Using real ListenNotes API only
+// Podcast directory (Apple Podcasts, with Podcast Index as a fallback)
 // ============================================
 
-export const searchPodcasts = async (query) => {
-    try {
-        const response = await apiClient.get(`/ListenNotes/search?query=${encodeURIComponent(query)}&type=podcast`);
-        return response.data;
-    } catch (error) {
-        console.error('Error searching podcasts:', error);
-        throw error;
-    }
-};
-
 /**
- * Fetch a podcast and a page of its episodes from ListenNotes.
- * ListenNotes paginates episodes by publish date rather than by page number:
- * pass the previous response's next_episode_pub_date to get the following page.
+ * Search the podcast directory for shows. Results carry the feed URL and,
+ * when the show is already in the library, its existingSeriesId.
  */
-export const getPodcastFromApi = async (id, nextEpisodePubDate = null) => {
-    try {
-        const query = nextEpisodePubDate
-            ? `?next_episode_pub_date=${encodeURIComponent(nextEpisodePubDate)}`
-            : '';
-        const response = await apiClient.get(`/ListenNotes/podcasts/${id}${query}`);
-        return response.data;
-    } catch (error) {
-        console.error('Error getting podcast:', error);
-        throw error;
-    }
-};
-
-export const importPodcastFromApi = async (podcastData) => {
-    try {
-        let response;
-
-        if (podcastData.podcastId || podcastData.PodcastId) {
-            // Import by ID
-            response = await apiClient.post(`/podcast/from-api/${podcastData.podcastId || podcastData.PodcastId}`);
-        } else if (podcastData.podcastName || podcastData.PodcastName) {
-            // Import by name
-            response = await apiClient.post('/podcast/from-api/by-name', {
-                podcastName: podcastData.podcastName || podcastData.PodcastName
-            });
-        } else {
-            throw new Error('Either podcastId or podcastName must be provided');
-        }
-
-        return response.data;
-    } catch (error) {
-        console.error('Error importing podcast:', error);
-        throw error;
-    }
+export const searchPodcastDirectory = (term, limit) => {
+    return apiClient.get('/podcast/directory/search', { params: { term, limit } });
 };
 
 // ============================================
@@ -99,12 +56,28 @@ export const syncPodcastSeriesEpisodes = (seriesId) => {
     return apiClient.post(`/podcast/series/${seriesId}/sync`);
 };
 
-export const importPodcastSeriesFromApi = (podcastId) => {
-    return apiClient.post(`/podcast/series/from-api/${podcastId}`);
+/**
+ * Sync every subscribed series from its feed.
+ * @returns {Promise} API response with a PodcastSyncAllResultDto payload
+ */
+export const syncAllPodcastSeries = () => {
+    return apiClient.post('/podcast/series/sync-all');
 };
 
-export const importPodcastSeriesByName = (podcastName) => {
-    return apiClient.post('/podcast/series/from-api/by-name', { podcastName });
+/**
+ * Fill a series from its feed. Without force an already-filled series is
+ * reported as skipped; with it the feed overwrites the stored details.
+ */
+export const enrichPodcastSeries = (seriesId, force = false) => {
+    return apiClient.post(`/podcast/series/${seriesId}/enrich`, null, { params: { force } });
+};
+
+/**
+ * Import a series from its feed. Pass a feed URL, an Apple Podcasts id, or both.
+ * Responds 201 when the series was created and 200 when it was already in the library.
+ */
+export const importPodcastSeriesFromFeed = ({ feedUrl, applePodcastsId }) => {
+    return apiClient.post('/podcast/series/from-feed', { feedUrl, applePodcastsId });
 };
 
 // ============================================
@@ -121,7 +94,7 @@ export const importPodcastsFromOpml = (file) => {
     const formData = new FormData();
     formData.append('file', file);
 
-    return apiClient.post('/podcast/import-opml', formData, {
+    return apiClient.post('/podcast/series/from-opml', formData, {
         headers: {
             'Content-Type': 'multipart/form-data',
         },
@@ -132,14 +105,20 @@ export const importPodcastsFromOpml = (file) => {
 // Podcast Episode API calls
 // ============================================
 
-export const importPodcastEpisodeFromApi = async (episodeId, seriesId) => {
-    try {
-        const response = await apiClient.post(`/podcast/episodes/from-api/${episodeId}?seriesId=${seriesId}`);
-        return response.data;
-    } catch (error) {
-        console.error('Error importing podcast episode from API:', error);
-        throw error;
-    }
+/**
+ * Read a page of episodes straight from the series' feed (not the library).
+ * refresh bypasses the server's short-lived feed cache.
+ */
+export const getPodcastFeedEpisodes = (seriesId, { offset = 0, limit = 20, refresh = false } = {}) => {
+    return apiClient.get(`/podcast/series/${seriesId}/feed-episodes`, { params: { offset, limit, refresh } });
+};
+
+/**
+ * Import one episode from the series' feed, identified by its guid
+ * (or its audio URL when the feed item has no guid).
+ */
+export const importPodcastEpisodeFromFeed = ({ seriesId, guid, audioUrl }) => {
+    return apiClient.post('/podcast/episodes/from-feed', { seriesId, guid, audioUrl });
 };
 
 export const getEpisodesBySeriesId = (seriesId) => {

@@ -106,7 +106,7 @@ namespace MyMediaVerse.UnitTests.Application
 
             // Act & Assert
             await _service.Invoking(s => s.UpdatePodcastSeriesAsync(nonExistentId, dto))
-                .Should().ThrowAsync<InvalidOperationException>()
+                .Should().ThrowAsync<KeyNotFoundException>()
                 .WithMessage($"*{nonExistentId}*not found*");
         }
 
