@@ -193,7 +193,7 @@ namespace MyMediaVerse.UnitTests.Application
             };
 
             // Act
-            var result = await _service.CreateTvShowAsync(dto);
+            var result = (await _service.CreateTvShowAsync(dto)).TvShow;
 
             // Assert
             result.Should().NotBeNull();
@@ -243,7 +243,7 @@ namespace MyMediaVerse.UnitTests.Application
             };
 
             // Act
-            var result = await _service.CreateTvShowAsync(dto);
+            var result = (await _service.CreateTvShowAsync(dto)).TvShow;
 
             // Assert
             result.Id.Should().Be(existingTvShow.Id);
@@ -275,7 +275,7 @@ namespace MyMediaVerse.UnitTests.Application
             };
 
             // Act
-            var result = await _service.CreateTvShowAsync(dto);
+            var result = (await _service.CreateTvShowAsync(dto)).TvShow;
 
             // Assert
             result.Topics.Should().HaveCount(1);
@@ -497,7 +497,7 @@ namespace MyMediaVerse.UnitTests.Application
             var dto = TestDataFactory.CreateTvShowDto("Game of Thrones");
             dto.Genres = new[] { " Fantasy ", "DRAMA", "drama" };
 
-            var result = await _service.CreateTvShowAsync(dto);
+            var result = (await _service.CreateTvShowAsync(dto)).TvShow;
 
             result.Genres.Select(g => g.Name).Should().BeEquivalentTo(new[] { "fantasy", "drama" });
             Context.Genres.Count(g => g.Name == "fantasy").Should().Be(1);
@@ -512,8 +512,8 @@ namespace MyMediaVerse.UnitTests.Application
             var second = TestDataFactory.CreateTvShowDto("Bosch");
             second.Genres = new[] { "Crime" };
 
-            var firstShow = await _service.CreateTvShowAsync(first);
-            var secondShow = await _service.CreateTvShowAsync(second);
+            var firstShow = (await _service.CreateTvShowAsync(first)).TvShow;
+            var secondShow = (await _service.CreateTvShowAsync(second)).TvShow;
 
             Context.Genres.Count(g => g.Name == "crime").Should().Be(1);
             firstShow.Genres.Single().Id.Should().Be(secondShow.Genres.Single().Id);
@@ -526,7 +526,7 @@ namespace MyMediaVerse.UnitTests.Application
         [Fact]
         public async Task CreateTvShowAsync_FromTmdb_ShouldStampTmdbRefreshedAt()
         {
-            var result = await _service.CreateTvShowAsync(TestDataFactory.CreateTvShowDto("Severance"), fromTmdb: true);
+            var result = (await _service.CreateTvShowAsync(TestDataFactory.CreateTvShowDto("Severance"), fromTmdb: true)).TvShow;
 
             result.TmdbRefreshedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromMinutes(1));
         }
@@ -534,9 +534,60 @@ namespace MyMediaVerse.UnitTests.Application
         [Fact]
         public async Task CreateTvShowAsync_ManualCreate_ShouldLeaveTmdbRefreshedAtNull()
         {
-            var result = await _service.CreateTvShowAsync(TestDataFactory.CreateTvShowDto("Severance"));
+            var result = (await _service.CreateTvShowAsync(TestDataFactory.CreateTvShowDto("Severance"))).TvShow;
 
             result.TmdbRefreshedAt.Should().BeNull();
+        }
+
+        #endregion
+
+        #region Create: existing-item lookup
+
+        [Fact]
+        public async Task CreateTvShowAsync_NewShow_ShouldReportCreated()
+        {
+            var result = await _service.CreateTvShowAsync(TestDataFactory.CreateTvShowDto("Severance", 2022));
+
+            result.Created.Should().BeTrue();
+            Context.TvShows.Count().Should().Be(1);
+        }
+
+        [Fact]
+        public async Task CreateTvShowAsync_StoredTmdbId_ShouldReturnTheStoredShowUntouched_EvenWhenTitleAndYearDiffer()
+        {
+            var stored = TestDataFactory.CreateTvShow("GoT (rewatch)", 2012, "1399");
+            stored.Description = "My own description";
+            Context.TvShows.Add(stored);
+            await Context.SaveChangesAsync();
+
+            var dto = TestDataFactory.CreateTvShowDto("Game of Thrones", 2011);
+            dto.TmdbId = "1399";
+            dto.Description = "TMDB overview";
+
+            var result = await _service.CreateTvShowAsync(dto, fromTmdb: true);
+
+            result.Created.Should().BeFalse();
+            result.TvShow.Id.Should().Be(stored.Id);
+            result.TvShow.Title.Should().Be("GoT (rewatch)");
+            result.TvShow.Description.Should().Be("My own description");
+            result.TvShow.TmdbRefreshedAt.Should().BeNull();
+            Context.TvShows.Count().Should().Be(1);
+        }
+
+        [Fact]
+        public async Task CreateTvShowAsync_SameTitleAndYearButDifferentTmdbId_ShouldCreateASecondShow()
+        {
+            // A remake can share its title and year; the TMDB ids tell them apart.
+            Context.TvShows.Add(TestDataFactory.CreateTvShow("The Office", 2005, "2316"));
+            await Context.SaveChangesAsync();
+
+            var dto = TestDataFactory.CreateTvShowDto("The Office", 2005);
+            dto.TmdbId = "99999";
+
+            var result = await _service.CreateTvShowAsync(dto, fromTmdb: true);
+
+            result.Created.Should().BeTrue();
+            Context.TvShows.Count().Should().Be(2);
         }
 
         #endregion

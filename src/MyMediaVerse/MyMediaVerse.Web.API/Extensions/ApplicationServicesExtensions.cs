@@ -55,10 +55,6 @@ public static class ApplicationServicesExtensions
         services.AddScoped<IOpenLibraryService, OpenLibraryService>();
         services.AddScoped<IGoogleBooksService, GoogleBooksService>();
 
-        // External-source facades (narrow business surface; delegate to source services).
-        services.AddScoped<IExternalMovieService, ExternalMovieService>();
-        services.AddScoped<IExternalTvShowService, ExternalTvShowService>();
-
         services.AddScoped<INoteService, NoteService>();
         services.AddScoped<IAIService, AIService>();
 

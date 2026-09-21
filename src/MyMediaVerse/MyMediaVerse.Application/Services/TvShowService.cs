@@ -94,7 +94,7 @@ namespace MyMediaVerse.Application.Services
             }
         }
 
-        public async Task<TvShow> CreateTvShowAsync(CreateTvShowDto dto, bool fromTmdb = false)
+        public async Task<TvShowCreationResult> CreateTvShowAsync(CreateTvShowDto dto, bool fromTmdb = false)
         {
             try
             {
@@ -103,15 +103,11 @@ namespace MyMediaVerse.Application.Services
                     throw new ArgumentNullException(nameof(dto), "TV show data is required");
                 }
 
-                // Check if TV show already exists
-                if (await TvShowExistsAsync(dto.Title, dto.FirstAirYear))
+                var existingTvShow = await FindExistingAsync(dto);
+                if (existingTvShow != null)
                 {
-                    _logger.LogWarning("TV show already exists: {Title} ({Year})", dto.Title, dto.FirstAirYear);
-                    var existingTvShow = await GetTvShowByTitleAndYearAsync(dto.Title, dto.FirstAirYear);
-                    if (existingTvShow != null)
-                    {
-                        return existingTvShow;
-                    }
+                    _logger.LogInformation("TV show already in the library: {Title} ({Year})", existingTvShow.Title, existingTvShow.FirstAirYear);
+                    return new TvShowCreationResult(existingTvShow, Created: false);
                 }
 
                 var tvShow = new TvShow
@@ -152,10 +148,24 @@ namespace MyMediaVerse.Application.Services
                 await HandleGenresAsync(tvShow, dto.Genres);
 
                 _context.Add(tvShow);
-                await _context.SaveChangesAsync();
+                try
+                {
+                    await _context.SaveChangesAsync();
+                }
+                catch (DbUpdateException) when (!string.IsNullOrEmpty(dto.TmdbId))
+                {
+                    // Two simultaneous imports of the same TMDB id can both pass the duplicate lookup
+                    // before either saves. The unique index rejects the second save; return the row
+                    // the first one created instead of surfacing an error.
+                    _context.Remove(tvShow);
+                    var winner = await GetTvShowByTmdbIdAsync(dto.TmdbId);
+                    if (winner == null) throw;
+
+                    return new TvShowCreationResult(winner, Created: false);
+                }
 
                 _logger.LogInformation("Successfully created TV show: {Title} ({Year})", tvShow.Title, tvShow.FirstAirYear);
-                return tvShow;
+                return new TvShowCreationResult(tvShow, Created: true);
             }
             catch (Exception ex)
             {
@@ -274,6 +284,36 @@ namespace MyMediaVerse.Application.Services
                 _logger.LogError(ex, "Error occurred while checking if TV show exists: {Title} ({Year})", title, firstAirYear);
                 throw;
             }
+        }
+
+        public async Task<TvShow?> GetTvShowByTmdbIdAsync(string tmdbId)
+        {
+            if (string.IsNullOrWhiteSpace(tmdbId)) return null;
+
+            return await _context.TvShows
+                .Include(t => t.Topics)
+                .Include(t => t.Genres)
+                .FirstOrDefaultAsync(t => t.TmdbId == tmdbId);
+        }
+
+        // TMDB id first: it survives an edited title or a missing year. Title and year is the
+        // fallback, and never matches a show that carries a different TMDB id (a remake can
+        // share its title).
+        private async Task<TvShow?> FindExistingAsync(CreateTvShowDto dto)
+        {
+            if (!string.IsNullOrEmpty(dto.TmdbId))
+            {
+                var byTmdbId = await GetTvShowByTmdbIdAsync(dto.TmdbId);
+                if (byTmdbId != null) return byTmdbId;
+            }
+
+            var byTitle = await GetTvShowByTitleAndYearAsync(dto.Title, dto.FirstAirYear);
+            if (byTitle == null) return null;
+
+            var differentTmdbItem = !string.IsNullOrEmpty(dto.TmdbId)
+                && !string.IsNullOrEmpty(byTitle.TmdbId)
+                && byTitle.TmdbId != dto.TmdbId;
+            return differentTmdbItem ? null : byTitle;
         }
 
         public async Task<TvShow?> GetTvShowByTitleAndYearAsync(string title, int? firstAirYear = null)

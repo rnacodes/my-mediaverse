@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Shared.DTOs.TMDB;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Domain.Entities;
+using MyMediaVerse.Shared.Interfaces;
 using MyMediaVerse.Web.API.Extensions;
 using System.Text.Json;
 
@@ -17,13 +19,16 @@ namespace MyMediaVerse.Web.API.Controllers
         private readonly ITvShowMappingService _tvShowMappingService;
         private readonly ILogger<TvShowController> _logger;
         private readonly ITmdbService _tmdbService;
+        private readonly IImportReindexService _importReindexService;
 
         public TvShowController(
             ITvShowService tvShowService,
             ITvShowMappingService tvShowMappingService,
             ILogger<TvShowController> logger,
-            ITmdbService tmdbService)
+            ITmdbService tmdbService,
+            IImportReindexService importReindexService)
         {
+            _importReindexService = importReindexService;
             _tvShowService = tvShowService;
             _tvShowMappingService = tvShowMappingService;
             _logger = logger;
@@ -114,10 +119,8 @@ namespace MyMediaVerse.Web.API.Controllers
                     return BadRequest("TV show data is required");
                 }
 
-                var tvShow = await _tvShowService.CreateTvShowAsync(dto);
-                var response = await _tvShowMappingService.MapToResponseDtoAsync(tvShow);
-
-                return CreatedAtAction(nameof(GetTvShow), new { id = tvShow.Id }, response);
+                var result = await _tvShowService.CreateTvShowAsync(dto);
+                return await CreatedOrExistingAsync(result);
             }
             catch (Exception ex)
             {
@@ -176,6 +179,11 @@ namespace MyMediaVerse.Web.API.Controllers
         }
 
         // POST: api/tvshow/from-tmdb/{tvShowId}
+        // 201 when the TV show is imported; 200 with the stored TV show when its TMDB id is already
+        // in the library (no TMDB request is made).
+        // Explicit [Authorize] even though the fallback policy already requires a token: this endpoint
+        // writes to the library and proxies an outbound TMDB call per request.
+        [Authorize]
         [HttpPost("from-tmdb/{tvShowId}")]
         [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
         public async Task<IActionResult> ImportTvShowFromTmdb(int tvShowId)
@@ -183,6 +191,12 @@ namespace MyMediaVerse.Web.API.Controllers
             try
             {
                 _logger.LogInformation("Starting TV show import from TMDB for ID: {TvShowId}", tvShowId);
+
+                var stored = await _tvShowService.GetTvShowByTmdbIdAsync(tvShowId.ToString());
+                if (stored != null)
+                {
+                    return Ok(await _tvShowMappingService.MapToResponseDtoAsync(stored));
+                }
 
                 // Get TV show data from TMDB API
                 var tmdbTvShow = await _tmdbService.GetTvShowDetailsAsync(tvShowId);
@@ -193,7 +207,7 @@ namespace MyMediaVerse.Web.API.Controllers
                 _logger.LogInformation("Mapped TV show data for: {Title}", tvShow.Title);
 
                 // Save to database (keeping TMDB thumbnail URL directly instead of re-uploading)
-                var createdTvShow = await _tvShowService.CreateTvShowAsync(new CreateTvShowDto
+                var result = await _tvShowService.CreateTvShowAsync(new CreateTvShowDto
                 {
                     Title = tvShow.Title,
                     Description = tvShow.Description,
@@ -218,10 +232,13 @@ namespace MyMediaVerse.Web.API.Controllers
                     MediaType = MediaType.TVShow
                 }, fromTmdb: true);
 
-                var response = await _tvShowMappingService.MapToResponseDtoAsync(createdTvShow);
-                _logger.LogInformation("Successfully imported TV show: {Title} with ID: {Id}", createdTvShow.Title, createdTvShow.Id);
+                if (result.Created)
+                {
+                    _logger.LogInformation("Successfully imported TV show: {Title} with ID: {Id}", result.TvShow.Title, result.TvShow.Id);
+                    await ReindexAsync(result.TvShow.Id, "TMDB TV show import");
+                }
 
-                return CreatedAtAction(nameof(GetTvShow), new { id = createdTvShow.Id }, response);
+                return await CreatedOrExistingAsync(result);
             }
             catch (Exception ex)
             {
@@ -370,6 +387,27 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 _logger.LogError(ex, "Error occurred while searching TMDB TV shows with query: {Query}", query);
                 return StatusCode(500, new { error = "Failed to search TMDB TV shows", details = ex.Message });
+            }
+        }
+
+        private async Task<IActionResult> CreatedOrExistingAsync(TvShowCreationResult result)
+        {
+            var response = await _tvShowMappingService.MapToResponseDtoAsync(result.TvShow);
+            return result.Created
+                ? CreatedAtAction(nameof(GetTvShow), new { id = result.TvShow.Id }, response)
+                : Ok(response);
+        }
+
+        private async Task ReindexAsync(Guid id, string label)
+        {
+            try
+            {
+                await _importReindexService.ReindexItemAfterImportAsync(id, label);
+            }
+            catch (Exception ex)
+            {
+                // The import itself is already saved; a reindex failure must not turn it into a 500.
+                _logger.LogError(ex, "Search reindex after {Label} failed", label);
             }
         }
     }

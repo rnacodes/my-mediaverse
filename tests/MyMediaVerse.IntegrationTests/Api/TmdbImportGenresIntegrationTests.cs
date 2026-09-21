@@ -99,5 +99,78 @@ namespace MyMediaVerse.IntegrationTests.Api
             show.Creator.Should().Be("David Benioff");
             show.ContentRating.Should().Be("TV-MA");
         }
+
+        [Fact]
+        public async Task ImportMovieFromTmdb_Twice_ShouldReturnCreatedThenOk_WithOneTmdbCall()
+        {
+            var (client, tmdb) = _factory.CreateClientWithSubstitute<ITmdbService>(mock =>
+                mock.GetMovieDetailsAsync(603, Arg.Any<string>()).Returns(new TmdbMovieDto
+                {
+                    Id = 603,
+                    Title = "The Matrix",
+                    ReleaseDate = "1999-03-31"
+                }));
+
+            var first = await client.PostAsync("/api/movie/from-tmdb/603", null);
+            var second = await client.PostAsync("/api/movie/from-tmdb/603", null);
+
+            first.StatusCode.Should().Be(HttpStatusCode.Created);
+            second.StatusCode.Should().Be(HttpStatusCode.OK);
+            var created = await first.Content.ReadFromJsonAsync<MovieResponseDto>(_jsonOptions);
+            var existing = await second.Content.ReadFromJsonAsync<MovieResponseDto>(_jsonOptions);
+            existing!.Id.Should().Be(created!.Id);
+
+            // The stored id answers the second request without going back to TMDB.
+            await tmdb.Received(1).GetMovieDetailsAsync(603, Arg.Any<string>());
+        }
+
+        [Fact]
+        public async Task ImportTvShowFromTmdb_Twice_ShouldReturnCreatedThenOk_WithOneTmdbCall()
+        {
+            var (client, tmdb) = _factory.CreateClientWithSubstitute<ITmdbService>(mock =>
+                mock.GetTvShowDetailsAsync(95396, Arg.Any<string>()).Returns(new TmdbTvShowDto
+                {
+                    Id = 95396,
+                    Name = "Severance",
+                    FirstAirDate = "2022-02-17"
+                }));
+
+            var first = await client.PostAsync("/api/tvshow/from-tmdb/95396", null);
+            var second = await client.PostAsync("/api/tvshow/from-tmdb/95396", null);
+
+            first.StatusCode.Should().Be(HttpStatusCode.Created);
+            second.StatusCode.Should().Be(HttpStatusCode.OK);
+            var created = await first.Content.ReadFromJsonAsync<TvShowResponseDto>(_jsonOptions);
+            var existing = await second.Content.ReadFromJsonAsync<TvShowResponseDto>(_jsonOptions);
+            existing!.Id.Should().Be(created!.Id);
+            await tmdb.Received(1).GetTvShowDetailsAsync(95396, Arg.Any<string>());
+        }
+
+        [Fact]
+        public async Task CreateMovie_WithAStoredTmdbId_ShouldReturnOkWithTheStoredMovie()
+        {
+            var client = _factory.CreateClient();
+            var dto = new CreateMovieDto { Title = "Inception", ReleaseYear = 2010, TmdbId = "27205", MediaType = Domain.Entities.MediaType.Movie };
+
+            var first = await client.PostAsJsonAsync("/api/movie", dto);
+            dto.Title = "Inception (duplicate attempt)";
+            dto.ReleaseYear = 2011;
+            var second = await client.PostAsJsonAsync("/api/movie", dto);
+
+            first.StatusCode.Should().Be(HttpStatusCode.Created);
+            second.StatusCode.Should().Be(HttpStatusCode.OK);
+            var stored = await second.Content.ReadFromJsonAsync<MovieResponseDto>(_jsonOptions);
+            stored!.Title.Should().Be("Inception");
+        }
+
+        [Theory]
+        [InlineData("/api/tmdb/import/movie/27205")]
+        [InlineData("/api/tmdb/import/tv/1399")]
+        public async Task RetiredImportRoutes_ShouldNoLongerExist(string route)
+        {
+            var response = await _factory.CreateClient().PostAsync(route, null);
+
+            response.StatusCode.Should().BeOneOf(HttpStatusCode.NotFound, HttpStatusCode.MethodNotAllowed);
+        }
     }
 }

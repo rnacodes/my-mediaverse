@@ -90,7 +90,7 @@ namespace MyMediaVerse.Application.Services
             }
         }
 
-        public async Task<Movie> CreateMovieAsync(CreateMovieDto dto, bool fromTmdb = false)
+        public async Task<MovieCreationResult> CreateMovieAsync(CreateMovieDto dto, bool fromTmdb = false)
         {
             try
             {
@@ -99,15 +99,11 @@ namespace MyMediaVerse.Application.Services
                     throw new ArgumentNullException(nameof(dto), "Movie data is required");
                 }
 
-                // Check if movie already exists
-                if (await MovieExistsAsync(dto.Title, dto.ReleaseYear))
+                var existingMovie = await FindExistingAsync(dto);
+                if (existingMovie != null)
                 {
-                    _logger.LogWarning("Movie already exists: {Title} ({Year})", dto.Title, dto.ReleaseYear);
-                    var existingMovie = await GetMovieByTitleAndYearAsync(dto.Title, dto.ReleaseYear);
-                    if (existingMovie != null)
-                    {
-                        return existingMovie;
-                    }
+                    _logger.LogInformation("Movie already in the library: {Title} ({Year})", existingMovie.Title, existingMovie.ReleaseYear);
+                    return new MovieCreationResult(existingMovie, Created: false);
                 }
 
                 var movie = new Movie
@@ -147,10 +143,24 @@ namespace MyMediaVerse.Application.Services
                 await HandleGenresAsync(movie, dto.Genres);
 
                 _context.Add(movie);
-                await _context.SaveChangesAsync();
+                try
+                {
+                    await _context.SaveChangesAsync();
+                }
+                catch (DbUpdateException) when (!string.IsNullOrEmpty(dto.TmdbId))
+                {
+                    // Two simultaneous imports of the same TMDB id can both pass the duplicate lookup
+                    // before either saves. The unique index rejects the second save; return the row
+                    // the first one created instead of surfacing an error.
+                    _context.Remove(movie);
+                    var winner = await GetMovieByTmdbIdAsync(dto.TmdbId);
+                    if (winner == null) throw;
+
+                    return new MovieCreationResult(winner, Created: false);
+                }
 
                 _logger.LogInformation("Successfully created movie: {Title} ({Year})", movie.Title, movie.ReleaseYear);
-                return movie;
+                return new MovieCreationResult(movie, Created: true);
             }
             catch (Exception ex)
             {
@@ -264,6 +274,36 @@ namespace MyMediaVerse.Application.Services
                 _logger.LogError(ex, "Error occurred while checking if movie exists: {Title} ({Year})", title, releaseYear);
                 throw;
             }
+        }
+
+        public async Task<Movie?> GetMovieByTmdbIdAsync(string tmdbId)
+        {
+            if (string.IsNullOrWhiteSpace(tmdbId)) return null;
+
+            return await _context.Movies
+                .Include(m => m.Topics)
+                .Include(m => m.Genres)
+                .FirstOrDefaultAsync(m => m.TmdbId == tmdbId);
+        }
+
+        // TMDB id first: it survives an edited title or a missing year. Title and year is the
+        // fallback, and never matches a movie that carries a different TMDB id (two films can
+        // share a title and a year).
+        private async Task<Movie?> FindExistingAsync(CreateMovieDto dto)
+        {
+            if (!string.IsNullOrEmpty(dto.TmdbId))
+            {
+                var byTmdbId = await GetMovieByTmdbIdAsync(dto.TmdbId);
+                if (byTmdbId != null) return byTmdbId;
+            }
+
+            var byTitle = await GetMovieByTitleAndYearAsync(dto.Title, dto.ReleaseYear);
+            if (byTitle == null) return null;
+
+            var differentTmdbItem = !string.IsNullOrEmpty(dto.TmdbId)
+                && !string.IsNullOrEmpty(byTitle.TmdbId)
+                && byTitle.TmdbId != dto.TmdbId;
+            return differentTmdbItem ? null : byTitle;
         }
 
         public async Task<Movie?> GetMovieByTitleAndYearAsync(string title, int? releaseYear = null)

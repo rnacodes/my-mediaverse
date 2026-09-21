@@ -192,7 +192,7 @@ namespace MyMediaVerse.UnitTests.Application
             };
 
             // Act
-            var result = await _service.CreateMovieAsync(dto);
+            var result = (await _service.CreateMovieAsync(dto)).Movie;
 
             // Assert
             result.Should().NotBeNull();
@@ -241,7 +241,7 @@ namespace MyMediaVerse.UnitTests.Application
             };
 
             // Act
-            var result = await _service.CreateMovieAsync(dto);
+            var result = (await _service.CreateMovieAsync(dto)).Movie;
 
             // Assert
             result.Id.Should().Be(existingMovie.Id);
@@ -273,7 +273,7 @@ namespace MyMediaVerse.UnitTests.Application
             };
 
             // Act
-            var result = await _service.CreateMovieAsync(dto);
+            var result = (await _service.CreateMovieAsync(dto)).Movie;
 
             // Assert
             result.Topics.Should().HaveCount(1);
@@ -493,7 +493,7 @@ namespace MyMediaVerse.UnitTests.Application
             var dto = TestDataFactory.CreateMovieDto("Arrival");
             dto.Genres = new[] { " Science Fiction ", "DRAMA", "drama" };
 
-            var result = await _service.CreateMovieAsync(dto);
+            var result = (await _service.CreateMovieAsync(dto)).Movie;
 
             result.Genres.Select(g => g.Name).Should().BeEquivalentTo(new[] { "science fiction", "drama" });
             Context.Genres.Count(g => g.Name == "science fiction").Should().Be(1);
@@ -508,8 +508,8 @@ namespace MyMediaVerse.UnitTests.Application
             var second = TestDataFactory.CreateMovieDto("Collateral");
             second.Genres = new[] { "Crime" };
 
-            var firstMovie = await _service.CreateMovieAsync(first);
-            var secondMovie = await _service.CreateMovieAsync(second);
+            var firstMovie = (await _service.CreateMovieAsync(first)).Movie;
+            var secondMovie = (await _service.CreateMovieAsync(second)).Movie;
 
             Context.Genres.Count(g => g.Name == "crime").Should().Be(1);
             firstMovie.Genres.Single().Id.Should().Be(secondMovie.Genres.Single().Id);
@@ -522,7 +522,7 @@ namespace MyMediaVerse.UnitTests.Application
         [Fact]
         public async Task CreateMovieAsync_FromTmdb_ShouldStampTmdbRefreshedAt()
         {
-            var result = await _service.CreateMovieAsync(TestDataFactory.CreateMovieDto("Inception"), fromTmdb: true);
+            var result = (await _service.CreateMovieAsync(TestDataFactory.CreateMovieDto("Inception"), fromTmdb: true)).Movie;
 
             result.TmdbRefreshedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromMinutes(1));
         }
@@ -530,9 +530,83 @@ namespace MyMediaVerse.UnitTests.Application
         [Fact]
         public async Task CreateMovieAsync_ManualCreate_ShouldLeaveTmdbRefreshedAtNull()
         {
-            var result = await _service.CreateMovieAsync(TestDataFactory.CreateMovieDto("Inception"));
+            var result = (await _service.CreateMovieAsync(TestDataFactory.CreateMovieDto("Inception"))).Movie;
 
             result.TmdbRefreshedAt.Should().BeNull();
+        }
+
+        #endregion
+
+        #region Create: existing-item lookup
+
+        [Fact]
+        public async Task CreateMovieAsync_NewMovie_ShouldReportCreated()
+        {
+            var result = await _service.CreateMovieAsync(TestDataFactory.CreateMovieDto("Arrival", 2016));
+
+            result.Created.Should().BeTrue();
+            Context.Movies.Count().Should().Be(1);
+        }
+
+        [Fact]
+        public async Task CreateMovieAsync_StoredTmdbId_ShouldReturnTheStoredMovieUntouched_EvenWhenTitleAndYearDiffer()
+        {
+            var stored = TestDataFactory.CreateMovie("My Renamed Copy", 1999, "27205");
+            stored.Description = "My own description";
+            Context.Movies.Add(stored);
+            await Context.SaveChangesAsync();
+
+            var dto = TestDataFactory.CreateMovieDto("Inception", 2010);
+            dto.TmdbId = "27205";
+            dto.Description = "TMDB overview";
+
+            var result = await _service.CreateMovieAsync(dto, fromTmdb: true);
+
+            result.Created.Should().BeFalse();
+            result.Movie.Id.Should().Be(stored.Id);
+            result.Movie.Title.Should().Be("My Renamed Copy");
+            result.Movie.Description.Should().Be("My own description");
+            result.Movie.TmdbRefreshedAt.Should().BeNull();
+            Context.Movies.Count().Should().Be(1);
+        }
+
+        [Fact]
+        public async Task CreateMovieAsync_SameTitleAndYear_ShouldFallBackToTheStoredMovie()
+        {
+            var stored = TestDataFactory.CreateMovie("Heat", 1995, "");
+            Context.Movies.Add(stored);
+            await Context.SaveChangesAsync();
+
+            var result = await _service.CreateMovieAsync(TestDataFactory.CreateMovieDto("heat", 1995));
+
+            result.Created.Should().BeFalse();
+            result.Movie.Id.Should().Be(stored.Id);
+        }
+
+        [Fact]
+        public async Task CreateMovieAsync_SameTitleAndYearButDifferentTmdbId_ShouldCreateASecondMovie()
+        {
+            // Two different films can share a title and a year; their TMDB ids tell them apart.
+            Context.Movies.Add(TestDataFactory.CreateMovie("Crash", 2004, "1640"));
+            await Context.SaveChangesAsync();
+
+            var dto = TestDataFactory.CreateMovieDto("Crash", 2004);
+            dto.TmdbId = "99999";
+
+            var result = await _service.CreateMovieAsync(dto, fromTmdb: true);
+
+            result.Created.Should().BeTrue();
+            Context.Movies.Count().Should().Be(2);
+        }
+
+        [Fact]
+        public async Task GetMovieByTmdbIdAsync_ShouldReturnNull_ForBlankOrUnknownIds()
+        {
+            Context.Movies.Add(TestDataFactory.CreateMovie("Manual", 2000, ""));
+            await Context.SaveChangesAsync();
+
+            (await _service.GetMovieByTmdbIdAsync("")).Should().BeNull();
+            (await _service.GetMovieByTmdbIdAsync("424242")).Should().BeNull();
         }
 
         #endregion
