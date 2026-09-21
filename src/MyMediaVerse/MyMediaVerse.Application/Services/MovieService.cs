@@ -11,13 +11,16 @@ namespace MyMediaVerse.Application.Services
     {
         private readonly IApplicationDbContext _context;
         private readonly ILogger<MovieService> _logger;
+        private readonly IMediaService _mediaService;
 
         public MovieService(
             IApplicationDbContext context,
-            ILogger<MovieService> logger)
+            ILogger<MovieService> logger,
+            IMediaService mediaService)
         {
             _context = context;
             _logger = logger;
+            _mediaService = mediaService;
         }
 
         public async Task<IEnumerable<Movie>> GetAllMoviesAsync()
@@ -233,21 +236,21 @@ namespace MyMediaVerse.Application.Services
         {
             try
             {
-                var movie = await _context.FindAsync<Movie>(id);
-                if (movie == null)
+                // Only a movie id is accepted here; any other media item is left alone.
+                if (!await _context.Movies.AnyAsync(m => m.Id == id))
                 {
                     return false;
                 }
 
-                var movieId = movie.Id;
-                var movieTitle = movie.Title;
-                var movieYear = movie.ReleaseYear;
+                // The shared delete detaches mixlists, topics, and genres, cleans up a stored
+                // thumbnail, and removes the item from the search index.
+                var deleted = await _mediaService.DeleteMediaItemAsync(id);
+                if (deleted)
+                {
+                    _logger.LogInformation("Successfully deleted movie with ID {Id}", id);
+                }
 
-                _context.Remove(movie);
-                await _context.SaveChangesAsync();
-
-                _logger.LogInformation("Successfully deleted movie: {Title} ({Year})", movieTitle, movieYear);
-                return true;
+                return deleted;
             }
             catch (Exception ex)
             {

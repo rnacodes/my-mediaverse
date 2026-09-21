@@ -11,13 +11,16 @@ namespace MyMediaVerse.Application.Services
     {
         private readonly IApplicationDbContext _context;
         private readonly ILogger<TvShowService> _logger;
+        private readonly IMediaService _mediaService;
 
         public TvShowService(
             IApplicationDbContext context,
-            ILogger<TvShowService> logger)
+            ILogger<TvShowService> logger,
+            IMediaService mediaService)
         {
             _context = context;
             _logger = logger;
+            _mediaService = mediaService;
         }
 
         public async Task<IEnumerable<TvShow>> GetAllTvShowsAsync()
@@ -243,21 +246,22 @@ namespace MyMediaVerse.Application.Services
         {
             try
             {
-                var tvShow = await _context.FindAsync<TvShow>(id);
-                if (tvShow == null)
+                // Only a show id is accepted here; any other media item is left alone.
+                if (!await _context.TvShows.AnyAsync(t => t.Id == id))
                 {
                     return false;
                 }
 
-                var tvShowId = tvShow.Id;
-                var tvShowTitle = tvShow.Title;
-                var tvShowYear = tvShow.FirstAirYear;
+                // The shared delete removes the show's episodes as media items of their own (the
+                // database cascade alone would leave their base rows behind), detaches mixlists,
+                // topics, and genres, and removes the show and its episodes from the search index.
+                var deleted = await _mediaService.DeleteMediaItemAsync(id);
+                if (deleted)
+                {
+                    _logger.LogInformation("Successfully deleted TV show with ID {Id}", id);
+                }
 
-                _context.Remove(tvShow);
-                await _context.SaveChangesAsync();
-
-                _logger.LogInformation("Successfully deleted TV show: {Title} ({Year})", tvShowTitle, tvShowYear);
-                return true;
+                return deleted;
             }
             catch (Exception ex)
             {
@@ -449,17 +453,19 @@ namespace MyMediaVerse.Application.Services
         {
             try
             {
-                var episode = await _context.FindAsync<TvShowEpisode>(id);
-                if (episode == null)
+                // Only an episode id is accepted here; any other media item is left alone.
+                if (!await _context.TvShowEpisodes.AnyAsync(e => e.Id == id))
                 {
                     return false;
                 }
 
-                _context.Remove(episode);
-                await _context.SaveChangesAsync();
+                var deleted = await _mediaService.DeleteMediaItemAsync(id);
+                if (deleted)
+                {
+                    _logger.LogInformation("Successfully deleted TV show episode with ID {Id}", id);
+                }
 
-                _logger.LogInformation("Successfully deleted TV show episode with ID {Id}", id);
-                return true;
+                return deleted;
             }
             catch (Exception ex)
             {

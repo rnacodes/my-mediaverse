@@ -6,6 +6,7 @@ using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.UnitTests.TestData;
 using MyMediaVerse.UnitTests.TestHelpers;
+using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.UnitTests.Application
 {
@@ -14,11 +15,16 @@ namespace MyMediaVerse.UnitTests.Application
     {
         private readonly ILogger<TvShowService> _mockLogger;
         private readonly TvShowService _service;
+        private readonly IThumbnailStorageService _mockThumbnailStorage = Substitute.For<IThumbnailStorageService>();
+        private readonly ITypesenseService _mockTypesense = Substitute.For<ITypesenseService>();
 
         public TvShowServiceTests()
         {
             _mockLogger = Substitute.For<ILogger<TvShowService>>();
-            _service = new TvShowService(Context, _mockLogger);
+            // Deletes go through the real shared delete path, so its effects are asserted here too.
+            var mediaService = new MediaService(
+                Context, Substitute.For<ILogger<MediaService>>(), _mockThumbnailStorage, _mockTypesense);
+            _service = new TvShowService(Context, _mockLogger, mediaService);
         }
 
         #region GetAllTvShowsAsync Tests
@@ -588,6 +594,83 @@ namespace MyMediaVerse.UnitTests.Application
 
             result.Created.Should().BeTrue();
             Context.TvShows.Count().Should().Be(2);
+        }
+
+        #endregion
+
+        #region Delete: shared delete path
+
+        private TvShowEpisode NewEpisode(TvShow show, int season, int number) => new()
+        {
+            Id = Guid.NewGuid(),
+            Title = $"S{season}E{number}",
+            MediaType = MediaType.TVShow,
+            Status = Status.Uncharted,
+            DateAdded = DateTime.UtcNow,
+            ShowId = show.Id,
+            SeasonNumber = season,
+            EpisodeNumber = number
+        };
+
+        [Fact]
+        public async Task DeleteTvShowAsync_ShouldRemoveEveryEpisodeAsAMediaItem_AndCleanTheSearchIndex()
+        {
+            var show = TestDataFactory.CreateTvShow("Severance", 2022, "95396");
+            show.Genres.Add(new Genre { Name = "thriller" });
+            var first = NewEpisode(show, 1, 1);
+            var second = NewEpisode(show, 1, 2);
+            var mixlist = TestDataFactory.CreateMixlist("Watching");
+            mixlist.MediaItems.Add(show);
+            Context.TvShows.Add(show);
+            Context.TvShowEpisodes.AddRange(first, second);
+            Context.Mixlists.Add(mixlist);
+            await Context.SaveChangesAsync();
+
+            var result = await _service.DeleteTvShowAsync(show.Id);
+
+            result.Should().BeTrue();
+            // No orphaned base rows: the show and both episodes are gone from MediaItems.
+            Context.MediaItems.Any(m => m.Id == show.Id || m.Id == first.Id || m.Id == second.Id).Should().BeFalse();
+            Context.TvShowEpisodes.Any(e => e.ShowId == show.Id).Should().BeFalse();
+            Context.Mixlists.Single().MediaItems.Should().BeEmpty();
+            await _mockTypesense.Received(1).DeleteMediaItemAsync(show.Id);
+            await _mockTypesense.Received(1).DeleteMediaItemAsync(first.Id);
+            await _mockTypesense.Received(1).DeleteMediaItemAsync(second.Id);
+        }
+
+        [Fact]
+        public async Task DeleteTvShowEpisodeAsync_ShouldRemoveOnlyThatEpisode_AndCleanTheSearchIndex()
+        {
+            var show = TestDataFactory.CreateTvShow("Severance", 2022, "95396");
+            var first = NewEpisode(show, 1, 1);
+            var second = NewEpisode(show, 1, 2);
+            Context.TvShows.Add(show);
+            Context.TvShowEpisodes.AddRange(first, second);
+            await Context.SaveChangesAsync();
+
+            var result = await _service.DeleteTvShowEpisodeAsync(first.Id);
+
+            result.Should().BeTrue();
+            Context.MediaItems.Any(m => m.Id == first.Id).Should().BeFalse();
+            Context.TvShowEpisodes.Select(e => e.Id).Should().Equal(second.Id);
+            Context.TvShows.Any(t => t.Id == show.Id).Should().BeTrue();
+            await _mockTypesense.Received(1).DeleteMediaItemAsync(first.Id);
+        }
+
+        [Fact]
+        public async Task DeleteTvShowAsync_ShouldReturnFalse_AndDeleteNothing_WhenTheIdIsAnEpisode()
+        {
+            var show = TestDataFactory.CreateTvShow("Severance", 2022, "95396");
+            var episode = NewEpisode(show, 1, 1);
+            Context.TvShows.Add(show);
+            Context.TvShowEpisodes.Add(episode);
+            await Context.SaveChangesAsync();
+
+            var result = await _service.DeleteTvShowAsync(episode.Id);
+
+            result.Should().BeFalse();
+            Context.TvShowEpisodes.Any(e => e.Id == episode.Id).Should().BeTrue();
+            await _mockTypesense.DidNotReceive().DeleteMediaItemAsync(Arg.Any<Guid>());
         }
 
         #endregion
