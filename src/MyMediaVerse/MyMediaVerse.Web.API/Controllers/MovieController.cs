@@ -209,6 +209,10 @@ namespace MyMediaVerse.Web.API.Controllers
                     ImdbId = movie.ImdbId,
                     ReleaseYear = movie.ReleaseYear,
                     RuntimeMinutes = movie.RuntimeMinutes,
+                    Director = movie.Director,
+                    Cast = movie.Cast,
+                    MpaaRating = movie.MpaaRating,
+                    Genres = movie.Genres.Select(g => g.Name).ToArray(),
                     Status = Status.Uncharted,
                     MediaType = MediaType.Movie
                 });

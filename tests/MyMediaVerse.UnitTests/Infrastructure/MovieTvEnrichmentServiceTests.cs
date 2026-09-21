@@ -21,7 +21,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         {
             _mockTmdbClient = Substitute.For<ITmdbApiClient>();
             _mockLogger = Substitute.For<ILogger<MovieTvEnrichmentService>>();
-            _service = new MovieTvEnrichmentService(Context, _mockTmdbClient, _mockLogger);
+            _service = new MovieTvEnrichmentService(Context, _mockTmdbClient, TestGenreMapping.Create(), _mockLogger);
         }
 
         #region GetMoviesNeedingEnrichmentCountAsync
@@ -356,6 +356,120 @@ namespace MyMediaVerse.UnitTests.Infrastructure
 
             var updated = Context.TvShows.First(t => t.Id == tvShow.Id);
             updated.EnrichedAt.Should().NotBeNull();
+        }
+
+        #endregion
+
+        #region Genre and credit fill
+
+        private void SetupMovieMatch(string title, int tmdbId, TmdbMovieDto details)
+        {
+            _mockTmdbClient.SearchMoviesAsync(title, Arg.Any<int>(), Arg.Any<string>())
+                .Returns(new TmdbMovieSearchResultDto { Results = new[] { new TmdbMovieDto { Id = tmdbId, Title = title } }, TotalResults = 1 });
+            _mockTmdbClient.GetMovieDetailsAsync(tmdbId, Arg.Any<string>()).Returns(details);
+        }
+
+        [Fact]
+        public async Task EnrichMoviesWithoutTmdbDataAsync_GenrelessMovie_GetsTmdbGenresAndCredits()
+        {
+            var movie = TestDataFactory.CreateMovie("The Matrix");
+            movie.TmdbId = null;
+            movie.Director = null;
+            movie.Cast = null;
+            Context.Movies.Add(movie);
+            await Context.SaveChangesAsync();
+
+            SetupMovieMatch("The Matrix", 603, new TmdbMovieDto
+            {
+                Id = 603,
+                Title = "The Matrix",
+                Genres = new List<TmdbGenreDto> { new() { Id = 28, Name = "Action" }, new() { Id = 878, Name = "Science Fiction" } },
+                Credits = new TmdbCreditsDto
+                {
+                    Cast = { new TmdbCastMemberDto { Name = "Keanu Reeves", Order = 0 } },
+                    Crew = { new TmdbCrewMemberDto { Name = "Lana Wachowski", Job = "Director" } }
+                }
+            });
+
+            var result = await _service.EnrichMoviesWithoutTmdbDataAsync(batchSize: 10, delayBetweenCallsMs: 0);
+
+            result.EnrichedCount.Should().Be(1);
+            result.Errors.Should().BeEmpty();
+            var updated = Context.Movies.First(m => m.Id == movie.Id);
+            updated.Genres.Select(g => g.Name).Should().BeEquivalentTo(new[] { "action", "science fiction" });
+            updated.Director.Should().Be("Lana Wachowski");
+            updated.Cast.Should().Be("Keanu Reeves");
+        }
+
+        [Fact]
+        public async Task EnrichMoviesWithoutTmdbDataAsync_MovieWithGenres_KeepsItsOwnGenres()
+        {
+            var movie = TestDataFactory.CreateMovie("The Matrix");
+            movie.TmdbId = null;
+            movie.Genres.Add(new Genre { Name = "cyberpunk" });
+            Context.Movies.Add(movie);
+            await Context.SaveChangesAsync();
+
+            SetupMovieMatch("The Matrix", 603, new TmdbMovieDto
+            {
+                Id = 603,
+                Title = "The Matrix",
+                Genres = new List<TmdbGenreDto> { new() { Id = 28, Name = "Action" } }
+            });
+
+            await _service.EnrichMoviesWithoutTmdbDataAsync(batchSize: 10, delayBetweenCallsMs: 0);
+
+            Context.Movies.First(m => m.Id == movie.Id).Genres.Select(g => g.Name).Should().Equal("cyberpunk");
+            Context.Genres.Any(g => g.Name == "action").Should().BeFalse();
+        }
+
+        [Fact]
+        public async Task EnrichMoviesWithoutTmdbDataAsync_TwoMoviesSharingANewGenre_CreateOneGenreRow()
+        {
+            foreach (var title in new[] { "Heat", "Collateral" })
+            {
+                var movie = TestDataFactory.CreateMovie(title);
+                movie.TmdbId = null;
+                Context.Movies.Add(movie);
+            }
+            await Context.SaveChangesAsync();
+
+            SetupMovieMatch("Heat", 949, new TmdbMovieDto { Id = 949, Title = "Heat", Genres = new List<TmdbGenreDto> { new() { Id = 80, Name = "Crime" } } });
+            SetupMovieMatch("Collateral", 1538, new TmdbMovieDto { Id = 1538, Title = "Collateral", Genres = new List<TmdbGenreDto> { new() { Id = 80, Name = "Crime" } } });
+
+            var result = await _service.EnrichMoviesWithoutTmdbDataAsync(batchSize: 10, delayBetweenCallsMs: 0);
+
+            result.EnrichedCount.Should().Be(2);
+            result.Errors.Should().BeEmpty();
+            Context.Genres.Count(g => g.Name == "crime").Should().Be(1);
+        }
+
+        [Fact]
+        public async Task EnrichTvShowsWithoutTmdbDataAsync_GenrelessShow_GetsSplitGenresAndCreator()
+        {
+            var show = TestDataFactory.CreateTvShow("Game of Thrones");
+            show.TmdbId = null;
+            show.Creator = null;
+            Context.TvShows.Add(show);
+            await Context.SaveChangesAsync();
+
+            _mockTmdbClient.SearchTvShowsAsync("Game of Thrones", Arg.Any<int>(), Arg.Any<string>())
+                .Returns(new TmdbTvSearchResultDto { Results = new[] { new TmdbTvShowDto { Id = 1399, Name = "Game of Thrones" } }, TotalResults = 1 });
+            _mockTmdbClient.GetTvShowDetailsAsync(1399, Arg.Any<string>()).Returns(new TmdbTvShowDto
+            {
+                Id = 1399,
+                Name = "Game of Thrones",
+                Genres = new List<TmdbGenreDto> { new() { Id = 10765, Name = "Sci-Fi & Fantasy" } },
+                CreatedBy = new List<TmdbCreatedByDto> { new() { Name = "David Benioff" } }
+            });
+
+            var result = await _service.EnrichTvShowsWithoutTmdbDataAsync(batchSize: 10, delayBetweenCallsMs: 0);
+
+            result.EnrichedCount.Should().Be(1);
+            result.Errors.Should().BeEmpty();
+            var updated = Context.TvShows.First(t => t.Id == show.Id);
+            updated.Genres.Select(g => g.Name).Should().BeEquivalentTo(new[] { "science fiction", "fantasy" });
+            updated.Creator.Should().Be("David Benioff");
         }
 
         #endregion

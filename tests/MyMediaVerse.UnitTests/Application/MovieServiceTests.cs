@@ -4,6 +4,7 @@ using NSubstitute;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
+using MyMediaVerse.UnitTests.TestData;
 using MyMediaVerse.UnitTests.TestHelpers;
 
 namespace MyMediaVerse.UnitTests.Application
@@ -477,6 +478,41 @@ namespace MyMediaVerse.UnitTests.Application
 
             // Assert
             result.Should().BeNull();
+        }
+
+        #endregion
+
+        #region Genre resolution
+
+        [Fact]
+        public async Task CreateMovieAsync_ShouldNormalizeGenres_AndReuseAnExistingGenre()
+        {
+            Context.Genres.Add(new Genre { Name = "science fiction" });
+            await Context.SaveChangesAsync();
+
+            var dto = TestDataFactory.CreateMovieDto("Arrival");
+            dto.Genres = new[] { " Science Fiction ", "DRAMA", "drama" };
+
+            var result = await _service.CreateMovieAsync(dto);
+
+            result.Genres.Select(g => g.Name).Should().BeEquivalentTo(new[] { "science fiction", "drama" });
+            Context.Genres.Count(g => g.Name == "science fiction").Should().Be(1);
+            Context.Genres.Count(g => g.Name == "drama").Should().Be(1);
+        }
+
+        [Fact]
+        public async Task CreateMovieAsync_TwoMoviesNamingTheSameNewGenre_ShareOneGenreRow()
+        {
+            var first = TestDataFactory.CreateMovieDto("Heat");
+            first.Genres = new[] { "crime" };
+            var second = TestDataFactory.CreateMovieDto("Collateral");
+            second.Genres = new[] { "Crime" };
+
+            var firstMovie = await _service.CreateMovieAsync(first);
+            var secondMovie = await _service.CreateMovieAsync(second);
+
+            Context.Genres.Count(g => g.Name == "crime").Should().Be(1);
+            firstMovie.Genres.Single().Id.Should().Be(secondMovie.Genres.Single().Id);
         }
 
         #endregion

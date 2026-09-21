@@ -210,6 +210,10 @@ namespace MyMediaVerse.Web.API.Controllers
                     LastAirYear = tvShow.LastAirYear,
                     NumberOfSeasons = tvShow.NumberOfSeasons,
                     NumberOfEpisodes = tvShow.NumberOfEpisodes,
+                    Creator = tvShow.Creator,
+                    Cast = tvShow.Cast,
+                    ContentRating = tvShow.ContentRating,
+                    Genres = tvShow.Genres.Select(g => g.Name).ToArray(),
                     Status = Status.Uncharted,
                     MediaType = MediaType.TVShow
                 });

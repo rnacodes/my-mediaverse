@@ -1,14 +1,16 @@
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using MyMediaVerse.Application.Interfaces;
+using MyMediaVerse.Application.Utilities;
+using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.Application.Services
 {
     /// <summary>
-    /// Builds and caches in-memory <c>externalId → lowercase genre name</c> maps from the
-    /// existing TMDB genre-fetch service. The first lookup per source builds the map (one API
-    /// round-trip); subsequent lookups are served from <see cref="IMemoryCache"/> until the entry
-    /// expires.
+    /// Maps TMDB genres to library genre names. Names map directly; ids go through an
+    /// in-memory <c>id → TMDB name</c> map built from the TMDB genre-fetch service. The first id
+    /// lookup builds the map (one API round-trip); later lookups are served from
+    /// <see cref="IMemoryCache"/> until the entry expires.
     /// </summary>
     public class GenreMappingService : IGenreMappingService
     {
@@ -29,28 +31,37 @@ namespace MyMediaVerse.Application.Services
             _logger = logger;
         }
 
-        public async Task<string?> GetGenreNameAsync(GenreSource source, int genreId)
+        // TMDB spells this one differently from the rest of the library's sources.
+        private static readonly Dictionary<string, string> Aliases = new()
         {
-            var map = await GetMapAsync(source);
-            if (map.TryGetValue(genreId, out var name))
-            {
-                return name;
-            }
+            ["sci-fi"] = "science fiction"
+        };
 
-            _logger.LogWarning("Unknown {Source} genre id {GenreId}; no mapping found.", source, genreId);
-            return null;
+        public IReadOnlyList<string> MapTmdbGenreNames(IEnumerable<string?>? tmdbGenreNames)
+        {
+            if (tmdbGenreNames == null) return Array.Empty<string>();
+
+            // TV genres arrive as compounds ("Action & Adventure"); each half is its own genre.
+            var parts = tmdbGenreNames
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .SelectMany(n => n!.Split('&'))
+                .Select(GenreNames.Normalize)
+                .Where(n => n != null)
+                .Select(n => Aliases.TryGetValue(n!, out var alias) ? alias : n!);
+
+            return parts.Distinct().ToList();
         }
 
         public async Task<IReadOnlyList<string>> GetGenreNamesAsync(GenreSource source, IEnumerable<int> genreIds)
         {
             var map = await GetMapAsync(source);
-            var names = new List<string>();
+            var tmdbNames = new List<string>();
 
             foreach (var id in genreIds)
             {
                 if (map.TryGetValue(id, out var name))
                 {
-                    names.Add(name);
+                    tmdbNames.Add(name);
                 }
                 else
                 {
@@ -58,7 +69,8 @@ namespace MyMediaVerse.Application.Services
                 }
             }
 
-            return names;
+            // Same rule as the name path, so an id lookup and a name lookup always agree.
+            return MapTmdbGenreNames(tmdbNames);
         }
 
         private Task<IReadOnlyDictionary<int, string>> GetMapAsync(GenreSource source) => source switch

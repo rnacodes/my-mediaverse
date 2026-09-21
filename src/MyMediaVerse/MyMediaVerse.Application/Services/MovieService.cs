@@ -293,28 +293,13 @@ namespace MyMediaVerse.Application.Services
             if (topics == null || topics.Length == 0)
                 return;
 
-            foreach (var topicName in topics.Where(t => !string.IsNullOrWhiteSpace(t)))
+            var resolver = new TopicResolver(_context);
+            foreach (var name in topics.Where(t => !string.IsNullOrWhiteSpace(t)))
             {
-                var normalizedTopicName = topicName.Trim().ToLowerInvariant();
-                
-                // Check if topic exists using AsNoTracking to avoid tracking conflicts
-                var topic = await _context.Topics
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(t => t.Name == normalizedTopicName);
-                
-                if (topic == null)
+                var topic = await resolver.GetOrCreateAsync(name.Trim().ToLowerInvariant());
+                if (topic != null && !movie.Topics.Contains(topic))
                 {
-                    // Create new topic and save immediately
-                    topic = new Topic { Name = normalizedTopicName };
-                    _context.Add(topic);
-                    await _context.SaveChangesAsync();
-                }
-                
-                // Get tracked version and add to movie
-                var trackedTopic = await _context.Topics.FirstOrDefaultAsync(t => t.Id == topic.Id);
-                if (trackedTopic != null && !movie.Topics.Any(t => t.Id == trackedTopic.Id))
-                {
-                    movie.Topics.Add(trackedTopic);
+                    movie.Topics.Add(topic);
                 }
             }
         }
@@ -324,28 +309,13 @@ namespace MyMediaVerse.Application.Services
             if (genres == null || genres.Length == 0)
                 return;
 
-            foreach (var genreName in genres.Where(g => !string.IsNullOrWhiteSpace(g)))
+            var resolver = new GenreResolver(_context);
+            foreach (var name in GenreNames.NormalizeList(genres))
             {
-                var normalizedGenreName = genreName.Trim().ToLowerInvariant();
-                
-                // Check if genre exists using AsNoTracking to avoid tracking conflicts
-                var genre = await _context.Genres
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(g => g.Name == normalizedGenreName);
-                
-                if (genre == null)
+                var genre = await resolver.GetOrCreateAsync(name);
+                if (genre != null && !movie.Genres.Contains(genre))
                 {
-                    // Create new genre and save immediately
-                    genre = new Genre { Name = normalizedGenreName };
-                    _context.Add(genre);
-                    await _context.SaveChangesAsync();
-                }
-                
-                // Get tracked version and add to movie
-                var trackedGenre = await _context.Genres.FirstOrDefaultAsync(g => g.Id == genre.Id);
-                if (trackedGenre != null && !movie.Genres.Any(g => g.Id == trackedGenre.Id))
-                {
-                    movie.Genres.Add(trackedGenre);
+                    movie.Genres.Add(genre);
                 }
             }
         }

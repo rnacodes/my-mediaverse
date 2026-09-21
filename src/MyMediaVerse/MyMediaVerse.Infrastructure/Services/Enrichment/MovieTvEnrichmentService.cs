@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Application.Interfaces;
+using MyMediaVerse.Application.Utilities;
 using MyMediaVerse.Shared.DTOs.TMDB;
 using MyMediaVerse.Shared.Interfaces;
 
@@ -15,15 +16,18 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
     {
         private readonly IApplicationDbContext _context;
         private readonly ITmdbApiClient _tmdbClient;
+        private readonly IGenreMappingService _genreMappingService;
         private readonly ILogger<MovieTvEnrichmentService> _logger;
 
         public MovieTvEnrichmentService(
             IApplicationDbContext context,
             ITmdbApiClient tmdbClient,
+            IGenreMappingService genreMappingService,
             ILogger<MovieTvEnrichmentService> logger)
         {
             _context = context;
             _tmdbClient = tmdbClient;
+            _genreMappingService = genreMappingService;
             _logger = logger;
         }
 
@@ -55,6 +59,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
             {
                 // Get movies that need enrichment: have no TmdbId
                 var moviesToEnrich = await _context.Movies
+                    .Include(m => m.Genres)
                     .Where(m => m.TmdbId == null || m.TmdbId == "")
                     .OrderBy(m => m.DateAdded) // Process oldest first
                     .Take(batchSize)
@@ -69,6 +74,9 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                 }
 
                 _logger.LogInformation("Starting TMDB enrichment for {Count} movies", moviesToEnrich.Count);
+
+                // One resolver for the run, so items sharing a new genre resolve to one row.
+                var genreResolver = new GenreResolver(_context);
 
                 foreach (var movie in moviesToEnrich)
                 {
@@ -102,6 +110,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                         // Map TMDB data to entity (fill-gaps-only; MapTmdbMovieToEntity
                         // guards every field and never overwrites a populated value).
                         MapTmdbMovieToEntity(movie, movieDetails);
+                        await FillGenresAsync(movie.Genres, movieDetails.Genres, genreResolver);
                         movie.EnrichedAt = DateTime.UtcNow;
                         _context.Update(movie);
                         result.EnrichedCount++;
@@ -156,6 +165,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
             {
                 // Get TV shows that need enrichment: have no TmdbId
                 var tvShowsToEnrich = await _context.TvShows
+                    .Include(t => t.Genres)
                     .Where(t => t.TmdbId == null || t.TmdbId == "")
                     .OrderBy(t => t.DateAdded) // Process oldest first
                     .Take(batchSize)
@@ -170,6 +180,9 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                 }
 
                 _logger.LogInformation("Starting TMDB enrichment for {Count} TV shows", tvShowsToEnrich.Count);
+
+                // One resolver for the run, so items sharing a new genre resolve to one row.
+                var genreResolver = new GenreResolver(_context);
 
                 foreach (var tvShow in tvShowsToEnrich)
                 {
@@ -203,6 +216,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                         // Map TMDB data to entity (fill-gaps-only; MapTmdbTvShowToEntity
                         // guards every field and never overwrites a populated value).
                         MapTmdbTvShowToEntity(tvShow, tvShowDetails);
+                        await FillGenresAsync(tvShow.Genres, tvShowDetails.Genres, genreResolver);
                         tvShow.EnrichedAt = DateTime.UtcNow;
                         _context.Update(tvShow);
                         result.EnrichedCount++;
@@ -313,6 +327,22 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                 movie.OriginalTitle = tmdbMovie.OriginalTitle;
             }
 
+            // Credits and certification arrive with the details call (append_to_response)
+            if (string.IsNullOrEmpty(movie.Director))
+            {
+                movie.Director = TmdbDetailsExtractor.GetDirector(tmdbMovie);
+            }
+
+            if (string.IsNullOrEmpty(movie.Cast))
+            {
+                movie.Cast = TmdbDetailsExtractor.GetCast(tmdbMovie.Credits);
+            }
+
+            if (string.IsNullOrEmpty(movie.MpaaRating))
+            {
+                movie.MpaaRating = TmdbDetailsExtractor.GetMpaaRating(tmdbMovie);
+            }
+
             // Set release year if not already set
             if (!movie.ReleaseYear.HasValue && !string.IsNullOrEmpty(tmdbMovie.ReleaseDate))
             {
@@ -406,6 +436,40 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                 if (DateTime.TryParse(tmdbTvShow.LastAirDate, out var lastAirDate))
                 {
                     tvShow.LastAirYear = lastAirDate.Year;
+                }
+            }
+
+            // Credits and content rating arrive with the details call (append_to_response)
+            if (string.IsNullOrEmpty(tvShow.Creator))
+            {
+                tvShow.Creator = TmdbDetailsExtractor.GetCreator(tmdbTvShow);
+            }
+
+            if (string.IsNullOrEmpty(tvShow.Cast))
+            {
+                tvShow.Cast = TmdbDetailsExtractor.GetCast(tmdbTvShow.Credits);
+            }
+
+            if (string.IsNullOrEmpty(tvShow.ContentRating))
+            {
+                tvShow.ContentRating = TmdbDetailsExtractor.GetContentRating(tmdbTvShow);
+            }
+        }
+
+        /// <summary>
+        /// Gives an item TMDB's genres only when it has none of its own. An item that already
+        /// carries genres keeps exactly what it has, whether they were imported or hand-picked.
+        /// </summary>
+        private async Task FillGenresAsync(ICollection<Genre> itemGenres, IEnumerable<TmdbGenreDto> tmdbGenres, GenreResolver resolver)
+        {
+            if (itemGenres.Count > 0) return;
+
+            foreach (var name in _genreMappingService.MapTmdbGenreNames(tmdbGenres.Select(g => g.Name)))
+            {
+                var genre = await resolver.GetOrCreateAsync(name);
+                if (genre != null && !itemGenres.Contains(genre))
+                {
+                    itemGenres.Add(genre);
                 }
             }
         }

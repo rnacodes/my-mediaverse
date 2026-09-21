@@ -19,7 +19,7 @@ namespace MyMediaVerse.UnitTests.Application
         public MovieMappingServiceTests()
         {
             _mockLogger = Substitute.For<ILogger<MovieMappingService>>();
-            _service = new MovieMappingService(Context, _mockLogger);
+            _service = new MovieMappingService(Context, _mockLogger, TestGenreMapping.Create());
         }
 
         #region MapFromDtoAsync
@@ -284,6 +284,61 @@ namespace MyMediaVerse.UnitTests.Application
 
             result.PosterUrl.Should().BeNull();
             result.BackdropUrl.Should().BeNull();
+        }
+
+        #endregion
+
+        #region MapFromTmdbAsync — genres and credits
+
+        [Fact]
+        public async Task MapFromTmdbAsync_ShouldCarryLibraryGenreNames_FromTheDetailsPayload()
+        {
+            var tmdbMovie = TestDataFactory.CreateTmdbMovieDto();
+            tmdbMovie.Genres = new List<TmdbGenreDto>
+            {
+                new() { Id = 28, Name = "Action" },
+                new() { Id = 878, Name = "Science Fiction" }
+            };
+
+            var result = await _service.MapFromTmdbAsync(tmdbMovie);
+
+            result.Genres.Select(g => g.Name).Should().Equal("action", "science fiction");
+        }
+
+        [Fact]
+        public async Task MapFromTmdbAsync_ShouldDeriveDirectorCastAndMpaaRating_FromAppendedData()
+        {
+            var tmdbMovie = TestDataFactory.CreateTmdbMovieDto();
+            tmdbMovie.Credits = new TmdbCreditsDto
+            {
+                Cast =
+                {
+                    new TmdbCastMemberDto { Name = "Joseph Gordon-Levitt", Order = 1 },
+                    new TmdbCastMemberDto { Name = "Leonardo DiCaprio", Order = 0 }
+                },
+                Crew = { new TmdbCrewMemberDto { Name = "Christopher Nolan", Job = "Director" } }
+            };
+            tmdbMovie.ReleaseDates = new TmdbReleaseDatesDto
+            {
+                Results = { new TmdbCountryReleaseDatesDto { Iso31661 = "US", ReleaseDates = { new TmdbReleaseDateDto { Certification = "PG-13" } } } }
+            };
+
+            var result = await _service.MapFromTmdbAsync(tmdbMovie);
+
+            result.Director.Should().Be("Christopher Nolan");
+            result.Cast.Should().Be("Leonardo DiCaprio, Joseph Gordon-Levitt");
+            result.MpaaRating.Should().Be("PG-13");
+        }
+
+        [Fact]
+        public async Task MapFromTmdbAsync_ShouldLeaveCreditsAndGenresEmpty_WhenPayloadHasNone()
+        {
+            var result = await _service.MapFromTmdbAsync(TestDataFactory.CreateTmdbMovieDto());
+
+            result.Genres.Should().BeEmpty();
+            result.Director.Should().BeNull();
+            result.Cast.Should().BeNull();
+            result.MpaaRating.Should().BeNull();
         }
 
         #endregion

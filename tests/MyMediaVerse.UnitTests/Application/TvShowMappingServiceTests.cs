@@ -19,7 +19,7 @@ namespace MyMediaVerse.UnitTests.Application
         public TvShowMappingServiceTests()
         {
             _mockLogger = Substitute.For<ILogger<TvShowMappingService>>();
-            _service = new TvShowMappingService(Context, _mockLogger);
+            _service = new TvShowMappingService(Context, _mockLogger, TestGenreMapping.Create());
         }
 
         #region MapFromDtoAsync
@@ -259,6 +259,44 @@ namespace MyMediaVerse.UnitTests.Application
 
             result.PosterUrl.Should().BeNull();
             result.BackdropUrl.Should().BeNull();
+        }
+
+        #endregion
+
+        #region MapFromTmdbAsync — genres and credits
+
+        [Fact]
+        public async Task MapFromTmdbAsync_ShouldSplitCompoundTvGenres_IntoLibraryGenreNames()
+        {
+            var tmdbTvShow = TestDataFactory.CreateTmdbTvShowDto();
+            tmdbTvShow.Genres = new List<TmdbGenreDto>
+            {
+                new() { Id = 10765, Name = "Sci-Fi & Fantasy" },
+                new() { Id = 18, Name = "Drama" },
+                new() { Id = 10759, Name = "Action & Adventure" }
+            };
+
+            var result = await _service.MapFromTmdbAsync(tmdbTvShow);
+
+            result.Genres.Select(g => g.Name).Should().Equal("science fiction", "fantasy", "drama", "action", "adventure");
+        }
+
+        [Fact]
+        public async Task MapFromTmdbAsync_ShouldDeriveCreatorCastAndContentRating_FromAppendedData()
+        {
+            var tmdbTvShow = TestDataFactory.CreateTmdbTvShowDto();
+            tmdbTvShow.CreatedBy = new List<TmdbCreatedByDto> { new() { Name = "David Benioff" }, new() { Name = "D. B. Weiss" } };
+            tmdbTvShow.Credits = new TmdbCreditsDto { Cast = { new TmdbCastMemberDto { Name = "Emilia Clarke", Order = 0 } } };
+            tmdbTvShow.ContentRatings = new TmdbContentRatingsDto
+            {
+                Results = { new TmdbCountryContentRatingDto { Iso31661 = "US", Rating = "TV-MA" } }
+            };
+
+            var result = await _service.MapFromTmdbAsync(tmdbTvShow);
+
+            result.Creator.Should().Be("David Benioff, D. B. Weiss");
+            result.Cast.Should().Be("Emilia Clarke");
+            result.ContentRating.Should().Be("TV-MA");
         }
 
         #endregion

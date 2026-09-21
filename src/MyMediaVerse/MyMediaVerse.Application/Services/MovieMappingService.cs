@@ -5,6 +5,7 @@ using MyMediaVerse.DTOs;
 using MyMediaVerse.Shared.DTOs.TMDB;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Utilities;
+using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.Application.Services
 {
@@ -12,11 +13,16 @@ namespace MyMediaVerse.Application.Services
     {
         private readonly IApplicationDbContext _context;
         private readonly ILogger<MovieMappingService> _logger;
+        private readonly IGenreMappingService _genreMappingService;
 
-        public MovieMappingService(IApplicationDbContext context, ILogger<MovieMappingService> logger)
+        public MovieMappingService(
+            IApplicationDbContext context,
+            ILogger<MovieMappingService> logger,
+            IGenreMappingService genreMappingService)
         {
             _context = context;
             _logger = logger;
+            _genreMappingService = genreMappingService;
         }
 
         public async Task<Movie> MapFromDtoAsync(CreateMovieDto dto)
@@ -146,7 +152,10 @@ namespace MyMediaVerse.Application.Services
                 OriginalLanguage = tmdbMovie.OriginalLanguage,
                 OriginalTitle = tmdbMovie.OriginalTitle,
                 ImdbId = tmdbMovie.ImdbId,
-                RuntimeMinutes = tmdbMovie.Runtime
+                RuntimeMinutes = tmdbMovie.Runtime,
+                Director = TmdbDetailsExtractor.GetDirector(tmdbMovie),
+                Cast = TmdbDetailsExtractor.GetCast(tmdbMovie.Credits),
+                MpaaRating = TmdbDetailsExtractor.GetMpaaRating(tmdbMovie)
             };
 
             // Parse release date to get year
@@ -156,8 +165,12 @@ namespace MyMediaVerse.Application.Services
                 movie.ReleaseYear = releaseDate.Year;
             }
 
-            // Handle genres from TMDB genre IDs (simplified - would need genre mapping service)
-            // For now, we'll skip this as it would require a TMDB genre mapping service
+            // The mapped movie only carries genre names; the movie service resolves them to
+            // stored genres when the import is saved.
+            foreach (var genreName in _genreMappingService.MapTmdbGenreNames(tmdbMovie.Genres.Select(g => g.Name)))
+            {
+                movie.Genres.Add(new Genre { Name = genreName });
+            }
 
             return Task.FromResult(movie);
         }

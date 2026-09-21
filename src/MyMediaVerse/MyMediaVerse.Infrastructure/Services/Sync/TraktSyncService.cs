@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Application.Interfaces;
+using MyMediaVerse.Application.Utilities;
 using MyMediaVerse.Shared.DTOs.Trakt;
 using MyMediaVerse.Shared.Interfaces;
 
@@ -738,9 +739,7 @@ namespace MyMediaVerse.Infrastructure.Services.Sync
         // lowercase convention and replace hyphens with spaces so genres unify with other sources (TMDB,
         // podcast feeds) rather than creating parallel rows.
         private static string NormalizeGenreName(string slug) =>
-            string.IsNullOrWhiteSpace(slug)
-                ? string.Empty
-                : slug.Trim().ToLowerInvariant().Replace('-', ' ');
+            GenreNames.Normalize(slug)?.Replace('-', ' ') ?? string.Empty;
 
         // --- Lookup Helpers ---
 

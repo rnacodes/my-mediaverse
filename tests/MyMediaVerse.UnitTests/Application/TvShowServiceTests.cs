@@ -4,6 +4,7 @@ using NSubstitute;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
+using MyMediaVerse.UnitTests.TestData;
 using MyMediaVerse.UnitTests.TestHelpers;
 
 namespace MyMediaVerse.UnitTests.Application
@@ -481,6 +482,41 @@ namespace MyMediaVerse.UnitTests.Application
 
             // Assert
             result.Should().BeNull();
+        }
+
+        #endregion
+
+        #region Genre resolution
+
+        [Fact]
+        public async Task CreateTvShowAsync_ShouldNormalizeGenres_AndReuseAnExistingGenre()
+        {
+            Context.Genres.Add(new Genre { Name = "fantasy" });
+            await Context.SaveChangesAsync();
+
+            var dto = TestDataFactory.CreateTvShowDto("Game of Thrones");
+            dto.Genres = new[] { " Fantasy ", "DRAMA", "drama" };
+
+            var result = await _service.CreateTvShowAsync(dto);
+
+            result.Genres.Select(g => g.Name).Should().BeEquivalentTo(new[] { "fantasy", "drama" });
+            Context.Genres.Count(g => g.Name == "fantasy").Should().Be(1);
+            Context.Genres.Count(g => g.Name == "drama").Should().Be(1);
+        }
+
+        [Fact]
+        public async Task CreateTvShowAsync_TwoShowsNamingTheSameNewGenre_ShareOneGenreRow()
+        {
+            var first = TestDataFactory.CreateTvShowDto("The Wire");
+            first.Genres = new[] { "crime" };
+            var second = TestDataFactory.CreateTvShowDto("Bosch");
+            second.Genres = new[] { "Crime" };
+
+            var firstShow = await _service.CreateTvShowAsync(first);
+            var secondShow = await _service.CreateTvShowAsync(second);
+
+            Context.Genres.Count(g => g.Name == "crime").Should().Be(1);
+            firstShow.Genres.Single().Id.Should().Be(secondShow.Genres.Single().Id);
         }
 
         #endregion
