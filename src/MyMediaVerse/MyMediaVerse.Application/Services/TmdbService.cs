@@ -141,7 +141,7 @@ namespace MyMediaVerse.Application.Services
                 };
 
                 // Save to database through domain service
-                var savedMovie = await _movieService.CreateMovieAsync(createMovieDto);
+                var savedMovie = await _movieService.CreateMovieAsync(createMovieDto, fromTmdb: true);
                 
                 _logger.LogInformation("Successfully imported movie: {Title} (TMDB ID: {MovieId})", 
                     movieDto.Title, movieId);
@@ -205,7 +205,7 @@ namespace MyMediaVerse.Application.Services
                 };
 
                 // Save to database through domain service
-                var savedTvShow = await _tvShowService.CreateTvShowAsync(createTvShowDto);
+                var savedTvShow = await _tvShowService.CreateTvShowAsync(createTvShowDto, fromTmdb: true);
                 
                 _logger.LogInformation("Successfully imported TV show: {Title} (TMDB ID: {TvShowId})", 
                     tvShowDto.Name, tvShowId);

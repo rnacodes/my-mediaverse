@@ -5,6 +5,8 @@ using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.IntegrationTests.Fixtures;
 using NSubstitute;
+using MyMediaVerse.Shared.DTOs.TMDB;
+using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.IntegrationTests.Api
 {
@@ -231,6 +233,54 @@ namespace MyMediaVerse.IntegrationTests.Api
             body.GetProperty("success").GetBoolean().Should().BeTrue();
             body.GetProperty("operation").GetString().Should().Be("reader-sync");
             body.GetProperty("createdCount").GetInt32().Should().Be(3);
+        }
+
+        #endregion
+
+        #region TMDB refresh
+
+        [Fact]
+        public async Task TmdbRefreshStale_WhenRunCompletesWithItemFailures_ShouldStillReturnOk()
+        {
+            var (client, _) = _factory.CreateClientWithSubstitute<IMovieTvEnrichmentService>(svc =>
+                svc.RefreshStaleAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                    .Returns(new MovieTvRefreshResultDto
+                    {
+                        FailedCount = 1,
+                        Errors = { "TMDB no longer has id 1 for 'Removed Upstream'" },
+                        StartedAt = DateTime.UtcNow,
+                        CompletedAt = DateTime.UtcNow
+                    }));
+
+            var response = await client.PostAsync("/api/movietvenrichment/refresh-stale", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var body = await ReadBodyAsync(response);
+            body.GetProperty("success").GetBoolean().Should().BeTrue();
+            body.GetProperty("operation").GetString().Should().Be("tmdb-refresh-stale");
+            body.GetProperty("failedCount").GetInt32().Should().Be(1);
+            body.GetProperty("reindexTriggered").GetBoolean().Should().BeFalse();
+        }
+
+        [Fact]
+        public async Task TmdbRefreshStale_WhenRunAborts_ShouldReturn500WithResultBody()
+        {
+            var (client, _) = _factory.CreateClientWithSubstitute<IMovieTvEnrichmentService>(svc =>
+                svc.RefreshStaleAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                    .Returns(new MovieTvRefreshResultDto
+                    {
+                        Success = false,
+                        ErrorMessage = "TMDB refresh run failed: database unavailable",
+                        StartedAt = DateTime.UtcNow
+                    }));
+
+            var response = await client.PostAsync("/api/movietvenrichment/refresh-stale", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
+            var body = await ReadBodyAsync(response);
+            body.GetProperty("success").GetBoolean().Should().BeFalse();
+            body.GetProperty("operation").GetString().Should().Be("tmdb-refresh-stale");
+            body.GetProperty("errorMessage").GetString().Should().Contain("database unavailable");
         }
 
         #endregion

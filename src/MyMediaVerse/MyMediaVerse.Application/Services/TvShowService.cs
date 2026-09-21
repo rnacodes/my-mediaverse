@@ -94,7 +94,7 @@ namespace MyMediaVerse.Application.Services
             }
         }
 
-        public async Task<TvShow> CreateTvShowAsync(CreateTvShowDto dto)
+        public async Task<TvShow> CreateTvShowAsync(CreateTvShowDto dto, bool fromTmdb = false)
         {
             try
             {
@@ -141,7 +141,8 @@ namespace MyMediaVerse.Application.Services
                     Tagline = dto.Tagline,
                     Homepage = dto.Homepage,
                     OriginalLanguage = dto.OriginalLanguage,
-                    OriginalName = dto.OriginalName
+                    OriginalName = dto.OriginalName,
+                    TmdbRefreshedAt = fromTmdb ? DateTime.UtcNow : null
                 };
 
                 // Handle Topics array conversion

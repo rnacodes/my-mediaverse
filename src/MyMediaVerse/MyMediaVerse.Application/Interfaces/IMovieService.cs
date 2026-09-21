@@ -9,7 +9,8 @@ namespace MyMediaVerse.Application.Interfaces
         Task<Movie?> GetMovieByIdAsync(Guid id);
         Task<IEnumerable<Movie>> GetMoviesByDirectorAsync(string director);
         Task<IEnumerable<Movie>> GetMoviesByYearAsync(int year);
-        Task<Movie> CreateMovieAsync(CreateMovieDto dto);
+        /// <param name="fromTmdb">True when the DTO was built from a TMDB details payload; stamps the refresh timestamp.</param>
+        Task<Movie> CreateMovieAsync(CreateMovieDto dto, bool fromTmdb = false);
         Task<Movie> UpdateMovieAsync(Guid id, CreateMovieDto dto);
         Task<bool> DeleteMovieAsync(Guid id);
         Task<bool> MovieExistsAsync(string title, int? releaseYear = null);

@@ -144,7 +144,7 @@ namespace MyMediaVerse.UnitTests.Application
                 .Returns((Movie?)null);
             
             _mockMovieService
-                .CreateMovieAsync(Arg.Any<CreateMovieDto>())
+                .CreateMovieAsync(Arg.Any<CreateMovieDto>(), Arg.Any<bool>())
                 .Returns(expectedMovie);
 
             // Act
@@ -163,7 +163,7 @@ namespace MyMediaVerse.UnitTests.Application
                 dto.ReleaseYear == 2010 &&
                 dto.TmdbId == movieId.ToString() &&
                 dto.MediaType == MediaType.Movie &&
-                dto.Status == Status.Uncharted));
+                dto.Status == Status.Uncharted), true);
         }
 
         [Fact]
@@ -192,7 +192,7 @@ namespace MyMediaVerse.UnitTests.Application
             
             _mockTmdbApiClient.Received(1).GetMovieDetailsAsync(movieId, "en-US");
             _mockMovieService.Received(1).GetMovieByTitleAndYearAsync("Inception", 2010);
-            _mockMovieService.DidNotReceive().CreateMovieAsync(Arg.Any<CreateMovieDto>());
+            _mockMovieService.DidNotReceive().CreateMovieAsync(Arg.Any<CreateMovieDto>(), Arg.Any<bool>());
         }
 
         [Fact]
@@ -212,7 +212,7 @@ namespace MyMediaVerse.UnitTests.Application
                 .Returns((TvShow?)null);
             
             _mockTvShowService
-                .CreateTvShowAsync(Arg.Any<CreateTvShowDto>())
+                .CreateTvShowAsync(Arg.Any<CreateTvShowDto>(), Arg.Any<bool>())
                 .Returns(expectedTvShow);
 
             // Act
@@ -231,7 +231,7 @@ namespace MyMediaVerse.UnitTests.Application
                 dto.FirstAirYear == 2011 &&
                 dto.TmdbId == tvShowId.ToString() &&
                 dto.MediaType == MediaType.TVShow &&
-                dto.Status == Status.Uncharted));
+                dto.Status == Status.Uncharted), true);
         }
 
         [Fact]
@@ -260,7 +260,7 @@ namespace MyMediaVerse.UnitTests.Application
             
             _mockTmdbApiClient.Received(1).GetTvShowDetailsAsync(tvShowId, "en-US");
             _mockTvShowService.Received(1).GetTvShowByTitleAndYearAsync("Game of Thrones", 2011);
-            _mockTvShowService.DidNotReceive().CreateTvShowAsync(Arg.Any<CreateTvShowDto>());
+            _mockTvShowService.DidNotReceive().CreateTvShowAsync(Arg.Any<CreateTvShowDto>(), Arg.Any<bool>());
         }
 
         [Fact]
@@ -281,7 +281,7 @@ namespace MyMediaVerse.UnitTests.Application
                 .Returns((Movie?)null);
             
             _mockMovieService
-                .CreateMovieAsync(Arg.Any<CreateMovieDto>())
+                .CreateMovieAsync(Arg.Any<CreateMovieDto>(), Arg.Any<bool>())
                 .Returns(expectedMovie);
 
             // Act
@@ -293,7 +293,7 @@ namespace MyMediaVerse.UnitTests.Application
             
             _mockMovieService.Received(1).CreateMovieAsync(Arg.Is<CreateMovieDto>(dto => 
                 dto.Title == "Test Movie" && 
-                dto.ReleaseYear == null));
+                dto.ReleaseYear == null), true);
         }
 
         [Fact]
@@ -314,7 +314,7 @@ namespace MyMediaVerse.UnitTests.Application
                 .Returns((Movie?)null);
             
             _mockMovieService
-                .CreateMovieAsync(Arg.Any<CreateMovieDto>())
+                .CreateMovieAsync(Arg.Any<CreateMovieDto>(), Arg.Any<bool>())
                 .Returns(expectedMovie);
 
             // Act
@@ -323,7 +323,7 @@ namespace MyMediaVerse.UnitTests.Application
             // Assert
             _mockMovieService.Received(1).CreateMovieAsync(Arg.Is<CreateMovieDto>(dto => 
                 dto.Rating == null && // Personal rating should be null for imports
-                dto.TmdbRating == 8.4)); // TMDB rating should be stored as-is
+                dto.TmdbRating == 8.4), true); // TMDB rating should be stored as-is
         }
 
         [Fact]
@@ -344,7 +344,7 @@ namespace MyMediaVerse.UnitTests.Application
                 .Returns((TvShow?)null);
             
             _mockTvShowService
-                .CreateTvShowAsync(Arg.Any<CreateTvShowDto>())
+                .CreateTvShowAsync(Arg.Any<CreateTvShowDto>(), Arg.Any<bool>())
                 .Returns(expectedTvShow);
 
             // Act
@@ -353,7 +353,7 @@ namespace MyMediaVerse.UnitTests.Application
             // Assert
             _mockTvShowService.Received(1).CreateTvShowAsync(Arg.Is<CreateTvShowDto>(dto => 
                 dto.Rating == null && // Personal rating should be null for imports
-                dto.TmdbRating == 7.8)); // TMDB rating should be stored as-is
+                dto.TmdbRating == 7.8), true); // TMDB rating should be stored as-is
         }
 
         [Fact]
@@ -373,7 +373,7 @@ namespace MyMediaVerse.UnitTests.Application
                 .Returns((Movie?)null);
             
             _mockMovieService
-                .CreateMovieAsync(Arg.Any<CreateMovieDto>())
+                .CreateMovieAsync(Arg.Any<CreateMovieDto>(), Arg.Any<bool>())
                 .Returns(expectedMovie);
 
             // Act
@@ -387,7 +387,7 @@ namespace MyMediaVerse.UnitTests.Application
                 dto.Tagline == tmdbMovieDto.Tagline &&
                 dto.Homepage == tmdbMovieDto.Homepage &&
                 dto.OriginalLanguage == tmdbMovieDto.OriginalLanguage &&
-                dto.OriginalTitle == tmdbMovieDto.OriginalTitle));
+                dto.OriginalTitle == tmdbMovieDto.OriginalTitle), true);
         }
 
         [Fact]
@@ -407,7 +407,7 @@ namespace MyMediaVerse.UnitTests.Application
                 .Returns((TvShow?)null);
             
             _mockTvShowService
-                .CreateTvShowAsync(Arg.Any<CreateTvShowDto>())
+                .CreateTvShowAsync(Arg.Any<CreateTvShowDto>(), Arg.Any<bool>())
                 .Returns(expectedTvShow);
 
             // Act
@@ -421,7 +421,7 @@ namespace MyMediaVerse.UnitTests.Application
                 dto.Tagline == tmdbTvShowDto.Tagline &&
                 dto.Homepage == tmdbTvShowDto.Homepage &&
                 dto.OriginalLanguage == tmdbTvShowDto.OriginalLanguage &&
-                dto.OriginalName == tmdbTvShowDto.OriginalName));
+                dto.OriginalName == tmdbTvShowDto.OriginalName), true);
         }
 
         [Fact]

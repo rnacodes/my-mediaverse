@@ -215,7 +215,7 @@ namespace MyMediaVerse.Web.API.Controllers
                     Genres = movie.Genres.Select(g => g.Name).ToArray(),
                     Status = Status.Uncharted,
                     MediaType = MediaType.Movie
-                });
+                }, fromTmdb: true);
 
                 var response = await _movieMappingService.MapToResponseDtoAsync(createdMovie);
                 _logger.LogInformation("Successfully imported movie: {Title} with ID: {Id}", createdMovie.Title, createdMovie.Id);

@@ -9,7 +9,8 @@ namespace MyMediaVerse.Application.Interfaces
         Task<TvShow?> GetTvShowByIdAsync(Guid id);
         Task<IEnumerable<TvShow>> GetTvShowsByCreatorAsync(string creator);
         Task<IEnumerable<TvShow>> GetTvShowsByYearAsync(int year);
-        Task<TvShow> CreateTvShowAsync(CreateTvShowDto dto);
+        /// <param name="fromTmdb">True when the DTO was built from a TMDB details payload; stamps the refresh timestamp.</param>
+        Task<TvShow> CreateTvShowAsync(CreateTvShowDto dto, bool fromTmdb = false);
         Task<TvShow> UpdateTvShowAsync(Guid id, CreateTvShowDto dto);
         Task<bool> DeleteTvShowAsync(Guid id);
         Task<bool> TvShowExistsAsync(string title, int? firstAirYear = null);

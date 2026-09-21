@@ -216,7 +216,7 @@ namespace MyMediaVerse.Web.API.Controllers
                     Genres = tvShow.Genres.Select(g => g.Name).ToArray(),
                     Status = Status.Uncharted,
                     MediaType = MediaType.TVShow
-                });
+                }, fromTmdb: true);
 
                 var response = await _tvShowMappingService.MapToResponseDtoAsync(createdTvShow);
                 _logger.LogInformation("Successfully imported TV show: {Title} with ID: {Id}", createdTvShow.Title, createdTvShow.Id);

@@ -116,5 +116,52 @@ namespace MyMediaVerse.IntegrationTests.Api
         }
 
         #endregion
+
+        #region refresh-stale
+
+        [Fact]
+        public async Task RefreshStale_ShouldReturnUnauthorized_WithoutToken()
+        {
+            var client = _factory.CreateAnonymousClient();
+
+            var response = await client.PostAsync("/api/movietvenrichment/refresh-stale", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        }
+
+        [Fact]
+        public async Task RefreshStale_OnEmptyLibrary_ShouldReturnOkWithContractBody()
+        {
+            var response = await _client.PostAsync("/api/movietvenrichment/refresh-stale", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
+            body.GetProperty("success").GetBoolean().Should().BeTrue();
+            body.GetProperty("operation").GetString().Should().Be("tmdb-refresh-stale");
+            body.GetProperty("updatedCount").GetInt32().Should().Be(0);
+            body.GetProperty("unchangedCount").GetInt32().Should().Be(0);
+            body.GetProperty("skippedCount").GetInt32().Should().Be(0);
+            body.GetProperty("failedCount").GetInt32().Should().Be(0);
+            body.GetProperty("totalProcessed").GetInt32().Should().Be(0);
+            body.GetProperty("remainingCount").GetInt32().Should().Be(0);
+            body.GetProperty("errors").GetArrayLength().Should().Be(0);
+            body.GetProperty("warnings").GetArrayLength().Should().Be(0);
+            body.GetProperty("reindexTriggered").GetBoolean().Should().BeFalse();
+            body.TryGetProperty("startedAt", out _).Should().BeTrue();
+            body.TryGetProperty("completedAt", out _).Should().BeTrue();
+        }
+
+        [Theory]
+        [InlineData("limit=0")]
+        [InlineData("limit=501")]
+        [InlineData("olderThanDays=-1")]
+        public async Task RefreshStale_ShouldRejectOutOfRangeParameters(string query)
+        {
+            var response = await _client.PostAsync($"/api/movietvenrichment/refresh-stale?{query}", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
+
+        #endregion
     }
 }

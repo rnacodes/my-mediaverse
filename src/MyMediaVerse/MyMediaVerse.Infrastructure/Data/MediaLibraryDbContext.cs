@@ -423,6 +423,10 @@ namespace MyMediaVerse.Infrastructure.Data
 
                 // Indexes for query performance
                 entity.HasIndex(e => e.ShowId);
+                // An episode's identity within its show. Rows missing a season or episode number
+                // are not constrained (PostgreSQL treats NULLs as distinct).
+                entity.HasIndex(e => new { e.ShowId, e.SeasonNumber, e.EpisodeNumber })
+                    .IsUnique();
                 entity.HasIndex(e => e.TmdbEpisodeId);
                 entity.HasIndex(e => e.AirDate);
             });
@@ -560,7 +564,12 @@ namespace MyMediaVerse.Infrastructure.Data
                 // Create indexes for better query performance
                 entity.HasIndex(e => e.ReleaseYear);
                 entity.HasIndex(e => e.ImdbId);
-                entity.HasIndex(e => e.TmdbId);
+                // One library item per TMDB id. Blank ids are excluded so items without TMDB
+                // data never collide with each other.
+                entity.HasIndex(e => e.TmdbId)
+                    .IsUnique()
+                    .HasFilter("\"TmdbId\" IS NOT NULL AND \"TmdbId\" <> ''");
+                entity.HasIndex(e => e.TmdbRefreshedAt);
                 entity.HasIndex(e => e.Director);
             });
 
@@ -597,7 +606,12 @@ namespace MyMediaVerse.Infrastructure.Data
                 // Create indexes for better query performance
                 entity.HasIndex(e => e.FirstAirYear);
                 entity.HasIndex(e => e.LastAirYear);
-                entity.HasIndex(e => e.TmdbId);
+                // One library item per TMDB id. Blank ids are excluded so items without TMDB
+                // data never collide with each other.
+                entity.HasIndex(e => e.TmdbId)
+                    .IsUnique()
+                    .HasFilter("\"TmdbId\" IS NOT NULL AND \"TmdbId\" <> ''");
+                entity.HasIndex(e => e.TmdbRefreshedAt);
                 entity.HasIndex(e => e.Creator);
             });
 

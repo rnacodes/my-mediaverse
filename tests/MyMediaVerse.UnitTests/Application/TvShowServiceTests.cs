@@ -520,6 +520,26 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         #endregion
+
+        #region TMDB refresh stamp
+
+        [Fact]
+        public async Task CreateTvShowAsync_FromTmdb_ShouldStampTmdbRefreshedAt()
+        {
+            var result = await _service.CreateTvShowAsync(TestDataFactory.CreateTvShowDto("Severance"), fromTmdb: true);
+
+            result.TmdbRefreshedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromMinutes(1));
+        }
+
+        [Fact]
+        public async Task CreateTvShowAsync_ManualCreate_ShouldLeaveTmdbRefreshedAtNull()
+        {
+            var result = await _service.CreateTvShowAsync(TestDataFactory.CreateTvShowDto("Severance"));
+
+            result.TmdbRefreshedAt.Should().BeNull();
+        }
+
+        #endregion
     }
 }
 

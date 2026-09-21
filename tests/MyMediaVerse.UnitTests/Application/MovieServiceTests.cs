@@ -516,6 +516,26 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         #endregion
+
+        #region TMDB refresh stamp
+
+        [Fact]
+        public async Task CreateMovieAsync_FromTmdb_ShouldStampTmdbRefreshedAt()
+        {
+            var result = await _service.CreateMovieAsync(TestDataFactory.CreateMovieDto("Inception"), fromTmdb: true);
+
+            result.TmdbRefreshedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromMinutes(1));
+        }
+
+        [Fact]
+        public async Task CreateMovieAsync_ManualCreate_ShouldLeaveTmdbRefreshedAtNull()
+        {
+            var result = await _service.CreateMovieAsync(TestDataFactory.CreateMovieDto("Inception"));
+
+            result.TmdbRefreshedAt.Should().BeNull();
+        }
+
+        #endregion
     }
 }
 

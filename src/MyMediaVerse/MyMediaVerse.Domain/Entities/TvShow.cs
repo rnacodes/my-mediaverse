@@ -72,6 +72,12 @@ namespace MyMediaVerse.Domain.Entities
         /// </summary>
         public DateTime? EnrichedAt { get; set; }
 
+        /// <summary>
+        /// UTC timestamp of the last time TMDB data was applied to this item (import, enrichment,
+        /// or refresh) for refresh run.
+        /// </summary>
+        public DateTime? TmdbRefreshedAt { get; set; }
+
         // Navigation property to episodes
         public ICollection<TvShowEpisode> Episodes { get; set; } = new List<TvShowEpisode>();
 

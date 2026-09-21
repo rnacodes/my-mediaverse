@@ -169,6 +169,7 @@ namespace MyMediaVerse.IntegrationTests.Api
                 ["Movie.SearchTmdbMovies"] = Unclassified,
                 ["Movie.UpdateMovie"] = Unclassified,
                 ["MovieTvEnrichment.GetStatus"] = Authorized,
+                ["MovieTvEnrichment.RefreshStale"] = Authorized,
                 ["MovieTvEnrichment.RunAllEnrichment"] = Authorized,
                 ["MovieTvEnrichment.RunMovieEnrichment"] = Authorized,
                 ["MovieTvEnrichment.RunTvShowEnrichment"] = Authorized,

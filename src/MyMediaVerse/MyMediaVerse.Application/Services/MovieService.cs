@@ -90,7 +90,7 @@ namespace MyMediaVerse.Application.Services
             }
         }
 
-        public async Task<Movie> CreateMovieAsync(CreateMovieDto dto)
+        public async Task<Movie> CreateMovieAsync(CreateMovieDto dto, bool fromTmdb = false)
         {
             try
             {
@@ -136,7 +136,8 @@ namespace MyMediaVerse.Application.Services
                     Tagline = dto.Tagline,
                     Homepage = dto.Homepage,
                     OriginalLanguage = dto.OriginalLanguage,
-                    OriginalTitle = dto.OriginalTitle
+                    OriginalTitle = dto.OriginalTitle,
+                    TmdbRefreshedAt = fromTmdb ? DateTime.UtcNow : null
                 };
 
                 // Handle Topics array conversion

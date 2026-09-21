@@ -141,6 +141,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             var updatedMovie = Context.Movies.First(m => m.Id == movie.Id);
             updatedMovie.TmdbId.Should().Be("603");
             updatedMovie.Description.Should().Be("A computer hacker learns about the true nature of reality.");
+            updatedMovie.TmdbRefreshedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromMinutes(1));
         }
 
         [Fact]
