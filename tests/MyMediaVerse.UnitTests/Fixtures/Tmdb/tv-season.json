@@ -1,0 +1,57 @@
+{
+  "_id": "5256c89f19c2956ff6046d47",
+  "id": 3624,
+  "name": "Season 1",
+  "overview": "Trouble is brewing in the Seven Kingdoms of Westeros.",
+  "air_date": "2011-04-17",
+  "season_number": 1,
+  "poster_path": "/wgfKiqzuMrFIkU1M68DDDY8kGC1.jpg",
+  "vote_average": 8.3,
+  "episodes": [
+    {
+      "id": 63056,
+      "name": "Winter Is Coming",
+      "overview": "Jon Arryn, the Hand of the King, is dead. King Robert Baratheon plans to ask his oldest friend, Eddard Stark, to take Jon's place.",
+      "air_date": "2011-04-17",
+      "episode_number": 1,
+      "episode_type": "standard",
+      "production_code": "101",
+      "runtime": 62,
+      "season_number": 1,
+      "show_id": 1399,
+      "still_path": "/9hGF3WUkBf7cSjMg0cdMDHJkByd.jpg",
+      "vote_average": 8.1,
+      "vote_count": 380
+    },
+    {
+      "id": 63057,
+      "name": "The Kingsroad",
+      "overview": "While Bran recovers from his fall, Ned takes only his daughters to King's Landing.",
+      "air_date": "2011-04-24",
+      "episode_number": 2,
+      "episode_type": "standard",
+      "production_code": "102",
+      "runtime": 56,
+      "season_number": 1,
+      "show_id": 1399,
+      "still_path": "/icjOgl5F9DhysOEo6Six2Qfwcu2.jpg",
+      "vote_average": 8.0,
+      "vote_count": 300
+    },
+    {
+      "id": 63058,
+      "name": "Lord Snow",
+      "overview": "Jon begins his training with the Night's Watch; Ned confronts his past and future at King's Landing.",
+      "air_date": "2011-05-01",
+      "episode_number": 3,
+      "episode_type": "standard",
+      "production_code": "103",
+      "runtime": null,
+      "season_number": 1,
+      "show_id": 1399,
+      "still_path": null,
+      "vote_average": 8.0,
+      "vote_count": 280
+    }
+  ]
+}

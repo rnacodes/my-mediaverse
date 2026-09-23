@@ -161,6 +161,34 @@ namespace MyMediaVerse.Infrastructure.Clients.TMDB
             }
         }
 
+        public async Task<TmdbSeasonDto> GetTvSeasonAsync(int tvShowId, int seasonNumber, string language = "en-US")
+        {
+            try
+            {
+                var url = $"tv/{tvShowId}/season/{seasonNumber}?api_key={ApiKey}&language={language}";
+
+                _logger.LogInformation("Getting season {SeasonNumber} for TV show ID: {TvShowId}", seasonNumber, tvShowId);
+
+                var response = await _httpClient.GetAsync(url);
+                response.EnsureSuccessStatusCode();
+
+                var jsonContent = await response.Content.ReadAsStringAsync();
+                var result = JsonSerializer.Deserialize<TmdbSeasonDto>(jsonContent, _jsonOptions);
+
+                if (result == null)
+                {
+                    throw new InvalidOperationException($"Season {seasonNumber} of TV show with ID {tvShowId} not found");
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting season {SeasonNumber} for TV show ID: {TvShowId}", seasonNumber, tvShowId);
+                throw;
+            }
+        }
+
         public async Task<TmdbGenreListDto> GetMovieGenresAsync(string language = "en-US")
         {
             try

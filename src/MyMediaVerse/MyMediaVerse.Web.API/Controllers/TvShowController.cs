@@ -20,19 +20,22 @@ namespace MyMediaVerse.Web.API.Controllers
         private readonly ILogger<TvShowController> _logger;
         private readonly ITmdbService _tmdbService;
         private readonly IImportReindexService _importReindexService;
+        private readonly ITvEpisodeImportService _episodeImportService;
 
         public TvShowController(
             ITvShowService tvShowService,
             ITvShowMappingService tvShowMappingService,
             ILogger<TvShowController> logger,
             ITmdbService tmdbService,
-            IImportReindexService importReindexService)
+            IImportReindexService importReindexService,
+            ITvEpisodeImportService episodeImportService)
         {
             _importReindexService = importReindexService;
             _tvShowService = tvShowService;
             _tvShowMappingService = tvShowMappingService;
             _logger = logger;
             _tmdbService = tmdbService;
+            _episodeImportService = episodeImportService;
         }
 
         // GET: api/tvshow
@@ -245,6 +248,63 @@ namespace MyMediaVerse.Web.API.Controllers
                 _logger.LogError(ex, "Error importing TV show from TMDB with ID: {TvShowId}", tvShowId);
                 return StatusCode(500, new { error = "Failed to import TV show from TMDB", details = ex.Message });
             }
+        }
+
+        // POST: api/tvshow/{id}/episodes/from-tmdb
+        // Imports the show's episodes from TMDB, one request per season. 200 with the run result
+        // when the run completed (season failures included), 500 with the same body when it aborted,
+        // 404 when the show id is unknown. Search is reindexed once at the end when rows changed.
+        // Explicit [Authorize] even though the fallback policy already requires a token: this endpoint
+        // writes to the library and proxies a burst of outbound TMDB calls per request.
+        [Authorize]
+        [HttpPost("{id}/episodes/from-tmdb")]
+        [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
+        public async Task<ActionResult<TvEpisodeImportResultDto>> ImportEpisodesFromTmdb(Guid id)
+        {
+            if (await _tvShowService.GetTvShowByIdAsync(id) == null)
+            {
+                return NotFound($"TV show with ID {id} not found.");
+            }
+
+            TvEpisodeImportResultDto result;
+            try
+            {
+                result = await _episodeImportService.ImportFromTmdbAsync(id, cancellationToken: HttpContext.RequestAborted);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error importing episodes from TMDB for TV show {Id}", id);
+                result = new TvEpisodeImportResultDto
+                {
+                    Success = false,
+                    ShowId = id,
+                    StartedAt = DateTime.UtcNow,
+                    ErrorMessage = $"TMDB episode import failed: {ex.Message}"
+                };
+            }
+
+            if (!result.Success)
+            {
+                return StatusCode(500, result);
+            }
+
+            // Search reindex comes last, and only when stored data actually changed.
+            var changedCount = result.CreatedCount + result.UpdatedCount;
+            if (changedCount > 0)
+            {
+                try
+                {
+                    await _importReindexService.ReindexAfterImportAsync(changedCount, "TMDB episode import");
+                    result.ReindexTriggered = true;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Search reindex after TMDB episode import failed");
+                    result.Warnings.Add("The episodes were saved, but the search reindex failed; search results may lag until the next reindex.");
+                }
+            }
+
+            return Ok(result);
         }
 
         // GET: api/tvshow/{showId}/episodes

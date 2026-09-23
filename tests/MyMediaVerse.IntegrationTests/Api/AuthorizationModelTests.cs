@@ -284,6 +284,7 @@ namespace MyMediaVerse.IntegrationTests.Api
                 ["TvShow.GetTvShowEpisode"] = Unclassified,
                 ["TvShow.GetTvShowsByCreator"] = Unclassified,
                 ["TvShow.GetTvShowsByYear"] = Unclassified,
+                ["TvShow.ImportEpisodesFromTmdb"] = Authorized,
                 ["TvShow.ImportTvShowFromTmdb"] = Authorized,
                 ["TvShow.SearchTmdbTvShows"] = Unclassified,
                 ["TvShow.UpdateTvShow"] = Unclassified,

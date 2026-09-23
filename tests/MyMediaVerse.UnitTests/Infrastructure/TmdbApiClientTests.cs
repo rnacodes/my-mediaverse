@@ -394,6 +394,72 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             TmdbDetailsExtractor.GetContentRating(result).Should().Be("TV-MA");
         }
 
+        [Fact]
+        public async Task GetTvShowDetailsAsync_ShouldDeserializeTheSeasonList_IncludingSpecials()
+        {
+            SetupHttpResponse(HttpStatusCode.OK, ReadFixture("tv-details-appended.json"));
+
+            var result = await _tmdbApiClient.GetTvShowDetailsAsync(1399);
+
+            // The list, not number_of_seasons, is what an episode import walks: season 0 is only here.
+            result.Seasons.Select(s => s.SeasonNumber).Should().Equal(0, 1, 2);
+            result.Seasons[0].Name.Should().Be("Specials");
+            result.Seasons[0].EpisodeCount.Should().Be(2);
+            result.Seasons[1].EpisodeCount.Should().Be(10);
+        }
+
+        #endregion
+
+        #region Season Tests
+
+        [Fact]
+        public async Task GetTvSeasonAsync_ShouldRequestTheSeasonEndpoint_AndDeserializeEpisodes()
+        {
+            SetupHttpResponse(HttpStatusCode.OK, ReadFixture("tv-season.json"));
+
+            var result = await _tmdbApiClient.GetTvSeasonAsync(1399, 1);
+
+            VerifyHttpRequest("GET", "tv/1399/season/1?api_key=test-api-key&language=en-US");
+            result.SeasonNumber.Should().Be(1);
+            result.Episodes.Should().HaveCount(3);
+
+            var first = result.Episodes[0];
+            first.Id.Should().Be(63056);
+            first.Name.Should().Be("Winter Is Coming");
+            first.SeasonNumber.Should().Be(1);
+            first.EpisodeNumber.Should().Be(1);
+            first.AirDate.Should().Be("2011-04-17");
+            first.Runtime.Should().Be(62);
+            first.StillPath.Should().Be("/9hGF3WUkBf7cSjMg0cdMDHJkByd.jpg");
+
+            // TMDB sends null for a runtime or still it does not have.
+            result.Episodes[2].Runtime.Should().BeNull();
+            result.Episodes[2].StillPath.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task GetTvSeasonAsync_ShouldRequestSeasonZero_ForSpecials()
+        {
+            SetupHttpResponse(HttpStatusCode.OK, "{\"id\":3627,\"name\":\"Specials\",\"season_number\":0,\"episodes\":[]}");
+
+            var result = await _tmdbApiClient.GetTvSeasonAsync(1399, 0);
+
+            VerifyHttpRequest("GET", "tv/1399/season/0?api_key=test-api-key&language=en-US");
+            result.SeasonNumber.Should().Be(0);
+            result.Episodes.Should().BeEmpty();
+        }
+
+        [Fact]
+        public async Task GetTvSeasonAsync_ShouldThrowHttpRequestException_WhenSeasonIsNotFound()
+        {
+            SetupHttpResponse(HttpStatusCode.NotFound, "{\"status_code\":34,\"status_message\":\"The resource you requested could not be found.\"}");
+
+            var act = () => _tmdbApiClient.GetTvSeasonAsync(1399, 99);
+
+            (await act.Should().ThrowAsync<HttpRequestException>())
+                .Which.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        }
+
         #endregion
 
         #region API Key Tests

@@ -7,6 +7,7 @@ using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.IntegrationTests.Fixtures;
 using MyMediaVerse.Shared.DTOs.TMDB;
+using MyMediaVerse.Shared.Interfaces;
 using NSubstitute;
 using Xunit;
 
@@ -732,6 +733,31 @@ namespace MyMediaVerse.IntegrationTests.Api
 
             // Assert
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task ImportEpisodesFromTmdb_WithoutToken_ShouldReturnUnauthorized()
+        {
+            // The action is explicitly [Authorize]; no service is reached without a token.
+            var (client, importService) = _factory.CreateClientWithSubstitute<ITvEpisodeImportService>();
+            client.DefaultRequestHeaders.Authorization = null;
+
+            var response = await client.PostAsync($"/api/tvshow/{Guid.NewGuid()}/episodes/from-tmdb", null);
+
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+            await importService.DidNotReceive().ImportFromTmdbAsync(Arg.Any<Guid>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task ImportEpisodesFromTmdb_WithUnknownShow_ShouldReturnNotFound()
+        {
+            // The show lookup runs before the import, so an unknown id never reaches the service.
+            var (client, importService) = _factory.CreateClientWithSubstitute<ITvEpisodeImportService>();
+
+            var response = await client.PostAsync($"/api/tvshow/{Guid.NewGuid()}/episodes/from-tmdb", null);
+
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+            await importService.DidNotReceive().ImportFromTmdbAsync(Arg.Any<Guid>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
         }
 
         #endregion

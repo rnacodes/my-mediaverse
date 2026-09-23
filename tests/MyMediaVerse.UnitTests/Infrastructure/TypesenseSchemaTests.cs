@@ -50,6 +50,55 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         }
 
         [Fact]
+        public void MediaBaseFields_CarriesTheTvFields_WithTheirFacetAndTypeSettings()
+        {
+            var fields = TypesenseService.MediaBaseFields().ToDictionary(f => f.Name);
+
+            fields.Should().ContainKey("tv_type").WhoseValue.Should().Match<Field>(f =>
+                f.Type == FieldType.String && f.Facet == true && f.Optional == true);
+            fields.Should().ContainKey("show_id").WhoseValue.Should().Match<Field>(f =>
+                f.Type == FieldType.String && f.Facet == false && f.Optional == true && f.Index == false);
+            fields.Should().ContainKey("show_title").WhoseValue.Should().Match<Field>(f =>
+                f.Type == FieldType.String && f.Facet == true && f.Optional == true);
+            fields.Should().ContainKey("season_number").WhoseValue.Should().Match<Field>(f =>
+                f.Type == FieldType.Int32 && f.Facet == false && f.Optional == true);
+            fields.Should().ContainKey("episode_number").WhoseValue.Should().Match<Field>(f =>
+                f.Type == FieldType.Int32 && f.Facet == false && f.Optional == true);
+        }
+
+        [Fact]
+        public void ComputeMissingFields_ProposesTheTvFields_ForACollectionThatPredatesThem()
+        {
+            // A deployed collection without them must pick them up by alter, not by a destructive reset.
+            var live = TypesenseService.MediaBaseFields()
+                .Select(f => f.Name)
+                .Where(n => n is not ("tv_type" or "show_id" or "show_title" or "season_number" or "episode_number"));
+
+            var missing = TypesenseService.ComputeMissingFields(TypesenseService.MediaBaseFields(), live);
+
+            missing.Select(f => f.Name).Should().BeEquivalentTo(
+                "tv_type", "show_id", "show_title", "season_number", "episode_number");
+        }
+
+        [Fact]
+        public void MediaItemDocument_SerializesTheTvFields_UnderTheSchemaNames()
+        {
+            var document = new MyMediaVerse.Infrastructure.Models.MediaItemDocument
+            {
+                Id = "1", Title = "Winter Is Coming", MediaType = "TVShow", Status = "Uncharted",
+                TvType = "Episode", ShowId = "abc", ShowTitle = "Game of Thrones", SeasonNumber = 1, EpisodeNumber = 1
+            };
+
+            var json = System.Text.Json.JsonSerializer.Serialize(document);
+
+            json.Should().Contain("\"tv_type\":\"Episode\"")
+                .And.Contain("\"show_id\":\"abc\"")
+                .And.Contain("\"show_title\":\"Game of Thrones\"")
+                .And.Contain("\"season_number\":1")
+                .And.Contain("\"episode_number\":1");
+        }
+
+        [Fact]
         public void ComputeMissingFields_ProposesThePodcastFields_ForACollectionThatPredatesThem()
         {
             // A deployed collection without them must pick them up by alter, not by a destructive reset.

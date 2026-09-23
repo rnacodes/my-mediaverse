@@ -63,6 +63,10 @@ namespace MyMediaVerse.Shared.DTOs.TMDB
         [JsonPropertyName("number_of_seasons")]
         public int NumberOfSeasons { get; set; }
 
+        // Details payloads only. Includes season 0 (specials) when the show has one.
+        [JsonPropertyName("seasons")]
+        public List<TmdbSeasonSummaryDto> Seasons { get; set; } = new();
+
         [JsonPropertyName("tagline")]
         public string? Tagline { get; set; }
 
@@ -104,6 +108,10 @@ namespace MyMediaVerse.Shared.DTOs.TMDB
 
         [JsonPropertyName("still_path")]
         public string? StillPath { get; set; }
+
+        // Minutes; present on season payloads, null when TMDB has no runtime for the episode.
+        [JsonPropertyName("runtime")]
+        public int? Runtime { get; set; }
 
         [JsonPropertyName("vote_average")]
         public double VoteAverage { get; set; }

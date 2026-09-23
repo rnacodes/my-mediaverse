@@ -7,6 +7,11 @@
   "last_air_date": "2019-05-19",
   "number_of_seasons": 8,
   "number_of_episodes": 73,
+  "seasons": [
+    { "id": 3627, "name": "Specials", "air_date": "2010-12-05", "season_number": 0, "episode_count": 2, "poster_path": null },
+    { "id": 3624, "name": "Season 1", "air_date": "2011-04-17", "season_number": 1, "episode_count": 10, "poster_path": "/wgfKiqzuMrFIkU1M68DDDY8kGC1.jpg" },
+    { "id": 3625, "name": "Season 2", "air_date": "2012-04-01", "season_number": 2, "episode_count": 10, "poster_path": "/9xfNkPwDOqyeUvfNhs1XlWA0esN.jpg" }
+  ],
   "vote_average": 8.5,
   "created_by": [
     { "id": 9813, "name": "David Benioff" },

@@ -41,6 +41,9 @@ public static class BackgroundServicesExtensions
         services.AddEnrichmentWorker<MovieTvEnrichmentHostedService, MovieTvEnrichmentOptions>(
             configuration, MovieTvEnrichmentOptions.SectionName, isTesting);
 
+        // Episode import is per show and user-triggered from the show's page; no worker.
+        services.AddScoped<ITvEpisodeImportService, TvEpisodeImportService>();
+
         services.AddScoped<IPodcastEnrichmentService, PodcastEnrichmentService>();
         services.AddEnrichmentWorker<PodcastEnrichmentHostedService, PodcastEnrichmentOptions>(
             configuration, PodcastEnrichmentOptions.SectionName, isTesting);
