@@ -51,7 +51,8 @@ export function useTraktSyncWatched() {
     mutationFn: () => syncWatched(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: movieKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: tvShowKeys.lists() });
+      // Watch state lands on show details and episode lists too, not only the list.
+      queryClient.invalidateQueries({ queryKey: tvShowKeys.all });
       queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
     },
   });
@@ -63,7 +64,8 @@ export function useTraktSyncWatchlist() {
     mutationFn: () => syncWatchlist(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: movieKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: tvShowKeys.lists() });
+      // Watch state lands on show details and episode lists too, not only the list.
+      queryClient.invalidateQueries({ queryKey: tvShowKeys.all });
       queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
     },
   });
@@ -75,7 +77,8 @@ export function useTraktSyncRatings() {
     mutationFn: () => syncRatings(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: movieKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: tvShowKeys.lists() });
+      // Watch state lands on show details and episode lists too, not only the list.
+      queryClient.invalidateQueries({ queryKey: tvShowKeys.all });
       queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
     },
   });
@@ -87,7 +90,8 @@ export function useTraktSyncAll() {
     mutationFn: () => syncAll(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: movieKeys.lists() });
-      queryClient.invalidateQueries({ queryKey: tvShowKeys.lists() });
+      // Watch state lands on show details and episode lists too, not only the list.
+      queryClient.invalidateQueries({ queryKey: tvShowKeys.all });
       queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
     },
   });

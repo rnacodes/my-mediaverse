@@ -55,22 +55,24 @@ describe('formatStatus', () => {
 });
 
 describe('getMediaTypeColor', () => {
+  // Hex values from the design system's media-type palette, so the profile-page
+  // chip matches the cards. MUI cannot resolve names like "red.500".
   it.each([
-    ['Book', 'purple.500'],
-    ['Podcast', 'green.500'],
-    ['Movie', 'red.500'],
-    ['TVShow', 'blue.500'],
-    ['Video', 'orange.500'],
-    ['Article', 'teal.500'],
-    ['Website', 'cyan.500'],
-    ['VideoGame', 'pink.500'],
+    ['Book', '#9c27b0'],
+    ['Podcast', '#e91e63'],
+    ['Movie', '#3f51b5'],
+    ['TVShow', '#2196f3'],
+    ['Video', '#f44336'],
+    ['Article', '#4caf50'],
+    ['Website', '#607d8b'],
+    ['VideoGame', '#795548'],
   ])('maps %s to %s', (mediaType, color) => {
     expect(getMediaTypeColor(mediaType)).toBe(color);
   });
 
-  it('falls back to gray.500 for unknown / missing types', () => {
-    expect(getMediaTypeColor('Unknown')).toBe('gray.500');
-    expect(getMediaTypeColor(undefined)).toBe('gray.500');
+  it('falls back to the neutral grey for unknown / missing types', () => {
+    expect(getMediaTypeColor('Unknown')).toBe('#9e9e9e');
+    expect(getMediaTypeColor(undefined)).toBe('#9e9e9e');
   });
 });
 

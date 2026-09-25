@@ -4,10 +4,14 @@ import {
     Box, Typography, Button, Card, CardContent,
     Chip, Divider, CircularProgress, Alert,
     Accordion, AccordionSummary, AccordionDetails, List, ListItemButton,
-    Snackbar, LinearProgress
+    Snackbar, LinearProgress, Tooltip
 } from '@mui/material';
-import { ExpandMore } from '@mui/icons-material';
+import { ExpandMore, CloudDownload } from '@mui/icons-material';
 import MediaHeader from '@/features/media/MediaHeader';
+import TvEpisodeImportResultPanel from '@/features/videos/TvEpisodeImportResultPanel';
+import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
+import { DEMO_IMPORT_BLOCKED } from '@/features/demo/demoMessages';
+import { isPublicDemo } from '@/utils/demoMode';
 import MediaInfoCard from '@/features/media/MediaInfoCard';
 import MediaDetailAccordion from '@/features/media/MediaDetailAccordion';
 import MixlistCarousel from '@/features/mixlists/MixlistCarousel';
@@ -17,7 +21,7 @@ import SavedRelatedMediaSection from '@/features/media/SavedRelatedMediaSection'
 import SimilarItemsSection from '@/features/media/SimilarItemsSection';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
-import { useTvShow, useTvShowEpisodes } from '@/hooks/useTvShow';
+import { useTvShow, useTvShowEpisodes, useImportTvShowEpisodesFromTmdb } from '@/hooks/useTvShow';
 import { useReindexMediaItem } from '@/hooks/useTypesense';
 import { useAllMixlists } from '@/hooks/useMixlist';
 import {
@@ -34,6 +38,7 @@ function TvShowProfile() {
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
     const [refreshKey, setRefreshKey] = useState(0);
     const [relatedMediaRefreshTrigger, setRelatedMediaRefreshTrigger] = useState(0);
+    const [episodeImportResult, setEpisodeImportResult] = useState(null);
 
     const { id } = useParams();
     const navigate = useNavigate();
@@ -55,6 +60,9 @@ function TvShowProfile() {
 
     const reindexMutation = useReindexMediaItem();
     const reindexing = reindexMutation.isPending;
+
+    const episodeImportMutation = useImportTvShowEpisodesFromTmdb(id);
+    const importingEpisodes = episodeImportMutation.isPending;
 
     // Force refetch when refreshKey changes (used by child sections after mutations).
     useEffect(() => {
@@ -95,6 +103,49 @@ function TvShowProfile() {
                 }
             },
         });
+    };
+
+    const handleImportEpisodes = () => {
+        setEpisodeImportResult(null);
+        episodeImportMutation.mutate(undefined, {
+            onSuccess: (result) => setEpisodeImportResult(result),
+            onError: (error) => {
+                if (error.response?.status === 403) return;
+                // An aborted run answers 500 with the same result body; show it rather
+                // than the generic axios message.
+                const body = error.response?.data;
+                if (body && typeof body === 'object' && 'success' in body) {
+                    setEpisodeImportResult(body);
+                } else {
+                    setSnackbar({ open: true, message: `Failed to import episodes: ${body?.errorMessage || body?.message || error.message}`, severity: 'error' });
+                }
+            },
+        });
+    };
+
+    // The import needs the show's TMDB id; a manually added show has none.
+    const canImportEpisodes = !!show?.tmdbId;
+    const importEpisodesButton = (size) => {
+        const button = (
+            <Button
+                variant="outlined"
+                size={size}
+                onClick={handleImportEpisodes}
+                disabled={!canImportEpisodes || importingEpisodes}
+                startIcon={importingEpisodes ? <CircularProgress size={16} /> : <CloudDownload />}
+                sx={{ borderColor: 'rgba(255,255,255,0.3)', color: 'text.primary', order: { xs: 3, sm: 0 } }}
+            >
+                {importingEpisodes ? 'Importing episodes...' : 'Import episodes from TMDB'}
+            </Button>
+        );
+        if (!canImportEpisodes) {
+            return (
+                <Tooltip title="This show has no TMDB id. Import it from TMDB first.">
+                    <span style={{ display: 'inline-flex' }}>{button}</span>
+                </Tooltip>
+            );
+        }
+        return <DemoWriteGuard title={DEMO_IMPORT_BLOCKED}>{button}</DemoWriteGuard>;
     };
 
     // Group episodes by season, sorted by season desc then episode desc
@@ -144,6 +195,12 @@ function TvShowProfile() {
                     mediaId={id}
                     onReindex={handleReindex}
                     reindexing={reindexing}
+                    actions={importEpisodesButton(isMobile ? 'medium' : 'large')}
+                />
+
+                <TvEpisodeImportResultPanel
+                    result={episodeImportResult}
+                    onDismiss={() => setEpisodeImportResult(null)}
                 />
 
                 {/* Profile Card */}
@@ -297,16 +354,23 @@ function TvShowProfile() {
                 ) : (
                     <Box sx={{ textAlign: 'center', py: 4 }}>
                         <Typography variant="body1" color="text.secondary">
-                            No episodes tracked yet. Sync from Trakt to import your watch history.
+                            {isPublicDemo()
+                                ? 'No episodes tracked yet. Import the episode list from TMDB.'
+                                : 'No episodes tracked yet. Import the episode list from TMDB, or sync from Trakt to import your watch history.'}
                         </Typography>
-                        <Button
-                            variant="contained"
-                            size="small"
-                            onClick={() => navigate('/trakt-sync')}
-                            sx={{ mt: 2 }}
-                        >
-                            Go to Trakt Sync
-                        </Button>
+                        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mt: 2, flexWrap: 'wrap' }}>
+                            {importEpisodesButton('small')}
+                            {/* Trakt is a personal account link; the public demo has no route for it. */}
+                            {!isPublicDemo() && (
+                                <Button
+                                    variant="contained"
+                                    size="small"
+                                    onClick={() => navigate('/trakt-sync')}
+                                >
+                                    Go to Trakt Sync
+                                </Button>
+                            )}
+                        </Box>
                     </Box>
                 )}
             </Box>

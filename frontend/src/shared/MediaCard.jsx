@@ -31,7 +31,7 @@ const mediaTypeIcons = {
   podcast: <Podcasts />,
   book: <Book />,
   movie: <Movie />,
-  tv: <Tv />,
+  tvshow: <Tv />,
   article: <Article />,
   music: <LibraryMusic />,
   game: <SportsEsports />,

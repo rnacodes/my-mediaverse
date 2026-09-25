@@ -5,7 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 
-function MediaHeader({ title, mediaId, onReindex, reindexing }) {
+// `actions` renders extra page-specific controls beside Reindex and Edit Media.
+function MediaHeader({ title, mediaId, onReindex, reindexing, actions = null }) {
   const navigate = useNavigate();
   const theme = useTheme();
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
@@ -44,6 +45,7 @@ function MediaHeader({ title, mediaId, onReindex, reindexing }) {
         alignItems: { xs: 'stretch', sm: 'center' },
         width: { xs: '100%', sm: 'auto' }
       }}>
+        {actions}
         {onReindex && (
           <Button
             onClick={onReindex}

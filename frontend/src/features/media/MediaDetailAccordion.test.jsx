@@ -3,7 +3,7 @@ import { http, HttpResponse } from 'msw';
 import { renderWithProviders, screen, within } from '@/test/test-utils';
 import { server } from '@/test/mocks/server';
 import { API_BASE } from '@/test/mocks/handlers';
-import { makeBook, makeWebsite } from '@/test/factories/media';
+import { makeBook, makeWebsite, makeMovie, makeTvShow, makeTvShowEpisode } from '@/test/factories/media';
 import { makePodcastEpisode } from '@/test/factories/podcast';
 import MediaDetailAccordion from './MediaDetailAccordion';
 
@@ -166,6 +166,85 @@ describe('MediaDetailAccordion', () => {
       await expandDetails(user);
 
       expect(screen.queryByRole('link', { name: /download audio/i })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('TV episode details', () => {
+    it('renders the show link, identifier, air date and duration instead of the show fields', async () => {
+      const navigate = vi.fn();
+      const { user } = renderWithProviders(
+        <MediaDetailAccordion
+          mediaItem={{ ...makeTvShowEpisode({ showId: 'show-9', showTitle: 'Chernobyl', airDate: '2019-05-20T00:00:00Z', durationInMinutes: 62 }), isTvEpisode: true }}
+          navigate={navigate}
+        />,
+      );
+
+      await user.click(screen.getByRole('button', { name: /tv episode details/i }));
+
+      expect(screen.getByText(/S1E3 \(Season 1, Episode 3\)/)).toBeInTheDocument();
+      expect(screen.getByText('62 minutes')).toBeInTheDocument();
+      expect(screen.getByText(new Date('2019-05-20T00:00:00Z').toLocaleDateString())).toBeInTheDocument();
+      expect(screen.queryByText(/no specific tvshow details/i)).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'Chernobyl' }));
+      expect(navigate).toHaveBeenCalledWith('/tv-show/show-9');
+    });
+  });
+
+  describe('movie and TV show external links', () => {
+    it('links a movie to IMDb, TMDB, and a JustWatch search', async () => {
+      const { user } = renderWithProviders(
+        <MediaDetailAccordion
+          mediaItem={makeMovie({ title: 'Inception', imdbId: 'tt1375666', tmdbId: 27205 })}
+          navigate={() => {}}
+        />,
+      );
+
+      await user.click(screen.getByRole('button', { name: /movie details/i }));
+
+      expect(screen.getByRole('link', { name: /view on imdb/i })).toHaveAttribute(
+        'href',
+        'https://www.imdb.com/title/tt1375666/',
+      );
+      expect(screen.getByRole('link', { name: /view on tmdb/i })).toHaveAttribute(
+        'href',
+        'https://www.themoviedb.org/movie/27205',
+      );
+      expect(screen.getByRole('link', { name: /search on justwatch/i })).toHaveAttribute(
+        'href',
+        'https://www.justwatch.com/us/search?q=Inception',
+      );
+    });
+
+    it('links a TV show to its TMDB page (shows have no IMDb id)', async () => {
+      const { user } = renderWithProviders(
+        <MediaDetailAccordion
+          mediaItem={makeTvShow({ title: 'Chernobyl', tmdbId: 87108 })}
+          navigate={() => {}}
+        />,
+      );
+
+      await user.click(screen.getByRole('button', { name: /tv show details/i }));
+
+      expect(screen.getByRole('link', { name: /view on tmdb/i })).toHaveAttribute(
+        'href',
+        'https://www.themoviedb.org/tv/87108',
+      );
+      expect(screen.queryByRole('link', { name: /view on imdb/i })).not.toBeInTheDocument();
+    });
+
+    it('omits the id links when the movie has no external ids', async () => {
+      const { user } = renderWithProviders(
+        <MediaDetailAccordion
+          mediaItem={makeMovie({ imdbId: null, tmdbId: null })}
+          navigate={() => {}}
+        />,
+      );
+
+      await user.click(screen.getByRole('button', { name: /movie details/i }));
+
+      expect(screen.queryByRole('link', { name: /view on imdb/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: /view on tmdb/i })).not.toBeInTheDocument();
     });
   });
 });

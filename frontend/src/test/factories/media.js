@@ -44,6 +44,11 @@ export const makeMovie = (overrides = {}) =>
     releaseYear: 2023,
     runtimeMinutes: 120,
     tmdbRating: 7.8,
+    imdbId: 'tt1375666',
+    tmdbId: 27205,
+    cast: ['Test Lead', 'Test Support'],
+    mpaaRating: 'PG-13',
+    tagline: 'Your mind is the scene of the crime.',
     ...overrides,
   });
 
@@ -55,6 +60,25 @@ export const makeTvShow = (overrides = {}) =>
     seasons: 3,
     episodes: 30,
     tmdbRating: 8.1,
+    ...overrides,
+  });
+
+/** A TV episode as GET /tvshow/episodes/:id returns it (shares the TVShow media type). */
+export const makeTvShowEpisode = (overrides = {}) =>
+  makeMedia({
+    mediaType: 'TVShow',
+    title: 'Test Episode',
+    showId: 'tvshow-1',
+    showTitle: 'Test TV Show',
+    seasonNumber: 1,
+    episodeNumber: 3,
+    episodeIdentifier: 'S1E3',
+    airDate: '2019-05-20T00:00:00Z',
+    durationInMinutes: 62,
+    tmdbEpisodeId: 1700000,
+    stillPath: '/still.jpg',
+    traktPlays: null,
+    traktLastWatchedAt: null,
     ...overrides,
   });
 

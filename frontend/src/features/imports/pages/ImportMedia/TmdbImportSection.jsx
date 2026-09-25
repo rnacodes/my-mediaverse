@@ -8,16 +8,19 @@ import {
 } from '@mui/material';
 import { Search, Download, MovieFilter, ExpandMore, OpenInNew } from '@mui/icons-material';
 import { searchMovies, searchTvShows, searchMulti, getMovieDetails, getTvShowDetails } from '@/api/tmdbService';
-import { importMovieFromTmdb } from '@/api/movieService';
-import { importTvShowFromTmdb } from '@/api/tvShowService';
+import { useImportMovieFromTmdb } from '@/hooks/useMovie';
+import { useImportTvShowFromTmdb } from '@/hooks/useTvShow';
 import WhiteOutlineButton from '@/shared/WhiteOutlineButton';
 import { getPlaceholderImage } from '@/utils/mediaImageUtils';
+import { getTmdbImageUrl } from '@/utils/externalLinks';
 import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
 import { DEMO_IMPORT_BLOCKED } from '@/features/demo/demoMessages';
 import AttributionBadge from '@/shared/AttributionBadge';
 
 function TmdbImportSection({ expanded, onAccordionChange }) {
     const navigate = useNavigate();
+    const importMovie = useImportMovieFromTmdb();
+    const importTvShow = useImportTvShowFromTmdb();
 
     const [tmdbSearchQuery, setTmdbSearchQuery] = useState('');
     const [tmdbSearchType, setTmdbSearchType] = useState('multi');
@@ -73,22 +76,29 @@ function TmdbImportSection({ expanded, onAccordionChange }) {
 
     const displayedResults = tmdbSearchResults.slice(0, displayedCount);
 
+    // Multi search hits carry `media_type`; movie-only and TV-only hits do not, so
+    // the search type decides for them. Returns 'movie', 'tv', or null.
+    const resolveTmdbMediaType = (item) => {
+        if (item?.media_type === 'movie' || item?.media_type === 'tv') return item.media_type;
+        if (tmdbSearchType === 'movies') return 'movie';
+        if (tmdbSearchType === 'tv') return 'tv';
+        return null;
+    };
+
     const handleTmdbItemClick = async (item) => {
+        const mediaType = resolveTmdbMediaType(item);
+        if (!mediaType) {
+            setTmdbError('Only movies and TV shows can be opened.');
+            return;
+        }
         setTmdbIsLoading(true);
         try {
-            let details;
-            if (item.media_type === 'movie' || tmdbSearchType === 'movies') {
-                details = await getMovieDetails(item.id);
-            } else if (item.media_type === 'tv' || tmdbSearchType === 'tv') {
-                details = await getTvShowDetails(item.id);
-            } else {
-                if (item.media_type === 'movie') {
-                    details = await getMovieDetails(item.id);
-                } else if (item.media_type === 'tv') {
-                    details = await getTvShowDetails(item.id);
-                }
-            }
-            setSelectedTmdbItem(details);
+            const details = mediaType === 'tv'
+                ? await getTvShowDetails(item.id)
+                : await getMovieDetails(item.id);
+            // The details payload has no `media_type`; keep the hit's so the modal's
+            // Import button and labels still know what this is in multi mode.
+            setSelectedTmdbItem({ ...details, media_type: mediaType });
             setShowTmdbDetails(true);
         } catch (err) {
             setTmdbError('Failed to load details. Please try again.');
@@ -103,22 +113,24 @@ function TmdbImportSection({ expanded, onAccordionChange }) {
         setTmdbError('');
 
         try {
+            const mediaType = resolveTmdbMediaType(item);
             let result;
 
-            if (item.media_type === 'movie' || tmdbSearchType === 'movies') {
-                result = await importMovieFromTmdb(item.id);
-            } else if (item.media_type === 'tv' || tmdbSearchType === 'tv') {
-                result = await importTvShowFromTmdb(item.id);
+            if (mediaType === 'movie') {
+                result = await importMovie.mutateAsync(item.id);
+            } else if (mediaType === 'tv') {
+                result = await importTvShow.mutateAsync(item.id);
             } else {
                 throw new Error('Unknown media type');
             }
 
-            setTmdbSuccess(`"${item.title || item.name}" imported successfully!`);
+            const title = item.title || item.name;
+            setTmdbSuccess(result.created
+                ? `"${title}" imported successfully!`
+                : `"${title}" is already in your library.`);
             setTmdbIsLoading(false);
 
-            console.log('TMDB import successful:', result);
-
-            const mediaId = result.id || result.Id;
+            const mediaId = result.item?.id;
             if (mediaId) {
                 setTimeout(() => {
                     navigate(`/media/${mediaId}`);
@@ -137,15 +149,11 @@ function TmdbImportSection({ expanded, onAccordionChange }) {
     };
 
     const getTmdbPlaceholder = (item) => {
-        const isTv = item?.media_type === 'tv' || tmdbSearchType === 'tv';
-        return getPlaceholderImage(isTv ? 'TVShow' : 'Movie');
+        return getPlaceholderImage(resolveTmdbMediaType(item) === 'tv' ? 'TVShow' : 'Movie');
     };
 
-    const getTmdbImageUrl = (item) => {
-        if (item.poster_path) {
-            return `https://image.tmdb.org/t/p/w500${item.poster_path}`;
-        }
-        return getTmdbPlaceholder(item);
+    const getTmdbPosterUrl = (item) => {
+        return getTmdbImageUrl(item.poster_path) ?? getTmdbPlaceholder(item);
     };
 
     const getTmdbItemTitle = (item) => {
@@ -158,10 +166,7 @@ function TmdbImportSection({ expanded, onAccordionChange }) {
     };
 
     const getTmdbItemType = (item) => {
-        if (item.media_type) {
-            return item.media_type === 'movie' ? 'Movie' : 'TV Show';
-        }
-        return tmdbSearchType === 'movies' ? 'Movie' : 'TV Show';
+        return resolveTmdbMediaType(item) === 'tv' ? 'TV Show' : 'Movie';
     };
 
     const formatDate = (dateString) => {
@@ -213,8 +218,9 @@ function TmdbImportSection({ expanded, onAccordionChange }) {
                 <AccordionDetails>
                     <Box sx={{ padding: 2 }}>
                         <FormControl fullWidth margin="normal">
-                            <InputLabel>Search Type</InputLabel>
+                            <InputLabel id="tmdb-search-type-label">Search Type</InputLabel>
                             <Select
+                                labelId="tmdb-search-type-label"
                                 value={tmdbSearchType}
                                 label="Search Type"
                                 onChange={(e) => setTmdbSearchType(e.target.value)}
@@ -275,7 +281,7 @@ function TmdbImportSection({ expanded, onAccordionChange }) {
                                                     }}
                                                 >
                                                     <img
-                                                        src={getTmdbImageUrl(item)}
+                                                        src={getTmdbPosterUrl(item)}
                                                         alt=""
                                                         style={{
                                                             width: '100%',
@@ -446,7 +452,7 @@ function TmdbImportSection({ expanded, onAccordionChange }) {
 
                         <Box sx={{ display: 'flex', gap: 3, mb: 3 }}>
                             <img
-                                src={getTmdbImageUrl(selectedTmdbItem)}
+                                src={getTmdbPosterUrl(selectedTmdbItem)}
                                 alt={selectedTmdbItem.title || selectedTmdbItem.name}
                                 style={{
                                     width: 200,
