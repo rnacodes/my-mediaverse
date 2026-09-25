@@ -129,3 +129,30 @@ describe('SearchResultCard podcasts', () => {
     expect(screen.getByText('The Show')).toBeInTheDocument();
   });
 });
+
+describe('SearchResultCard TV shows and episodes', () => {
+  it('links a show straight to its profile page with first-air year and rating', () => {
+    renderCard({ id: 'show-1', title: 'Chernobyl', mediaType: 'TVShow', tvType: 'Show', releaseYear: 2019, tmdbRating: 8.7, creator: 'Craig Mazin' });
+
+    expect(screen.getByRole('link', { name: /chernobyl/i })).toHaveAttribute('href', '/tv-show/show-1');
+    expect(screen.getByText('2019 • 8.7★')).toBeInTheDocument();
+    expect(screen.getByText('Created by Craig Mazin')).toBeInTheDocument();
+  });
+
+  it('links an episode to the media page, credited to its show with its identifier', () => {
+    renderCard({
+      id: 'ep-1', title: '1:23:45', mediaType: 'TVShow', tvType: 'Episode',
+      showId: 'show-1', showTitle: 'Chernobyl', seasonNumber: 1, episodeNumber: 1, tmdbRating: 9.4,
+    });
+
+    expect(screen.getByRole('link', { name: /1:23:45/i })).toHaveAttribute('href', '/media/ep-1');
+    expect(screen.getByText('Chernobyl')).toBeInTheDocument();
+    expect(screen.getByText('S1E1 • 9.4★')).toBeInTheDocument();
+  });
+
+  it('sends a TV document without tv_type through the generic profile', () => {
+    renderCard({ id: 'old-1', title: 'Old Show', mediaType: 'TVShow' });
+
+    expect(screen.getByRole('link', { name: /old show/i })).toHaveAttribute('href', '/media/old-1');
+  });
+});

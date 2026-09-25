@@ -26,6 +26,8 @@ export const SearchFilterSidebar = React.memo(({
     setSelectedMediaTypes,
     podcastType = '',
     setPodcastType,
+    tvType = '',
+    setTvType,
     selectedTopics,
     setSelectedTopics,
     selectedGenres,
@@ -162,6 +164,30 @@ export const SearchFilterSidebar = React.memo(({
                                         >
                                             <ToggleButton value="">All</ToggleButton>
                                             <ToggleButton value="Series">Series</ToggleButton>
+                                            <ToggleButton value="Episode">Episodes</ToggleButton>
+                                        </ToggleButtonGroup>
+                                    </Box>
+                                )}
+                                {selectedMediaTypes.includes('TVShow') && setTvType && (
+                                    <Box sx={{ mt: 1 }}>
+                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                                            TV: show
+                                        </Typography>
+                                        {/* Unlike podcasts, the default is shows only; episodes are opt-in. */}
+                                        <ToggleButtonGroup
+                                            value={tvType}
+                                            exclusive
+                                            size="small"
+                                            fullWidth
+                                            aria-label="TV shows or episodes"
+                                            onChange={(_event, value) => value !== null && setTvType(value)}
+                                            sx={{
+                                                '& .MuiToggleButton-root': { color: 'white', textTransform: 'none', py: 0.25 },
+                                                '& .MuiToggleButton-root.Mui-selected': { color: 'white', bgcolor: 'rgba(255, 255, 255, 0.16)' },
+                                            }}
+                                        >
+                                            <ToggleButton value="All">All</ToggleButton>
+                                            <ToggleButton value="">Shows</ToggleButton>
                                             <ToggleButton value="Episode">Episodes</ToggleButton>
                                         </ToggleButtonGroup>
                                     </Box>

@@ -165,6 +165,107 @@ describe('Search podcast Series/Episodes filter', () => {
   });
 });
 
+describe('Search TV shows/episodes filter', () => {
+  vi.setConfig({ testTimeout: 30000 });
+
+  // Records each /search filter string and answers with one show and one episode.
+  // Unlike podcasts, the default is shows only: an episode needs the Episodes/All choice.
+  const serveTv = () => {
+    const filters = [];
+    const doc = (id, title, tvType, extra = {}) => ({
+      document: {
+        id, title, media_type: 'TVShow', tv_type: tvType, status: 'Uncharted',
+        topics: [], genres: [], date_added: 1700000000, description: '', ...extra,
+      },
+    });
+    server.use(
+      http.get(`${API_BASE}/search`, ({ request }) => {
+        const filter = new URL(request.url).searchParams.get('filter') || '';
+        filters.push(filter);
+        let hits = [
+          doc('ts-show', 'Chernobyl', 'Show', { release_year: 2019, tmdb_rating: 8.7 }),
+          doc('ts-tv-episode', '1:23:45', 'Episode', { show_id: 'ts-show', show_title: 'Chernobyl', season_number: 1, episode_number: 1 }),
+        ];
+        if (filter.includes('tv_type:!=Episode')) hits = [hits[0]];
+        else if (filter.includes('tv_type:=Episode')) hits = [hits[1]];
+        return HttpResponse.json({ found: hits.length, out_of: 2, page: 1, hits });
+      }),
+    );
+    return filters;
+  };
+
+  it('only offers the toggle while TVShow is a selected media type', async () => {
+    renderWithProviders(<Search defaultMediaTypes={['all']} />, { route: '/all-media?mediaType=Book' });
+
+    await screen.findByText('Test Book');
+    expect(screen.queryByRole('group', { name: /tv shows or episodes/i })).not.toBeInTheDocument();
+  });
+
+  it('hides episodes in browse-all mode', async () => {
+    const filters = serveTv();
+    renderWithProviders(<Search defaultMediaTypes={['all']} />, { route: '/all-media' });
+
+    expect(await screen.findByText('Chernobyl')).toBeInTheDocument();
+    expect(screen.queryByText('1:23:45')).not.toBeInTheDocument();
+    expect(filters.at(-1)).toBe('(media_type:!=TVShow || tv_type:!=Episode)');
+  });
+
+  it('shows only shows by default, then episodes and both through the toggle', async () => {
+    const filters = serveTv();
+    const { user } = renderWithProviders(<Search defaultMediaTypes={['all']} />, {
+      route: '/all-media?mediaType=TVShow',
+    });
+
+    expect(await screen.findByText('Chernobyl')).toBeInTheDocument();
+    expect(screen.queryByText('1:23:45')).not.toBeInTheDocument();
+    expect(filters.at(-1)).toBe('((media_type:=TVShow && tv_type:!=Episode))');
+    // The show card links straight to the show page with its year and rating.
+    expect(screen.getByRole('link', { name: /chernobyl/i })).toHaveAttribute('href', '/tv-show/ts-show');
+    expect(screen.getByText('2019 • 8.7★')).toBeInTheDocument();
+
+    const toggle = screen.getByRole('group', { name: /tv shows or episodes/i });
+    await user.click(within(toggle).getByRole('button', { name: 'Episodes' }));
+
+    expect(await screen.findByText('1:23:45')).toBeInTheDocument();
+    expect(filters.at(-1)).toBe('((media_type:=TVShow && tv_type:=Episode))');
+    expect(screen.getByText('TV episodes only')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /1:23:45/i })).toHaveAttribute('href', '/media/ts-tv-episode');
+    expect(screen.getByText('S1E1')).toBeInTheDocument();
+
+    await user.click(within(toggle).getByRole('button', { name: 'All' }));
+
+    await waitFor(() => expect(filters.at(-1)).toBe('(media_type:=TVShow)'));
+    // Both cards now: the show, and the episode credited to it.
+    await waitFor(() => expect(screen.getAllByText('Chernobyl').length).toBe(2));
+    expect(screen.getByText('TV shows and episodes')).toBeInTheDocument();
+
+    await user.click(within(toggle).getByRole('button', { name: 'Shows' }));
+
+    await waitFor(() => expect(filters.at(-1)).toBe('((media_type:=TVShow && tv_type:!=Episode))'));
+    expect(screen.queryByText('TV shows and episodes')).not.toBeInTheDocument();
+  });
+
+  it('reads the choice from the tvType URL param', async () => {
+    const filters = serveTv();
+    renderWithProviders(<Search defaultMediaTypes={['all']} />, {
+      route: '/all-media?mediaType=TVShow&tvType=Episode',
+    });
+
+    expect(await screen.findByText('1:23:45')).toBeInTheDocument();
+    expect(filters.at(-1)).toBe('((media_type:=TVShow && tv_type:=Episode))');
+  });
+
+  it('ignores the tvType URL param when TVShow is not selected', async () => {
+    const filters = serveTv();
+    renderWithProviders(<Search defaultMediaTypes={['all']} />, {
+      route: '/all-media?mediaType=Book&tvType=Episode',
+    });
+
+    await waitFor(() => expect(filters.length).toBeGreaterThan(0));
+    expect(filters.at(-1)).toBe('(media_type:=Book)');
+  });
+});
+
 describe('Search modes', () => {
   it('reacts to URL changes while mounted (Browse Media menu bug)', async () => {
     const { user } = renderWithProviders(

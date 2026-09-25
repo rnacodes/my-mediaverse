@@ -13,6 +13,9 @@ const getItemPath = (item) => {
     if (item.isHighlight) return `/highlight/${item.id}`;
     if (item.mediaType === 'Podcast' && isPodcastSeries(item)) return `/podcast-series/${item.id}`;
     if (item.mediaType === 'Channel') return `/youtube-channel/${item.id}`;
+    // Shows have their own page; episodes (and TV docs indexed before tv_type existed) go
+    // through the generic profile, which resolves them.
+    if (item.mediaType === 'TVShow' && item.tvType === 'Show') return `/tv-show/${item.id}`;
     return `/media/${item.id}`;
 };
 
@@ -41,6 +44,8 @@ export const SearchResultCard = React.memo(({ item, isSelected = false, onToggle
             case 'Movie':
                 return item.director ? `Dir: ${item.director}` : null;
             case 'TVShow':
+                // An episode is credited to its show.
+                if (item.tvType === 'Episode') return item.showTitle || null;
                 return item.creator ? `Created by ${item.creator}` : null;
             case 'Video':
                 return item.channel || item.platform;
@@ -71,6 +76,11 @@ export const SearchResultCard = React.memo(({ item, isSelected = false, onToggle
                 if (item.tmdbRating) parts.push(`${item.tmdbRating}★`);
                 break;
             case 'TVShow':
+                if (item.tvType === 'Episode') {
+                    if (item.seasonNumber != null && item.episodeNumber != null) parts.push(`S${item.seasonNumber}E${item.episodeNumber}`);
+                } else if (item.releaseYear) {
+                    parts.push(item.releaseYear);
+                }
                 if (item.tmdbRating) parts.push(`${item.tmdbRating}★`);
                 break;
             case 'Video':

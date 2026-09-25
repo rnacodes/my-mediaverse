@@ -26,6 +26,8 @@ export const ResultHeader = React.memo(({
     selectedMediaTypes,
     podcastType = '',
     onClearPodcastType,
+    tvType = '',
+    onClearTvType,
     handleTopicToggle,
     handleGenreToggle,
     handleMediaTypeToggle,
@@ -138,6 +140,14 @@ export const ResultHeader = React.memo(({
                                 label={podcastType === 'Series' ? 'Podcast series only' : 'Podcast episodes only'}
                                 size="small"
                                 onDelete={onClearPodcastType}
+                            />
+                        )}
+                        {showMediaTypeChips && tvType && selectedMediaTypes.includes('TVShow') && (
+                            <Chip
+                                key="filter-tv-type"
+                                label={tvType === 'Episode' ? 'TV episodes only' : 'TV shows and episodes'}
+                                size="small"
+                                onDelete={onClearTvType}
                             />
                         )}
                     </Box>

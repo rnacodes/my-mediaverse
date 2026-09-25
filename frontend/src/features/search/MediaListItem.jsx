@@ -25,6 +25,9 @@ export const MediaListItem = React.memo(({ item, isSelected = false, onToggleSel
         } else if (item.mediaType === 'Channel') {
             // Navigate YouTube channels to their dedicated profile page
             navigate(`/youtube-channel/${item.id}`);
+        } else if (item.mediaType === 'TVShow' && item.tvType === 'Show') {
+            // Shows have their own page; episodes resolve through the generic profile
+            navigate(`/tv-show/${item.id}`);
         } else {
             navigate(`/media/${item.id}`);
         }
@@ -46,6 +49,8 @@ export const MediaListItem = React.memo(({ item, isSelected = false, onToggleSel
             case 'Movie':
                 return item.director ? `Dir: ${item.director}` : null;
             case 'TVShow':
+                // An episode is credited to its show.
+                if (item.tvType === 'Episode') return item.showTitle || null;
                 return item.creator ? `Created by ${item.creator}` : null;
             case 'Video':
                 return item.channel || item.platform;
@@ -76,6 +81,11 @@ export const MediaListItem = React.memo(({ item, isSelected = false, onToggleSel
                 if (item.tmdbRating) parts.push(`${item.tmdbRating}★`);
                 break;
             case 'TVShow':
+                if (item.tvType === 'Episode') {
+                    if (item.seasonNumber != null && item.episodeNumber != null) parts.push(`S${item.seasonNumber}E${item.episodeNumber}`);
+                } else if (item.releaseYear) {
+                    parts.push(item.releaseYear);
+                }
                 if (item.tmdbRating) parts.push(`${item.tmdbRating}★`);
                 break;
             case 'Video':
