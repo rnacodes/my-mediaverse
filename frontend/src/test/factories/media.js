@@ -52,14 +52,24 @@ export const makeMovie = (overrides = {}) =>
     ...overrides,
   });
 
+/** A TV show as GET /tvshow/:id returns it (TvShowResponseDto field names). */
 export const makeTvShow = (overrides = {}) =>
   makeMedia({
     mediaType: 'TVShow',
     title: 'Test TV Show',
     creator: 'Test Creator',
-    seasons: 3,
-    episodes: 30,
+    cast: ['Test Lead', 'Test Support'],
+    firstAirYear: 2019,
+    lastAirYear: 2019,
+    airYears: '2019',
+    numberOfSeasons: 3,
+    numberOfEpisodes: 30,
+    episodeCount: 30,
+    contentRating: 'TV-MA',
+    tmdbId: 87108,
     tmdbRating: 8.1,
+    tmdbPosterPath: '/poster.jpg',
+    tmdbPosterUrl: 'https://image.tmdb.org/t/p/w500/poster.jpg',
     ...overrides,
   });
 

@@ -4,6 +4,8 @@ import { ArrowBack, Edit, Sync } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
+import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
+import { DEMO_EDIT_BLOCKED } from '@/features/demo/demoMessages';
 
 // `actions` renders extra page-specific controls beside Reindex and Edit Media.
 function MediaHeader({ title, mediaId, onReindex, reindexing, actions = null }) {
@@ -47,26 +49,30 @@ function MediaHeader({ title, mediaId, onReindex, reindexing, actions = null }) 
       }}>
         {actions}
         {onReindex && (
+          <DemoWriteGuard title={DEMO_EDIT_BLOCKED} style={{ order: 2 }}>
+            <Button
+              onClick={onReindex}
+              startIcon={reindexing ? <CircularProgress size={16} /> : <Sync />}
+              variant="contained"
+              size={isTablet ? 'medium' : 'large'}
+              disabled={reindexing}
+              sx={{ order: { xs: 2, sm: 0 }, flex: 1 }}
+            >
+              {reindexing ? 'Reindexing...' : 'Reindex'}
+            </Button>
+          </DemoWriteGuard>
+        )}
+        <DemoWriteGuard title={DEMO_EDIT_BLOCKED} style={{ order: 1 }}>
           <Button
-            onClick={onReindex}
-            startIcon={reindexing ? <CircularProgress size={16} /> : <Sync />}
+            onClick={() => navigate(`/media/${mediaId}/edit`)}
+            startIcon={<Edit />}
             variant="contained"
             size={isTablet ? 'medium' : 'large'}
-            disabled={reindexing}
-            sx={{ order: { xs: 2, sm: 0 } }}
+            sx={{ order: { xs: 1, sm: 0 }, flex: 1 }}
           >
-            {reindexing ? 'Reindexing...' : 'Reindex'}
+            Edit Media
           </Button>
-        )}
-        <Button
-          onClick={() => navigate(`/media/${mediaId}/edit`)}
-          startIcon={<Edit />}
-          variant="contained"
-          size={isTablet ? 'medium' : 'large'}
-          sx={{ order: { xs: 1, sm: 0 } }}
-        >
-          Edit Media
-        </Button>
+        </DemoWriteGuard>
       </Box>
     </Box>
   );
