@@ -251,16 +251,20 @@ namespace MyMediaVerse.Web.API.Controllers
         }
 
         // POST: api/tvshow/{id}/episodes/from-tmdb
-        // Imports the show's episodes from TMDB, one request per season. 200 with the run result
-        // when the run completed (season failures included), 500 with the same body when it aborted,
-        // 404 when the show id is unknown. Search is reindexed once at the end when rows changed.
+        // POST: api/tvshow/{id}/episodes/from-tmdb?seasons=1,2
+        // Search is reindexed once at the end when rows changed.
         // Explicit [Authorize] even though the fallback policy already requires a token: this endpoint
         // writes to the library and proxies a burst of outbound TMDB calls per request.
         [Authorize]
         [HttpPost("{id}/episodes/from-tmdb")]
         [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
-        public async Task<ActionResult<TvEpisodeImportResultDto>> ImportEpisodesFromTmdb(Guid id)
+        public async Task<ActionResult<TvEpisodeImportResultDto>> ImportEpisodesFromTmdb(Guid id, [FromQuery] string? seasons = null)
         {
+            if (!TryParseSeasons(seasons, out var seasonNumbers))
+            {
+                return BadRequest(new { error = "seasons must be a comma-separated list of season numbers between 0 and 999, for example 1,2" });
+            }
+
             if (await _tvShowService.GetTvShowByIdAsync(id) == null)
             {
                 return NotFound($"TV show with ID {id} not found.");
@@ -269,7 +273,7 @@ namespace MyMediaVerse.Web.API.Controllers
             TvEpisodeImportResultDto result;
             try
             {
-                result = await _episodeImportService.ImportFromTmdbAsync(id, cancellationToken: HttpContext.RequestAborted);
+                result = await _episodeImportService.ImportFromTmdbAsync(id, seasonNumbers, cancellationToken: HttpContext.RequestAborted);
             }
             catch (Exception ex)
             {
@@ -448,6 +452,32 @@ namespace MyMediaVerse.Web.API.Controllers
                 _logger.LogError(ex, "Error occurred while searching TMDB TV shows with query: {Query}", query);
                 return StatusCode(500, new { error = "Failed to search TMDB TV shows", details = ex.Message });
             }
+        }
+
+        // Reads the optional `seasons` query value. Blank means "every season" (null); anything
+        // that is not a list of season numbers is rejected rather than quietly importing everything.
+        private static bool TryParseSeasons(string? seasons, out IReadOnlyCollection<int>? seasonNumbers)
+        {
+            seasonNumbers = null;
+            if (string.IsNullOrWhiteSpace(seasons))
+            {
+                return true;
+            }
+
+            var parsed = new List<int>();
+            foreach (var part in seasons.Split(','))
+            {
+                if (!int.TryParse(part.Trim(), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var number)
+                    || number > 999)
+                {
+                    return false;
+                }
+
+                if (!parsed.Contains(number)) parsed.Add(number);
+            }
+
+            seasonNumbers = parsed;
+            return true;
         }
 
         private async Task<IActionResult> CreatedOrExistingAsync(TvShowCreationResult result)

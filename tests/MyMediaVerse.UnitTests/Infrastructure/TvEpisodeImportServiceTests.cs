@@ -224,6 +224,70 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         }
 
         [Fact]
+        public async Task ImportFromTmdb_WithSeasonNumbers_ImportsOnlyThoseSeasons()
+        {
+            var show = await SeedShow();
+            GivenDetails(1399, (0, 1), (1, 2), (2, 1));
+            GivenSeason(1399, 1, Episode(1, 1, "Winter Is Coming"), Episode(1, 2, "The Kingsroad"));
+
+            var result = await _service.ImportFromTmdbAsync(show.Id, seasonNumbers: new[] { 1 }, delayBetweenCallsMs: 0);
+
+            result.Success.Should().BeTrue();
+            result.CreatedCount.Should().Be(2);
+            result.SeasonsProcessed.Should().Be(1);
+            result.Warnings.Should().BeEmpty();
+            (await StoredEpisodes(show.Id)).Select(e => e.SeasonNumber).Should().Equal(1, 1);
+
+            await _tmdbClient.DidNotReceive().GetTvSeasonAsync(1399, 0);
+            await _tmdbClient.DidNotReceive().GetTvSeasonAsync(1399, 2);
+        }
+
+        [Fact]
+        public async Task ImportFromTmdb_WithSeasonNumbers_StillRecordsTheWholeShowsCounts()
+        {
+            // The counts are what tell the library that seasons exist beyond the ones it holds.
+            var show = await SeedShow();
+            GivenDetails(1399, (1, 2), (2, 3), (3, 4));
+            GivenSeason(1399, 1, Episode(1, 1, "Winter Is Coming"), Episode(1, 2, "The Kingsroad"));
+
+            await _service.ImportFromTmdbAsync(show.Id, seasonNumbers: new[] { 1 }, delayBetweenCallsMs: 0);
+
+            var stored = await Context.TvShows.AsNoTracking().SingleAsync(s => s.Id == show.Id);
+            stored.NumberOfSeasons.Should().Be(3);
+            stored.NumberOfEpisodes.Should().Be(9);
+        }
+
+        [Fact]
+        public async Task ImportFromTmdb_WithASeasonTmdbDoesNotList_WarnsAndImportsTheOthers()
+        {
+            var show = await SeedShow();
+            GivenDetails(1399, (1, 1));
+            GivenSeason(1399, 1, Episode(1, 1, "Winter Is Coming"));
+
+            var result = await _service.ImportFromTmdbAsync(show.Id, seasonNumbers: new[] { 1, 9 }, delayBetweenCallsMs: 0);
+
+            result.Success.Should().BeTrue();
+            result.CreatedCount.Should().Be(1);
+            result.FailedCount.Should().Be(0, "a season that was never requested from TMDB did not fail");
+            result.Warnings.Should().ContainSingle().Which.Should().Contain("season 9");
+            await _tmdbClient.DidNotReceive().GetTvSeasonAsync(1399, 9);
+        }
+
+        [Fact]
+        public async Task ImportFromTmdb_WithAnEmptySeasonList_ImportsEverySeason()
+        {
+            var show = await SeedShow();
+            GivenDetails(1399, (1, 1), (2, 1));
+            GivenSeason(1399, 1, Episode(1, 1, "Winter Is Coming"));
+            GivenSeason(1399, 2, Episode(2, 1, "The North Remembers"));
+
+            var result = await _service.ImportFromTmdbAsync(show.Id, seasonNumbers: Array.Empty<int>(), delayBetweenCallsMs: 0);
+
+            result.CreatedCount.Should().Be(2);
+            result.SeasonsProcessed.Should().Be(2);
+        }
+
+        [Fact]
         public async Task ImportFromTmdb_CountsAFailedSeason_AndStillImportsTheRest()
         {
             var show = await SeedShow();
@@ -357,7 +421,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             });
             GivenSeason(1399, 2, Episode(2, 1, "The North Remembers"));
 
-            var result = await _service.ImportFromTmdbAsync(show.Id, delayBetweenCallsMs: 0, cts.Token);
+            var result = await _service.ImportFromTmdbAsync(show.Id, delayBetweenCallsMs: 0, cancellationToken: cts.Token);
 
             result.Success.Should().BeTrue();
             result.CreatedCount.Should().Be(1);

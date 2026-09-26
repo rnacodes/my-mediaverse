@@ -12,6 +12,9 @@ import {
     useLinkNoteToMedia,
     useUnlinkNoteFromMedia,
 } from '@/hooks/useNote';
+import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
+import { useDemoWriteBlocked } from '@/features/demo/useDemoWriteBlocked';
+import { DEMO_EDIT_BLOCKED } from '@/features/demo/demoMessages';
 
 function RelatedNotesSection({ mediaItem, setSnackbar, onUpdate }) {
     // State for dialog
@@ -144,6 +147,8 @@ function RelatedNotesSection({ mediaItem, setSnackbar, onUpdate }) {
 
     const muiTheme = useTheme();
     const isMobile = useMediaQuery(muiTheme.breakpoints.down('sm'));
+    const demoWriteBlocked = useDemoWriteBlocked();
+    const guardStyle = isMobile ? { width: '100%' } : undefined;
 
     return (
         <Card sx={{ mt: 3, overflow: 'hidden', borderRadius: 2 }}>
@@ -169,24 +174,26 @@ function RelatedNotesSection({ mediaItem, setSnackbar, onUpdate }) {
                             Related Notes
                         </Typography>
                     </Box>
-                    <Button
-                        variant="outlined"
-                        size="small"
-                        startIcon={<AddIcon sx={{ color: 'white' }} />}
-                        onClick={handleOpenDialog}
-                        fullWidth={isMobile}
-                        disabled={saving}
-                        sx={{
-                            borderColor: 'white',
-                            color: 'white',
-                            '&:hover': {
+                    <DemoWriteGuard title={DEMO_EDIT_BLOCKED} style={guardStyle}>
+                        <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<AddIcon sx={{ color: 'white' }} />}
+                            onClick={handleOpenDialog}
+                            fullWidth={isMobile}
+                            disabled={saving}
+                            sx={{
                                 borderColor: 'white',
-                                backgroundColor: 'rgba(255,255,255,0.1)'
-                            }
-                        }}
-                    >
-                        Link Note
-                    </Button>
+                                color: 'white',
+                                '&:hover': {
+                                    borderColor: 'white',
+                                    backgroundColor: 'rgba(255,255,255,0.1)'
+                                }
+                            }}
+                        >
+                            Link Note
+                        </Button>
+                    </DemoWriteGuard>
                 </Box>
 
                 {/* Notes List */}
@@ -312,8 +319,10 @@ function RelatedNotesSection({ mediaItem, setSnackbar, onUpdate }) {
                                                 </IconButton>
                                             </Tooltip>
                                         )}
-                                        <Tooltip title="Unlink note">
+                                        <DemoWriteGuard title={DEMO_EDIT_BLOCKED}>
                                             <IconButton
+                                                aria-label="Unlink note"
+                                                title={demoWriteBlocked ? undefined : 'Unlink note'}
                                                 onClick={() => handleUnlinkNote(note.id, note.title)}
                                                 size="small"
                                                 disabled={saving}
@@ -327,7 +336,7 @@ function RelatedNotesSection({ mediaItem, setSnackbar, onUpdate }) {
                                             >
                                                 <DeleteIcon fontSize="small" />
                                             </IconButton>
-                                        </Tooltip>
+                                        </DemoWriteGuard>
                                     </Box>
                                 </Box>
                             </Box>

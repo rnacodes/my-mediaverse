@@ -13,7 +13,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
 {
     /// <summary>
     /// Imports a TV show's episodes from TMDB: one details call for the season list, then one
-    /// call per season. Episodes are upserted on (season, episode); stored rows are filled in,
+    /// call per season (every listed season, or only the ones asked for). Episodes are upserted on (season, episode); stored rows are filled in,
     /// never overwritten, so watch history from Trakt and hand edits survive.
     /// </summary>
     public class TvEpisodeImportService : ITvEpisodeImportService
@@ -39,6 +39,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
         /// <inheritdoc />
         public async Task<TvEpisodeImportResultDto> ImportFromTmdbAsync(
             Guid showId,
+            IReadOnlyCollection<int>? seasonNumbers = null,
             int delayBetweenCallsMs = 250,
             CancellationToken cancellationToken = default)
         {
@@ -78,6 +79,18 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                 if (seasons.Count == 0)
                 {
                     result.Warnings.Add($"TMDB lists no seasons for '{show.Title}'.");
+                }
+                else if (seasonNumbers is { Count: > 0 })
+                {
+                    // A partial import: the show's counts above still describe the whole show, so
+                    // the library knows how many seasons exist beyond the ones it holds.
+                    var requested = seasonNumbers.Distinct().OrderBy(n => n).ToList();
+                    foreach (var missing in requested.Where(n => seasons.All(s => s.SeasonNumber != n)))
+                    {
+                        result.Warnings.Add($"TMDB lists no season {missing} for '{show.Title}'.");
+                    }
+
+                    seasons = seasons.Where(s => requested.Contains(s.SeasonNumber)).ToList();
                 }
 
                 // One lookup for the whole run; new rows join it so a season payload that repeats an

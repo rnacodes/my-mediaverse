@@ -4,7 +4,7 @@ import {
     Box, Typography, Button, Card, CardContent,
     Chip, Divider, CircularProgress, Alert,
     Accordion, AccordionSummary, AccordionDetails, List, ListItemButton,
-    Snackbar, LinearProgress, Tooltip
+    Snackbar, LinearProgress, Tooltip, Link
 } from '@mui/material';
 import { ExpandMore, CloudDownload } from '@mui/icons-material';
 import MediaHeader from '@/features/media/MediaHeader';
@@ -174,6 +174,13 @@ function TvShowProfile() {
             }));
     }, [episodes]);
 
+    const seasonCoverage = React.useMemo(() => {
+        const total = show?.numberOfSeasons ?? 0;
+        const stored = groupedEpisodes.filter(group => group.season > 0).length;
+        if (stored === 0 || total <= stored) return null;
+        return { stored, total, missing: total - stored };
+    }, [groupedEpisodes, show?.numberOfSeasons]);
+
     // Calculate watch progress
     const watchProgress = React.useMemo(() => {
         if (!episodes.length) return null;
@@ -283,6 +290,24 @@ function TvShowProfile() {
                             }}
                         />
                     </Box>
+                )}
+
+                {seasonCoverage && (
+                    <Alert severity="info" variant="outlined" sx={{ mb: 2 }}>
+                        {seasonCoverage.stored} of {seasonCoverage.total} seasons {seasonCoverage.stored === 1 ? 'is' : 'are'} in this library.
+                        {' '}
+                        {show.tmdbId ? (
+                            <Link
+                                href={`https://www.themoviedb.org/tv/${show.tmdbId}/seasons`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                See the other {seasonCoverage.missing === 1 ? 'season' : `${seasonCoverage.missing} seasons`} on TMDB
+                            </Link>
+                        ) : (
+                            `${seasonCoverage.missing} more ${seasonCoverage.missing === 1 ? 'season exists' : 'seasons exist'}.`
+                        )}
+                    </Alert>
                 )}
 
                 {/* Episodes grouped by season */}

@@ -134,6 +134,16 @@ namespace MyMediaVerse.Infrastructure.Services.Search
         }
 
         /// <summary>
+        /// The media_items fields a keyword search reads, strongest first: Typesense ranks a match in
+        /// an earlier field above a match in a later one. The parent-title fields come last so a
+        /// show or series outranks its own episodes, while an episode is still found by the name of
+        /// the show it belongs to. Every field listed here must exist in <see cref="MediaBaseFields"/>;
+        /// Typesense rejects a search that names a field the collection does not have.
+        /// </summary>
+        internal const string MediaKeywordFields =
+            "title,description,author,director,creator,publisher,show_title,series_title";
+
+        /// <summary>
         /// Returns the comma-separated <c>query_by</c> field list for a collection's keyword fields,
         /// appending the <c>embedding</c> field when auto-embedding is enabled so search runs hybrid
         /// (keyword + vector rank fusion).
@@ -577,7 +587,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     _mediaCollectionName,
                     query,
                     // Search across these fields (plus the embedding field when hybrid search is enabled)
-                    BuildQueryBy("title,description,author,director,creator,publisher")
+                    BuildQueryBy(MediaKeywordFields)
                 )
                 {
                     PerPage = perPage,
@@ -1640,7 +1650,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 var searchParameters = new MultiSearchParameters(
                     _mediaCollectionName,
                     query,
-                    BuildQueryBy("title,description,author,director,creator,publisher")
+                    BuildQueryBy(MediaKeywordFields)
                 )
                 {
                     PerPage = perPage,
@@ -1911,7 +1921,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 var searchParameters = new MultiSearchParameters(
                     _mediaCollectionName,
                     query,
-                    BuildQueryBy("title,description,author,director,creator,publisher"))
+                    BuildQueryBy(MediaKeywordFields))
                 {
                     PerPage = limit,
                     SortBy = "_text_match:desc,date_added:desc"

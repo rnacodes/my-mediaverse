@@ -9,6 +9,9 @@ import { useMediaQuery, useTheme } from '@mui/material';
 import { Topic as TopicIcon, Category as GenreIcon, Search, Close } from '@mui/icons-material';
 import { useAllTopics, useAllGenres, useCreateTopic, useCreateGenre } from '@/hooks/useTopicGenre';
 import { useUpdateMediaTopicsGenres } from '@/hooks/useMedia';
+import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
+import { useDemoWriteBlocked } from '@/features/demo/useDemoWriteBlocked';
+import { DEMO_EDIT_BLOCKED } from '@/features/demo/demoMessages';
 
 function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
     const navigate = useNavigate();
@@ -237,6 +240,8 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
 
     const muiTheme = useTheme();
     const isMobile = useMediaQuery(muiTheme.breakpoints.down('sm'));
+    const demoWriteBlocked = useDemoWriteBlocked();
+    const guardStyle = isMobile ? { width: '100%' } : undefined;
 
     return (
         <Card sx={{ mt: 3, overflow: 'hidden', borderRadius: 2 }}>
@@ -265,42 +270,46 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
                         gap: 1,
                         width: { xs: '100%', sm: 'auto' }
                     }}>
-                        <Button
-                            variant="outlined"
-                            size="small"
-                            startIcon={<TopicIcon sx={{ color: 'white' }} />}
-                            onClick={handleOpenTopicDialog}
-                            fullWidth={isMobile}
-                            disabled={saving}
-                            sx={{
-                                borderColor: 'white',
-                                color: 'white',
-                                '&:hover': {
+                        <DemoWriteGuard title={DEMO_EDIT_BLOCKED} style={guardStyle}>
+                            <Button
+                                variant="outlined"
+                                size="small"
+                                startIcon={<TopicIcon sx={{ color: 'white' }} />}
+                                onClick={handleOpenTopicDialog}
+                                fullWidth={isMobile}
+                                disabled={saving}
+                                sx={{
                                     borderColor: 'white',
-                                    backgroundColor: 'rgba(255,255,255,0.1)'
-                                }
-                            }}
-                        >
-                            Add Topic
-                        </Button>
-                        <Button
-                            variant="outlined"
-                            size="small"
-                            startIcon={<GenreIcon sx={{ color: 'white' }} />}
-                            onClick={handleOpenGenreDialog}
-                            fullWidth={isMobile}
-                            disabled={saving}
-                            sx={{
-                                borderColor: 'white',
-                                color: 'white',
-                                '&:hover': {
+                                    color: 'white',
+                                    '&:hover': {
+                                        borderColor: 'white',
+                                        backgroundColor: 'rgba(255,255,255,0.1)'
+                                    }
+                                }}
+                            >
+                                Add Topic
+                            </Button>
+                        </DemoWriteGuard>
+                        <DemoWriteGuard title={DEMO_EDIT_BLOCKED} style={guardStyle}>
+                            <Button
+                                variant="outlined"
+                                size="small"
+                                startIcon={<GenreIcon sx={{ color: 'white' }} />}
+                                onClick={handleOpenGenreDialog}
+                                fullWidth={isMobile}
+                                disabled={saving}
+                                sx={{
                                     borderColor: 'white',
-                                    backgroundColor: 'rgba(255,255,255,0.1)'
-                                }
-                            }}
-                        >
-                            Add Genre
-                        </Button>
+                                    color: 'white',
+                                    '&:hover': {
+                                        borderColor: 'white',
+                                        backgroundColor: 'rgba(255,255,255,0.1)'
+                                    }
+                                }}
+                            >
+                                Add Genre
+                            </Button>
+                        </DemoWriteGuard>
                     </Box>
                 </Box>
 
@@ -319,7 +328,7 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
                                     key={`topic-${topic}`}
                                     label={topic}
                                     onClick={() => handleTopicClick(topic)}
-                                    onDelete={() => handleRemoveTopic(topic)}
+                                    onDelete={demoWriteBlocked ? undefined : () => handleRemoveTopic(topic)}
                                     deleteIcon={<Close sx={{ fontSize: 18, color: 'white !important' }} />}
                                     disabled={saving}
                                     sx={{
@@ -361,7 +370,7 @@ function TopicsGenresSection({ mediaItem, setSnackbar, onUpdate }) {
                                     key={`genre-${genre}`}
                                     label={genre}
                                     onClick={() => handleGenreClick(genre)}
-                                    onDelete={() => handleRemoveGenre(genre)}
+                                    onDelete={demoWriteBlocked ? undefined : () => handleRemoveGenre(genre)}
                                     deleteIcon={<Close sx={{ fontSize: 18, color: 'white !important' }} />}
                                     disabled={saving}
                                     sx={{

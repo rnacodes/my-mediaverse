@@ -315,7 +315,7 @@ namespace MyMediaVerse.IntegrationTests.Api
         public async Task TvEpisodeImport_WhenRunCompletesWithSeasonFailures_ShouldStillReturnOk()
         {
             var (client, _, reindex) = _factory.CreateClientWithSubstitutes<ITvEpisodeImportService, IImportReindexService>(svc =>
-                svc.ImportFromTmdbAsync(Arg.Any<Guid>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                svc.ImportFromTmdbAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<int>?>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
                     .Returns(call => new TvEpisodeImportResultDto
                     {
                         ShowId = call.Arg<Guid>(),
@@ -345,10 +345,69 @@ namespace MyMediaVerse.IntegrationTests.Api
         }
 
         [Fact]
+        public async Task TvEpisodeImport_WithSeasons_ShouldPassOnlyThoseSeasonsToTheImport()
+        {
+            IReadOnlyCollection<int>? received = null;
+            var (client, _, _) = _factory.CreateClientWithSubstitutes<ITvEpisodeImportService, IImportReindexService>(svc =>
+                svc.ImportFromTmdbAsync(Arg.Any<Guid>(), Arg.Do<IReadOnlyCollection<int>?>(s => received = s), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                    .Returns(call => new TvEpisodeImportResultDto
+                    {
+                        ShowId = call.Arg<Guid>(),
+                        CreatedCount = 10,
+                        SeasonsProcessed = 2,
+                        StartedAt = DateTime.UtcNow,
+                        CompletedAt = DateTime.UtcNow
+                    }));
+            var showId = await CreateShowAsync(client);
+
+            var response = await client.PostAsync($"/api/tvshow/{showId}/episodes/from-tmdb?seasons=1,%200,1", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            received.Should().Equal(1, 0);
+        }
+
+        [Fact]
+        public async Task TvEpisodeImport_WithoutSeasons_ShouldAskForEverySeason()
+        {
+            var (client, importService, _) = _factory.CreateClientWithSubstitutes<ITvEpisodeImportService, IImportReindexService>(svc =>
+                svc.ImportFromTmdbAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<int>?>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                    .Returns(call => new TvEpisodeImportResultDto
+                    {
+                        ShowId = call.Arg<Guid>(),
+                        StartedAt = DateTime.UtcNow,
+                        CompletedAt = DateTime.UtcNow
+                    }));
+            var showId = await CreateShowAsync(client);
+
+            var response = await client.PostAsync($"/api/tvshow/{showId}/episodes/from-tmdb", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            await importService.Received(1).ImportFromTmdbAsync(showId, null, Arg.Any<int>(), Arg.Any<CancellationToken>());
+        }
+
+        [Theory]
+        [InlineData("one")]
+        [InlineData("1,,2")]
+        [InlineData("-1")]
+        [InlineData("1.5")]
+        [InlineData("1000")]
+        public async Task TvEpisodeImport_WithSeasonsThatAreNotNumbers_ShouldReturnBadRequestWithoutImporting(string seasons)
+        {
+            var (client, importService, _) = _factory.CreateClientWithSubstitutes<ITvEpisodeImportService, IImportReindexService>();
+            var showId = await CreateShowAsync(client);
+
+            var response = await client.PostAsync($"/api/tvshow/{showId}/episodes/from-tmdb?seasons={Uri.EscapeDataString(seasons)}", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            (await ReadBodyAsync(response)).GetProperty("error").GetString().Should().Contain("seasons");
+            await importService.DidNotReceive().ImportFromTmdbAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<int>?>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
         public async Task TvEpisodeImport_WhenNothingChanged_ShouldNotReindex()
         {
             var (client, _, reindex) = _factory.CreateClientWithSubstitutes<ITvEpisodeImportService, IImportReindexService>(svc =>
-                svc.ImportFromTmdbAsync(Arg.Any<Guid>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                svc.ImportFromTmdbAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<int>?>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
                     .Returns(new TvEpisodeImportResultDto
                     {
                         SkippedCount = 10,
@@ -371,7 +430,7 @@ namespace MyMediaVerse.IntegrationTests.Api
         public async Task TvEpisodeImport_WhenRunAborts_ShouldReturn500WithResultBody()
         {
             var (client, _) = _factory.CreateClientWithSubstitute<ITvEpisodeImportService>(svc =>
-                svc.ImportFromTmdbAsync(Arg.Any<Guid>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                svc.ImportFromTmdbAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<int>?>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
                     .Returns(new TvEpisodeImportResultDto
                     {
                         Success = false,
@@ -397,7 +456,7 @@ namespace MyMediaVerse.IntegrationTests.Api
         public async Task TvEpisodeImport_WhenTheServiceThrows_ShouldReturn500WithResultBody()
         {
             var (client, _) = _factory.CreateClientWithSubstitute<ITvEpisodeImportService>(svc =>
-                svc.ImportFromTmdbAsync(Arg.Any<Guid>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                svc.ImportFromTmdbAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<int>?>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
                     .Returns<TvEpisodeImportResultDto>(_ => throw new InvalidOperationException("boom")));
             var showId = await CreateShowAsync(client);
 

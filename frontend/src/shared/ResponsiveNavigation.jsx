@@ -19,7 +19,7 @@ import {
   MenuItem,
   Collapse
 } from '@mui/material';
-import { Menu as MenuIcon, Close as CloseIcon, Home, Movie, QueueMusic, Add, Upload, Download, Search, Apps, Login as LoginIcon, Logout as LogoutIcon, Person as PersonIcon, Storage as StorageIcon, Article, Language, Category, AdminPanelSettings, Sync, ExpandMore, Work, ExpandLess, Book, Tv, Podcasts, VideoLibrary, YouTube, Note as NoteIcon, Psychology, FormatQuote, AddLink, LockOpen, PlaylistAdd, Phonelink } from '@mui/icons-material';
+import { Menu as MenuIcon, Close as CloseIcon, Home, Movie, QueueMusic, Add, Upload, Download, Search, Login as LoginIcon, Logout as LogoutIcon, Person as PersonIcon, Storage as StorageIcon, Article, Language, Category, AdminPanelSettings, Sync, ExpandMore, Work, ExpandLess, Book, Tv, Podcasts, VideoLibrary, YouTube, Note as NoteIcon, Psychology, FormatQuote, AddLink, LockOpen, PlaylistAdd, Phonelink } from '@mui/icons-material';
 import { useAuth } from '@/contexts/AuthContext';
 import { isDemoMode } from '@/utils/demoMode';
 import BrandLogo from '@/shared/BrandLogo';
@@ -107,7 +107,6 @@ const ResponsiveNavigation = () => {
     ...(isDemoMode() ? [{ text: 'Unlock Write Access', path: '/demo-unlock', icon: <LockOpen /> }] : []),
     { text: 'Link Highlights', path: '/highlight-linking', icon: <AddLink />, requiresAuth: true },
     { text: 'Readwise Sync', path: '/readwise-sync', icon: <Sync />, requiresAuth: true },
-    { text: 'Sources', path: '/sources', icon: <Apps />, requiresAuth: true },
     { text: 'Trakt Sync', path: '/trakt-sync', icon: <Phonelink />, requiresAuth: true },
     { text: 'Typesense Admin', path: '/typesense-admin', icon: <StorageIcon />, requiresAuth: true }
   ];

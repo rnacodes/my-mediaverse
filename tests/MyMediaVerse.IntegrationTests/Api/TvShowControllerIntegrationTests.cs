@@ -745,7 +745,7 @@ namespace MyMediaVerse.IntegrationTests.Api
             var response = await client.PostAsync($"/api/tvshow/{Guid.NewGuid()}/episodes/from-tmdb", null);
 
             Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-            await importService.DidNotReceive().ImportFromTmdbAsync(Arg.Any<Guid>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+            await importService.DidNotReceive().ImportFromTmdbAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<int>?>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
         }
 
         [Fact]
@@ -757,7 +757,7 @@ namespace MyMediaVerse.IntegrationTests.Api
             var response = await client.PostAsync($"/api/tvshow/{Guid.NewGuid()}/episodes/from-tmdb", null);
 
             Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-            await importService.DidNotReceive().ImportFromTmdbAsync(Arg.Any<Guid>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+            await importService.DidNotReceive().ImportFromTmdbAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<int>?>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
         }
 
         #endregion

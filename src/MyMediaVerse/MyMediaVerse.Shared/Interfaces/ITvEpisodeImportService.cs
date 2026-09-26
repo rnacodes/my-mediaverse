@@ -8,7 +8,7 @@ namespace MyMediaVerse.Shared.Interfaces
     public interface ITvEpisodeImportService
     {
         /// <summary>
-        /// Walks every season TMDB lists for the show (specials included) and upserts its episodes
+        /// Walks the seasons TMDB lists for the show (specials included) and upserts their episodes
         /// keyed on (season, episode). New episodes are created uncharted with TMDB's title,
         /// description, air date, runtime, and still; stored episodes are only filled in — a
         /// placeholder title such as <c>S1E3</c> is replaced, empty descriptive fields are set, and
@@ -17,10 +17,15 @@ namespace MyMediaVerse.Shared.Interfaces
         /// refreshed from the same details payload; its TMDB refresh timestamp is not moved.
         /// </summary>
         /// <param name="showId">The stored TV show. It must carry a numeric TMDB id.</param>
+        /// <param name="seasonNumbers">
+        /// The seasons to import (0 is the specials). Null or empty imports every season TMDB lists.
+        /// A requested season TMDB does not list is reported as a warning; no request is made for it.
+        /// </param>
         /// <param name="delayBetweenCallsMs">Delay between TMDB requests in milliseconds (default: 250)</param>
         /// <param name="cancellationToken">Stops the run between seasons; episodes already walked are still saved.</param>
         Task<TvEpisodeImportResultDto> ImportFromTmdbAsync(
             Guid showId,
+            IReadOnlyCollection<int>? seasonNumbers = null,
             int delayBetweenCallsMs = 250,
             CancellationToken cancellationToken = default);
     }

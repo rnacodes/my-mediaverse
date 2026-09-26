@@ -112,6 +112,45 @@ describe('TvShowProfile', () => {
     expect(screen.queryByText(/watch progress/i)).not.toBeInTheDocument();
   });
 
+  describe('season coverage note', () => {
+    const SEASON_ONE = EPISODES.filter((episode) => episode.seasonNumber === 1);
+
+    it('says how many seasons are in the library and links to the rest on TMDB', async () => {
+      seedShow({ numberOfSeasons: 6, tmdbId: 63639 }, SEASON_ONE);
+      render();
+
+      expect(await screen.findByText(/1 of 6 seasons is in this library/i)).toBeInTheDocument();
+      const link = screen.getByRole('link', { name: /see the other 5 seasons on tmdb/i });
+      expect(link).toHaveAttribute('href', 'https://www.themoviedb.org/tv/63639/seasons');
+      expect(link).toHaveAttribute('target', '_blank');
+    });
+
+    it('does not count specials as a season', async () => {
+      const specials = { id: 'ep-0', title: 'Behind the scenes', seasonNumber: 0, episodeNumber: 1, status: 'Uncharted' };
+      seedShow({ numberOfSeasons: 2, tmdbId: 63639 }, [...SEASON_ONE, specials]);
+      render();
+
+      expect(await screen.findByText(/1 of 2 seasons is in this library/i)).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /see the other season on tmdb/i })).toBeInTheDocument();
+    });
+
+    it('stays hidden when every season is in the library', async () => {
+      seedShow({ numberOfSeasons: 2 });
+      render();
+
+      await screen.findByText('Grilled');
+      expect(screen.queryByText(/in this library/i)).not.toBeInTheDocument();
+    });
+
+    it('stays hidden when no episodes are stored', async () => {
+      seedShow({ numberOfSeasons: 6 }, []);
+      render();
+
+      await screen.findByText(/no episodes tracked yet/i);
+      expect(screen.queryByText(/in this library/i)).not.toBeInTheDocument();
+    });
+  });
+
   describe('episode import from TMDB', () => {
     it('imports episodes and shows the run result', async () => {
       seedShow({ tmdbId: 87108 }, []);
