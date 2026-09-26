@@ -1,9 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { Box, CardMedia, Chip, Typography, Button } from '@mui/material';
+import { Box, CardMedia, Chip, Typography, Button, Link } from '@mui/material';
+import { Link as RouterLink } from 'react-router-dom';
 import { OpenInNew } from '@mui/icons-material';
 import { getAspectRatio, getObjectFit, resolveMediaImage, getPlaceholderImage } from '@/utils/mediaImageUtils';
-import { getGoogleBooksUrl } from '@/utils/googleBooks';
+import { getGoogleBooksLink } from '@/utils/googleBooks';
 import WhiteOutlineButton from '@/shared/WhiteOutlineButton';
+import PoweredByGoogleLogo from '@/shared/PoweredByGoogleLogo';
 
 function MediaInfoCard({
   mediaItem,
@@ -25,9 +27,12 @@ function MediaInfoCard({
 
   const description = mediaItem?.description || mediaItem?.notes;
 
-  // A Google Books volume id means some of this book's details came from Google Books,
-  // which requires a credit and a prominent link back to the book's Google Books page.
-  const googleVolumeId = mediaItem?.mediaType === 'Book' ? mediaItem.googleVolumeId : null;
+  const isTvEpisode = mediaItem?.mediaType === 'TVShow' && mediaItem.isTvEpisode === true;
+  const imageAspectType = isTvEpisode ? 'Video' : mediaItem?.mediaType;
+
+  const isBook = mediaItem?.mediaType === 'Book';
+  const googleVolumeId = isBook ? mediaItem.googleVolumeId : null;
+  const googleBooksLink = isBook ? getGoogleBooksLink(mediaItem) : null;
 
   // Extract plain text from HTML, properly decoding entities like &nbsp;
   const getTextFromHtml = (htmlString) => {
@@ -84,7 +89,7 @@ function MediaInfoCard({
         <Box sx={{
           width: { xs: '100%', sm: 250, md: 220 },
           maxWidth: { xs: 300, sm: 250, md: 220 },
-          aspectRatio: getAspectRatio(mediaItem.mediaType),
+          aspectRatio: getAspectRatio(imageAspectType),
           backgroundColor: 'rgba(0, 0, 0, 0.2)',
           borderRadius: 2,
           boxShadow: '0 8px 16px rgba(0,0,0,0.4)',
@@ -116,20 +121,23 @@ function MediaInfoCard({
             }}
           />
         </Box>
-        {googleVolumeId && (
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, mb: 2 }}>
+        {googleBooksLink && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, mb: 2 }}>
             <WhiteOutlineButton
               size="small"
-              href={getGoogleBooksUrl(googleVolumeId)}
+              href={googleBooksLink.url}
               target="_blank"
               rel="noopener noreferrer"
               endIcon={<OpenInNew fontSize="small" />}
             >
-              View on Google Books
+              {googleBooksLink.exact ? 'View on Google Books' : 'Find on Google Books'}
             </WhiteOutlineButton>
-            <Typography variant="caption" color="text.secondary">
-              Book information from Google Books
-            </Typography>
+            <PoweredByGoogleLogo />
+            {googleVolumeId && (
+              <Typography variant="caption" color="text.secondary">
+                Book information from Google Books
+              </Typography>
+            )}
           </Box>
         )}
       </Box>
@@ -152,6 +160,17 @@ function MediaInfoCard({
               fontSize: { xs: '0.875rem', sm: '1rem' }
             }}
           />
+          {isTvEpisode && (
+            <Chip
+              label={mediaItem.episodeIdentifier || 'Episode'}
+              sx={{
+                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                color: 'white',
+                fontWeight: 'bold',
+                fontSize: { xs: '0.875rem', sm: '1rem' }
+              }}
+            />
+          )}
           {mediaItem.mediaType === 'Podcast' && mediaItem.podcastType !== undefined && (
             <Chip
               label={mediaItem.podcastType === 'Series' ? 'Series' : 'Episode'}
@@ -173,6 +192,19 @@ function MediaInfoCard({
             }}
           />
         </Box>
+
+        {isTvEpisode && mediaItem.showId && (
+          <Typography variant="body1" sx={{ mb: 2, fontSize: '0.95rem', textAlign: { xs: 'center', md: 'left' } }}>
+            From{' '}
+            <Link
+              component={RouterLink}
+              to={`/tv-show/${mediaItem.showId}`}
+              sx={{ color: '#ffffff', fontWeight: 'bold', '&:hover': { color: '#e3f2fd' } }}
+            >
+              {mediaItem.showTitle || 'the show'}
+            </Link>
+          </Typography>
+        )}
 
         {/* Rating Display - moved right below pills */}
         <Box sx={{ 

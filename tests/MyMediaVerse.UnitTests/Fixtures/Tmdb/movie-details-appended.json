@@ -1,0 +1,33 @@
+{
+  "id": 27205,
+  "title": "Inception",
+  "original_title": "Inception",
+  "overview": "A thief who steals corporate secrets through dream-sharing technology.",
+  "release_date": "2010-07-15",
+  "runtime": 148,
+  "vote_average": 8.4,
+  "imdb_id": "tt1375666",
+  "genres": [
+    { "id": 28, "name": "Action" },
+    { "id": 878, "name": "Science Fiction" },
+    { "id": 12, "name": "Adventure" }
+  ],
+  "credits": {
+    "cast": [
+      { "id": 6193, "name": "Leonardo DiCaprio", "character": "Cobb", "order": 0 },
+      { "id": 24045, "name": "Joseph Gordon-Levitt", "character": "Arthur", "order": 1 },
+      { "id": 3899, "name": "Ken Watanabe", "character": "Saito", "order": 2 }
+    ],
+    "crew": [
+      { "id": 947, "name": "Hans Zimmer", "job": "Original Music Composer", "department": "Sound" },
+      { "id": 525, "name": "Christopher Nolan", "job": "Director", "department": "Directing" },
+      { "id": 525, "name": "Christopher Nolan", "job": "Writer", "department": "Writing" }
+    ]
+  },
+  "release_dates": {
+    "results": [
+      { "iso_3166_1": "GB", "release_dates": [ { "certification": "12A", "type": 3 } ] },
+      { "iso_3166_1": "US", "release_dates": [ { "certification": "", "type": 1 }, { "certification": "PG-13", "type": 3 } ] }
+    ]
+  }
+}

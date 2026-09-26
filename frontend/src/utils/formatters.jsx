@@ -1,5 +1,6 @@
 import React from 'react';
 import { Favorite, ThumbUp, Remove, ThumbDown } from '@mui/icons-material';
+import { getMediaTypeColor as getDesignSystemMediaTypeColor } from '@/shared/DesignSystem';
 
 /**
  * Formats enum values by adding spaces between words
@@ -34,18 +35,10 @@ export const formatStatus = (status) => {
   return formatEnumValue(status);
 };
 
+// Same palette as the design system so the media-type chip on a profile page
+// matches the cards everywhere else. Returns a hex color MUI can use directly.
 export const getMediaTypeColor = (mediaType) => {
-  switch (mediaType) {
-    case 'Book': return 'purple.500';
-    case 'Podcast': return 'green.500';
-    case 'Movie': return 'red.500';
-    case 'TVShow': return 'blue.500';
-    case 'Video': return 'orange.500';
-    case 'Article': return 'teal.500';
-    case 'Website': return 'cyan.500';
-    case 'VideoGame': return 'pink.500';
-    default: return 'gray.500';
-  }
+  return getDesignSystemMediaTypeColor(mediaType === 'VideoGame' ? 'game' : mediaType);
 };
 
 export const getStatusColor = (status) => {

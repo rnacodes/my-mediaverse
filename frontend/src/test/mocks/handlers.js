@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import { makeMedia, makeBook } from '../factories/media';
+import { makeMedia, makeBook, makeMovie, makeTvShow, makeTvShowEpisode } from '../factories/media';
 import { makeMixlist } from '../factories/mixlist';
 import { makePodcastSeries, makeDirectoryResult, makeFeedEpisodesPage } from '../factories/podcast';
 import { makeYouTubeChannel, makeYouTubePlaylist } from '../factories/youtube';
@@ -61,6 +61,33 @@ export const handlers = [
     HttpResponse.json(makeFeedEpisodesPage({ seriesId: params.seriesId })),
   ),
   http.get(`${API_BASE}/podcast/directory/search`, () => HttpResponse.json([makeDirectoryResult()])),
+
+  // --- Movies / TV shows / TMDB ---
+  http.get(`${API_BASE}/movie/:id`, ({ params }) =>
+    HttpResponse.json(makeMovie({ id: params.id })),
+  ),
+  // Order matters: the fixed episode path must precede the /tvshow/:id catch-all.
+  http.get(`${API_BASE}/tvshow/episodes/:id`, ({ params }) =>
+    HttpResponse.json(makeTvShowEpisode({ id: params.id })),
+  ),
+  http.get(`${API_BASE}/tvshow/:id/episodes`, () => HttpResponse.json([])),
+  http.get(`${API_BASE}/tvshow/:id`, ({ params }) =>
+    HttpResponse.json(makeTvShow({ id: params.id })),
+  ),
+  http.post(`${API_BASE}/tvshow/:id/episodes/from-tmdb`, ({ params }) =>
+    HttpResponse.json({
+      success: true, operation: 'tv-episodes-from-tmdb', showId: params.id, showTitle: 'Test TV Show',
+      createdCount: 0, updatedCount: 0, skippedCount: 0, failedCount: 0, seasonsProcessed: 0, totalProcessed: 0,
+      errors: [], warnings: [], reindexTriggered: false,
+    }),
+  ),
+  http.get(`${API_BASE}/tmdb/search/:kind`, () => HttpResponse.json({ page: 1, results: [], total_results: 0 })),
+  http.get(`${API_BASE}/tmdb/movie/:id`, ({ params }) =>
+    HttpResponse.json({ id: Number(params.id), title: 'TMDB Movie', release_date: '2010-07-16', overview: '', vote_average: 8.0, genres: [] }),
+  ),
+  http.get(`${API_BASE}/tmdb/tv/:id`, ({ params }) =>
+    HttpResponse.json({ id: Number(params.id), name: 'TMDB Show', first_air_date: '2019-05-06', overview: '', vote_average: 8.0, number_of_seasons: 1, genres: [] }),
+  ),
 
   // --- YouTube ---
   http.get(`${API_BASE}/youtube/channels/:id`, ({ params }) =>

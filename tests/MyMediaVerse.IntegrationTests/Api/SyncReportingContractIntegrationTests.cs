@@ -2,9 +2,12 @@ using System.Net;
 using System.Text.Json;
 using AwesomeAssertions;
 using MyMediaVerse.Application.Interfaces;
+using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.IntegrationTests.Fixtures;
 using NSubstitute;
+using MyMediaVerse.Shared.DTOs.TMDB;
+using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.IntegrationTests.Api
 {
@@ -231,6 +234,239 @@ namespace MyMediaVerse.IntegrationTests.Api
             body.GetProperty("success").GetBoolean().Should().BeTrue();
             body.GetProperty("operation").GetString().Should().Be("reader-sync");
             body.GetProperty("createdCount").GetInt32().Should().Be(3);
+        }
+
+        #endregion
+
+        #region TMDB refresh
+
+        [Fact]
+        public async Task TmdbRefreshStale_WhenRunCompletesWithItemFailures_ShouldStillReturnOk()
+        {
+            var (client, _) = _factory.CreateClientWithSubstitute<IMovieTvEnrichmentService>(svc =>
+                svc.RefreshStaleAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                    .Returns(new MovieTvRefreshResultDto
+                    {
+                        FailedCount = 1,
+                        Errors = { "TMDB no longer has id 1 for 'Removed Upstream'" },
+                        StartedAt = DateTime.UtcNow,
+                        CompletedAt = DateTime.UtcNow
+                    }));
+
+            var response = await client.PostAsync("/api/movietvenrichment/refresh-stale", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var body = await ReadBodyAsync(response);
+            body.GetProperty("success").GetBoolean().Should().BeTrue();
+            body.GetProperty("operation").GetString().Should().Be("tmdb-refresh-stale");
+            body.GetProperty("failedCount").GetInt32().Should().Be(1);
+            body.GetProperty("reindexTriggered").GetBoolean().Should().BeFalse();
+        }
+
+        [Fact]
+        public async Task TmdbRefreshStale_WhenRunAborts_ShouldReturn500WithResultBody()
+        {
+            var (client, _) = _factory.CreateClientWithSubstitute<IMovieTvEnrichmentService>(svc =>
+                svc.RefreshStaleAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                    .Returns(new MovieTvRefreshResultDto
+                    {
+                        Success = false,
+                        ErrorMessage = "TMDB refresh run failed: database unavailable",
+                        StartedAt = DateTime.UtcNow
+                    }));
+
+            var response = await client.PostAsync("/api/movietvenrichment/refresh-stale", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
+            var body = await ReadBodyAsync(response);
+            body.GetProperty("success").GetBoolean().Should().BeFalse();
+            body.GetProperty("operation").GetString().Should().Be("tmdb-refresh-stale");
+            body.GetProperty("errorMessage").GetString().Should().Contain("database unavailable");
+        }
+
+        #endregion
+
+        #region TMDB episode import
+
+        // The 404 pre-check runs against the real database, so the show must exist even though the
+        // import service itself is substituted.
+        private static async Task<Guid> CreateShowAsync(HttpClient client)
+        {
+            var dto = new CreateTvShowDto
+            {
+                Title = "Contract Show",
+                TmdbId = "424242",
+                MediaType = MediaType.TVShow,
+                Status = Status.Uncharted
+            };
+            var options = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+            };
+            var content = new StringContent(JsonSerializer.Serialize(dto, options), System.Text.Encoding.UTF8, "application/json");
+
+            var response = await client.PostAsync("/api/tvshow", content);
+            response.EnsureSuccessStatusCode();
+            return (await ReadBodyAsync(response)).GetProperty("id").GetGuid();
+        }
+
+        [Fact]
+        public async Task TvEpisodeImport_WhenRunCompletesWithSeasonFailures_ShouldStillReturnOk()
+        {
+            var (client, _, reindex) = _factory.CreateClientWithSubstitutes<ITvEpisodeImportService, IImportReindexService>(svc =>
+                svc.ImportFromTmdbAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<int>?>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                    .Returns(call => new TvEpisodeImportResultDto
+                    {
+                        ShowId = call.Arg<Guid>(),
+                        ShowTitle = "Contract Show",
+                        CreatedCount = 9,
+                        FailedCount = 1,
+                        SeasonsProcessed = 1,
+                        Errors = { "TMDB has no season 2 for 'Contract Show'." },
+                        StartedAt = DateTime.UtcNow,
+                        CompletedAt = DateTime.UtcNow
+                    }));
+            var showId = await CreateShowAsync(client);
+
+            var response = await client.PostAsync($"/api/tvshow/{showId}/episodes/from-tmdb", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var body = await ReadBodyAsync(response);
+            body.GetProperty("success").GetBoolean().Should().BeTrue();
+            body.GetProperty("operation").GetString().Should().Be("tv-episodes-from-tmdb");
+            body.GetProperty("showId").GetGuid().Should().Be(showId);
+            body.GetProperty("createdCount").GetInt32().Should().Be(9);
+            body.GetProperty("failedCount").GetInt32().Should().Be(1);
+            body.GetProperty("totalProcessed").GetInt32().Should().Be(9);
+            body.GetProperty("errors").GetArrayLength().Should().Be(1);
+            body.GetProperty("reindexTriggered").GetBoolean().Should().BeTrue();
+            await reindex.Received(1).ReindexAfterImportAsync(9, Arg.Any<string>());
+        }
+
+        [Fact]
+        public async Task TvEpisodeImport_WithSeasons_ShouldPassOnlyThoseSeasonsToTheImport()
+        {
+            IReadOnlyCollection<int>? received = null;
+            var (client, _, _) = _factory.CreateClientWithSubstitutes<ITvEpisodeImportService, IImportReindexService>(svc =>
+                svc.ImportFromTmdbAsync(Arg.Any<Guid>(), Arg.Do<IReadOnlyCollection<int>?>(s => received = s), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                    .Returns(call => new TvEpisodeImportResultDto
+                    {
+                        ShowId = call.Arg<Guid>(),
+                        CreatedCount = 10,
+                        SeasonsProcessed = 2,
+                        StartedAt = DateTime.UtcNow,
+                        CompletedAt = DateTime.UtcNow
+                    }));
+            var showId = await CreateShowAsync(client);
+
+            var response = await client.PostAsync($"/api/tvshow/{showId}/episodes/from-tmdb?seasons=1,%200,1", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            received.Should().Equal(1, 0);
+        }
+
+        [Fact]
+        public async Task TvEpisodeImport_WithoutSeasons_ShouldAskForEverySeason()
+        {
+            var (client, importService, _) = _factory.CreateClientWithSubstitutes<ITvEpisodeImportService, IImportReindexService>(svc =>
+                svc.ImportFromTmdbAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<int>?>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                    .Returns(call => new TvEpisodeImportResultDto
+                    {
+                        ShowId = call.Arg<Guid>(),
+                        StartedAt = DateTime.UtcNow,
+                        CompletedAt = DateTime.UtcNow
+                    }));
+            var showId = await CreateShowAsync(client);
+
+            var response = await client.PostAsync($"/api/tvshow/{showId}/episodes/from-tmdb", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            await importService.Received(1).ImportFromTmdbAsync(showId, null, Arg.Any<int>(), Arg.Any<CancellationToken>());
+        }
+
+        [Theory]
+        [InlineData("one")]
+        [InlineData("1,,2")]
+        [InlineData("-1")]
+        [InlineData("1.5")]
+        [InlineData("1000")]
+        public async Task TvEpisodeImport_WithSeasonsThatAreNotNumbers_ShouldReturnBadRequestWithoutImporting(string seasons)
+        {
+            var (client, importService, _) = _factory.CreateClientWithSubstitutes<ITvEpisodeImportService, IImportReindexService>();
+            var showId = await CreateShowAsync(client);
+
+            var response = await client.PostAsync($"/api/tvshow/{showId}/episodes/from-tmdb?seasons={Uri.EscapeDataString(seasons)}", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            (await ReadBodyAsync(response)).GetProperty("error").GetString().Should().Contain("seasons");
+            await importService.DidNotReceive().ImportFromTmdbAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<int>?>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+        }
+
+        [Fact]
+        public async Task TvEpisodeImport_WhenNothingChanged_ShouldNotReindex()
+        {
+            var (client, _, reindex) = _factory.CreateClientWithSubstitutes<ITvEpisodeImportService, IImportReindexService>(svc =>
+                svc.ImportFromTmdbAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<int>?>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                    .Returns(new TvEpisodeImportResultDto
+                    {
+                        SkippedCount = 10,
+                        SeasonsProcessed = 1,
+                        StartedAt = DateTime.UtcNow,
+                        CompletedAt = DateTime.UtcNow
+                    }));
+            var showId = await CreateShowAsync(client);
+
+            var response = await client.PostAsync($"/api/tvshow/{showId}/episodes/from-tmdb", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var body = await ReadBodyAsync(response);
+            body.GetProperty("skippedCount").GetInt32().Should().Be(10);
+            body.GetProperty("reindexTriggered").GetBoolean().Should().BeFalse();
+            await reindex.DidNotReceive().ReindexAfterImportAsync(Arg.Any<int>(), Arg.Any<string>());
+        }
+
+        [Fact]
+        public async Task TvEpisodeImport_WhenRunAborts_ShouldReturn500WithResultBody()
+        {
+            var (client, _) = _factory.CreateClientWithSubstitute<ITvEpisodeImportService>(svc =>
+                svc.ImportFromTmdbAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<int>?>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                    .Returns(new TvEpisodeImportResultDto
+                    {
+                        Success = false,
+                        ShowTitle = "Contract Show",
+                        ErrorMessage = "'Contract Show' has no usable TMDB id; import the show from TMDB or set its TMDB id first.",
+                        StartedAt = DateTime.UtcNow
+                    }));
+            var showId = await CreateShowAsync(client);
+
+            var response = await client.PostAsync($"/api/tvshow/{showId}/episodes/from-tmdb", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
+            var body = await ReadBodyAsync(response);
+            body.GetProperty("success").GetBoolean().Should().BeFalse();
+            body.GetProperty("operation").GetString().Should().Be("tv-episodes-from-tmdb");
+            body.GetProperty("errorMessage").GetString().Should().Contain("no usable TMDB id");
+            // Null properties are omitted from responses; an aborted run must not report a completion time.
+            (body.TryGetProperty("completedAt", out var completedAt) && completedAt.ValueKind != JsonValueKind.Null)
+                .Should().BeFalse();
+        }
+
+        [Fact]
+        public async Task TvEpisodeImport_WhenTheServiceThrows_ShouldReturn500WithResultBody()
+        {
+            var (client, _) = _factory.CreateClientWithSubstitute<ITvEpisodeImportService>(svc =>
+                svc.ImportFromTmdbAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<int>?>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                    .Returns<TvEpisodeImportResultDto>(_ => throw new InvalidOperationException("boom")));
+            var showId = await CreateShowAsync(client);
+
+            var response = await client.PostAsync($"/api/tvshow/{showId}/episodes/from-tmdb", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
+            var body = await ReadBodyAsync(response);
+            body.GetProperty("success").GetBoolean().Should().BeFalse();
+            body.GetProperty("operation").GetString().Should().Be("tv-episodes-from-tmdb");
+            body.GetProperty("errorMessage").GetString().Should().Contain("boom");
         }
 
         #endregion

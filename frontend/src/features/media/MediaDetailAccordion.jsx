@@ -10,12 +10,16 @@ import { describeLinkStatus, isBrokenLink } from '@/features/media/websiteStatus
 import { useEnrichBookById } from '@/hooks/useBackgroundJobs';
 import { useAllYouTubeChannels } from '@/hooks/useYoutube';
 import { useUpdateVideo } from '@/hooks/useVideo';
+import { getJustWatchUrl, getImdbUrl, getTmdbMovieUrl, getTmdbTvShowUrl } from '@/utils/externalLinks';
 
-function getJustWatchUrl(title) {
-  // Simple heuristic for generating a JustWatch search URL.
-  // In a real application, you'd likely use a more robust integration (e.g., an API).
-  return `https://www.justwatch.com/us/search?q=${encodeURIComponent(title)}`;
-}
+const EXTERNAL_ID_LINK_SX = {
+  fontFamily: 'monospace',
+  fontSize: '0.875rem',
+  color: '#ffffff',
+  display: 'inline-flex',
+  alignItems: 'center',
+  '&:hover': { color: '#e3f2fd' }
+};
 
 const WEBSITE_ACTION_BUTTON_SX = {
   borderColor: 'rgba(255,255,255,0.3)',
@@ -191,7 +195,9 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
               fontSize: { xs: '1.25rem', sm: '1.5rem' }
             }}
           >
-            {mediaItem.mediaType === 'TVShow' ? 'TV Show Details' : `${mediaItem.mediaType} Details`}
+            {mediaItem.mediaType === 'TVShow'
+              ? (mediaItem.isTvEpisode ? 'TV Episode Details' : 'TV Show Details')
+              : `${mediaItem.mediaType} Details`}
           </Typography>
         </AccordionSummary>
         <AccordionDetails sx={{ p: { xs: 2, sm: 3, md: 4 }, backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
@@ -695,9 +701,18 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
                 gap: { xs: 0.5, sm: 0 }
               }}>
                 <Typography variant="body1" sx={{ mr: 1, minWidth: { sm: '120px' }, fontSize: '0.875rem' }}>
-                  <strong>IMDB ID:</strong>
+                  <strong>IMDb:</strong>
                 </Typography>
-                <Typography variant="body1" sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>{mediaItem.imdbId}</Typography>
+                <Link
+                  href={getImdbUrl(mediaItem.imdbId)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="View on IMDb"
+                  sx={EXTERNAL_ID_LINK_SX}
+                >
+                  {mediaItem.imdbId}
+                  <OpenInNew sx={{ fontSize: 14, ml: 0.5 }} />
+                </Link>
               </Box>
             )}
             
@@ -709,9 +724,18 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
                 gap: { xs: 0.5, sm: 0 }
               }}>
                 <Typography variant="body1" sx={{ mr: 1, minWidth: { sm: '120px' }, fontSize: '0.875rem' }}>
-                  <strong>TMDB ID:</strong>
+                  <strong>TMDB:</strong>
                 </Typography>
-                <Typography variant="body1" sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>{mediaItem.tmdbId}</Typography>
+                <Link
+                  href={getTmdbMovieUrl(mediaItem.tmdbId)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="View on TMDB"
+                  sx={EXTERNAL_ID_LINK_SX}
+                >
+                  {mediaItem.tmdbId}
+                  <OpenInNew sx={{ fontSize: 14, ml: 0.5 }} />
+                </Link>
               </Box>
             )}
             
@@ -815,8 +839,111 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
           </Box>
         )}
         
+        {/* TV episode-specific properties (episodes share the TVShow media type) */}
+        {mediaItem.mediaType === 'TVShow' && mediaItem.isTvEpisode && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {mediaItem.showId && (
+              <Box sx={{
+                display: 'flex',
+                flexDirection: { xs: 'column', sm: 'row' },
+                alignItems: { xs: 'flex-start', sm: 'center' },
+                gap: { xs: 0.5, sm: 0 }
+              }}>
+                <Typography variant="body1" sx={{ mr: 1, minWidth: { sm: '120px' }, fontSize: '0.875rem' }}>
+                  <strong>Show:</strong>
+                </Typography>
+                <Link
+                  component="button"
+                  variant="body1"
+                  onClick={() => navigate(`/tv-show/${mediaItem.showId}`)}
+                  sx={{
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    fontSize: '0.875rem',
+                    color: '#ffffff',
+                    textDecoration: 'none',
+                    '&:hover': { textDecoration: 'underline', color: '#e3f2fd' }
+                  }}
+                >
+                  {mediaItem.showTitle || 'Open show'}
+                </Link>
+              </Box>
+            )}
+
+            {mediaItem.episodeIdentifier && (
+              <Box sx={{
+                display: 'flex',
+                flexDirection: { xs: 'column', sm: 'row' },
+                alignItems: { xs: 'flex-start', sm: 'center' },
+                gap: { xs: 0.5, sm: 0 }
+              }}>
+                <Typography variant="body1" sx={{ mr: 1, minWidth: { sm: '120px' }, fontSize: '0.875rem' }}>
+                  <strong>Episode:</strong>
+                </Typography>
+                <Typography variant="body1" sx={{ fontSize: '0.875rem' }}>
+                  {mediaItem.episodeIdentifier}
+                  {mediaItem.seasonNumber != null && mediaItem.episodeNumber != null
+                    ? ` (Season ${mediaItem.seasonNumber}, Episode ${mediaItem.episodeNumber})`
+                    : ''}
+                </Typography>
+              </Box>
+            )}
+
+            {mediaItem.airDate && (
+              <Box sx={{
+                display: 'flex',
+                flexDirection: { xs: 'column', sm: 'row' },
+                alignItems: { xs: 'flex-start', sm: 'center' },
+                gap: { xs: 0.5, sm: 0 }
+              }}>
+                <Typography variant="body1" sx={{ mr: 1, minWidth: { sm: '120px' }, fontSize: '0.875rem' }}>
+                  <strong>Air Date:</strong>
+                </Typography>
+                <Typography variant="body1" sx={{ fontSize: '0.875rem' }}>
+                  {new Date(mediaItem.airDate).toLocaleDateString()}
+                </Typography>
+              </Box>
+            )}
+
+            {mediaItem.durationInMinutes > 0 && (
+              <Box sx={{
+                display: 'flex',
+                flexDirection: { xs: 'column', sm: 'row' },
+                alignItems: { xs: 'flex-start', sm: 'center' },
+                gap: { xs: 0.5, sm: 0 }
+              }}>
+                <Typography variant="body1" sx={{ mr: 1, minWidth: { sm: '120px' }, fontSize: '0.875rem' }}>
+                  <strong>Duration:</strong>
+                </Typography>
+                <Typography variant="body1" sx={{ fontSize: '0.875rem' }}>
+                  {mediaItem.durationInMinutes} minutes
+                </Typography>
+              </Box>
+            )}
+
+            {mediaItem.traktPlays > 0 && (
+              <Box sx={{
+                display: 'flex',
+                flexDirection: { xs: 'column', sm: 'row' },
+                alignItems: { xs: 'flex-start', sm: 'center' },
+                gap: { xs: 0.5, sm: 0 }
+              }}>
+                <Typography variant="body1" sx={{ mr: 1, minWidth: { sm: '120px' }, fontSize: '0.875rem' }}>
+                  <strong>Trakt Plays:</strong>
+                </Typography>
+                <Typography variant="body1" sx={{ fontSize: '0.875rem' }}>
+                  {mediaItem.traktPlays}
+                  {mediaItem.traktLastWatchedAt
+                    ? ` (last watched ${new Date(mediaItem.traktLastWatchedAt).toLocaleDateString()})`
+                    : ''}
+                </Typography>
+              </Box>
+            )}
+          </Box>
+        )}
+
         {/* TV Show-specific properties */}
-        {mediaItem.mediaType === 'TVShow' && (
+        {mediaItem.mediaType === 'TVShow' && !mediaItem.isTvEpisode && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {mediaItem.creator && (
               <Box sx={{
@@ -939,9 +1066,18 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
                 gap: { xs: 0.5, sm: 0 }
               }}>
                 <Typography variant="body1" sx={{ mr: 1, minWidth: { sm: '120px' }, fontSize: '0.875rem' }}>
-                  <strong>TMDB ID:</strong>
+                  <strong>TMDB:</strong>
                 </Typography>
-                <Typography variant="body1" sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>{mediaItem.tmdbId}</Typography>
+                <Link
+                  href={getTmdbTvShowUrl(mediaItem.tmdbId)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="View on TMDB"
+                  sx={EXTERNAL_ID_LINK_SX}
+                >
+                  {mediaItem.tmdbId}
+                  <OpenInNew sx={{ fontSize: 14, ml: 0.5 }} />
+                </Link>
               </Box>
             )}
             
@@ -1749,7 +1885,8 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
         {((mediaItem.mediaType === 'Podcast' && !mediaItem.podcastType && !mediaItem.durationInSeconds && !mediaItem.publisher && !mediaItem.audioLink && !mediaItem.releaseDate) ||
           (mediaItem.mediaType === 'Book' && !mediaItem.author && !mediaItem.isbn && !mediaItem.asin && !mediaItem.format && mediaItem.partOfSeries === undefined) ||
           (mediaItem.mediaType === 'Movie' && !mediaItem.director && !mediaItem.cast && !mediaItem.releaseYear && !mediaItem.runtimeMinutes && !mediaItem.mpaaRating && !mediaItem.tmdbRating) ||
-          (mediaItem.mediaType === 'TVShow' && !mediaItem.creator && !mediaItem.cast && !mediaItem.firstAirYear && !mediaItem.numberOfSeasons && !mediaItem.contentRating) ||
+          (mediaItem.mediaType === 'TVShow' && !mediaItem.isTvEpisode && !mediaItem.creator && !mediaItem.cast && !mediaItem.firstAirYear && !mediaItem.numberOfSeasons && !mediaItem.contentRating) ||
+          (mediaItem.mediaType === 'TVShow' && mediaItem.isTvEpisode && !mediaItem.showId && !mediaItem.episodeIdentifier && !mediaItem.airDate && !mediaItem.durationInMinutes && !mediaItem.traktPlays) ||
           (mediaItem.mediaType === 'Video' && !mediaItem.platform && !mediaItem.channel && !mediaItem.lengthInSeconds && !mediaItem.externalId) ||
           (mediaItem.mediaType === 'Article' && !mediaItem.author && !mediaItem.publication && !mediaItem.publicationDate && !mediaItem.originalUrl && !mediaItem.readingProgress && !mediaItem.estimatedReadingTimeMinutes && !mediaItem.wordCount) ||
           (mediaItem.mediaType === 'Website' && !mediaItem.domain && !mediaItem.author && !mediaItem.publication && !mediaItem.rssFeedUrl && !mediaItem.lastCheckedDate && !describeLinkStatus(mediaItem.lastHttpStatus) && !mediaItem.waybackUrl)) && (

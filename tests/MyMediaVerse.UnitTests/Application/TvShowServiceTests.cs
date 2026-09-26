@@ -4,7 +4,9 @@ using NSubstitute;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
+using MyMediaVerse.UnitTests.TestData;
 using MyMediaVerse.UnitTests.TestHelpers;
+using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.UnitTests.Application
 {
@@ -13,11 +15,16 @@ namespace MyMediaVerse.UnitTests.Application
     {
         private readonly ILogger<TvShowService> _mockLogger;
         private readonly TvShowService _service;
+        private readonly IThumbnailStorageService _mockThumbnailStorage = Substitute.For<IThumbnailStorageService>();
+        private readonly ITypesenseService _mockTypesense = Substitute.For<ITypesenseService>();
 
         public TvShowServiceTests()
         {
             _mockLogger = Substitute.For<ILogger<TvShowService>>();
-            _service = new TvShowService(Context, _mockLogger);
+            // Deletes go through the real shared delete path, so its effects are asserted here too.
+            var mediaService = new MediaService(
+                Context, Substitute.For<ILogger<MediaService>>(), _mockThumbnailStorage, _mockTypesense);
+            _service = new TvShowService(Context, _mockLogger, mediaService);
         }
 
         #region GetAllTvShowsAsync Tests
@@ -192,7 +199,7 @@ namespace MyMediaVerse.UnitTests.Application
             };
 
             // Act
-            var result = await _service.CreateTvShowAsync(dto);
+            var result = (await _service.CreateTvShowAsync(dto)).TvShow;
 
             // Assert
             result.Should().NotBeNull();
@@ -242,7 +249,7 @@ namespace MyMediaVerse.UnitTests.Application
             };
 
             // Act
-            var result = await _service.CreateTvShowAsync(dto);
+            var result = (await _service.CreateTvShowAsync(dto)).TvShow;
 
             // Assert
             result.Id.Should().Be(existingTvShow.Id);
@@ -274,7 +281,7 @@ namespace MyMediaVerse.UnitTests.Application
             };
 
             // Act
-            var result = await _service.CreateTvShowAsync(dto);
+            var result = (await _service.CreateTvShowAsync(dto)).TvShow;
 
             // Assert
             result.Topics.Should().HaveCount(1);
@@ -481,6 +488,189 @@ namespace MyMediaVerse.UnitTests.Application
 
             // Assert
             result.Should().BeNull();
+        }
+
+        #endregion
+
+        #region Genre resolution
+
+        [Fact]
+        public async Task CreateTvShowAsync_ShouldNormalizeGenres_AndReuseAnExistingGenre()
+        {
+            Context.Genres.Add(new Genre { Name = "fantasy" });
+            await Context.SaveChangesAsync();
+
+            var dto = TestDataFactory.CreateTvShowDto("Game of Thrones");
+            dto.Genres = new[] { " Fantasy ", "DRAMA", "drama" };
+
+            var result = (await _service.CreateTvShowAsync(dto)).TvShow;
+
+            result.Genres.Select(g => g.Name).Should().BeEquivalentTo(new[] { "fantasy", "drama" });
+            Context.Genres.Count(g => g.Name == "fantasy").Should().Be(1);
+            Context.Genres.Count(g => g.Name == "drama").Should().Be(1);
+        }
+
+        [Fact]
+        public async Task CreateTvShowAsync_TwoShowsNamingTheSameNewGenre_ShareOneGenreRow()
+        {
+            var first = TestDataFactory.CreateTvShowDto("The Wire");
+            first.Genres = new[] { "crime" };
+            var second = TestDataFactory.CreateTvShowDto("Bosch");
+            second.Genres = new[] { "Crime" };
+
+            var firstShow = (await _service.CreateTvShowAsync(first)).TvShow;
+            var secondShow = (await _service.CreateTvShowAsync(second)).TvShow;
+
+            Context.Genres.Count(g => g.Name == "crime").Should().Be(1);
+            firstShow.Genres.Single().Id.Should().Be(secondShow.Genres.Single().Id);
+        }
+
+        #endregion
+
+        #region TMDB refresh stamp
+
+        [Fact]
+        public async Task CreateTvShowAsync_FromTmdb_ShouldStampTmdbRefreshedAt()
+        {
+            var result = (await _service.CreateTvShowAsync(TestDataFactory.CreateTvShowDto("Severance"), fromTmdb: true)).TvShow;
+
+            result.TmdbRefreshedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromMinutes(1));
+        }
+
+        [Fact]
+        public async Task CreateTvShowAsync_ManualCreate_ShouldLeaveTmdbRefreshedAtNull()
+        {
+            var result = (await _service.CreateTvShowAsync(TestDataFactory.CreateTvShowDto("Severance"))).TvShow;
+
+            result.TmdbRefreshedAt.Should().BeNull();
+        }
+
+        #endregion
+
+        #region Create: existing-item lookup
+
+        [Fact]
+        public async Task CreateTvShowAsync_NewShow_ShouldReportCreated()
+        {
+            var result = await _service.CreateTvShowAsync(TestDataFactory.CreateTvShowDto("Severance", 2022));
+
+            result.Created.Should().BeTrue();
+            Context.TvShows.Count().Should().Be(1);
+        }
+
+        [Fact]
+        public async Task CreateTvShowAsync_StoredTmdbId_ShouldReturnTheStoredShowUntouched_EvenWhenTitleAndYearDiffer()
+        {
+            var stored = TestDataFactory.CreateTvShow("GoT (rewatch)", 2012, "1399");
+            stored.Description = "My own description";
+            Context.TvShows.Add(stored);
+            await Context.SaveChangesAsync();
+
+            var dto = TestDataFactory.CreateTvShowDto("Game of Thrones", 2011);
+            dto.TmdbId = "1399";
+            dto.Description = "TMDB overview";
+
+            var result = await _service.CreateTvShowAsync(dto, fromTmdb: true);
+
+            result.Created.Should().BeFalse();
+            result.TvShow.Id.Should().Be(stored.Id);
+            result.TvShow.Title.Should().Be("GoT (rewatch)");
+            result.TvShow.Description.Should().Be("My own description");
+            result.TvShow.TmdbRefreshedAt.Should().BeNull();
+            Context.TvShows.Count().Should().Be(1);
+        }
+
+        [Fact]
+        public async Task CreateTvShowAsync_SameTitleAndYearButDifferentTmdbId_ShouldCreateASecondShow()
+        {
+            // A remake can share its title and year; the TMDB ids tell them apart.
+            Context.TvShows.Add(TestDataFactory.CreateTvShow("The Office", 2005, "2316"));
+            await Context.SaveChangesAsync();
+
+            var dto = TestDataFactory.CreateTvShowDto("The Office", 2005);
+            dto.TmdbId = "99999";
+
+            var result = await _service.CreateTvShowAsync(dto, fromTmdb: true);
+
+            result.Created.Should().BeTrue();
+            Context.TvShows.Count().Should().Be(2);
+        }
+
+        #endregion
+
+        #region Delete: shared delete path
+
+        private TvShowEpisode NewEpisode(TvShow show, int season, int number) => new()
+        {
+            Id = Guid.NewGuid(),
+            Title = $"S{season}E{number}",
+            MediaType = MediaType.TVShow,
+            Status = Status.Uncharted,
+            DateAdded = DateTime.UtcNow,
+            ShowId = show.Id,
+            SeasonNumber = season,
+            EpisodeNumber = number
+        };
+
+        [Fact]
+        public async Task DeleteTvShowAsync_ShouldRemoveEveryEpisodeAsAMediaItem_AndCleanTheSearchIndex()
+        {
+            var show = TestDataFactory.CreateTvShow("Severance", 2022, "95396");
+            show.Genres.Add(new Genre { Name = "thriller" });
+            var first = NewEpisode(show, 1, 1);
+            var second = NewEpisode(show, 1, 2);
+            var mixlist = TestDataFactory.CreateMixlist("Watching");
+            mixlist.MediaItems.Add(show);
+            Context.TvShows.Add(show);
+            Context.TvShowEpisodes.AddRange(first, second);
+            Context.Mixlists.Add(mixlist);
+            await Context.SaveChangesAsync();
+
+            var result = await _service.DeleteTvShowAsync(show.Id);
+
+            result.Should().BeTrue();
+            // No orphaned base rows: the show and both episodes are gone from MediaItems.
+            Context.MediaItems.Any(m => m.Id == show.Id || m.Id == first.Id || m.Id == second.Id).Should().BeFalse();
+            Context.TvShowEpisodes.Any(e => e.ShowId == show.Id).Should().BeFalse();
+            Context.Mixlists.Single().MediaItems.Should().BeEmpty();
+            await _mockTypesense.Received(1).DeleteMediaItemAsync(show.Id);
+            await _mockTypesense.Received(1).DeleteMediaItemAsync(first.Id);
+            await _mockTypesense.Received(1).DeleteMediaItemAsync(second.Id);
+        }
+
+        [Fact]
+        public async Task DeleteTvShowEpisodeAsync_ShouldRemoveOnlyThatEpisode_AndCleanTheSearchIndex()
+        {
+            var show = TestDataFactory.CreateTvShow("Severance", 2022, "95396");
+            var first = NewEpisode(show, 1, 1);
+            var second = NewEpisode(show, 1, 2);
+            Context.TvShows.Add(show);
+            Context.TvShowEpisodes.AddRange(first, second);
+            await Context.SaveChangesAsync();
+
+            var result = await _service.DeleteTvShowEpisodeAsync(first.Id);
+
+            result.Should().BeTrue();
+            Context.MediaItems.Any(m => m.Id == first.Id).Should().BeFalse();
+            Context.TvShowEpisodes.Select(e => e.Id).Should().Equal(second.Id);
+            Context.TvShows.Any(t => t.Id == show.Id).Should().BeTrue();
+            await _mockTypesense.Received(1).DeleteMediaItemAsync(first.Id);
+        }
+
+        [Fact]
+        public async Task DeleteTvShowAsync_ShouldReturnFalse_AndDeleteNothing_WhenTheIdIsAnEpisode()
+        {
+            var show = TestDataFactory.CreateTvShow("Severance", 2022, "95396");
+            var episode = NewEpisode(show, 1, 1);
+            Context.TvShows.Add(show);
+            Context.TvShowEpisodes.Add(episode);
+            await Context.SaveChangesAsync();
+
+            var result = await _service.DeleteTvShowAsync(episode.Id);
+
+            result.Should().BeFalse();
+            Context.TvShowEpisodes.Any(e => e.Id == episode.Id).Should().BeTrue();
+            await _mockTypesense.DidNotReceive().DeleteMediaItemAsync(Arg.Any<Guid>());
         }
 
         #endregion

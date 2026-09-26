@@ -9,6 +9,7 @@ namespace MyMediaVerse.Shared.Interfaces
         Task<TmdbMultiSearchResultDto> SearchMultiAsync(string query, int page = 1, string language = "en-US");
         Task<TmdbMovieDto> GetMovieDetailsAsync(int movieId, string language = "en-US");
         Task<TmdbTvShowDto> GetTvShowDetailsAsync(int tvShowId, string language = "en-US");
+        Task<TmdbSeasonDto> GetTvSeasonAsync(int tvShowId, int seasonNumber, string language = "en-US");
         Task<TmdbMovieSearchResultDto> GetPopularMoviesAsync(int page = 1, string language = "en-US");
         Task<TmdbTvSearchResultDto> GetPopularTvShowsAsync(int page = 1, string language = "en-US");
         Task<TmdbGenreListDto> GetMovieGenresAsync(string language = "en-US");

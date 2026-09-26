@@ -52,7 +52,7 @@ export const COLORS = {
     podcast: '#e91e63',
     book: '#9c27b0',
     movie: '#3f51b5',
-    tv: '#2196f3',
+    tvshow: '#2196f3',
     article: '#4caf50',
     music: '#ff9800',
     game: '#795548',

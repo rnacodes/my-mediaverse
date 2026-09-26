@@ -172,6 +172,37 @@ namespace MyMediaVerse.Infrastructure.Models
         public string? MetadataSource { get; set; }
 
         /// <summary>
+        /// "Show" or "Episode" (for TV) - both are media items of type TVShow, so this is what separates
+        /// a show from its episodes in search
+        /// </summary>
+        [JsonPropertyName("tv_type")]
+        public string? TvType { get; set; }
+
+        /// <summary>
+        /// Parent show ID (for TV episodes) - used to list one show's episodes and route to the show
+        /// </summary>
+        [JsonPropertyName("show_id")]
+        public string? ShowId { get; set; }
+
+        /// <summary>
+        /// Title of the parent show (for TV episodes) - makes a search for the show return its episodes
+        /// </summary>
+        [JsonPropertyName("show_title")]
+        public string? ShowTitle { get; set; }
+
+        /// <summary>
+        /// Season number (for TV episodes) - orders an episode list; season 0 holds specials
+        /// </summary>
+        [JsonPropertyName("season_number")]
+        public int? SeasonNumber { get; set; }
+
+        /// <summary>
+        /// Episode number within its season (for TV episodes)
+        /// </summary>
+        [JsonPropertyName("episode_number")]
+        public int? EpisodeNumber { get; set; }
+
+        /// <summary>
         /// Text composed for semantic embedding. Typesense auto-embeds this via the collection's
         /// embedding field, so keyword and vector search stay sourced from one place. Serialized
         /// on write; ignored when search hits are deserialized back (no setter).

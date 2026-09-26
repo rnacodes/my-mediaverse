@@ -943,6 +943,9 @@ namespace MyMediaVerse.Infrastructure.Migrations
                     b.Property<double?>("TmdbRating")
                         .HasColumnType("double precision");
 
+                    b.Property<DateTime?>("TmdbRefreshedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<int?>("TraktId")
                         .HasColumnType("integer");
 
@@ -965,7 +968,11 @@ namespace MyMediaVerse.Infrastructure.Migrations
 
                     b.HasIndex("ReleaseYear");
 
-                    b.HasIndex("TmdbId");
+                    b.HasIndex("TmdbId")
+                        .IsUnique()
+                        .HasFilter("\"TmdbId\" IS NOT NULL AND \"TmdbId\" <> ''");
+
+                    b.HasIndex("TmdbRefreshedAt");
 
                     b.ToTable("Movies", (string)null);
                 });
@@ -1166,6 +1173,9 @@ namespace MyMediaVerse.Infrastructure.Migrations
                     b.Property<double?>("TmdbRating")
                         .HasColumnType("double precision");
 
+                    b.Property<DateTime?>("TmdbRefreshedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<int?>("TraktId")
                         .HasColumnType("integer");
 
@@ -1188,7 +1198,11 @@ namespace MyMediaVerse.Infrastructure.Migrations
 
                     b.HasIndex("LastAirYear");
 
-                    b.HasIndex("TmdbId");
+                    b.HasIndex("TmdbId")
+                        .IsUnique()
+                        .HasFilter("\"TmdbId\" IS NOT NULL AND \"TmdbId\" <> ''");
+
+                    b.HasIndex("TmdbRefreshedAt");
 
                     b.ToTable("TvShows", (string)null);
                 });
@@ -1233,6 +1247,9 @@ namespace MyMediaVerse.Infrastructure.Migrations
                     b.HasIndex("ShowId");
 
                     b.HasIndex("TmdbEpisodeId");
+
+                    b.HasIndex("ShowId", "SeasonNumber", "EpisodeNumber")
+                        .IsUnique();
 
                     b.ToTable("TvShowEpisodes", (string)null);
                 });

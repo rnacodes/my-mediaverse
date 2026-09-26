@@ -71,6 +71,12 @@ namespace MyMediaVerse.Domain.Entities
         public DateTime? EnrichedAt { get; set; }
 
         /// <summary>
+        /// UTC timestamp of the last time TMDB data was applied to this item (import, enrichment,
+        /// or refresh) for refresh run.
+        /// </summary>
+        public DateTime? TmdbRefreshedAt { get; set; }
+
+        /// <summary>
         /// Gets the full TMDB backdrop URL
         /// </summary>
         public string? GetTmdbBackdropUrl(string size = "w1280")

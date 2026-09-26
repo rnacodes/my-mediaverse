@@ -10,6 +10,19 @@ const MIXLIST_SORT_BY = {
     title: 'name:asc',
 };
 
+// TV episodes are indexed but stay out of results unless asked for. Movies, books and
+// every other document have no tv_type, so the clause is phrased against media_type
+// first: it never depends on how the engine treats a missing field.
+export const DEFAULT_TV_FILTER = '(media_type:!=TVShow || tv_type:!=Episode)';
+
+// The per-type term for TVShow. `tvType`: null/'Show' = shows only (the default),
+// 'Episode' = episodes only, 'All' = both.
+const tvShowFilterTerm = (tvType) => {
+    if (tvType === 'All') return 'media_type:=TVShow';
+    if (tvType === 'Episode') return '(media_type:=TVShow && tv_type:=Episode)';
+    return '(media_type:=TVShow && tv_type:!=Episode)';
+};
+
 // ============================================
 // Typesense Admin API calls
 // ============================================
@@ -121,6 +134,8 @@ export const typesenseSearch = async (query, mediaType = 'all', page = 1, perPag
         let endpoint = '/search';
         if (mediaType !== 'all') {
             endpoint = `/search/by-type/${mediaType}`;
+        } else {
+            params.filter = DEFAULT_TV_FILTER;
         }
 
         const response = await apiClient.get(endpoint, { params });
@@ -137,6 +152,7 @@ export const typesenseSearch = async (query, mediaType = 'all', page = 1, perPag
  * @param {string} options.query - Search query (default: '*' for all)
  * @param {Array<string>} options.mediaTypes - Array of media types to filter by
  * @param {string} options.podcastType - 'Series' or 'Episode' to narrow podcasts (other media types are unaffected)
+ * @param {string} options.tvType - null/'Show' (default: shows only), 'Episode', or 'All' to widen TV shows to their episodes
  * @param {Array<string>} options.topics - Array of topics to filter by
  * @param {Array<string>} options.genres - Array of genres to filter by
  * @param {string|Array<string>} options.status - Status filter, one or many (Uncharted, ActivelyExploring, Completed, Abandoned)
@@ -152,6 +168,7 @@ export const typesenseAdvancedSearch = async (options) => {
             query = '*',
             mediaTypes = [],
             podcastType = null,
+            tvType = null,
             topics = [],
             genres = [],
             status = null,
@@ -167,12 +184,15 @@ export const typesenseAdvancedSearch = async (options) => {
         // Media type filter
         if (mediaTypes.length > 0 && !mediaTypes.includes('all')) {
             // Series/Episode narrows only the podcast term, so other selected types still match.
-            const mediaTypeFilter = mediaTypes.map(type => (
-                type === 'Podcast' && podcastType
-                    ? `(media_type:=Podcast && podcast_type:=${podcastType})`
-                    : `media_type:=${type}`
-            )).join(' || ');
+            const mediaTypeFilter = mediaTypes.map(type => {
+                if (type === 'Podcast' && podcastType) return `(media_type:=Podcast && podcast_type:=${podcastType})`;
+                if (type === 'TVShow') return tvShowFilterTerm(tvType);
+                return `media_type:=${type}`;
+            }).join(' || ');
             filters.push(`(${mediaTypeFilter})`);
+        } else {
+            // No type chosen (browse-all, quick search): episodes stay hidden.
+            filters.push(DEFAULT_TV_FILTER);
         }
 
         // Topics filter - wrap values in backticks for Typesense (handles spaces/special chars)
@@ -238,6 +258,9 @@ export const mapTypesenseMediaDocument = (doc = {}) => ({
     seriesId: doc.series_id ?? null,
     podcastType: doc.podcast_type ?? null,
     seriesTitle: doc.series_title ?? null,
+    tvType: doc.tv_type ?? null,
+    showId: doc.show_id ?? null,
+    showTitle: doc.show_title ?? null,
     isSubscribed: doc.is_subscribed ?? null,
     author: doc.author ?? null,
     director: doc.director ?? null,

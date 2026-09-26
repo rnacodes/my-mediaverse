@@ -43,6 +43,23 @@ describe('MediaInfoCard podcast-type chip', () => {
     expect(screen.queryByText('Episode')).not.toBeInTheDocument();
   });
 
+  it('renders the episode identifier chip and a link to the show for a TV episode', () => {
+    renderCard({
+      mediaType: 'TVShow', status: 'Consuming', isTvEpisode: true,
+      episodeIdentifier: 'S1E3', showId: 'show-9', showTitle: 'Chernobyl',
+    });
+
+    expect(screen.getByText('S1E3')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Chernobyl' })).toHaveAttribute('href', '/tv-show/show-9');
+  });
+
+  it('renders no episode chip or show link for a TV show', () => {
+    renderCard({ mediaType: 'TVShow', status: 'Consuming', episodeIdentifier: 'S1E3', showId: 'show-9', showTitle: 'Chernobyl' });
+
+    expect(screen.queryByText('S1E3')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Chernobyl' })).not.toBeInTheDocument();
+  });
+
   it('renders no podcast-type chip for non-podcast media', () => {
     // A Book carrying a stray podcastType must still not render the chip — the
     // guard keys off mediaType === 'Podcast', not the field alone.

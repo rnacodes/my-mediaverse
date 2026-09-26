@@ -11,13 +11,16 @@ namespace MyMediaVerse.Application.Services
     {
         private readonly IApplicationDbContext _context;
         private readonly ILogger<TvShowService> _logger;
+        private readonly IMediaService _mediaService;
 
         public TvShowService(
             IApplicationDbContext context,
-            ILogger<TvShowService> logger)
+            ILogger<TvShowService> logger,
+            IMediaService mediaService)
         {
             _context = context;
             _logger = logger;
+            _mediaService = mediaService;
         }
 
         public async Task<IEnumerable<TvShow>> GetAllTvShowsAsync()
@@ -94,7 +97,7 @@ namespace MyMediaVerse.Application.Services
             }
         }
 
-        public async Task<TvShow> CreateTvShowAsync(CreateTvShowDto dto)
+        public async Task<TvShowCreationResult> CreateTvShowAsync(CreateTvShowDto dto, bool fromTmdb = false)
         {
             try
             {
@@ -103,15 +106,11 @@ namespace MyMediaVerse.Application.Services
                     throw new ArgumentNullException(nameof(dto), "TV show data is required");
                 }
 
-                // Check if TV show already exists
-                if (await TvShowExistsAsync(dto.Title, dto.FirstAirYear))
+                var existingTvShow = await FindExistingAsync(dto);
+                if (existingTvShow != null)
                 {
-                    _logger.LogWarning("TV show already exists: {Title} ({Year})", dto.Title, dto.FirstAirYear);
-                    var existingTvShow = await GetTvShowByTitleAndYearAsync(dto.Title, dto.FirstAirYear);
-                    if (existingTvShow != null)
-                    {
-                        return existingTvShow;
-                    }
+                    _logger.LogInformation("TV show already in the library: {Title} ({Year})", existingTvShow.Title, existingTvShow.FirstAirYear);
+                    return new TvShowCreationResult(existingTvShow, Created: false);
                 }
 
                 var tvShow = new TvShow
@@ -141,7 +140,8 @@ namespace MyMediaVerse.Application.Services
                     Tagline = dto.Tagline,
                     Homepage = dto.Homepage,
                     OriginalLanguage = dto.OriginalLanguage,
-                    OriginalName = dto.OriginalName
+                    OriginalName = dto.OriginalName,
+                    TmdbRefreshedAt = fromTmdb ? DateTime.UtcNow : null
                 };
 
                 // Handle Topics array conversion
@@ -151,10 +151,24 @@ namespace MyMediaVerse.Application.Services
                 await HandleGenresAsync(tvShow, dto.Genres);
 
                 _context.Add(tvShow);
-                await _context.SaveChangesAsync();
+                try
+                {
+                    await _context.SaveChangesAsync();
+                }
+                catch (DbUpdateException) when (!string.IsNullOrEmpty(dto.TmdbId))
+                {
+                    // Two simultaneous imports of the same TMDB id can both pass the duplicate lookup
+                    // before either saves. The unique index rejects the second save; return the row
+                    // the first one created instead of surfacing an error.
+                    _context.Remove(tvShow);
+                    var winner = await GetTvShowByTmdbIdAsync(dto.TmdbId);
+                    if (winner == null) throw;
+
+                    return new TvShowCreationResult(winner, Created: false);
+                }
 
                 _logger.LogInformation("Successfully created TV show: {Title} ({Year})", tvShow.Title, tvShow.FirstAirYear);
-                return tvShow;
+                return new TvShowCreationResult(tvShow, Created: true);
             }
             catch (Exception ex)
             {
@@ -232,21 +246,22 @@ namespace MyMediaVerse.Application.Services
         {
             try
             {
-                var tvShow = await _context.FindAsync<TvShow>(id);
-                if (tvShow == null)
+                // Only a show id is accepted here; any other media item is left alone.
+                if (!await _context.TvShows.AnyAsync(t => t.Id == id))
                 {
                     return false;
                 }
 
-                var tvShowId = tvShow.Id;
-                var tvShowTitle = tvShow.Title;
-                var tvShowYear = tvShow.FirstAirYear;
+                // The shared delete removes the show's episodes as media items of their own (the
+                // database cascade alone would leave their base rows behind), detaches mixlists,
+                // topics, and genres, and removes the show and its episodes from the search index.
+                var deleted = await _mediaService.DeleteMediaItemAsync(id);
+                if (deleted)
+                {
+                    _logger.LogInformation("Successfully deleted TV show with ID {Id}", id);
+                }
 
-                _context.Remove(tvShow);
-                await _context.SaveChangesAsync();
-
-                _logger.LogInformation("Successfully deleted TV show: {Title} ({Year})", tvShowTitle, tvShowYear);
-                return true;
+                return deleted;
             }
             catch (Exception ex)
             {
@@ -273,6 +288,36 @@ namespace MyMediaVerse.Application.Services
                 _logger.LogError(ex, "Error occurred while checking if TV show exists: {Title} ({Year})", title, firstAirYear);
                 throw;
             }
+        }
+
+        public async Task<TvShow?> GetTvShowByTmdbIdAsync(string tmdbId)
+        {
+            if (string.IsNullOrWhiteSpace(tmdbId)) return null;
+
+            return await _context.TvShows
+                .Include(t => t.Topics)
+                .Include(t => t.Genres)
+                .FirstOrDefaultAsync(t => t.TmdbId == tmdbId);
+        }
+
+        // TMDB id first: it survives an edited title or a missing year. Title and year is the
+        // fallback, and never matches a show that carries a different TMDB id (a remake can
+        // share its title).
+        private async Task<TvShow?> FindExistingAsync(CreateTvShowDto dto)
+        {
+            if (!string.IsNullOrEmpty(dto.TmdbId))
+            {
+                var byTmdbId = await GetTvShowByTmdbIdAsync(dto.TmdbId);
+                if (byTmdbId != null) return byTmdbId;
+            }
+
+            var byTitle = await GetTvShowByTitleAndYearAsync(dto.Title, dto.FirstAirYear);
+            if (byTitle == null) return null;
+
+            var differentTmdbItem = !string.IsNullOrEmpty(dto.TmdbId)
+                && !string.IsNullOrEmpty(byTitle.TmdbId)
+                && byTitle.TmdbId != dto.TmdbId;
+            return differentTmdbItem ? null : byTitle;
         }
 
         public async Task<TvShow?> GetTvShowByTitleAndYearAsync(string title, int? firstAirYear = null)
@@ -408,17 +453,19 @@ namespace MyMediaVerse.Application.Services
         {
             try
             {
-                var episode = await _context.FindAsync<TvShowEpisode>(id);
-                if (episode == null)
+                // Only an episode id is accepted here; any other media item is left alone.
+                if (!await _context.TvShowEpisodes.AnyAsync(e => e.Id == id))
                 {
                     return false;
                 }
 
-                _context.Remove(episode);
-                await _context.SaveChangesAsync();
+                var deleted = await _mediaService.DeleteMediaItemAsync(id);
+                if (deleted)
+                {
+                    _logger.LogInformation("Successfully deleted TV show episode with ID {Id}", id);
+                }
 
-                _logger.LogInformation("Successfully deleted TV show episode with ID {Id}", id);
-                return true;
+                return deleted;
             }
             catch (Exception ex)
             {
@@ -449,28 +496,13 @@ namespace MyMediaVerse.Application.Services
             if (topics == null || topics.Length == 0)
                 return;
 
-            foreach (var topicName in topics.Where(t => !string.IsNullOrWhiteSpace(t)))
+            var resolver = new TopicResolver(_context);
+            foreach (var name in topics.Where(t => !string.IsNullOrWhiteSpace(t)))
             {
-                var normalizedTopicName = topicName.Trim().ToLowerInvariant();
-                
-                // Check if topic exists using AsNoTracking to avoid tracking conflicts
-                var topic = await _context.Topics
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(t => t.Name == normalizedTopicName);
-                
-                if (topic == null)
+                var topic = await resolver.GetOrCreateAsync(name.Trim().ToLowerInvariant());
+                if (topic != null && !tvShow.Topics.Contains(topic))
                 {
-                    // Create new topic and save immediately
-                    topic = new Topic { Name = normalizedTopicName };
-                    _context.Add(topic);
-                    await _context.SaveChangesAsync();
-                }
-                
-                // Get tracked version and add to TV show
-                var trackedTopic = await _context.Topics.FirstOrDefaultAsync(t => t.Id == topic.Id);
-                if (trackedTopic != null && !tvShow.Topics.Any(t => t.Id == trackedTopic.Id))
-                {
-                    tvShow.Topics.Add(trackedTopic);
+                    tvShow.Topics.Add(topic);
                 }
             }
         }
@@ -480,28 +512,13 @@ namespace MyMediaVerse.Application.Services
             if (genres == null || genres.Length == 0)
                 return;
 
-            foreach (var genreName in genres.Where(g => !string.IsNullOrWhiteSpace(g)))
+            var resolver = new GenreResolver(_context);
+            foreach (var name in GenreNames.NormalizeList(genres))
             {
-                var normalizedGenreName = genreName.Trim().ToLowerInvariant();
-                
-                // Check if genre exists using AsNoTracking to avoid tracking conflicts
-                var genre = await _context.Genres
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(g => g.Name == normalizedGenreName);
-                
-                if (genre == null)
+                var genre = await resolver.GetOrCreateAsync(name);
+                if (genre != null && !tvShow.Genres.Contains(genre))
                 {
-                    // Create new genre and save immediately
-                    genre = new Genre { Name = normalizedGenreName };
-                    _context.Add(genre);
-                    await _context.SaveChangesAsync();
-                }
-                
-                // Get tracked version and add to TV show
-                var trackedGenre = await _context.Genres.FirstOrDefaultAsync(g => g.Id == genre.Id);
-                if (trackedGenre != null && !tvShow.Genres.Any(g => g.Id == trackedGenre.Id))
-                {
-                    tvShow.Genres.Add(trackedGenre);
+                    tvShow.Genres.Add(genre);
                 }
             }
         }

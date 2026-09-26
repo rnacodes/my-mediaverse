@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Container, Typography, Link } from '@mui/material';
 import { COLORS, SPACING } from './DesignSystem';
+import AttributionBadge from './AttributionBadge';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -71,6 +72,21 @@ const Footer = () => {
             </Link>
             .
           </Typography>
+
+          {/* Movie and TV data providers: TMDB's notice is a term of its API; Trakt asks for its mark. */}
+          <Box
+            sx={{
+              display: 'flex',
+              gap: SPACING.lg,
+              flexWrap: 'wrap',
+              justifyContent: 'center',
+              alignItems: 'center',
+              textAlign: 'center'
+            }}
+          >
+            <AttributionBadge provider="tmdb" />
+            <AttributionBadge provider="trakt" sx={{ display: 'flex', alignItems: 'center', gap: 1, '& p': { fontSize: '0.75rem', color: COLORS.text.secondary } }} />
+          </Box>
 
           {/* Links */}
           <Box

@@ -90,6 +90,11 @@ const transformMediaHits = (hits) => hits.map(hit => {
         seriesId: doc.series_id || null,
         podcastType: doc.podcast_type || null,
         seriesTitle: doc.series_title || null,
+        tvType: doc.tv_type || null,
+        showId: doc.show_id || null,
+        showTitle: doc.show_title || null,
+        seasonNumber: doc.season_number ?? null,
+        episodeNumber: doc.episode_number ?? null,
         publication: doc.publication || null,
         estimatedReadingTimeMinutes: doc.estimated_reading_time_minutes || null,
         wordCount: doc.word_count || null,
@@ -142,6 +147,8 @@ export default function Search({ defaultMediaTypes = [] }) {
     const [selectedMediaTypes, setSelectedMediaTypes] = useState(defaultMediaTypes); // Empty = show "please select" message
     // '' = every podcast; 'Series' or 'Episode' narrows them. Only applies while Podcast is a selected type.
     const [podcastType, setPodcastType] = useState('');
+    // '' = shows only (the default); 'Episode' = episodes only; 'All' = both. Only applies while TVShow is a selected type.
+    const [tvType, setTvType] = useState('');
     const [selectedTopics, setSelectedTopics] = useState([]);
     const [selectedGenres, setSelectedGenres] = useState([]);
     const [selectedStatuses, setSelectedStatuses] = useState([]);
@@ -342,6 +349,7 @@ export default function Search({ defaultMediaTypes = [] }) {
         const status = searchParams.get('status');
         const mode = searchParams.get('searchMode');
         const podcastTypeParam = searchParams.get('podcastType');
+        const tvTypeParam = searchParams.get('tvType');
 
         let mediaTypes = mediaTypeParam ? mediaTypeParam.split(',').map(t => t.trim()) : [];
         let resolvedMode = ['mixlists', 'notes', 'highlights'].includes(mode) ? mode : 'media';
@@ -365,6 +373,9 @@ export default function Search({ defaultMediaTypes = [] }) {
         setPodcastType(
             mediaTypes.includes('Podcast') && ['Series', 'Episode'].includes(podcastTypeParam) ? podcastTypeParam : ''
         );
+        setTvType(
+            mediaTypes.includes('TVShow') && ['Episode', 'All'].includes(tvTypeParam) ? tvTypeParam : ''
+        );
         setSelectedTopics(topics ? topics.split(',').map(t => t.trim()) : []);
         setSelectedGenres(genres ? genres.split(',').map(g => g.trim()) : []);
         setSelectedStatuses(status ? status.split(',').map(s => s.trim()).filter(s => s && s !== 'all') : []);
@@ -380,6 +391,7 @@ export default function Search({ defaultMediaTypes = [] }) {
         searchMode,
         selectedMediaTypes,
         podcastType,
+        tvType,
         selectedTopics,
         selectedGenres,
         selectedStatuses,
@@ -415,6 +427,13 @@ export default function Search({ defaultMediaTypes = [] }) {
             setPodcastType('');
         }
     }, [podcastType, selectedMediaTypes]);
+
+    // Likewise, Episodes/All for TV only means something while TVShow is selected.
+    useEffect(() => {
+        if (tvType && !selectedMediaTypes.includes('TVShow')) {
+            setTvType('');
+        }
+    }, [tvType, selectedMediaTypes]);
 
     const hasMediaFilters = searchMode === 'media' && (
         browseAllMode ||
@@ -525,6 +544,7 @@ export default function Search({ defaultMediaTypes = [] }) {
                     query: debouncedSearchQuery || '*',
                     mediaTypes: selectedMediaTypes.includes('all') ? [] : mediaTypesFiltered,
                     podcastType: podcastType || null,
+                    tvType: tvType || null,
                     topics: selectedTopics,
                     genres: selectedGenres,
                     status: selectedStatuses,
@@ -594,6 +614,7 @@ export default function Search({ defaultMediaTypes = [] }) {
     const handleClearFilters = () => {
         setSelectedMediaTypes([]);
         setPodcastType('');
+        setTvType('');
         setSelectedTopics([]);
         setSelectedGenres([]);
         setSelectedStatuses([]);
@@ -665,6 +686,8 @@ export default function Search({ defaultMediaTypes = [] }) {
                             setSelectedMediaTypes={setSelectedMediaTypes}
                             podcastType={podcastType}
                             setPodcastType={setPodcastType}
+                            tvType={tvType}
+                            setTvType={setTvType}
                             selectedTopics={selectedTopics}
                             setSelectedTopics={setSelectedTopics}
                             selectedGenres={selectedGenres}
@@ -707,6 +730,8 @@ export default function Search({ defaultMediaTypes = [] }) {
                             selectedMediaTypes={selectedMediaTypes}
                             podcastType={podcastType}
                             onClearPodcastType={() => setPodcastType('')}
+                            tvType={tvType}
+                            onClearTvType={() => setTvType('')}
                             handleTopicToggle={handleTopicToggle}
                             handleGenreToggle={handleGenreToggle}
                             handleMediaTypeToggle={handleMediaTypeToggle}

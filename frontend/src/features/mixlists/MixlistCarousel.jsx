@@ -7,6 +7,8 @@ import {
 import { PlaylistAdd, Search, Close } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAddMediaToMixlist } from '@/hooks/useMixlist';
+import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
+import { DEMO_EDIT_BLOCKED } from '@/features/demo/demoMessages';
 
 function MixlistCarousel({
   mediaItem,
@@ -105,6 +107,8 @@ function MixlistCarousel({
     navigate('/create-mixlist', { state: { returnTo: location.pathname } });
   }, [navigate, location.pathname]);
 
+  const guardStyle = isMobile ? { width: '100%' } : undefined;
+
   return (
     <Card sx={{ mt: 3, overflow: 'hidden', borderRadius: 2 }}>
       <CardContent sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
@@ -131,38 +135,42 @@ function MixlistCarousel({
             gap: 1,
             width: { xs: '100%', sm: 'auto' }
           }}>
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<PlaylistAdd />}
-              onClick={() => setAddToMixlistDialog(true)}
-              fullWidth={isMobile}
-              sx={{ 
-                borderColor: 'white',
-                color: 'white',
-                '&:hover': {
+            <DemoWriteGuard title={DEMO_EDIT_BLOCKED} style={guardStyle}>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<PlaylistAdd />}
+                onClick={() => setAddToMixlistDialog(true)}
+                fullWidth={isMobile}
+                sx={{ 
                   borderColor: 'white',
-                  backgroundColor: 'rgba(255,255,255,0.1)'
-                }
-              }}
-            >
-              Add to Mixlist
-            </Button>
-            <Button
-              variant="contained"
-              size="small"
-              onClick={handleCreateNewMixlist}
-              fullWidth={isMobile}
-              sx={{ 
-                backgroundColor: 'white',
-                color: 'black',
-                '&:hover': {
-                  backgroundColor: 'rgba(255,255,255,0.9)'
-                }
-              }}
-            >
-              Create New
-            </Button>
+                  color: 'white',
+                  '&:hover': {
+                    borderColor: 'white',
+                    backgroundColor: 'rgba(255,255,255,0.1)'
+                  }
+                }}
+              >
+                Add to Mixlist
+              </Button>
+            </DemoWriteGuard>
+            <DemoWriteGuard title={DEMO_EDIT_BLOCKED} style={guardStyle}>
+              <Button
+                variant="contained"
+                size="small"
+                onClick={handleCreateNewMixlist}
+                fullWidth={isMobile}
+                sx={{ 
+                  backgroundColor: 'white',
+                  color: 'black',
+                  '&:hover': {
+                    backgroundColor: 'rgba(255,255,255,0.9)'
+                  }
+                }}
+              >
+                Create New
+              </Button>
+            </DemoWriteGuard>
           </Box>
         </Box>
         

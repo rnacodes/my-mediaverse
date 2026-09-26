@@ -134,6 +134,16 @@ namespace MyMediaVerse.Infrastructure.Services.Search
         }
 
         /// <summary>
+        /// The media_items fields a keyword search reads, strongest first: Typesense ranks a match in
+        /// an earlier field above a match in a later one. The parent-title fields come last so a
+        /// show or series outranks its own episodes, while an episode is still found by the name of
+        /// the show it belongs to. Every field listed here must exist in <see cref="MediaBaseFields"/>;
+        /// Typesense rejects a search that names a field the collection does not have.
+        /// </summary>
+        internal const string MediaKeywordFields =
+            "title,description,author,director,creator,publisher,show_title,series_title";
+
+        /// <summary>
         /// Returns the comma-separated <c>query_by</c> field list for a collection's keyword fields,
         /// appending the <c>embedding</c> field when auto-embedding is enabled so search runs hybrid
         /// (keyword + vector rank fusion).
@@ -366,7 +376,12 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 new Field("podcast_type", FieldType.String, true, optional: true), // Podcasts: facetable Series/Episode split
                 new Field("series_title", FieldType.String, true, optional: true), // Podcast episodes: searchable parent show
                 new Field("is_subscribed", FieldType.Bool, true, optional: true), // Podcast series: facetable subscription
-                new Field("metadata_source", FieldType.String, true, optional: true) // Podcasts: facetable provenance
+                new Field("metadata_source", FieldType.String, true, optional: true), // Podcasts: facetable provenance
+                new Field("tv_type", FieldType.String, true, optional: true), // TV: facetable Show/Episode split
+                new Field("show_id", FieldType.String, false, optional: true, index: false), // TV episodes: parent show routing
+                new Field("show_title", FieldType.String, true, optional: true), // TV episodes: searchable parent show
+                new Field("season_number", FieldType.Int32, false, optional: true), // TV episodes: for ordering within a show
+                new Field("episode_number", FieldType.Int32, false, optional: true) // TV episodes: for ordering within a season
             };
         }
 
@@ -572,7 +587,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     _mediaCollectionName,
                     query,
                     // Search across these fields (plus the embedding field when hybrid search is enabled)
-                    BuildQueryBy("title,description,author,director,creator,publisher")
+                    BuildQueryBy(MediaKeywordFields)
                 )
                 {
                     PerPage = perPage,
@@ -738,12 +753,36 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     break;
 
                 case "TVShow":
-                    var tvShow = await _context.TvShows.AsNoTracking()
-                        .FirstOrDefaultAsync(t => t.Id == item.Id);
-                    if (tvShow?.Creator != null)
-                        additionalFields["creator"] = tvShow.Creator;
-                    if (tvShow?.FirstAirYear != null)
-                        additionalFields["release_year"] = tvShow.FirstAirYear.Value;
+                    // Check if it's an episode first (episodes have ShowId). The parent show's title
+                    // comes back in the same query so a search for the show finds its episodes.
+                    var tvEpisode = await _context.TvShowEpisodes.AsNoTracking()
+                        .Where(e => e.Id == item.Id)
+                        .Select(e => new { e.ShowId, ShowTitle = e.Show!.Title, e.SeasonNumber, e.EpisodeNumber })
+                        .FirstOrDefaultAsync();
+                    if (tvEpisode != null)
+                    {
+                        additionalFields["tv_type"] = TvDocumentTypes.Episode;
+                        additionalFields["show_id"] = tvEpisode.ShowId.ToString();
+                        if (!string.IsNullOrWhiteSpace(tvEpisode.ShowTitle))
+                            additionalFields["show_title"] = tvEpisode.ShowTitle;
+                        if (tvEpisode.SeasonNumber.HasValue)
+                            additionalFields["season_number"] = tvEpisode.SeasonNumber.Value;
+                        if (tvEpisode.EpisodeNumber.HasValue)
+                            additionalFields["episode_number"] = tvEpisode.EpisodeNumber.Value;
+                    }
+                    else
+                    {
+                        var tvShow = await _context.TvShows.AsNoTracking()
+                            .FirstOrDefaultAsync(t => t.Id == item.Id);
+                        if (tvShow != null)
+                        {
+                            additionalFields["tv_type"] = TvDocumentTypes.Show;
+                            if (tvShow.Creator != null)
+                                additionalFields["creator"] = tvShow.Creator;
+                            if (tvShow.FirstAirYear != null)
+                                additionalFields["release_year"] = tvShow.FirstAirYear.Value;
+                        }
+                    }
                     break;
 
                 case "Podcast":
@@ -845,6 +884,16 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 document.IsSubscribed = Convert.ToBoolean(isSubscribed);
             if (additionalFields.TryGetValue("metadata_source", out var metadataSource))
                 document.MetadataSource = metadataSource?.ToString();
+            if (additionalFields.TryGetValue("tv_type", out var tvType))
+                document.TvType = tvType?.ToString();
+            if (additionalFields.TryGetValue("show_id", out var showId))
+                document.ShowId = showId?.ToString();
+            if (additionalFields.TryGetValue("show_title", out var showTitle))
+                document.ShowTitle = showTitle?.ToString();
+            if (additionalFields.TryGetValue("season_number", out var seasonNumber) && seasonNumber != null)
+                document.SeasonNumber = Convert.ToInt32(seasonNumber);
+            if (additionalFields.TryGetValue("episode_number", out var episodeNumber) && episodeNumber != null)
+                document.EpisodeNumber = Convert.ToInt32(episodeNumber);
         }
 
         /// <summary>
@@ -1601,7 +1650,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 var searchParameters = new MultiSearchParameters(
                     _mediaCollectionName,
                     query,
-                    BuildQueryBy("title,description,author,director,creator,publisher")
+                    BuildQueryBy(MediaKeywordFields)
                 )
                 {
                     PerPage = perPage,
@@ -1872,7 +1921,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 var searchParameters = new MultiSearchParameters(
                     _mediaCollectionName,
                     query,
-                    BuildQueryBy("title,description,author,director,creator,publisher"))
+                    BuildQueryBy(MediaKeywordFields))
                 {
                     PerPage = limit,
                     SortBy = "_text_match:desc,date_added:desc"

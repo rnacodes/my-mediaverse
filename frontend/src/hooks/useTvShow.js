@@ -11,6 +11,7 @@ import {
   searchTvShowsFromTmdb,
   getEpisodesByShowId,
   getTvShowEpisodeById,
+  importTvShowEpisodesFromTmdb,
   deleteTvShowEpisode,
 } from '../api/tvShowService';
 import { tvShowKeys, mediaKeys } from '../api/queryKeys';
@@ -118,6 +119,19 @@ export function useImportTvShowFromTmdb() {
     mutationFn: (tvShowId) => importTvShowFromTmdb(tvShowId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: tvShowKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
+    },
+  });
+}
+
+export function useImportTvShowEpisodesFromTmdb(showId) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => importTvShowEpisodesFromTmdb(showId).then((r) => r.data),
+    onSuccess: () => {
+      // The show detail key is a prefix of its episodes key, so one call refreshes
+      // both the episode list and the show's episode counts.
+      queryClient.invalidateQueries({ queryKey: tvShowKeys.detail(showId) });
       queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
     },
   });

@@ -24,9 +24,5 @@ namespace MyMediaVerse.Application.Interfaces
         
         // Utility operations
         string GetImageUrl(string imagePath, string size = "w500");
-        
-        // Import operations (business logic - convert DTOs to Domain Entities)
-        Task<Movie> ImportMovieAsync(int movieId, string language = "en-US");
-        Task<TvShow> ImportTvShowAsync(int tvShowId, string language = "en-US");
     }
 }

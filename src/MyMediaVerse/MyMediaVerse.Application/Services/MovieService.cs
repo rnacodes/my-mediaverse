@@ -11,13 +11,16 @@ namespace MyMediaVerse.Application.Services
     {
         private readonly IApplicationDbContext _context;
         private readonly ILogger<MovieService> _logger;
+        private readonly IMediaService _mediaService;
 
         public MovieService(
             IApplicationDbContext context,
-            ILogger<MovieService> logger)
+            ILogger<MovieService> logger,
+            IMediaService mediaService)
         {
             _context = context;
             _logger = logger;
+            _mediaService = mediaService;
         }
 
         public async Task<IEnumerable<Movie>> GetAllMoviesAsync()
@@ -90,7 +93,7 @@ namespace MyMediaVerse.Application.Services
             }
         }
 
-        public async Task<Movie> CreateMovieAsync(CreateMovieDto dto)
+        public async Task<MovieCreationResult> CreateMovieAsync(CreateMovieDto dto, bool fromTmdb = false)
         {
             try
             {
@@ -99,15 +102,11 @@ namespace MyMediaVerse.Application.Services
                     throw new ArgumentNullException(nameof(dto), "Movie data is required");
                 }
 
-                // Check if movie already exists
-                if (await MovieExistsAsync(dto.Title, dto.ReleaseYear))
+                var existingMovie = await FindExistingAsync(dto);
+                if (existingMovie != null)
                 {
-                    _logger.LogWarning("Movie already exists: {Title} ({Year})", dto.Title, dto.ReleaseYear);
-                    var existingMovie = await GetMovieByTitleAndYearAsync(dto.Title, dto.ReleaseYear);
-                    if (existingMovie != null)
-                    {
-                        return existingMovie;
-                    }
+                    _logger.LogInformation("Movie already in the library: {Title} ({Year})", existingMovie.Title, existingMovie.ReleaseYear);
+                    return new MovieCreationResult(existingMovie, Created: false);
                 }
 
                 var movie = new Movie
@@ -136,7 +135,8 @@ namespace MyMediaVerse.Application.Services
                     Tagline = dto.Tagline,
                     Homepage = dto.Homepage,
                     OriginalLanguage = dto.OriginalLanguage,
-                    OriginalTitle = dto.OriginalTitle
+                    OriginalTitle = dto.OriginalTitle,
+                    TmdbRefreshedAt = fromTmdb ? DateTime.UtcNow : null
                 };
 
                 // Handle Topics array conversion
@@ -146,10 +146,24 @@ namespace MyMediaVerse.Application.Services
                 await HandleGenresAsync(movie, dto.Genres);
 
                 _context.Add(movie);
-                await _context.SaveChangesAsync();
+                try
+                {
+                    await _context.SaveChangesAsync();
+                }
+                catch (DbUpdateException) when (!string.IsNullOrEmpty(dto.TmdbId))
+                {
+                    // Two simultaneous imports of the same TMDB id can both pass the duplicate lookup
+                    // before either saves. The unique index rejects the second save; return the row
+                    // the first one created instead of surfacing an error.
+                    _context.Remove(movie);
+                    var winner = await GetMovieByTmdbIdAsync(dto.TmdbId);
+                    if (winner == null) throw;
+
+                    return new MovieCreationResult(winner, Created: false);
+                }
 
                 _logger.LogInformation("Successfully created movie: {Title} ({Year})", movie.Title, movie.ReleaseYear);
-                return movie;
+                return new MovieCreationResult(movie, Created: true);
             }
             catch (Exception ex)
             {
@@ -222,21 +236,21 @@ namespace MyMediaVerse.Application.Services
         {
             try
             {
-                var movie = await _context.FindAsync<Movie>(id);
-                if (movie == null)
+                // Only a movie id is accepted here; any other media item is left alone.
+                if (!await _context.Movies.AnyAsync(m => m.Id == id))
                 {
                     return false;
                 }
 
-                var movieId = movie.Id;
-                var movieTitle = movie.Title;
-                var movieYear = movie.ReleaseYear;
+                // The shared delete detaches mixlists, topics, and genres, cleans up a stored
+                // thumbnail, and removes the item from the search index.
+                var deleted = await _mediaService.DeleteMediaItemAsync(id);
+                if (deleted)
+                {
+                    _logger.LogInformation("Successfully deleted movie with ID {Id}", id);
+                }
 
-                _context.Remove(movie);
-                await _context.SaveChangesAsync();
-
-                _logger.LogInformation("Successfully deleted movie: {Title} ({Year})", movieTitle, movieYear);
-                return true;
+                return deleted;
             }
             catch (Exception ex)
             {
@@ -263,6 +277,36 @@ namespace MyMediaVerse.Application.Services
                 _logger.LogError(ex, "Error occurred while checking if movie exists: {Title} ({Year})", title, releaseYear);
                 throw;
             }
+        }
+
+        public async Task<Movie?> GetMovieByTmdbIdAsync(string tmdbId)
+        {
+            if (string.IsNullOrWhiteSpace(tmdbId)) return null;
+
+            return await _context.Movies
+                .Include(m => m.Topics)
+                .Include(m => m.Genres)
+                .FirstOrDefaultAsync(m => m.TmdbId == tmdbId);
+        }
+
+        // TMDB id first: it survives an edited title or a missing year. Title and year is the
+        // fallback, and never matches a movie that carries a different TMDB id (two films can
+        // share a title and a year).
+        private async Task<Movie?> FindExistingAsync(CreateMovieDto dto)
+        {
+            if (!string.IsNullOrEmpty(dto.TmdbId))
+            {
+                var byTmdbId = await GetMovieByTmdbIdAsync(dto.TmdbId);
+                if (byTmdbId != null) return byTmdbId;
+            }
+
+            var byTitle = await GetMovieByTitleAndYearAsync(dto.Title, dto.ReleaseYear);
+            if (byTitle == null) return null;
+
+            var differentTmdbItem = !string.IsNullOrEmpty(dto.TmdbId)
+                && !string.IsNullOrEmpty(byTitle.TmdbId)
+                && byTitle.TmdbId != dto.TmdbId;
+            return differentTmdbItem ? null : byTitle;
         }
 
         public async Task<Movie?> GetMovieByTitleAndYearAsync(string title, int? releaseYear = null)
@@ -293,28 +337,13 @@ namespace MyMediaVerse.Application.Services
             if (topics == null || topics.Length == 0)
                 return;
 
-            foreach (var topicName in topics.Where(t => !string.IsNullOrWhiteSpace(t)))
+            var resolver = new TopicResolver(_context);
+            foreach (var name in topics.Where(t => !string.IsNullOrWhiteSpace(t)))
             {
-                var normalizedTopicName = topicName.Trim().ToLowerInvariant();
-                
-                // Check if topic exists using AsNoTracking to avoid tracking conflicts
-                var topic = await _context.Topics
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(t => t.Name == normalizedTopicName);
-                
-                if (topic == null)
+                var topic = await resolver.GetOrCreateAsync(name.Trim().ToLowerInvariant());
+                if (topic != null && !movie.Topics.Contains(topic))
                 {
-                    // Create new topic and save immediately
-                    topic = new Topic { Name = normalizedTopicName };
-                    _context.Add(topic);
-                    await _context.SaveChangesAsync();
-                }
-                
-                // Get tracked version and add to movie
-                var trackedTopic = await _context.Topics.FirstOrDefaultAsync(t => t.Id == topic.Id);
-                if (trackedTopic != null && !movie.Topics.Any(t => t.Id == trackedTopic.Id))
-                {
-                    movie.Topics.Add(trackedTopic);
+                    movie.Topics.Add(topic);
                 }
             }
         }
@@ -324,28 +353,13 @@ namespace MyMediaVerse.Application.Services
             if (genres == null || genres.Length == 0)
                 return;
 
-            foreach (var genreName in genres.Where(g => !string.IsNullOrWhiteSpace(g)))
+            var resolver = new GenreResolver(_context);
+            foreach (var name in GenreNames.NormalizeList(genres))
             {
-                var normalizedGenreName = genreName.Trim().ToLowerInvariant();
-                
-                // Check if genre exists using AsNoTracking to avoid tracking conflicts
-                var genre = await _context.Genres
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(g => g.Name == normalizedGenreName);
-                
-                if (genre == null)
+                var genre = await resolver.GetOrCreateAsync(name);
+                if (genre != null && !movie.Genres.Contains(genre))
                 {
-                    // Create new genre and save immediately
-                    genre = new Genre { Name = normalizedGenreName };
-                    _context.Add(genre);
-                    await _context.SaveChangesAsync();
-                }
-                
-                // Get tracked version and add to movie
-                var trackedGenre = await _context.Genres.FirstOrDefaultAsync(g => g.Id == genre.Id);
-                if (trackedGenre != null && !movie.Genres.Any(g => g.Id == trackedGenre.Id))
-                {
-                    movie.Genres.Add(trackedGenre);
+                    movie.Genres.Add(genre);
                 }
             }
         }

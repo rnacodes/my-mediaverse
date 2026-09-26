@@ -20,6 +20,9 @@ import { useUpdatePodcastSeries, useUpdatePodcastEpisode } from '@/hooks/usePodc
 import { useNotesForMedia, useUnlinkNoteFromMedia } from '@/hooks/useNote';
 import { useAllMixlists, useRemoveMediaFromMixlist } from '@/hooks/useMixlist';
 import { useMergedMediaItem } from '@/hooks/useMergedMediaItem';
+import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
+import { useDemoWriteBlocked } from '@/features/demo/useDemoWriteBlocked';
+import { DEMO_EDIT_BLOCKED } from '@/features/demo/demoMessages';
 import {
   mediaSchema, defaultValues, mapMediaItemToFormValues,
   buildBookPayload, buildEpisodePayload, buildSeriesPayload,
@@ -41,6 +44,8 @@ function EditMediaForm() {
   const [addMixlistDialog, setAddMixlistDialog] = useState(false);
 
   const notify = (message, severity = 'success') => setSnackbar({ open: true, message, severity });
+
+  const demoWriteBlocked = useDemoWriteBlocked();
 
   // Base + type-specific detail, merged for prefill.
   const { basicQuery, mediaItem, isDetailReady, isLoading, error } = useMergedMediaItem(id);
@@ -238,16 +243,18 @@ function EditMediaForm() {
                         Mixlists ({currentMixlists.length})
                       </Typography>
                     </Box>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<AddIcon />}
-                      onClick={() => setAddMixlistDialog(true)}
-                      disabled={savingMixlist}
-                      sx={{ borderColor: 'rgba(255, 255, 255, 0.5)', color: 'white', '&:hover': { borderColor: 'white', backgroundColor: 'rgba(255, 255, 255, 0.08)' } }}
-                    >
-                      Add to Mixlist
-                    </Button>
+                    <DemoWriteGuard title={DEMO_EDIT_BLOCKED}>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<AddIcon />}
+                        onClick={() => setAddMixlistDialog(true)}
+                        disabled={savingMixlist}
+                        sx={{ borderColor: 'rgba(255, 255, 255, 0.5)', color: 'white', '&:hover': { borderColor: 'white', backgroundColor: 'rgba(255, 255, 255, 0.08)' } }}
+                      >
+                        Add to Mixlist
+                      </Button>
+                    </DemoWriteGuard>
                   </Box>
 
                   {currentMixlists.length > 0 ? (
@@ -256,7 +263,7 @@ function EditMediaForm() {
                         <Chip
                           key={mixlist.id}
                           label={mixlist.name}
-                          onDelete={() => handleRemoveFromMixlist(mixlist.id, mixlist.name)}
+                          onDelete={demoWriteBlocked ? undefined : () => handleRemoveFromMixlist(mixlist.id, mixlist.name)}
                           deleteIcon={<Close sx={{ fontSize: 16, color: 'white !important' }} />}
                           disabled={savingMixlist}
                           onClick={() => navigate(`/mixlist/${mixlist.id}`)}
@@ -280,16 +287,18 @@ function EditMediaForm() {
                         Linked Notes ({linkedNotes.length})
                       </Typography>
                     </Box>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<AddIcon />}
-                      onClick={() => setLinkNoteDialog(true)}
-                      disabled={savingNote}
-                      sx={{ borderColor: 'rgba(255, 255, 255, 0.5)', color: 'white', '&:hover': { borderColor: 'white', backgroundColor: 'rgba(255, 255, 255, 0.08)' } }}
-                    >
-                      Link Note
-                    </Button>
+                    <DemoWriteGuard title={DEMO_EDIT_BLOCKED}>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<AddIcon />}
+                        onClick={() => setLinkNoteDialog(true)}
+                        disabled={savingNote}
+                        sx={{ borderColor: 'rgba(255, 255, 255, 0.5)', color: 'white', '&:hover': { borderColor: 'white', backgroundColor: 'rgba(255, 255, 255, 0.08)' } }}
+                      >
+                        Link Note
+                      </Button>
+                    </DemoWriteGuard>
                   </Box>
 
                   {linkedNotesQuery.isLoading ? (
@@ -338,8 +347,10 @@ function EditMediaForm() {
                                 </IconButton>
                               </Tooltip>
                             )}
-                            <Tooltip title="Unlink note">
+                            <DemoWriteGuard title={DEMO_EDIT_BLOCKED}>
                               <IconButton
+                                aria-label="Unlink note"
+                                title={demoWriteBlocked ? undefined : 'Unlink note'}
                                 onClick={() => handleUnlinkNote(note.id, note.title)}
                                 size="small"
                                 disabled={savingNote}
@@ -347,7 +358,7 @@ function EditMediaForm() {
                               >
                                 <DeleteIcon fontSize="small" />
                               </IconButton>
-                            </Tooltip>
+                            </DemoWriteGuard>
                           </Box>
                         </Box>
                       ))}
@@ -361,16 +372,18 @@ function EditMediaForm() {
 
                 {/* Action Buttons */}
                 <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, justifyContent: 'space-between', mt: { xs: 3, sm: 4 } }}>
-                  <Button
-                    variant="outlined"
-                    startIcon={<Delete />}
-                    onClick={() => setDeleteDialogOpen(true)}
-                    disabled={saving}
-                    size="large"
-                    sx={{ width: { xs: '100%', sm: 'auto' }, minHeight: '48px', fontSize: { xs: '0.875rem', sm: '1rem' }, ...whiteOutlinedBtn }}
-                  >
-                    Delete Media
-                  </Button>
+                  <DemoWriteGuard title={DEMO_EDIT_BLOCKED}>
+                    <Button
+                      variant="outlined"
+                      startIcon={<Delete />}
+                      onClick={() => setDeleteDialogOpen(true)}
+                      disabled={saving}
+                      size="large"
+                      sx={{ width: { xs: '100%', sm: 'auto' }, minHeight: '48px', fontSize: { xs: '0.875rem', sm: '1rem' }, ...whiteOutlinedBtn }}
+                    >
+                      Delete Media
+                    </Button>
+                  </DemoWriteGuard>
                   <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, width: { xs: '100%', sm: 'auto' } }}>
                     <Button
                       variant="outlined"
@@ -382,16 +395,18 @@ function EditMediaForm() {
                     >
                       Cancel
                     </Button>
-                    <Button
-                      type="submit"
-                      variant="contained"
-                      startIcon={<Save />}
-                      disabled={saving}
-                      size="large"
-                      sx={{ width: { xs: '100%', sm: 'auto' }, minHeight: '48px', fontSize: { xs: '0.875rem', sm: '1rem' } }}
-                    >
-                      {saving ? 'Saving...' : 'Save Changes'}
-                    </Button>
+                    <DemoWriteGuard title={DEMO_EDIT_BLOCKED}>
+                      <Button
+                        type="submit"
+                        variant="contained"
+                        startIcon={<Save />}
+                        disabled={saving}
+                        size="large"
+                        sx={{ width: { xs: '100%', sm: 'auto' }, minHeight: '48px', fontSize: { xs: '0.875rem', sm: '1rem' } }}
+                      >
+                        {saving ? 'Saving...' : 'Save Changes'}
+                      </Button>
+                    </DemoWriteGuard>
                   </Box>
                 </Box>
               </Box>

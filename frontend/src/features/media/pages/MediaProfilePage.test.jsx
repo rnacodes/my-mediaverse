@@ -3,7 +3,7 @@ import { http, HttpResponse } from 'msw';
 import { renderWithProviders, screen, within, waitFor } from '@/test/test-utils';
 import { server } from '@/test/mocks/server';
 import { API_BASE } from '@/test/mocks/handlers';
-import { makeBook, makeWebsite } from '@/test/factories/media';
+import { makeBook, makeWebsite, makeMedia, makeTvShowEpisode } from '@/test/factories/media';
 import { makeHighlight } from '@/test/factories/note';
 import MediaProfilePage from './MediaProfilePage';
 
@@ -87,5 +87,25 @@ describe('MediaProfilePage', () => {
 
     expect(await screen.findByText('A highlight from the book.')).toBeInTheDocument();
     expect(screen.getByText('Another highlight from the book.')).toBeInTheDocument();
+  });
+
+  it('renders a TV episode with its identifier and a link back to the show', async () => {
+    server.use(
+      http.get(`${API_BASE}/media/:id`, ({ params }) =>
+        HttpResponse.json(makeMedia({ id: params.id, mediaType: 'TVShow', title: '1:23:45' })),
+      ),
+      http.get(`${API_BASE}/tvshow/:id`, () => new HttpResponse(null, { status: 404 })),
+      http.get(`${API_BASE}/tvshow/episodes/:id`, ({ params }) =>
+        HttpResponse.json(makeTvShowEpisode({ id: params.id, title: '1:23:45', showId: 'show-9', showTitle: 'Chernobyl', episodeIdentifier: 'S1E1' })),
+      ),
+      http.get(`${API_BASE}/note/for-media/:id`, () => HttpResponse.json([])),
+    );
+
+    render();
+
+    expect(await screen.findByRole('heading', { name: '1:23:45' })).toBeInTheDocument();
+    expect(await screen.findByText('S1E1')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Chernobyl' })).toHaveAttribute('href', '/tv-show/show-9');
+    expect(screen.getByRole('button', { name: /tv episode details/i })).toBeInTheDocument();
   });
 });

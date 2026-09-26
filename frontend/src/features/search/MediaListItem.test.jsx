@@ -85,6 +85,27 @@ describe('MediaListItem selection', () => {
   });
 });
 
+describe('MediaListItem TV shows and episodes', () => {
+  it('routes a show to /tv-show/:id and shows year and rating', async () => {
+    const { user } = renderRow({ mediaType: 'TVShow', tvType: 'Show', releaseYear: 2019, tmdbRating: 8.7 });
+
+    expect(screen.getByText('2019 • 8.7★')).toBeInTheDocument();
+    await clickRow(user);
+
+    expect(screen.getByTestId('location')).toHaveTextContent('/tv-show/abc-123');
+  });
+
+  it('routes an episode to /media/:id, credited to its show with its identifier', async () => {
+    const { user } = renderRow({ mediaType: 'TVShow', tvType: 'Episode', showTitle: 'Chernobyl', seasonNumber: 1, episodeNumber: 3 });
+
+    expect(screen.getByText('Chernobyl')).toBeInTheDocument();
+    expect(screen.getByText('S1E3')).toBeInTheDocument();
+    await clickRow(user);
+
+    expect(screen.getByTestId('location')).toHaveTextContent('/media/abc-123');
+  });
+});
+
 describe('MediaListItem website details', () => {
   it('shows the domain and RSS presence on the metadata line', () => {
     renderRow({ mediaType: 'Website', domain: 'theverge.com', hasRss: true });

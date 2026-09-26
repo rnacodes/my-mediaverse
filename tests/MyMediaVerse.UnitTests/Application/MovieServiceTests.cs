@@ -4,7 +4,9 @@ using NSubstitute;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
+using MyMediaVerse.UnitTests.TestData;
 using MyMediaVerse.UnitTests.TestHelpers;
+using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.UnitTests.Application
 {
@@ -13,11 +15,16 @@ namespace MyMediaVerse.UnitTests.Application
     {
         private readonly ILogger<MovieService> _mockLogger;
         private readonly MovieService _service;
+        private readonly IThumbnailStorageService _mockThumbnailStorage = Substitute.For<IThumbnailStorageService>();
+        private readonly ITypesenseService _mockTypesense = Substitute.For<ITypesenseService>();
 
         public MovieServiceTests()
         {
             _mockLogger = Substitute.For<ILogger<MovieService>>();
-            _service = new MovieService(Context, _mockLogger);
+            // Deletes go through the real shared delete path, so its effects are asserted here too.
+            var mediaService = new MediaService(
+                Context, Substitute.For<ILogger<MediaService>>(), _mockThumbnailStorage, _mockTypesense);
+            _service = new MovieService(Context, _mockLogger, mediaService);
         }
 
         #region GetAllMoviesAsync Tests
@@ -191,7 +198,7 @@ namespace MyMediaVerse.UnitTests.Application
             };
 
             // Act
-            var result = await _service.CreateMovieAsync(dto);
+            var result = (await _service.CreateMovieAsync(dto)).Movie;
 
             // Assert
             result.Should().NotBeNull();
@@ -240,7 +247,7 @@ namespace MyMediaVerse.UnitTests.Application
             };
 
             // Act
-            var result = await _service.CreateMovieAsync(dto);
+            var result = (await _service.CreateMovieAsync(dto)).Movie;
 
             // Assert
             result.Id.Should().Be(existingMovie.Id);
@@ -272,7 +279,7 @@ namespace MyMediaVerse.UnitTests.Application
             };
 
             // Act
-            var result = await _service.CreateMovieAsync(dto);
+            var result = (await _service.CreateMovieAsync(dto)).Movie;
 
             // Assert
             result.Topics.Should().HaveCount(1);
@@ -477,6 +484,177 @@ namespace MyMediaVerse.UnitTests.Application
 
             // Assert
             result.Should().BeNull();
+        }
+
+        #endregion
+
+        #region Genre resolution
+
+        [Fact]
+        public async Task CreateMovieAsync_ShouldNormalizeGenres_AndReuseAnExistingGenre()
+        {
+            Context.Genres.Add(new Genre { Name = "science fiction" });
+            await Context.SaveChangesAsync();
+
+            var dto = TestDataFactory.CreateMovieDto("Arrival");
+            dto.Genres = new[] { " Science Fiction ", "DRAMA", "drama" };
+
+            var result = (await _service.CreateMovieAsync(dto)).Movie;
+
+            result.Genres.Select(g => g.Name).Should().BeEquivalentTo(new[] { "science fiction", "drama" });
+            Context.Genres.Count(g => g.Name == "science fiction").Should().Be(1);
+            Context.Genres.Count(g => g.Name == "drama").Should().Be(1);
+        }
+
+        [Fact]
+        public async Task CreateMovieAsync_TwoMoviesNamingTheSameNewGenre_ShareOneGenreRow()
+        {
+            var first = TestDataFactory.CreateMovieDto("Heat");
+            first.Genres = new[] { "crime" };
+            var second = TestDataFactory.CreateMovieDto("Collateral");
+            second.Genres = new[] { "Crime" };
+
+            var firstMovie = (await _service.CreateMovieAsync(first)).Movie;
+            var secondMovie = (await _service.CreateMovieAsync(second)).Movie;
+
+            Context.Genres.Count(g => g.Name == "crime").Should().Be(1);
+            firstMovie.Genres.Single().Id.Should().Be(secondMovie.Genres.Single().Id);
+        }
+
+        #endregion
+
+        #region TMDB refresh stamp
+
+        [Fact]
+        public async Task CreateMovieAsync_FromTmdb_ShouldStampTmdbRefreshedAt()
+        {
+            var result = (await _service.CreateMovieAsync(TestDataFactory.CreateMovieDto("Inception"), fromTmdb: true)).Movie;
+
+            result.TmdbRefreshedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromMinutes(1));
+        }
+
+        [Fact]
+        public async Task CreateMovieAsync_ManualCreate_ShouldLeaveTmdbRefreshedAtNull()
+        {
+            var result = (await _service.CreateMovieAsync(TestDataFactory.CreateMovieDto("Inception"))).Movie;
+
+            result.TmdbRefreshedAt.Should().BeNull();
+        }
+
+        #endregion
+
+        #region Create: existing-item lookup
+
+        [Fact]
+        public async Task CreateMovieAsync_NewMovie_ShouldReportCreated()
+        {
+            var result = await _service.CreateMovieAsync(TestDataFactory.CreateMovieDto("Arrival", 2016));
+
+            result.Created.Should().BeTrue();
+            Context.Movies.Count().Should().Be(1);
+        }
+
+        [Fact]
+        public async Task CreateMovieAsync_StoredTmdbId_ShouldReturnTheStoredMovieUntouched_EvenWhenTitleAndYearDiffer()
+        {
+            var stored = TestDataFactory.CreateMovie("My Renamed Copy", 1999, "27205");
+            stored.Description = "My own description";
+            Context.Movies.Add(stored);
+            await Context.SaveChangesAsync();
+
+            var dto = TestDataFactory.CreateMovieDto("Inception", 2010);
+            dto.TmdbId = "27205";
+            dto.Description = "TMDB overview";
+
+            var result = await _service.CreateMovieAsync(dto, fromTmdb: true);
+
+            result.Created.Should().BeFalse();
+            result.Movie.Id.Should().Be(stored.Id);
+            result.Movie.Title.Should().Be("My Renamed Copy");
+            result.Movie.Description.Should().Be("My own description");
+            result.Movie.TmdbRefreshedAt.Should().BeNull();
+            Context.Movies.Count().Should().Be(1);
+        }
+
+        [Fact]
+        public async Task CreateMovieAsync_SameTitleAndYear_ShouldFallBackToTheStoredMovie()
+        {
+            var stored = TestDataFactory.CreateMovie("Heat", 1995, "");
+            Context.Movies.Add(stored);
+            await Context.SaveChangesAsync();
+
+            var result = await _service.CreateMovieAsync(TestDataFactory.CreateMovieDto("heat", 1995));
+
+            result.Created.Should().BeFalse();
+            result.Movie.Id.Should().Be(stored.Id);
+        }
+
+        [Fact]
+        public async Task CreateMovieAsync_SameTitleAndYearButDifferentTmdbId_ShouldCreateASecondMovie()
+        {
+            // Two different films can share a title and a year; their TMDB ids tell them apart.
+            Context.Movies.Add(TestDataFactory.CreateMovie("Crash", 2004, "1640"));
+            await Context.SaveChangesAsync();
+
+            var dto = TestDataFactory.CreateMovieDto("Crash", 2004);
+            dto.TmdbId = "99999";
+
+            var result = await _service.CreateMovieAsync(dto, fromTmdb: true);
+
+            result.Created.Should().BeTrue();
+            Context.Movies.Count().Should().Be(2);
+        }
+
+        [Fact]
+        public async Task GetMovieByTmdbIdAsync_ShouldReturnNull_ForBlankOrUnknownIds()
+        {
+            Context.Movies.Add(TestDataFactory.CreateMovie("Manual", 2000, ""));
+            await Context.SaveChangesAsync();
+
+            (await _service.GetMovieByTmdbIdAsync("")).Should().BeNull();
+            (await _service.GetMovieByTmdbIdAsync("424242")).Should().BeNull();
+        }
+
+        #endregion
+
+        #region Delete: shared delete path
+
+        [Fact]
+        public async Task DeleteMovieAsync_ShouldDetachLinks_AndRemoveTheMovieFromTheSearchIndex()
+        {
+            var movie = TestDataFactory.CreateMovie("Heat", 1995, "949");
+            movie.Thumbnail = "https://image.tmdb.org/t/p/w500/poster.jpg";
+            movie.Genres.Add(new Genre { Name = "crime" });
+            movie.Topics.Add(new Topic { Name = "heists" });
+            var mixlist = TestDataFactory.CreateMixlist("Favorites");
+            mixlist.MediaItems.Add(movie);
+            Context.Mixlists.Add(mixlist);
+            Context.Movies.Add(movie);
+            await Context.SaveChangesAsync();
+
+            var result = await _service.DeleteMovieAsync(movie.Id);
+
+            result.Should().BeTrue();
+            Context.MediaItems.Any(m => m.Id == movie.Id).Should().BeFalse();
+            Context.Mixlists.Single().MediaItems.Should().BeEmpty();
+            Context.Genres.Any(g => g.Name == "crime").Should().BeTrue("genres are shared and outlive the item");
+            await _mockTypesense.Received(1).DeleteMediaItemAsync(movie.Id);
+            // The storage service decides what is ours to delete; a hotlinked TMDB poster is not.
+            await _mockThumbnailStorage.Received(1).DeleteAsync(movie.Thumbnail);
+        }
+
+        [Fact]
+        public async Task DeleteMovieAsync_ShouldReturnFalse_AndDeleteNothing_WhenTheIdBelongsToAnotherMediaType()
+        {
+            var show = TestDataFactory.CreateTvShow("Severance", 2022, "95396");
+            Context.TvShows.Add(show);
+            await Context.SaveChangesAsync();
+
+            var result = await _service.DeleteMovieAsync(show.Id);
+
+            result.Should().BeFalse();
+            Context.TvShows.Any(t => t.Id == show.Id).Should().BeTrue();
+            await _mockTypesense.DidNotReceive().DeleteMediaItemAsync(Arg.Any<Guid>());
         }
 
         #endregion

@@ -5,6 +5,7 @@ using MyMediaVerse.DTOs;
 using MyMediaVerse.Shared.DTOs.TMDB;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Utilities;
+using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.Application.Services
 {
@@ -12,11 +13,16 @@ namespace MyMediaVerse.Application.Services
     {
         private readonly IApplicationDbContext _context;
         private readonly ILogger<TvShowMappingService> _logger;
+        private readonly IGenreMappingService _genreMappingService;
 
-        public TvShowMappingService(IApplicationDbContext context, ILogger<TvShowMappingService> logger)
+        public TvShowMappingService(
+            IApplicationDbContext context,
+            ILogger<TvShowMappingService> logger,
+            IGenreMappingService genreMappingService)
         {
             _context = context;
             _logger = logger;
+            _genreMappingService = genreMappingService;
         }
 
         public async Task<TvShow> MapFromDtoAsync(CreateTvShowDto dto)
@@ -149,7 +155,10 @@ namespace MyMediaVerse.Application.Services
                 OriginalLanguage = tmdbTvShow.OriginalLanguage,
                 OriginalName = tmdbTvShow.OriginalName,
                 NumberOfSeasons = tmdbTvShow.NumberOfSeasons,
-                NumberOfEpisodes = tmdbTvShow.NumberOfEpisodes
+                NumberOfEpisodes = tmdbTvShow.NumberOfEpisodes,
+                Creator = TmdbDetailsExtractor.GetCreator(tmdbTvShow),
+                Cast = TmdbDetailsExtractor.GetCast(tmdbTvShow.Credits),
+                ContentRating = TmdbDetailsExtractor.GetContentRating(tmdbTvShow)
             };
 
             // Parse air dates to get years
@@ -165,9 +174,12 @@ namespace MyMediaVerse.Application.Services
                 tvShow.LastAirYear = lastAirDate.Year;
             }
 
-
-            // Handle genres from TMDB genre IDs (simplified - would need genre mapping service)
-            // For now, we'll skip this as it would require a TMDB genre mapping service
+            // The mapped show only carries genre names; the TV show service resolves them to
+            // stored genres when the import is saved.
+            foreach (var genreName in _genreMappingService.MapTmdbGenreNames(tmdbTvShow.Genres.Select(g => g.Name)))
+            {
+                tvShow.Genres.Add(new Genre { Name = genreName });
+            }
 
             return Task.FromResult(tvShow);
         }

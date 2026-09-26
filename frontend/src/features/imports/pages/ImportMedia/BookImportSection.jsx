@@ -372,7 +372,7 @@ function BookImportSection({ expanded, onAccordionChange }) {
 
                             {displayedResults.length > 0 && (
                                 <Box sx={{ mt: 2 }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', mb: 1 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', mb: 1 }}>
                                         <Typography variant="h6">
                                             {bookSource === 'googlebooks' ? 'Google Books search results' : 'Search Results'} ({bookSearchResults.length})
                                         </Typography>
@@ -556,14 +556,6 @@ function BookImportSection({ expanded, onAccordionChange }) {
                             {bookSuccess}
                         </Alert>
                     )}
-
-                    <Alert severity="info" sx={{ mt: 3 }} icon={<MenuBook />}>
-                        <Typography variant="body2">
-                            <strong>Book Descriptions:</strong> A background service runs every 48 hours to automatically
-                            fetch descriptions from Google Books for books with an ISBN. Descriptions will be added
-                            gradually after import.
-                        </Typography>
-                    </Alert>
                 </Box>
             </AccordionDetails>
         </Accordion>

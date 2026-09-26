@@ -40,6 +40,20 @@ namespace MyMediaVerse.Shared.DTOs.TMDB
         [JsonPropertyName("genre_ids")]
         public int[] GenreIds { get; set; } = Array.Empty<int>();
 
+        // Details payloads carry named genres; search payloads carry only genre_ids.
+        [JsonPropertyName("genres")]
+        public List<TmdbGenreDto> Genres { get; set; } = new();
+
+        [JsonPropertyName("created_by")]
+        public List<TmdbCreatedByDto> CreatedBy { get; set; } = new();
+
+        // Present only when requested through append_to_response.
+        [JsonPropertyName("credits")]
+        public TmdbCreditsDto? Credits { get; set; }
+
+        [JsonPropertyName("content_ratings")]
+        public TmdbContentRatingsDto? ContentRatings { get; set; }
+
         [JsonPropertyName("origin_country")]
         public string[] OriginCountry { get; set; } = Array.Empty<string>();
 
@@ -48,6 +62,10 @@ namespace MyMediaVerse.Shared.DTOs.TMDB
 
         [JsonPropertyName("number_of_seasons")]
         public int NumberOfSeasons { get; set; }
+
+        // Details payloads only. Includes season 0 (specials) when the show has one.
+        [JsonPropertyName("seasons")]
+        public List<TmdbSeasonSummaryDto> Seasons { get; set; } = new();
 
         [JsonPropertyName("tagline")]
         public string? Tagline { get; set; }
@@ -90,6 +108,10 @@ namespace MyMediaVerse.Shared.DTOs.TMDB
 
         [JsonPropertyName("still_path")]
         public string? StillPath { get; set; }
+
+        // Minutes; present on season payloads, null when TMDB has no runtime for the episode.
+        [JsonPropertyName("runtime")]
+        public int? Runtime { get; set; }
 
         [JsonPropertyName("vote_average")]
         public double VoteAverage { get; set; }

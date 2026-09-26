@@ -12,6 +12,9 @@ using MyMediaVerse.UnitTests.TestHelpers;
 
 namespace MyMediaVerse.UnitTests.Infrastructure
 {
+    // Both TMDB client test classes set the TMDB_API_KEY process variable, so they share a
+    // collection to keep xUnit from running them side by side.
+    [Collection("TmdbApiKeyEnvironment")]
     [Trait("Category", "Unit")]
     public class TmdbApiClientTests
     {
@@ -149,7 +152,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             result.Title.Should().Be("Inception");
             result.Runtime.Should().Be(148);
 
-            VerifyHttpRequest("GET", $"movie/{movieId}?api_key=test-api-key&language=en-US");
+            VerifyHttpRequest("GET", $"movie/{movieId}?api_key=test-api-key&language=en-US&append_to_response=credits,release_dates");
         }
 
         [Fact]
@@ -171,7 +174,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             result.Name.Should().Be("Game of Thrones");
             result.NumberOfSeasons.Should().Be(8);
 
-            VerifyHttpRequest("GET", $"tv/{tvShowId}?api_key=test-api-key&language=en-US");
+            VerifyHttpRequest("GET", $"tv/{tvShowId}?api_key=test-api-key&language=en-US&append_to_response=credits,content_ratings");
         }
 
         [Fact]
@@ -356,7 +359,142 @@ namespace MyMediaVerse.UnitTests.Infrastructure
 
         #endregion
 
+        #region Appended Details Tests
+
+        [Fact]
+        public async Task GetMovieDetailsAsync_ShouldDeserializeGenresCreditsAndCertifications_FromAppendedPayload()
+        {
+            SetupHttpResponse(HttpStatusCode.OK, ReadFixture("movie-details-appended.json"));
+
+            var result = await _tmdbApiClient.GetMovieDetailsAsync(27205);
+
+            result.Genres.Select(g => g.Name).Should().Equal("Action", "Science Fiction", "Adventure");
+            result.Credits.Should().NotBeNull();
+            result.Credits!.Cast.Should().HaveCount(3);
+            result.Credits.Crew.Should().Contain(c => c.Name == "Christopher Nolan" && c.Job == "Director");
+            result.ReleaseDates!.Results.Should().Contain(r => r.Iso31661 == "US");
+
+            TmdbDetailsExtractor.GetDirector(result).Should().Be("Christopher Nolan");
+            TmdbDetailsExtractor.GetCast(result.Credits).Should().Be("Leonardo DiCaprio, Joseph Gordon-Levitt, Ken Watanabe");
+            TmdbDetailsExtractor.GetMpaaRating(result).Should().Be("PG-13");
+        }
+
+        [Fact]
+        public async Task GetTvShowDetailsAsync_ShouldDeserializeGenresCreatorsAndRatings_FromAppendedPayload()
+        {
+            SetupHttpResponse(HttpStatusCode.OK, ReadFixture("tv-details-appended.json"));
+
+            var result = await _tmdbApiClient.GetTvShowDetailsAsync(1399);
+
+            result.Genres.Select(g => g.Name).Should().Equal("Sci-Fi & Fantasy", "Drama", "Action & Adventure");
+            result.CreatedBy.Select(c => c.Name).Should().Equal("David Benioff", "D. B. Weiss");
+
+            TmdbDetailsExtractor.GetCreator(result).Should().Be("David Benioff, D. B. Weiss");
+            TmdbDetailsExtractor.GetCast(result.Credits).Should().Be("Emilia Clarke, Kit Harington");
+            TmdbDetailsExtractor.GetContentRating(result).Should().Be("TV-MA");
+        }
+
+        [Fact]
+        public async Task GetTvShowDetailsAsync_ShouldDeserializeTheSeasonList_IncludingSpecials()
+        {
+            SetupHttpResponse(HttpStatusCode.OK, ReadFixture("tv-details-appended.json"));
+
+            var result = await _tmdbApiClient.GetTvShowDetailsAsync(1399);
+
+            // The list, not number_of_seasons, is what an episode import walks: season 0 is only here.
+            result.Seasons.Select(s => s.SeasonNumber).Should().Equal(0, 1, 2);
+            result.Seasons[0].Name.Should().Be("Specials");
+            result.Seasons[0].EpisodeCount.Should().Be(2);
+            result.Seasons[1].EpisodeCount.Should().Be(10);
+        }
+
+        #endregion
+
+        #region Season Tests
+
+        [Fact]
+        public async Task GetTvSeasonAsync_ShouldRequestTheSeasonEndpoint_AndDeserializeEpisodes()
+        {
+            SetupHttpResponse(HttpStatusCode.OK, ReadFixture("tv-season.json"));
+
+            var result = await _tmdbApiClient.GetTvSeasonAsync(1399, 1);
+
+            VerifyHttpRequest("GET", "tv/1399/season/1?api_key=test-api-key&language=en-US");
+            result.SeasonNumber.Should().Be(1);
+            result.Episodes.Should().HaveCount(3);
+
+            var first = result.Episodes[0];
+            first.Id.Should().Be(63056);
+            first.Name.Should().Be("Winter Is Coming");
+            first.SeasonNumber.Should().Be(1);
+            first.EpisodeNumber.Should().Be(1);
+            first.AirDate.Should().Be("2011-04-17");
+            first.Runtime.Should().Be(62);
+            first.StillPath.Should().Be("/9hGF3WUkBf7cSjMg0cdMDHJkByd.jpg");
+
+            // TMDB sends null for a runtime or still it does not have.
+            result.Episodes[2].Runtime.Should().BeNull();
+            result.Episodes[2].StillPath.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task GetTvSeasonAsync_ShouldRequestSeasonZero_ForSpecials()
+        {
+            SetupHttpResponse(HttpStatusCode.OK, "{\"id\":3627,\"name\":\"Specials\",\"season_number\":0,\"episodes\":[]}");
+
+            var result = await _tmdbApiClient.GetTvSeasonAsync(1399, 0);
+
+            VerifyHttpRequest("GET", "tv/1399/season/0?api_key=test-api-key&language=en-US");
+            result.SeasonNumber.Should().Be(0);
+            result.Episodes.Should().BeEmpty();
+        }
+
+        [Fact]
+        public async Task GetTvSeasonAsync_ShouldThrowHttpRequestException_WhenSeasonIsNotFound()
+        {
+            SetupHttpResponse(HttpStatusCode.NotFound, "{\"status_code\":34,\"status_message\":\"The resource you requested could not be found.\"}");
+
+            var act = () => _tmdbApiClient.GetTvSeasonAsync(1399, 99);
+
+            (await act.Should().ThrowAsync<HttpRequestException>())
+                .Which.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        }
+
+        #endregion
+
+        #region API Key Tests
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("TMDB_API_KEY")]
+        public async Task AnyCall_ShouldThrowInvalidOperationException_WhenApiKeyIsNotConfigured(string? configuredKey)
+        {
+            var previous = Environment.GetEnvironmentVariable("TMDB_API_KEY");
+            Environment.SetEnvironmentVariable("TMDB_API_KEY", null);
+            try
+            {
+                var configuration = Substitute.For<IConfiguration>();
+                configuration["ApiKeys:TMDB"].Returns(configuredKey);
+                var client = new TmdbApiClient(_httpClient, _mockLogger, configuration);
+
+                var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => client.GetMovieDetailsAsync(27205));
+
+                exception.Message.Should().Contain("TMDB API key is not configured");
+                _mockHttpMessageHandler.Requests.Should().BeEmpty();
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("TMDB_API_KEY", previous);
+            }
+        }
+
+        #endregion
+
         #region Helper Methods
+
+        private static string ReadFixture(string name)
+            => File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "Tmdb", name));
 
         private void SetupHttpResponse(HttpStatusCode statusCode, string content)
             => _mockHttpMessageHandler.RespondWith(statusCode, content);

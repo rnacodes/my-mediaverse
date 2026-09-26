@@ -4,7 +4,7 @@ import {
     Button, Box, Typography,
     Accordion, AccordionSummary, AccordionDetails
 } from '@mui/material';
-import { LiveTv, ExpandMore, OpenInNew } from '@mui/icons-material';
+import { LiveTv, ExpandMore } from '@mui/icons-material';
 import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
 import { DEMO_SECTION_BLOCKED } from '@/features/demo/demoMessages';
 import AttributionBadge from '@/shared/AttributionBadge';
@@ -28,28 +28,6 @@ function TraktImportSection({ expanded, onAccordionChange }) {
                     <Typography variant="h6">
                         Watch History from Trakt
                     </Typography>
-                    <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="body2" color="text.secondary">
-                            Powered by
-                        </Typography>
-                        <Button
-                            variant="text"
-                            size="small"
-                            href="https://trakt.tv"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            endIcon={<OpenInNew fontSize="small" />}
-                            sx={{
-                                minWidth: 'auto',
-                                textTransform: 'none',
-                                color: '#FFFFFF',
-                                '&:hover': { backgroundColor: 'transparent', textDecoration: 'underline' }
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            Trakt
-                        </Button>
-                    </Box>
                 </Box>
             </AccordionSummary>
             <AccordionDetails>

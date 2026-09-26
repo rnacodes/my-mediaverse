@@ -4,7 +4,7 @@ import { renderHook, waitFor } from '../test/test-utils';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { server } from '../test/mocks/server';
 import { API_BASE } from '../test/mocks/handlers';
-import { makeMedia } from '../test/factories/media';
+import { makeMedia, makeTvShow, makeTvShowEpisode } from '../test/factories/media';
 import { useMergedMediaItem } from './useMergedMediaItem';
 
 // The profile page reads one merged object: the generic /media/:id row plus the type-specific
@@ -120,5 +120,84 @@ describe('useMergedMediaItem — Website', () => {
 
     expect(result.current.mediaType).toBe('Movie');
     expect(websiteCalls).toBe(0);
+  });
+});
+
+// TV episodes share the TVShow media type. The show endpoint is probed first; when
+// it misses, the episode endpoint has the details and the item is flagged.
+describe('useMergedMediaItem — TV show vs. episode', () => {
+  it('flags an episode when the show probe misses and the episode endpoint resolves', async () => {
+    server.use(
+      http.get(`${API_BASE}/media/:id`, ({ params }) =>
+        HttpResponse.json(makeMedia({ id: params.id, mediaType: 'TVShow', title: 'Generic title' })),
+      ),
+      http.get(`${API_BASE}/tvshow/:id`, () => new HttpResponse(null, { status: 404 })),
+      http.get(`${API_BASE}/tvshow/episodes/:id`, ({ params }) =>
+        HttpResponse.json(makeTvShowEpisode({ id: params.id, title: '1:23:45', showTitle: 'Chernobyl', showId: 'show-9' })),
+      ),
+    );
+
+    const { result } = renderHook(() => useMergedMediaItem('ep-1'), {
+      wrapper: createWrapper(makeClient()),
+    });
+
+    await waitFor(() => expect(result.current.isDetailReady).toBe(true));
+
+    expect(result.current.isTvEpisode).toBe(true);
+    expect(result.current.tvShowData).toBeNull();
+    expect(result.current.mediaItem).toMatchObject({
+      id: 'ep-1',
+      title: '1:23:45',
+      isTvEpisode: true,
+      showId: 'show-9',
+      showTitle: 'Chernobyl',
+      episodeIdentifier: 'S1E3',
+    });
+  });
+
+  it('does not probe the episode endpoint when the show resolves', async () => {
+    let episodeProbed = false;
+    server.use(
+      http.get(`${API_BASE}/media/:id`, ({ params }) =>
+        HttpResponse.json(makeMedia({ id: params.id, mediaType: 'TVShow' })),
+      ),
+      http.get(`${API_BASE}/tvshow/:id`, ({ params }) =>
+        HttpResponse.json(makeTvShow({ id: params.id, title: 'Chernobyl' })),
+      ),
+      http.get(`${API_BASE}/tvshow/episodes/:id`, () => {
+        episodeProbed = true;
+        return new HttpResponse(null, { status: 404 });
+      }),
+    );
+
+    const { result } = renderHook(() => useMergedMediaItem('show-1'), {
+      wrapper: createWrapper(makeClient()),
+    });
+
+    await waitFor(() => expect(result.current.isDetailReady).toBe(true));
+
+    expect(result.current.isTvEpisode).toBe(false);
+    expect(result.current.tvShowData).toMatchObject({ title: 'Chernobyl' });
+    expect(result.current.mediaItem.isTvEpisode).toBeUndefined();
+    expect(episodeProbed).toBe(false);
+  });
+
+  it('still settles when both the show and episode probes miss', async () => {
+    server.use(
+      http.get(`${API_BASE}/media/:id`, ({ params }) =>
+        HttpResponse.json(makeMedia({ id: params.id, mediaType: 'TVShow', title: 'Orphan' })),
+      ),
+      http.get(`${API_BASE}/tvshow/:id`, () => new HttpResponse(null, { status: 404 })),
+      http.get(`${API_BASE}/tvshow/episodes/:id`, () => new HttpResponse(null, { status: 404 })),
+    );
+
+    const { result } = renderHook(() => useMergedMediaItem('orphan-1'), {
+      wrapper: createWrapper(makeClient()),
+    });
+
+    await waitFor(() => expect(result.current.isDetailReady).toBe(true));
+
+    expect(result.current.isTvEpisode).toBe(false);
+    expect(result.current.mediaItem).toMatchObject({ title: 'Orphan' });
   });
 });
