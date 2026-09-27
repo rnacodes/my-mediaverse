@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.IntegrationTests.Fixtures;
+using MyMediaVerse.IntegrationTests.Helpers;
 
 namespace MyMediaVerse.IntegrationTests.Api
 {
@@ -449,21 +450,7 @@ namespace MyMediaVerse.IntegrationTests.Api
             var topicName = "MediaAssocTest";
 
             // Create media item with the topic
-            var mediaDto = new CreateMediaItemDto
-            {
-                Title = "Media with Topic",
-                MediaType = Domain.Entities.MediaType.Article,
-                Status = Domain.Entities.Status.Uncharted,
-                Topics = new[] { topicName }
-            };
-
-            var mediaContent = new StringContent(
-                JsonSerializer.Serialize(mediaDto, _jsonOptions),
-                Encoding.UTF8,
-                "application/json"
-            );
-
-            await _client.PostAsync("/api/media", mediaContent);
+            await _client.CreateArticleAsync("Media with Topic", topics: new[] { topicName });
 
             // Act - Search for the topic to get its ID
             var searchResponse = await _client.GetAsync($"/api/topics/search?query={topicName}");

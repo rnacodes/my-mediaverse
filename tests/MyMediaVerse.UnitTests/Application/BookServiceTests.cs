@@ -324,6 +324,34 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         [Fact]
+        public async Task UpdateBookAsync_WhenTheRequestLeavesOutCatalogFields_KeepsTheStoredOnes()
+        {
+            // The edit form has no field for these, so its request never carries them.
+            var book = TestDataFactory.CreateBook("Dune", "Frank Herbert");
+            book.AverageRating = 4.27m;
+            book.OriginalPublicationYear = 1965;
+            book.GoodreadsTags = new List<string> { "sci-fi", "classics" };
+            book.RelatedNotes = "[[dune-notes]]";
+            Context.Books.Add(book);
+            await Context.SaveChangesAsync();
+
+            await _bookService.UpdateBookAsync(book.Id, new CreateBookDto
+            {
+                Title = "Dune (edited)",
+                Author = "Frank Herbert",
+                Status = Status.Completed
+            });
+
+            Context.ChangeTracker.Clear();
+            var stored = await Context.Books.FindAsync(book.Id);
+            stored!.Title.Should().Be("Dune (edited)");
+            stored.AverageRating.Should().Be(4.27m);
+            stored.OriginalPublicationYear.Should().Be(1965);
+            stored.GoodreadsTags.Should().BeEquivalentTo(new[] { "sci-fi", "classics" });
+            stored.RelatedNotes.Should().Be("[[dune-notes]]");
+        }
+
+        [Fact]
         public async Task UpdateBookAsync_ShouldReturnNull_WhenBookDoesNotExist()
         {
             // Arrange

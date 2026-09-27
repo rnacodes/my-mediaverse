@@ -28,10 +28,6 @@ export const updateVideo = (id, videoData) => {
     return apiClient.put(`/video/${id}`, videoData);
 };
 
-export const deleteVideo = (id) => {
-    return apiClient.delete(`/video/${id}`);
-};
-
 export const getPlaylistsForVideo = async (videoId) => {
     try {
         const response = await apiClient.get(`/video/${videoId}/playlists`);

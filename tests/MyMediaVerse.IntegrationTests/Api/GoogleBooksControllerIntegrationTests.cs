@@ -10,6 +10,7 @@ using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.IntegrationTests.Fixtures;
 using MyMediaVerse.Shared.DTOs.GoogleBooks;
+using MyMediaVerse.Shared.Exceptions;
 using MyMediaVerse.Shared.Interfaces;
 using MyMediaVerse.UnitTests.TestData;
 using Xunit;
@@ -395,6 +396,47 @@ namespace MyMediaVerse.IntegrationTests.Api
 
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        }
+
+        [Fact]
+        public async Task SearchGoogleBooks_WhenApiKeyNotConfigured_ReturnsServiceUnavailable()
+        {
+            // Arrange
+            var (client, _, _) = _factory.CreateClientWithSubstitutes<IGoogleBooksService, IBookMappingService>(
+                gb => gb.SearchBooksAsync("dune", Arg.Any<int?>(), Arg.Any<int?>())
+                    .Throws(new GoogleBooksNotConfiguredException()),
+                null);
+
+            // Act
+            var response = await client.GetAsync("/api/book/search-googlebooks?query=dune");
+
+            // Assert
+            response.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+            body.GetProperty("error").GetString().Should().Contain("not configured");
+        }
+
+        [Fact]
+        public async Task ImportFromGoogleBooks_WhenApiKeyNotConfigured_ReturnsServiceUnavailable()
+        {
+            // Arrange
+            var (client, _, _) = _factory.CreateClientWithSubstitutes<IGoogleBooksService, IBookMappingService>(
+                gb => gb.ImportBookFromVolumeIdAsync("test-volume-id")
+                    .Throws(new GoogleBooksNotConfiguredException()),
+                null);
+
+            var importDto = new ImportBookFromGoogleBooksDto
+            {
+                VolumeId = "test-volume-id"
+            };
+
+            // Act
+            var response = await client.PostAsJsonAsync("/api/book/import-from-googlebooks", importDto);
+
+            // Assert
+            response.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+            body.GetProperty("error").GetString().Should().Contain("not configured");
         }
 
         [Fact]

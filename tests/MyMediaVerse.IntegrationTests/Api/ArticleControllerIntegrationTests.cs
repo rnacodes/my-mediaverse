@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AwesomeAssertions;
@@ -100,6 +101,40 @@ namespace MyMediaVerse.IntegrationTests.Api
             };
 
             var response = await _client.PostAsJsonAsync("/api/article", dto, _jsonOptions);
+
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
+
+        [Fact]
+        public async Task CreateArticle_ShouldReturnBadRequest_WhenTitleIsTooLong()
+        {
+            var dto = new CreateArticleDto
+            {
+                Title = new string('A', 501),
+                Status = Status.Uncharted
+            };
+
+            var response = await _client.PostAsJsonAsync("/api/article", dto, _jsonOptions);
+
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
+
+        [Fact]
+        public async Task CreateArticle_ShouldReturnBadRequest_WhenJsonIsMalformed()
+        {
+            var content = new StringContent("{ invalid json }", Encoding.UTF8, "application/json");
+
+            var response = await _client.PostAsync("/api/article", content);
+
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
+
+        [Fact]
+        public async Task CreateArticle_ShouldReturnBadRequest_WhenBodyIsNull()
+        {
+            var content = new StringContent("null", Encoding.UTF8, "application/json");
+
+            var response = await _client.PostAsync("/api/article", content);
 
             response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         }

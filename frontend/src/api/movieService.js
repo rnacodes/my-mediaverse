@@ -28,10 +28,6 @@ export const updateMovie = (id, movieData) => {
     return apiClient.put(`/movie/${id}`, movieData);
 };
 
-export const deleteMovie = (id) => {
-    return apiClient.delete(`/movie/${id}`);
-};
-
 // The API answers 201 when the movie was just created and 200 when a movie with
 // the same TMDB id was already in the library (the existing row is returned
 // untouched). Callers need both the item and which of the two happened.

@@ -210,6 +210,34 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         [Fact]
+        public async Task UpdateVideoAsync_WhenTheRequestLeavesOutRelatedNotes_KeepsTheStoredOnes()
+        {
+            var videoId = Guid.NewGuid();
+            Context.Videos.Add(new Video
+            {
+                Id = videoId,
+                Title = "Old Title",
+                Platform = "YouTube",
+                RelatedNotes = "[[video-notes]]",
+                Topics = new List<Topic>(),
+                Genres = new List<Genre>()
+            });
+            await Context.SaveChangesAsync();
+
+            await _service.UpdateVideoAsync(videoId, new CreateVideoDto
+            {
+                Title = "Updated Title",
+                Platform = "YouTube",
+                Status = Status.Uncharted
+            });
+
+            Context.ChangeTracker.Clear();
+            var stored = await Context.Videos.FindAsync(videoId);
+            stored!.Title.Should().Be("Updated Title");
+            stored.RelatedNotes.Should().Be("[[video-notes]]");
+        }
+
+        [Fact]
         public async Task UpdateVideoAsync_WithInvalidId_ShouldThrowArgumentException()
         {
             // Arrange

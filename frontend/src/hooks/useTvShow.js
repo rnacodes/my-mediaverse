@@ -6,13 +6,11 @@ import {
   getTvShowsByYear,
   createTvShow,
   updateTvShow,
-  deleteTvShow,
   importTvShowFromTmdb,
   searchTvShowsFromTmdb,
   getEpisodesByShowId,
   getTvShowEpisodeById,
   importTvShowEpisodesFromTmdb,
-  deleteTvShowEpisode,
 } from '../api/tvShowService';
 import { tvShowKeys, mediaKeys } from '../api/queryKeys';
 
@@ -101,18 +99,6 @@ export function useUpdateTvShow() {
   });
 }
 
-export function useDeleteTvShow() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id) => deleteTvShow(id).then((r) => r.data),
-    onSuccess: (_data, id) => {
-      queryClient.invalidateQueries({ queryKey: tvShowKeys.lists() });
-      queryClient.removeQueries({ queryKey: tvShowKeys.detail(id) });
-      queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
-    },
-  });
-}
-
 export function useImportTvShowFromTmdb() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -133,16 +119,6 @@ export function useImportTvShowEpisodesFromTmdb(showId) {
       // both the episode list and the show's episode counts.
       queryClient.invalidateQueries({ queryKey: tvShowKeys.detail(showId) });
       queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
-    },
-  });
-}
-
-export function useDeleteTvShowEpisode() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id) => deleteTvShowEpisode(id).then((r) => r.data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: tvShowKeys.all });
     },
   });
 }

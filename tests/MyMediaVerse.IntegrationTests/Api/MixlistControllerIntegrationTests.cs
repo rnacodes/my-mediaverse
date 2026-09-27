@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.IntegrationTests.Fixtures;
+using MyMediaVerse.IntegrationTests.Helpers;
 
 namespace MyMediaVerse.IntegrationTests.Api
 {
@@ -324,16 +325,7 @@ namespace MyMediaVerse.IntegrationTests.Api
             Assert.NotNull(mixlist);
 
             // Create a media item
-            var mediaDto = new CreateMediaItemDto
-            {
-                Title = "Media for Mixlist",
-                MediaType = MediaType.Article,
-                Status = Status.Uncharted
-            };
-            var mediaContent = new StringContent(JsonSerializer.Serialize(mediaDto, _jsonOptions), Encoding.UTF8, "application/json");
-            var mediaResponse = await _client.PostAsync("/api/media", mediaContent);
-            var media = JsonSerializer.Deserialize<MediaItemResponseDto>(await mediaResponse.Content.ReadAsStringAsync(), _jsonOptions);
-            Assert.NotNull(media);
+            var media = await _client.CreateArticleAsync("Media for Mixlist");
 
             // Act
             var response = await _client.PostAsync($"/api/mixlist/{mixlist.Id}/items/{media.Id}", null);
@@ -352,16 +344,7 @@ namespace MyMediaVerse.IntegrationTests.Api
         public async Task AddMediaItemToMixlist_WithInvalidMixlistId_ShouldReturnNotFound()
         {
             // Arrange - Create a media item
-            var mediaDto = new CreateMediaItemDto
-            {
-                Title = "Media for Invalid Mixlist",
-                MediaType = MediaType.Article,
-                Status = Status.Uncharted
-            };
-            var mediaContent = new StringContent(JsonSerializer.Serialize(mediaDto, _jsonOptions), Encoding.UTF8, "application/json");
-            var mediaResponse = await _client.PostAsync("/api/media", mediaContent);
-            var media = JsonSerializer.Deserialize<MediaItemResponseDto>(await mediaResponse.Content.ReadAsStringAsync(), _jsonOptions);
-            Assert.NotNull(media);
+            var media = await _client.CreateArticleAsync("Media for Invalid Mixlist");
 
             var invalidMixlistId = Guid.NewGuid();
 
@@ -382,11 +365,7 @@ namespace MyMediaVerse.IntegrationTests.Api
             var mixlist = JsonSerializer.Deserialize<MixlistResponseDto>(await mixlistResponse.Content.ReadAsStringAsync(), _jsonOptions);
             Assert.NotNull(mixlist);
 
-            var mediaDto = new CreateMediaItemDto { Title = "Media to Remove", MediaType = MediaType.Article, Status = Status.Uncharted };
-            var mediaContent = new StringContent(JsonSerializer.Serialize(mediaDto, _jsonOptions), Encoding.UTF8, "application/json");
-            var mediaResponse = await _client.PostAsync("/api/media", mediaContent);
-            var media = JsonSerializer.Deserialize<MediaItemResponseDto>(await mediaResponse.Content.ReadAsStringAsync(), _jsonOptions);
-            Assert.NotNull(media);
+            var media = await _client.CreateArticleAsync("Media to Remove");
 
             await _client.PostAsync($"/api/mixlist/{mixlist.Id}/items/{media.Id}", null);
 
@@ -415,17 +394,7 @@ namespace MyMediaVerse.IntegrationTests.Api
 
             // Create a media item with a description
             var mediaDescription = "This is a detailed description for testing";
-            var mediaDto = new CreateMediaItemDto
-            {
-                Title = "Media with Description",
-                MediaType = MediaType.Article,
-                Status = Status.Uncharted,
-                Description = mediaDescription
-            };
-            var mediaContent = new StringContent(JsonSerializer.Serialize(mediaDto, _jsonOptions), Encoding.UTF8, "application/json");
-            var mediaResponse = await _client.PostAsync("/api/media", mediaContent);
-            var media = JsonSerializer.Deserialize<MediaItemResponseDto>(await mediaResponse.Content.ReadAsStringAsync(), _jsonOptions);
-            Assert.NotNull(media);
+            var media = await _client.CreateArticleAsync("Media with Description", description: mediaDescription);
 
             // Add media item to mixlist
             await _client.PostAsync($"/api/mixlist/{mixlist.Id}/items/{media.Id}", null);
@@ -462,17 +431,7 @@ namespace MyMediaVerse.IntegrationTests.Api
 
             // Create a media item with a description
             var mediaDescription = "Description for GetAll test";
-            var mediaDto = new CreateMediaItemDto
-            {
-                Title = "Media for GetAll Test",
-                MediaType = MediaType.Article,
-                Status = Status.Uncharted,
-                Description = mediaDescription
-            };
-            var mediaContent = new StringContent(JsonSerializer.Serialize(mediaDto, _jsonOptions), Encoding.UTF8, "application/json");
-            var mediaResponse = await _client.PostAsync("/api/media", mediaContent);
-            var media = JsonSerializer.Deserialize<MediaItemResponseDto>(await mediaResponse.Content.ReadAsStringAsync(), _jsonOptions);
-            Assert.NotNull(media);
+            var media = await _client.CreateArticleAsync("Media for GetAll Test", description: mediaDescription);
 
             // Add media item to mixlist
             await _client.PostAsync($"/api/mixlist/{mixlist.Id}/items/{media.Id}", null);

@@ -6,7 +6,6 @@ import {
   getMoviesByYear,
   createMovie,
   updateMovie,
-  deleteMovie,
   importMovieFromTmdb,
   searchMoviesFromTmdb,
 } from '../api/movieService';
@@ -74,18 +73,6 @@ export function useUpdateMovie() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: movieKeys.lists() });
       queryClient.invalidateQueries({ queryKey: movieKeys.detail(variables.id) });
-      queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
-    },
-  });
-}
-
-export function useDeleteMovie() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id) => deleteMovie(id).then((r) => r.data),
-    onSuccess: (_data, id) => {
-      queryClient.invalidateQueries({ queryKey: movieKeys.lists() });
-      queryClient.removeQueries({ queryKey: movieKeys.detail(id) });
       queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
     },
   });

@@ -140,7 +140,3 @@ export const createPodcastEpisode = (episodeData) => {
 export const updatePodcastEpisode = (id, episodeData) => {
     return apiClient.put(`/podcast/episodes/${id}`, episodeData);
 };
-
-export const deletePodcastEpisode = (id) => {
-    return apiClient.delete(`/podcast/episodes/${id}`);
-};

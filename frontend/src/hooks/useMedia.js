@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getMediaById,
-  addMedia,
   updateMedia,
   deleteMedia,
   bulkDeleteMedia,
@@ -30,16 +29,6 @@ export function useMediaItem(id, options = {}) {
     queryFn: async () => (await getMediaById(id)).data,
     enabled: !!id,
     ...options,
-  });
-}
-
-export function useAddMedia() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (mediaData) => addMedia(mediaData).then((r) => r.data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
-    },
   });
 }
 

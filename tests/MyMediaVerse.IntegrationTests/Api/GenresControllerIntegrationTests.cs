@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.IntegrationTests.Fixtures;
+using MyMediaVerse.IntegrationTests.Helpers;
 
 namespace MyMediaVerse.IntegrationTests.Api
 {
@@ -449,21 +450,7 @@ namespace MyMediaVerse.IntegrationTests.Api
             var genreName = "MediaAssocGenreTest";
 
             // Create media item with the genre
-            var mediaDto = new CreateMediaItemDto
-            {
-                Title = "Media with Genre",
-                MediaType = Domain.Entities.MediaType.Article,
-                Status = Domain.Entities.Status.Uncharted,
-                Genres = new[] { genreName }
-            };
-
-            var mediaContent = new StringContent(
-                JsonSerializer.Serialize(mediaDto, _jsonOptions),
-                Encoding.UTF8,
-                "application/json"
-            );
-
-            await _client.PostAsync("/api/media", mediaContent);
+            await _client.CreateArticleAsync("Media with Genre", genres: new[] { genreName });
 
             // Act - Search for the genre to get its ID
             var searchResponse = await _client.GetAsync($"/api/genres/search?query={genreName}");

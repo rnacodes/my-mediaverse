@@ -119,14 +119,13 @@ namespace MyMediaVerse.UnitTests.Application
         {
             // The unique index on the key exempts NULL only; an empty key would let one feedless series exist.
             var a = await _service.CreatePodcastSeriesAsync(new CreatePodcastSeriesDto { Title = "A" });
-            var b = await _service.CreatePodcastSeriesAsync(
-                new CreatePodcastSeriesDto { Title = "B", RssFeedUrl = "https://b.example.com/feed" });
+            var b = await _service.CreatePodcastSeriesAsync(new CreatePodcastSeriesDto { Title = "B" });
 
-            await _service.UpdatePodcastSeriesAsync(b.Series.Id, new CreatePodcastSeriesDto { Title = "B" });
+            await _service.UpdatePodcastSeriesAsync(b.Series.Id, new CreatePodcastSeriesDto { Title = "B", RssFeedUrl = "  " });
 
             var stored = await Context.PodcastSeries.AsNoTracking().ToListAsync();
             stored.Should().HaveCount(2);
-            stored.Should().OnlyContain(s => s.FeedUrlKey == null);
+            stored.Should().OnlyContain(s => s.FeedUrlKey == null && s.RssFeedUrl == null);
             a.Created.Should().BeTrue();
         }
 

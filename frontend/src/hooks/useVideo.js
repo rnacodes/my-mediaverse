@@ -6,7 +6,6 @@ import {
   getVideoSeries,
   createVideo,
   updateVideo,
-  deleteVideo,
   getPlaylistsForVideo,
 } from '../api/videoService';
 import { videoKeys, mediaKeys } from '../api/queryKeys';
@@ -72,18 +71,6 @@ export function useUpdateVideo() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: videoKeys.lists() });
       queryClient.invalidateQueries({ queryKey: videoKeys.detail(variables.id) });
-      queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
-    },
-  });
-}
-
-export function useDeleteVideo() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id) => deleteVideo(id).then((r) => r.data),
-    onSuccess: (_data, id) => {
-      queryClient.invalidateQueries({ queryKey: videoKeys.lists() });
-      queryClient.removeQueries({ queryKey: videoKeys.detail(id) });
       queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
     },
   });

@@ -336,6 +336,64 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         [Fact]
+        public async Task UpdateMovieAsync_WhenTheRequestLeavesOutTmdbFields_KeepsTheStoredOnes()
+        {
+            var movieId = Guid.NewGuid();
+            Context.Movies.Add(new Movie
+            {
+                Id = movieId,
+                Title = "Inception",
+                TmdbId = "27205",
+                ImdbId = "tt1375666",
+                TmdbRating = 8.4,
+                TmdbBackdropPath = "/backdrop.jpg",
+                RelatedNotes = "[[inception-notes]]",
+                Topics = new List<Topic>(),
+                Genres = new List<Genre>()
+            });
+            await Context.SaveChangesAsync();
+
+            await _service.UpdateMovieAsync(movieId, new CreateMovieDto { Title = "Inception (edited)", Status = Status.Completed });
+
+            Context.ChangeTracker.Clear();
+            var stored = await Context.Movies.FindAsync(movieId);
+            stored!.Title.Should().Be("Inception (edited)");
+            stored.TmdbId.Should().Be("27205");
+            stored.ImdbId.Should().Be("tt1375666");
+            stored.TmdbRating.Should().Be(8.4);
+            stored.TmdbBackdropPath.Should().Be("/backdrop.jpg");
+            stored.RelatedNotes.Should().Be("[[inception-notes]]");
+        }
+
+        [Fact]
+        public async Task UpdateMovieAsync_WhenTheRequestCarriesTmdbFields_StoresThem()
+        {
+            var movieId = Guid.NewGuid();
+            Context.Movies.Add(new Movie
+            {
+                Id = movieId,
+                Title = "Inception",
+                TmdbId = "1",
+                Topics = new List<Topic>(),
+                Genres = new List<Genre>()
+            });
+            await Context.SaveChangesAsync();
+
+            await _service.UpdateMovieAsync(movieId, new CreateMovieDto
+            {
+                Title = "Inception",
+                Status = Status.Uncharted,
+                TmdbId = "27205",
+                TmdbRating = 8.4
+            });
+
+            Context.ChangeTracker.Clear();
+            var stored = await Context.Movies.FindAsync(movieId);
+            stored!.TmdbId.Should().Be("27205");
+            stored.TmdbRating.Should().Be(8.4);
+        }
+
+        [Fact]
         public async Task UpdateMovieAsync_ShouldThrowInvalidOperationException_WhenMovieDoesNotExist()
         {
             // Arrange

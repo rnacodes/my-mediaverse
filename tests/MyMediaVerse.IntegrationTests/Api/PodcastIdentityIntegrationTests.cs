@@ -148,16 +148,6 @@ namespace MyMediaVerse.IntegrationTests.Api
             (await _client.GetAsync("/api/media")).StatusCode.Should().Be(HttpStatusCode.OK);
         }
 
-        [Fact]
-        public async Task CreateMediaItem_WithPodcastType_Returns400PointingToThePodcastEndpoint()
-        {
-            var response = await PostJson(_client, "/api/media",
-                new CreateMediaItemDto { Title = "Generic Podcast", MediaType = MediaType.Podcast, Status = Status.Uncharted });
-
-            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-            (await Read<JsonElement>(response)).GetProperty("error").GetString().Should().Contain("/api/podcast/series");
-        }
-
         [Theory]
         [InlineData("/api/podcast/series/from-opml")]
         [InlineData("/api/podcast/series/00000000-0000-0000-0000-000000000001/sync")]

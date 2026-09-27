@@ -186,7 +186,7 @@ namespace MyMediaVerse.Application.Services
                 video.Rating = dto.Rating;
                 video.OwnershipStatus = dto.OwnershipStatus;
                 video.Description = dto.Description;
-                video.RelatedNotes = dto.RelatedNotes;
+                video.RelatedNotes = StoredValue.UnlessProvided(dto.RelatedNotes, video.RelatedNotes);
                 video.Thumbnail = dto.Thumbnail;
                 video.Platform = dto.Platform;
                 video.ChannelId = dto.ChannelId;
