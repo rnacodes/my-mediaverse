@@ -549,6 +549,57 @@ namespace MyMediaVerse.IntegrationTests.Api
             Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         }
 
+        [Fact]
+        public async Task DeleteTvShow_WithEpisodes_LeavesNoOrphanedMediaItems_AndCleansTheSearchIndex()
+        {
+            // Against real Postgres: the database cascade removes the episode rows but not their
+            // base rows, so the delete has to remove each episode itself.
+            var (client, typesense) = _factory.CreateClientWithSubstitute<ITypesenseService>();
+            var show = await PostAndReadAsync<TvShowResponseDto>(client, "/api/tvshow",
+                new CreateTvShowDto { Title = "Show With Episodes", MediaType = MediaType.TVShow, Status = Status.Uncharted });
+            var ep1 = await PostAndReadAsync<TvShowEpisodeResponseDto>(client, "/api/tvshow/episodes",
+                new CreateTvShowEpisodeDto { Title = "One", ShowId = show.Id, SeasonNumber = 1, EpisodeNumber = 1 });
+            var ep2 = await PostAndReadAsync<TvShowEpisodeResponseDto>(client, "/api/tvshow/episodes",
+                new CreateTvShowEpisodeDto { Title = "Two", ShowId = show.Id, SeasonNumber = 1, EpisodeNumber = 2 });
+
+            var delete = await client.DeleteAsync($"/api/tvshow/{show.Id}");
+
+            Assert.Equal(HttpStatusCode.NoContent, delete.StatusCode);
+
+            // Every all-media query materializes each row by its type; an orphaned base row made
+            // this endpoint return 500.
+            Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/media")).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/tvshow/episodes/{ep1.Id}")).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/media/{ep2.Id}")).StatusCode);
+
+            await typesense.Received(1).DeleteMediaItemAsync(show.Id);
+            await typesense.Received(1).DeleteMediaItemAsync(ep1.Id);
+            await typesense.Received(1).DeleteMediaItemAsync(ep2.Id);
+        }
+
+        [Fact]
+        public async Task DeleteTvShowThroughTheGenericMediaEndpoint_LeavesNoOrphanedMediaItems()
+        {
+            // The Edit Media form deletes through /api/media/{id}, not the TV show endpoint.
+            var show = await PostAndReadAsync<TvShowResponseDto>(_client, "/api/tvshow",
+                new CreateTvShowDto { Title = "Deleted From Edit Form", MediaType = MediaType.TVShow, Status = Status.Uncharted });
+            await PostAndReadAsync<TvShowEpisodeResponseDto>(_client, "/api/tvshow/episodes",
+                new CreateTvShowEpisodeDto { Title = "One", ShowId = show.Id, SeasonNumber = 1, EpisodeNumber = 1 });
+
+            var delete = await _client.DeleteAsync($"/api/media/{show.Id}");
+
+            Assert.True(delete.IsSuccessStatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await _client.GetAsync("/api/media")).StatusCode);
+        }
+
+        private async Task<T> PostAndReadAsync<T>(HttpClient client, string url, object body)
+        {
+            var response = await client.PostAsync(url,
+                new StringContent(JsonSerializer.Serialize(body, _jsonOptions), Encoding.UTF8, "application/json"));
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            return JsonSerializer.Deserialize<T>(await response.Content.ReadAsStringAsync(), _jsonOptions)!;
+        }
+
         #endregion
 
         #region Error Handling Tests

@@ -301,6 +301,9 @@ function TvShowProfile() {
                                 href={`https://www.themoviedb.org/tv/${show.tmdbId}/seasons`}
                                 target="_blank"
                                 rel="noopener noreferrer"
+                                color="inherit"
+                                underline="always"
+                                sx={{ fontWeight: 600 }}
                             >
                                 See the other {seasonCoverage.missing === 1 ? 'season' : `${seasonCoverage.missing} seasons`} on TMDB
                             </Link>
