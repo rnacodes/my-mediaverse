@@ -12,6 +12,9 @@ using MyMediaVerse.UnitTests.TestHelpers;
 
 namespace MyMediaVerse.UnitTests.Infrastructure
 {
+    // Shares a collection so the tests that clear the YOUTUBE_API_KEY variable never run
+    // beside another test that builds a client.
+    [Collection("YouTubeApiKeyEnvironment")]
     [Trait("Category", "Unit")]
     public class YouTubeApiClientTests
     {
@@ -365,7 +368,134 @@ namespace MyMediaVerse.UnitTests.Infrastructure
 
         #endregion
 
+        #region API Key Tests
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("   ")]
+        [InlineData("YOUTUBE_API_KEY")]
+        public async Task AnyCall_ShouldThrowNotConfigured_AndSendNothing_WhenApiKeyIsNotConfigured(string? configuredKey)
+        {
+            var previous = Environment.GetEnvironmentVariable("YOUTUBE_API_KEY");
+            Environment.SetEnvironmentVariable("YOUTUBE_API_KEY", null);
+            try
+            {
+                var configuration = Substitute.For<IConfiguration>();
+                configuration["ApiKeys:YouTube"].Returns(configuredKey);
+                var client = new YouTubeApiClient(_httpClient, _mockLogger, configuration);
+
+                var exception = await Assert.ThrowsAsync<YouTubeNotConfiguredException>(
+                    () => client.GetVideoDetailsAsync("dQw4w9WgXcQ"));
+
+                exception.Message.Should().Contain("YouTube API key is not configured");
+                _mockHttpMessageHandler.Requests.Should().BeEmpty();
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("YOUTUBE_API_KEY", previous);
+            }
+        }
+
+        [Fact]
+        public void Constructor_ShouldNotThrow_WhenApiKeyIsNotConfigured()
+        {
+            var previous = Environment.GetEnvironmentVariable("YOUTUBE_API_KEY");
+            Environment.SetEnvironmentVariable("YOUTUBE_API_KEY", null);
+            try
+            {
+                var configuration = Substitute.For<IConfiguration>();
+                configuration["ApiKeys:YouTube"].Returns((string?)null);
+
+                var act = () => new YouTubeApiClient(_httpClient, _mockLogger, configuration);
+
+                act.Should().NotThrow();
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("YOUTUBE_API_KEY", previous);
+            }
+        }
+
+        #endregion
+
+        #region Escaping Tests
+
+        [Fact]
+        public async Task GetVideoDetailsAsync_ShouldEscapeTheId_SoItCannotAddQueryParameters()
+        {
+            SetupHttpResponse(HttpStatusCode.OK, "{\"items\":[]}");
+
+            await _youtubeApiClient.GetVideoDetailsAsync("abc&key=stolen");
+
+            var query = SentQuery();
+            query.Should().Contain("id=abc%26key%3Dstolen");
+            query.Should().NotContain("key=stolen");
+        }
+
+        [Fact]
+        public async Task GetVideosAsync_ShouldEscapeEachId_AndKeepTheCommaSeparator()
+        {
+            SetupHttpResponse(HttpStatusCode.OK, "{\"items\":[]}");
+
+            await _youtubeApiClient.GetVideosAsync(new List<string> { "id one", "id&two" });
+
+            SentQuery().Should().Contain("id=id%20one,id%26two");
+        }
+
+        [Fact]
+        public async Task SearchAsync_ShouldEscapeTypePageTokenAndChannelId()
+        {
+            SetupHttpResponse(HttpStatusCode.OK, "{\"items\":[]}");
+
+            await _youtubeApiClient.SearchAsync("cats", type: "video&x=1", maxResults: 5, pageToken: "tok en", channelId: "UC&y=2");
+
+            var query = SentQuery();
+            query.Should().Contain("type=video%26x%3D1");
+            query.Should().Contain("pageToken=tok%20en");
+            query.Should().Contain("channelId=UC%26y%3D2");
+        }
+
+        [Fact]
+        public async Task GetPlaylistItemsAsync_ShouldEscapeThePlaylistIdAndPageToken()
+        {
+            SetupHttpResponse(HttpStatusCode.OK, "{\"items\":[]}");
+
+            await _youtubeApiClient.GetPlaylistItemsAsync("PL&z=3", 10, "next page");
+
+            var query = SentQuery();
+            query.Should().Contain("playlistId=PL%26z%3D3");
+            query.Should().Contain("pageToken=next%20page");
+        }
+
+        [Fact]
+        public async Task GetChannelByHandleAsync_ShouldAddThePrefix_AndEscapeTheHandle()
+        {
+            SetupHttpResponse(HttpStatusCode.OK, "{\"items\":[]}");
+
+            await _youtubeApiClient.GetChannelByHandleAsync("Tale&Foundry");
+
+            SentQuery().Should().Contain("forHandle=%40Tale%26Foundry");
+        }
+
+        [Fact]
+        public async Task GetChannelByUsernameAsync_ShouldEscapeTheUsername()
+        {
+            SetupHttpResponse(HttpStatusCode.OK, "{\"items\":[]}");
+
+            await _youtubeApiClient.GetChannelByUsernameAsync("some user");
+
+            SentQuery().Should().Contain("forUsername=some%20user");
+        }
+
+        #endregion
+
         #region Helper Methods
+
+        // The query exactly as it went on the wire; Uri.ToString() would un-escape it.
+        private string SentQuery()
+            => _mockHttpMessageHandler.Requests.Should().ContainSingle().Which.RequestUri!.AbsoluteUri;
+
 
         private void SetupHttpResponse(HttpStatusCode statusCode, string content)
             => _mockHttpMessageHandler.RespondWith(statusCode, content);

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
+using MyMediaVerse.Shared.Exceptions;
 
 namespace MyMediaVerse.Web.API.Controllers
 {
@@ -236,10 +237,15 @@ namespace MyMediaVerse.Web.API.Controllers
                 var response = MapToResponseDto(channel);
                 return Ok(response);
             }
-            catch (InvalidOperationException ex)
+            catch (YouTubeResourceNotFoundException ex)
             {
-                _logger.LogWarning(ex, "Error importing channel: {ChannelId}", channelId);
-                return BadRequest(new { error = ex.Message });
+                _logger.LogWarning(ex, "Channel not found for import: {ChannelId}", channelId);
+                return NotFound(new { error = ex.Message });
+            }
+            catch (YouTubeQuotaExceededException ex)
+            {
+                _logger.LogWarning(ex, "YouTube quota used up while importing channel {ChannelId}", channelId);
+                return StatusCode(503, new { error = "YouTube's daily quota is used up. Try again after it resets.", quotaExceeded = true });
             }
             catch (Exception ex)
             {
@@ -265,12 +271,17 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (ArgumentException ex)
             {
                 _logger.LogWarning(ex, "YouTube channel not found for sync: {Id}", id);
-                return NotFound($"YouTube channel with ID {id} not found");
+                return NotFound(new { error = $"YouTube channel with ID {id} not found" });
             }
-            catch (InvalidOperationException ex)
+            catch (YouTubeResourceNotFoundException ex)
             {
-                _logger.LogWarning(ex, "Error syncing channel: {Id}", id);
-                return BadRequest(new { error = ex.Message });
+                _logger.LogWarning(ex, "Channel {Id} is no longer on YouTube", id);
+                return NotFound(new { error = ex.Message });
+            }
+            catch (YouTubeQuotaExceededException ex)
+            {
+                _logger.LogWarning(ex, "YouTube quota used up while syncing channel {Id}", id);
+                return StatusCode(503, new { error = "YouTube's daily quota is used up. Try again after it resets.", quotaExceeded = true });
             }
             catch (Exception ex)
             {

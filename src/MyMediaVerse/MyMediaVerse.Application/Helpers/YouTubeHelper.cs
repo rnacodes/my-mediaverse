@@ -14,6 +14,7 @@ namespace MyMediaVerse.Application.Helpers
             var patterns = new[]
             {
                 @"(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})",
+                @"youtube\.com\/(?:shorts|live)\/([a-zA-Z0-9_-]{11})",
                 @"youtube\.com\/v\/([a-zA-Z0-9_-]{11})",
                 @"youtube\.com\/watch\?.*v=([a-zA-Z0-9_-]{11})"
             };

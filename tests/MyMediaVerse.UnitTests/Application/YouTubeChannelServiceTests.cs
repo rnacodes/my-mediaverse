@@ -5,6 +5,8 @@ using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
+using MyMediaVerse.Shared.DTOs.YouTube;
+using MyMediaVerse.Shared.Exceptions;
 using MyMediaVerse.Shared.Interfaces;
 using MyMediaVerse.UnitTests.TestHelpers;
 
@@ -338,6 +340,39 @@ namespace MyMediaVerse.UnitTests.Application
 
             // Assert
             result.Should().BeFalse();
+        }
+
+        #endregion
+
+        #region YouTube not-found Tests
+
+        [Fact]
+        public async Task ImportChannelFromYouTubeAsync_WhenYouTubeHasNoSuchChannel_ThrowsNotFound_AndStoresNothing()
+        {
+            _mockYouTubeApiClient.GetChannelDetailsAsync("UCgone").Returns((YouTubeChannelDto?)null);
+
+            var exception = await Assert.ThrowsAsync<YouTubeResourceNotFoundException>(
+                () => _service.ImportChannelFromYouTubeAsync("UCgone"));
+
+            exception.ResourceType.Should().Be("channel");
+            exception.Identifier.Should().Be("UCgone");
+            Context.YouTubeChannels.Should().BeEmpty();
+        }
+
+        [Fact]
+        public async Task SyncChannelMetadataAsync_WhenTheChannelLeftYouTube_ThrowsNotFound_AndKeepsTheStoredRow()
+        {
+            var channel = CreateTestChannel("Stored Channel", "UCgone");
+            Context.YouTubeChannels.Add(channel);
+            await Context.SaveChangesAsync();
+            _mockYouTubeApiClient.GetChannelDetailsAsync("UCgone").Returns((YouTubeChannelDto?)null);
+
+            await Assert.ThrowsAsync<YouTubeResourceNotFoundException>(
+                () => _service.SyncChannelMetadataAsync(channel.Id));
+
+            Context.ChangeTracker.Clear();
+            var stored = await Context.YouTubeChannels.FindAsync(channel.Id);
+            stored!.Title.Should().Be("Stored Channel");
         }
 
         #endregion

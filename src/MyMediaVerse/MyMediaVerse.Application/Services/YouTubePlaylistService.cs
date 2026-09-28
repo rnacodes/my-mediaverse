@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Domain.Entities;
+using MyMediaVerse.Shared.Exceptions;
 using MyMediaVerse.Shared.DTOs.YouTube;
 using MyMediaVerse.Shared.Interfaces;
 
@@ -108,7 +109,7 @@ namespace MyMediaVerse.Application.Services
                 var playlistDto = await _youTubeApiClient.GetPlaylistDetailsAsync(playlistExternalId);
                 if (playlistDto == null)
                 {
-                    throw new InvalidOperationException($"Playlist with ID {playlistExternalId} not found on YouTube");
+                    throw new YouTubeResourceNotFoundException("playlist", playlistExternalId);
                 }
 
                 // Create playlist entity

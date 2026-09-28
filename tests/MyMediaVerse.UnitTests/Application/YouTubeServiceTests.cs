@@ -7,6 +7,7 @@ using MyMediaVerse.Application.Services;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Shared.Interfaces;
 using MyMediaVerse.Shared.DTOs.YouTube;
+using MyMediaVerse.Shared.Exceptions;
 using MyMediaVerse.Domain.Entities;
 using System;
 using System.Collections.Generic;
@@ -208,10 +209,11 @@ namespace MyMediaVerse.UnitTests.Application
                 .Returns((YouTubeVideoDto?)null);
 
             // Act & Assert
-            var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            var exception = await Assert.ThrowsAsync<YouTubeResourceNotFoundException>(
                 () => _service.ImportVideoAsync(videoId));
 
-            exception.Message.Should().Contain($"Video with ID {videoId} not found");
+            exception.ResourceType.Should().Be("video");
+            exception.Identifier.Should().Be(videoId);
             _mockApiClient.Received(1).GetVideoDetailsAsync(videoId);
             _mockMappingService.DidNotReceive().MapVideoToEntity(Arg.Any<YouTubeVideoDto>());
             _mockVideoService.DidNotReceive().SaveVideoAsync(Arg.Any<Video>(), Arg.Any<bool>());
@@ -328,6 +330,60 @@ namespace MyMediaVerse.UnitTests.Application
             // Assert
             result.Should().BeSameAs(importedChannel);
             await _mockChannelService.Received(1).ImportChannelFromYouTubeAsync(channelId);
+        }
+
+        [Fact]
+        public async Task ImportFromUrlAsync_WhenTheChannelHandleResolvesToNothing_ThrowsNotFound()
+        {
+            _mockApiClient.GetChannelByHandleAsync(Arg.Any<string>()).Returns((YouTubeChannelDto?)null);
+            _mockApiClient.GetChannelDetailsAsync(Arg.Any<string>()).Returns((YouTubeChannelDto?)null);
+
+            var exception = await Assert.ThrowsAsync<YouTubeResourceNotFoundException>(
+                () => _service.ImportFromUrlAsync("https://www.youtube.com/@NoSuchChannel"));
+
+            exception.ResourceType.Should().Be("channel");
+            await _mockChannelService.DidNotReceive().ImportChannelFromYouTubeAsync(Arg.Any<string>());
+        }
+
+        [Fact]
+        public async Task ImportVideoAsync_WhenTheQuotaRunsOutDuringChannelImport_StopsWithoutSavingTheVideo()
+        {
+            var videoDto = new YouTubeVideoDto
+            {
+                Id = "video_with_channel",
+                Snippet = new YouTubeVideoSnippetDto { Title = "Test Video", ChannelId = "UC_new_channel" }
+            };
+            _mockApiClient.GetVideoDetailsAsync("video_with_channel").Returns(videoDto);
+            _mockChannelService
+                .ImportChannelFromYouTubeAsync("UC_new_channel")
+                .ThrowsAsync(new YouTubeQuotaExceededException("quota used up", "quotaExceeded"));
+
+            await Assert.ThrowsAsync<YouTubeQuotaExceededException>(
+                () => _service.ImportVideoAsync("video_with_channel"));
+
+            await _mockVideoService.DidNotReceive().SaveVideoAsync(Arg.Any<Video>(), Arg.Any<bool>());
+        }
+
+        [Fact]
+        public async Task ImportVideoAsync_WhenChannelImportFailsForAnotherReason_SavesTheVideoWithoutAChannel()
+        {
+            var videoDto = new YouTubeVideoDto
+            {
+                Id = "video_with_channel",
+                Snippet = new YouTubeVideoSnippetDto { Title = "Test Video", ChannelId = "UC_new_channel" }
+            };
+            var mappedVideo = new Video { Title = "Test Video", MediaType = MediaType.Video, Platform = "YouTube" };
+            _mockApiClient.GetVideoDetailsAsync("video_with_channel").Returns(videoDto);
+            _mockChannelService
+                .ImportChannelFromYouTubeAsync("UC_new_channel")
+                .ThrowsAsync(new HttpRequestException("connection reset"));
+            _mockMappingService.MapVideoToEntity(videoDto).Returns(mappedVideo);
+            _mockVideoService.SaveVideoAsync(mappedVideo, true).Returns(mappedVideo);
+
+            var result = await _service.ImportVideoAsync("video_with_channel");
+
+            result.ChannelId.Should().BeNull();
+            await _mockVideoService.Received(1).SaveVideoAsync(mappedVideo, true);
         }
 
         [Fact]

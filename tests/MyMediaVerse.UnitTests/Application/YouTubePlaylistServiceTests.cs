@@ -5,6 +5,7 @@ using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Shared.DTOs.YouTube;
+using MyMediaVerse.Shared.Exceptions;
 using MyMediaVerse.Shared.Interfaces;
 using MyMediaVerse.UnitTests.TestHelpers;
 using Xunit;
@@ -275,6 +276,23 @@ namespace MyMediaVerse.UnitTests.Application
             var updatedPlaylist = await Context.YouTubePlaylists.FindAsync(playlist.Id);
             Assert.NotNull(updatedPlaylist);
             Assert.Equal("Updated Title", updatedPlaylist.Title);
+        }
+
+        #endregion
+
+        #region YouTube not-found Tests
+
+        [Fact]
+        public async Task ImportPlaylistFromYouTubeAsync_WhenYouTubeHasNoSuchPlaylist_ThrowsNotFound_AndStoresNothing()
+        {
+            _mockYouTubeApiClient.GetPlaylistDetailsAsync("PLgone").Returns((YouTubePlaylistDto?)null);
+
+            var exception = await Assert.ThrowsAsync<YouTubeResourceNotFoundException>(
+                () => _service.ImportPlaylistFromYouTubeAsync("PLgone"));
+
+            Assert.Equal("playlist", exception.ResourceType);
+            Assert.Equal("PLgone", exception.Identifier);
+            Assert.Empty(Context.YouTubePlaylists);
         }
 
         #endregion

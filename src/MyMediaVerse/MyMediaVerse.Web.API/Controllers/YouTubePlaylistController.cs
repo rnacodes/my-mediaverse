@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
+using MyMediaVerse.Shared.Exceptions;
 
 namespace MyMediaVerse.Web.API.Controllers
 {
@@ -133,16 +134,21 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 if (string.IsNullOrWhiteSpace(externalId))
                 {
-                    return BadRequest("Playlist external ID is required");
+                    return BadRequest(new { error = "Playlist external ID is required" });
                 }
 
                 var playlist = await _playlistService.ImportPlaylistFromYouTubeAsync(externalId);
                 return Ok(MapToResponseDto(playlist, includeVideos: false));
             }
-            catch (InvalidOperationException ex)
+            catch (YouTubeResourceNotFoundException ex)
             {
                 _logger.LogWarning(ex, "Playlist not found for import: {ExternalId}", externalId);
-                return NotFound($"Playlist with ID {externalId} not found on YouTube");
+                return NotFound(new { error = ex.Message });
+            }
+            catch (YouTubeQuotaExceededException ex)
+            {
+                _logger.LogWarning(ex, "YouTube quota used up while importing playlist {ExternalId}", externalId);
+                return StatusCode(503, new { error = "YouTube's daily quota is used up. Try again after it resets.", quotaExceeded = true });
             }
             catch (Exception ex)
             {
@@ -164,10 +170,20 @@ namespace MyMediaVerse.Web.API.Controllers
                 var playlist = await _playlistService.SyncPlaylistVideosAsync(id);
                 return Ok(MapToResponseDto(playlist, includeVideos: false));
             }
+            catch (YouTubeResourceNotFoundException ex)
+            {
+                _logger.LogWarning(ex, "Playlist {Id} is no longer on YouTube", id);
+                return NotFound(new { error = ex.Message });
+            }
+            catch (YouTubeQuotaExceededException ex)
+            {
+                _logger.LogWarning(ex, "YouTube quota used up while syncing playlist {Id}", id);
+                return StatusCode(503, new { error = "YouTube's daily quota is used up. Try again after it resets.", quotaExceeded = true });
+            }
             catch (InvalidOperationException ex)
             {
                 _logger.LogWarning(ex, "Playlist not found for sync: {Id}", id);
-                return NotFound($"Playlist with ID {id} not found");
+                return NotFound(new { error = $"Playlist with ID {id} not found" });
             }
             catch (Exception ex)
             {

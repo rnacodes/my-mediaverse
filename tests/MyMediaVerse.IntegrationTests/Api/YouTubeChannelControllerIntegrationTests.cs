@@ -6,6 +6,10 @@ using AwesomeAssertions;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.IntegrationTests.Fixtures;
+using NSubstitute;
+using NSubstitute.ExceptionExtensions;
+using MyMediaVerse.Application.Interfaces;
+using MyMediaVerse.Shared.Exceptions;
 
 namespace MyMediaVerse.IntegrationTests.Api
 {
@@ -225,6 +229,75 @@ namespace MyMediaVerse.IntegrationTests.Api
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             var videos = await response.Content.ReadFromJsonAsync<IEnumerable<VideoResponseDto>>(_jsonOptions);
             videos.Should().NotBeNull();
+        }
+
+        #endregion
+
+        #region YouTube failures on import and sync
+
+        [Fact]
+        public async Task ImportChannel_WhenYouTubeHasNoSuchChannel_ShouldReturnNotFoundWithAnErrorObject()
+        {
+            var (client, _) = _factory.CreateClientWithSubstitute<IYouTubeChannelService>(mock =>
+                mock.ImportChannelFromYouTubeAsync("UCgone").Throws(new YouTubeResourceNotFoundException("channel", "UCgone")));
+
+            var response = await client.PostAsync("/api/youtubechannel/import/UCgone", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+            body.GetProperty("error").GetString().Should().Contain("UCgone");
+        }
+
+        [Fact]
+        public async Task ImportChannel_WhenTheDailyQuotaIsUsedUp_ShouldReturnServiceUnavailableWithTheQuotaFlag()
+        {
+            var (client, _) = _factory.CreateClientWithSubstitute<IYouTubeChannelService>(mock =>
+                mock.ImportChannelFromYouTubeAsync("UCany").Throws(new YouTubeQuotaExceededException("quota used up", "quotaExceeded")));
+
+            var response = await client.PostAsync("/api/youtubechannel/import/UCany", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+            body.GetProperty("quotaExceeded").GetBoolean().Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task ImportChannel_WhenTheApiKeyIsNotConfigured_ShouldReturnServerError_NotBadRequest()
+        {
+            var (client, _) = _factory.CreateClientWithSubstitute<IYouTubeChannelService>(mock =>
+                mock.ImportChannelFromYouTubeAsync("UCany").Throws(new YouTubeNotConfiguredException()));
+
+            var response = await client.PostAsync("/api/youtubechannel/import/UCany", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
+        }
+
+        [Fact]
+        public async Task SyncChannelMetadata_WhenTheChannelLeftYouTube_ShouldReturnNotFoundWithAnErrorObject()
+        {
+            var id = Guid.NewGuid();
+            var (client, _) = _factory.CreateClientWithSubstitute<IYouTubeChannelService>(mock =>
+                mock.SyncChannelMetadataAsync(id).Throws(new YouTubeResourceNotFoundException("channel", "UCgone")));
+
+            var response = await client.PostAsync($"/api/youtubechannel/{id}/sync", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+            body.GetProperty("error").GetString().Should().Contain("UCgone");
+        }
+
+        [Fact]
+        public async Task SyncChannelMetadata_WhenTheDailyQuotaIsUsedUp_ShouldReturnServiceUnavailableWithTheQuotaFlag()
+        {
+            var id = Guid.NewGuid();
+            var (client, _) = _factory.CreateClientWithSubstitute<IYouTubeChannelService>(mock =>
+                mock.SyncChannelMetadataAsync(id).Throws(new YouTubeQuotaExceededException("quota used up", "quotaExceeded")));
+
+            var response = await client.PostAsync($"/api/youtubechannel/{id}/sync", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+            body.GetProperty("quotaExceeded").GetBoolean().Should().BeTrue();
         }
 
         #endregion

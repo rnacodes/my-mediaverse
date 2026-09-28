@@ -4,6 +4,7 @@ using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Shared.DTOs.YouTube;
 using MyMediaVerse.Web.API.Extensions;
+using MyMediaVerse.Shared.Exceptions;
 
 namespace MyMediaVerse.Web.API.Controllers
 {
@@ -298,21 +299,26 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 if (string.IsNullOrWhiteSpace(videoId))
                 {
-                    return BadRequest("Video ID is required");
+                    return BadRequest(new { error = "Video ID is required" });
                 }
 
                 var result = await _youTubeService.ImportVideoAsync(videoId);
                 return CreatedAtAction(nameof(GetVideoDetails), new { videoId = result.ExternalId }, result);
             }
-            catch (InvalidOperationException ex)
+            catch (YouTubeResourceNotFoundException ex)
             {
                 _logger.LogWarning(ex, "Video not found for import: {VideoId}", videoId);
-                return NotFound($"Video with ID {videoId} not found");
+                return NotFound(new { error = ex.Message });
+            }
+            catch (YouTubeQuotaExceededException ex)
+            {
+                _logger.LogWarning(ex, "YouTube quota used up while importing video {VideoId}", videoId);
+                return StatusCode(503, new { error = "YouTube's daily quota is used up. Try again after it resets.", quotaExceeded = true });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error importing YouTube video: {VideoId}", videoId);
-                return StatusCode(500, "An error occurred while importing the video");
+                return StatusCode(500, new { error = "An error occurred while importing the video", details = ex.Message });
             }
         }
 
@@ -328,7 +334,7 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 if (string.IsNullOrWhiteSpace(request?.Url))
                 {
-                    return BadRequest("URL is required");
+                    return BadRequest(new { error = "URL is required" });
                 }
 
                 var result = await _youTubeService.ImportFromUrlAsync(request.Url);
@@ -341,17 +347,22 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (ArgumentException ex)
             {
                 _logger.LogWarning(ex, "Invalid YouTube URL: {Url}", request?.Url);
-                return BadRequest($"Invalid YouTube URL: {ex.Message}");
+                return BadRequest(new { error = $"Invalid YouTube URL: {ex.Message}" });
             }
-            catch (InvalidOperationException ex)
+            catch (YouTubeResourceNotFoundException ex)
             {
                 _logger.LogWarning(ex, "Content not found for URL: {Url}", request?.Url);
-                return NotFound($"Content not found for the provided URL");
+                return NotFound(new { error = ex.Message });
+            }
+            catch (YouTubeQuotaExceededException ex)
+            {
+                _logger.LogWarning(ex, "YouTube quota used up while importing from URL {Url}", request?.Url);
+                return StatusCode(503, new { error = "YouTube's daily quota is used up. Try again after it resets.", quotaExceeded = true });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error importing from YouTube URL: {Url}", request?.Url);
-                return StatusCode(500, "An error occurred while importing from the URL");
+                return StatusCode(500, new { error = "An error occurred while importing from the URL", details = ex.Message });
             }
         }
     }

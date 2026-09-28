@@ -4,6 +4,7 @@ using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Utilities;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
+using MyMediaVerse.Shared.Exceptions;
 using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.Application.Services
@@ -312,7 +313,7 @@ namespace MyMediaVerse.Application.Services
                 var channelDto = await _youTubeApiClient.GetChannelDetailsAsync(channelId);
                 if (channelDto == null)
                 {
-                    throw new InvalidOperationException($"Channel {channelId} not found on YouTube");
+                    throw new YouTubeResourceNotFoundException("channel", channelId);
                 }
 
                 // Map to entity
@@ -345,7 +346,7 @@ namespace MyMediaVerse.Application.Services
                 var channelDto = await _youTubeApiClient.GetChannelDetailsAsync(channel.ChannelExternalId);
                 if (channelDto == null)
                 {
-                    throw new InvalidOperationException($"Channel {channel.ChannelExternalId} not found on YouTube");
+                    throw new YouTubeResourceNotFoundException("channel", channel.ChannelExternalId);
                 }
 
                 // Update metadata

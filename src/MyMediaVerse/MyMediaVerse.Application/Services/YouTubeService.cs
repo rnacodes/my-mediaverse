@@ -3,6 +3,7 @@ using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Helpers;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Shared.DTOs.YouTube;
+using MyMediaVerse.Shared.Exceptions;
 using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.Application.Services
@@ -91,7 +92,7 @@ namespace MyMediaVerse.Application.Services
                 var videoDto = await _youTubeApiClient.GetVideoDetailsAsync(videoId);
                 if (videoDto == null)
                 {
-                    throw new InvalidOperationException($"Video with ID {videoId} not found");
+                    throw new YouTubeResourceNotFoundException("video", videoId);
                 }
 
                 // Auto-import/link channel if available
@@ -119,7 +120,9 @@ namespace MyMediaVerse.Application.Services
                             _logger.LogInformation($"Successfully auto-imported channel: {importedChannel.Title}");
                         }
                     }
-                    catch (Exception channelEx)
+                    // A used-up daily quota stops the whole import; any other channel failure
+                    // only costs the link.
+                    catch (Exception channelEx) when (channelEx is not YouTubeQuotaExceededException)
                     {
                         _logger.LogWarning(channelEx, $"Failed to import channel for video {videoId}, continuing without channel link");
                         // Continue without channel - don't fail the video import
@@ -209,7 +212,7 @@ namespace MyMediaVerse.Application.Services
                 return channelDto.Id;
             }
 
-            throw new InvalidOperationException($"Could not resolve channel identifier: {identifier}");
+            throw new YouTubeResourceNotFoundException("channel", identifier);
         }
     }
 }

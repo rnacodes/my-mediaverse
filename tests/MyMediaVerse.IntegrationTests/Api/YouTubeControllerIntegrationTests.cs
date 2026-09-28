@@ -10,6 +10,7 @@ using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.IntegrationTests.Fixtures;
 using MyMediaVerse.Shared.DTOs.YouTube;
+using MyMediaVerse.Shared.Exceptions;
 using Xunit;
 
 namespace MyMediaVerse.IntegrationTests.Api
@@ -247,17 +248,74 @@ namespace MyMediaVerse.IntegrationTests.Api
         }
 
         [Fact]
-        public async Task ImportVideo_WithInvalidVideoId_ShouldReturnNotFound()
+        public async Task ImportVideo_WhenYouTubeHasNoSuchVideo_ShouldReturnNotFoundWithAnErrorObject()
         {
             // Arrange
             var (client, _) = _factory.CreateClientWithSubstitute<IYouTubeService>(mock =>
-                mock.ImportVideoAsync("invalid_video_id").Throws(new InvalidOperationException("Video not found")));
+                mock.ImportVideoAsync("invalid_video_id").Throws(new YouTubeResourceNotFoundException("video", "invalid_video_id")));
 
             // Act
             var response = await client.PostAsync("/api/YouTube/import/video/invalid_video_id", null);
 
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+            body.GetProperty("error").GetString().Should().Contain("invalid_video_id");
+        }
+
+        [Fact]
+        public async Task ImportVideo_WhenTheDailyQuotaIsUsedUp_ShouldReturnServiceUnavailableWithTheQuotaFlag()
+        {
+            var (client, _) = _factory.CreateClientWithSubstitute<IYouTubeService>(mock =>
+                mock.ImportVideoAsync("dQw4w9WgXcQ").Throws(new YouTubeQuotaExceededException("quota used up", "quotaExceeded")));
+
+            var response = await client.PostAsync("/api/YouTube/import/video/dQw4w9WgXcQ", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+            body.GetProperty("quotaExceeded").GetBoolean().Should().BeTrue();
+            body.GetProperty("error").GetString().Should().NotBeNullOrWhiteSpace();
+        }
+
+        [Fact]
+        public async Task ImportVideo_WhenTheApiKeyIsNotConfigured_ShouldReturnServerError_NotNotFound()
+        {
+            var (client, _) = _factory.CreateClientWithSubstitute<IYouTubeService>(mock =>
+                mock.ImportVideoAsync("dQw4w9WgXcQ").Throws(new YouTubeNotConfiguredException()));
+
+            var response = await client.PostAsync("/api/YouTube/import/video/dQw4w9WgXcQ", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+            body.GetProperty("details").GetString().Should().Contain("API key is not configured");
+        }
+
+        [Fact]
+        public async Task ImportFromUrl_WhenYouTubeHasNothingForTheUrl_ShouldReturnNotFoundWithAnErrorObject()
+        {
+            var url = "https://www.youtube.com/@NoSuchChannel";
+            var (client, _) = _factory.CreateClientWithSubstitute<IYouTubeService>(mock =>
+                mock.ImportFromUrlAsync(url).Throws(new YouTubeResourceNotFoundException("channel", "NoSuchChannel")));
+
+            var response = await client.PostAsJsonAsync("/api/YouTube/import/url", new { url }, _jsonOptions);
+
+            response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+            body.GetProperty("error").GetString().Should().Contain("NoSuchChannel");
+        }
+
+        [Fact]
+        public async Task ImportFromUrl_WhenTheDailyQuotaIsUsedUp_ShouldReturnServiceUnavailableWithTheQuotaFlag()
+        {
+            var url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+            var (client, _) = _factory.CreateClientWithSubstitute<IYouTubeService>(mock =>
+                mock.ImportFromUrlAsync(url).Throws(new YouTubeQuotaExceededException("quota used up", "quotaExceeded")));
+
+            var response = await client.PostAsJsonAsync("/api/YouTube/import/url", new { url }, _jsonOptions);
+
+            response.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+            body.GetProperty("quotaExceeded").GetBoolean().Should().BeTrue();
         }
 
         [Fact]
