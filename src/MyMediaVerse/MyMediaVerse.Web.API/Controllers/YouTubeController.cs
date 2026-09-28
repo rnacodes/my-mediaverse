@@ -303,7 +303,7 @@ namespace MyMediaVerse.Web.API.Controllers
                 }
 
                 var result = await _youTubeService.ImportVideoAsync(videoId);
-                return CreatedAtAction(nameof(GetVideoDetails), new { videoId = result.ExternalId }, result);
+                return CreatedAtAction(nameof(GetVideoDetails), new { videoId }, result.Item);
             }
             catch (YouTubeResourceNotFoundException ex)
             {
@@ -338,11 +338,11 @@ namespace MyMediaVerse.Web.API.Controllers
                 }
 
                 var result = await _youTubeService.ImportFromUrlAsync(request.Url);
-                if (result is Video video)
+                if (result.Item is Video video)
                 {
-                    return CreatedAtAction(nameof(GetVideoDetails), new { videoId = video.ExternalId }, result);
+                    return CreatedAtAction(nameof(GetVideoDetails), new { videoId = video.ExternalId }, result.Item);
                 }
-                return Created(string.Empty, result);
+                return Created(string.Empty, result.Item);
             }
             catch (ArgumentException ex)
             {

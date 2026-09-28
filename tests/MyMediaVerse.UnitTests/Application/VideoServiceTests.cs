@@ -5,6 +5,7 @@ using NSubstitute;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
+using MyMediaVerse.Shared.Exceptions;
 using MyMediaVerse.UnitTests.TestHelpers;
 
 namespace MyMediaVerse.UnitTests.Application
@@ -115,7 +116,7 @@ namespace MyMediaVerse.UnitTests.Application
             await Context.SaveChangesAsync();
 
             // Act
-            var result = await _service.CreateVideoAsync(dto);
+            var result = (await _service.CreateVideoAsync(dto)).Video;
 
             // Assert
             result.Should().NotBeNull();
@@ -153,7 +154,7 @@ namespace MyMediaVerse.UnitTests.Application
             var initialGenreCount = Context.Genres.Count();
 
             // Act
-            var result = await _service.CreateVideoAsync(dto);
+            var result = (await _service.CreateVideoAsync(dto)).Video;
 
             // Assert
             result.Topics.Should().HaveCount(1);
@@ -319,37 +320,308 @@ namespace MyMediaVerse.UnitTests.Application
 
         #endregion
 
-        #region VideoExistsAsync Tests
+        #region Identity Tests
 
-        [Fact]
-        public async Task VideoExistsAsync_WithExistingVideo_ShouldReturnTrue()
+        private Video AddVideo(string title, string platform = "YouTube", string? externalId = null,
+            string? link = null, Guid? channelId = null)
         {
-            // Arrange
-            var title = "Test Video";
-            var channelId = Guid.NewGuid();
-            var video = new Video { Id = Guid.NewGuid(), Title = "Test Video", Platform = "YouTube", ChannelId = channelId, Topics = new List<Topic>(), Genres = new List<Genre>() };
+            var video = new Video
+            {
+                Id = Guid.NewGuid(),
+                Title = title,
+                Platform = platform,
+                ExternalId = externalId,
+                Link = link,
+                ChannelId = channelId,
+                Topics = new List<Topic>(),
+                Genres = new List<Genre>()
+            };
             Context.Videos.Add(video);
-            await Context.SaveChangesAsync();
+            return video;
+        }
 
-            // Act
-            var result = await _service.VideoExistsAsync(title, channelId);
-
-            // Assert
-            result.Should().BeTrue();
+        private YouTubeChannel AddChannel(string externalId = "UC_channel")
+        {
+            var channel = new YouTubeChannel
+            {
+                Id = Guid.NewGuid(),
+                Title = "Channel",
+                ChannelExternalId = externalId,
+                Topics = new List<Topic>(),
+                Genres = new List<Genre>()
+            };
+            Context.YouTubeChannels.Add(channel);
+            return channel;
         }
 
         [Fact]
-        public async Task VideoExistsAsync_WithNonExistingVideo_ShouldReturnFalse()
+        public async Task CreateVideoAsync_ForANewVideo_ReportsItAsCreated()
         {
-            // Arrange
-            var title = "Non-existing Video";
-            var channelId = Guid.NewGuid();
+            var result = await _service.CreateVideoAsync(new CreateVideoDto
+            {
+                Title = "New Video",
+                Platform = "YouTube",
+                Status = Status.Uncharted,
+                ExternalId = "abc123DEF45"
+            });
 
-            // Act
-            var result = await _service.VideoExistsAsync(title, channelId);
+            result.Created.Should().BeTrue();
+            Context.Videos.Count().Should().Be(1);
+        }
 
-            // Assert
-            result.Should().BeFalse();
+        [Fact]
+        public async Task CreateVideoAsync_WhenTheIdIsAlreadyStored_ReturnsTheStoredRowUntouched()
+        {
+            var stored = AddVideo("Stored Title", externalId: "abc123DEF45");
+            stored.Description = "Stored description";
+            await Context.SaveChangesAsync();
+
+            var result = await _service.CreateVideoAsync(new CreateVideoDto
+            {
+                Title = "A Different Title",
+                Platform = "YouTube",
+                Status = Status.Completed,
+                ExternalId = "abc123DEF45",
+                Description = "Incoming description",
+                Notes = "Incoming notes"
+            });
+
+            result.Created.Should().BeFalse();
+            result.Video.Id.Should().Be(stored.Id);
+            result.Video.Title.Should().Be("Stored Title");
+            result.Video.Description.Should().Be("Stored description");
+            result.Video.Notes.Should().BeNull();
+            result.Video.Status.Should().Be(Status.Uncharted);
+            Context.Videos.Count().Should().Be(1);
+        }
+
+        [Fact]
+        public async Task SaveVideoAsync_WhenTheIdIsAlreadyStored_DoesNotEvenFillBlankFields()
+        {
+            var stored = AddVideo("Stored Title", externalId: "abc123DEF45");
+            await Context.SaveChangesAsync();
+
+            var result = await _service.SaveVideoAsync(new Video
+            {
+                Title = "Title From YouTube",
+                Platform = "YouTube",
+                ExternalId = "abc123DEF45",
+                Link = "https://www.youtube.com/watch?v=abc123DEF45",
+                Description = "Description from YouTube",
+                LengthInSeconds = 212
+            });
+
+            result.Created.Should().BeFalse();
+            Context.ChangeTracker.Clear();
+            var row = await Context.Videos.FindAsync(stored.Id);
+            row!.Link.Should().BeNull();
+            row.Description.Should().BeNull();
+            row.LengthInSeconds.Should().Be(0);
+        }
+
+        [Theory]
+        [InlineData("")]
+        [InlineData("   ")]
+        public async Task CreateVideoAsync_StoresABlankIdAsNull(string blankId)
+        {
+            var result = await _service.CreateVideoAsync(new CreateVideoDto
+            {
+                Title = "No Id",
+                Platform = "Vimeo",
+                Status = Status.Uncharted,
+                ExternalId = blankId
+            });
+
+            result.Video.ExternalId.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task CreateVideoAsync_TrimsTheId()
+        {
+            var result = await _service.CreateVideoAsync(new CreateVideoDto
+            {
+                Title = "Padded Id",
+                Platform = "YouTube",
+                Status = Status.Uncharted,
+                ExternalId = "  abc123DEF45 "
+            });
+
+            result.Video.ExternalId.Should().Be("abc123DEF45");
+        }
+
+        [Fact]
+        public async Task CreateVideoAsync_TwoVideosSharingOnlyATitle_AreBothSaved()
+        {
+            var dto = new CreateVideoDto { Title = "Introduction", Platform = "YouTube", Status = Status.Uncharted };
+
+            var first = await _service.CreateVideoAsync(dto);
+            var second = await _service.CreateVideoAsync(dto);
+
+            first.Created.Should().BeTrue();
+            second.Created.Should().BeTrue();
+            Context.Videos.Count().Should().Be(2);
+        }
+
+        [Fact]
+        public async Task SaveVideoAsync_WhenARowIsFoundByItsLink_GivesItTheIdAndFillsBlankFieldsOnly()
+        {
+            var channel = AddChannel();
+            var legacy = AddVideo("My Own Title", link: "https://youtu.be/abc123DEF45");
+            legacy.Notes = "My notes";
+            legacy.Description = "My description";
+            await Context.SaveChangesAsync();
+
+            var result = await _service.SaveVideoAsync(new Video
+            {
+                Title = "Title From YouTube",
+                Platform = "YouTube",
+                ExternalId = "abc123DEF45",
+                Link = "https://www.youtube.com/watch?v=abc123DEF45",
+                ChannelId = channel.Id,
+                Description = "Description from YouTube",
+                Thumbnail = "https://i.ytimg.com/vi/abc123DEF45/hqdefault.jpg",
+                LengthInSeconds = 212
+            });
+
+            result.Created.Should().BeFalse();
+            Context.Videos.Count().Should().Be(1);
+
+            Context.ChangeTracker.Clear();
+            var stored = await Context.Videos.FindAsync(legacy.Id);
+            stored!.ExternalId.Should().Be("abc123DEF45");
+            stored.ChannelId.Should().Be(channel.Id);
+            stored.Thumbnail.Should().Be("https://i.ytimg.com/vi/abc123DEF45/hqdefault.jpg");
+            stored.LengthInSeconds.Should().Be(212);
+            stored.Title.Should().Be("My Own Title");
+            stored.Description.Should().Be("My description");
+            stored.Notes.Should().Be("My notes");
+            stored.Link.Should().Be("https://youtu.be/abc123DEF45");
+        }
+
+        [Fact]
+        public async Task SaveVideoAsync_ForANewVideo_SavesItAndInheritsTheChannelTopics()
+        {
+            var topic = new Topic { Name = "technology" };
+            Context.Topics.Add(topic);
+            var channel = AddChannel();
+            channel.Topics.Add(topic);
+            await Context.SaveChangesAsync();
+
+            var result = await _service.SaveVideoAsync(new Video
+            {
+                Title = "New Video",
+                Platform = "YouTube",
+                ExternalId = "abc123DEF45",
+                ChannelId = channel.Id
+            });
+
+            result.Created.Should().BeTrue();
+            result.Video.Topics.Select(t => t.Name).Should().BeEquivalentTo(new[] { "technology" });
+        }
+
+        [Fact]
+        public async Task GetVideoByExternalIdAsync_MatchesTheIdOnThatPlatformOnly()
+        {
+            var youTube = AddVideo("On YouTube", platform: "YouTube", externalId: "12345678901");
+            AddVideo("On Vimeo", platform: "Vimeo", externalId: "12345678901");
+            AddVideo("Link only", link: "https://youtu.be/abc123DEF45");
+            await Context.SaveChangesAsync();
+
+            (await _service.GetVideoByExternalIdAsync("YouTube", "12345678901"))!.Id.Should().Be(youTube.Id);
+            (await _service.GetVideoByExternalIdAsync("YouTube", "abc123DEF45")).Should().BeNull();
+            (await _service.GetVideoByExternalIdAsync("YouTube", " ")).Should().BeNull();
+        }
+
+        [Fact]
+        public async Task Reads_IncludeTheChannel()
+        {
+            var channel = AddChannel();
+            var video = AddVideo("With Channel", externalId: "abc123DEF45", channelId: channel.Id);
+            await Context.SaveChangesAsync();
+            Context.ChangeTracker.Clear();
+
+            (await _service.GetVideoByIdAsync(video.Id))!.Channel!.Id.Should().Be(channel.Id);
+            (await _service.GetAllVideosAsync()).Single().Channel!.Id.Should().Be(channel.Id);
+            (await _service.GetVideoByExternalIdAsync("YouTube", "abc123DEF45"))!.Channel!.Id.Should().Be(channel.Id);
+        }
+
+        [Fact]
+        public async Task UpdateVideoAsync_WhenTheRequestLeavesOutTheChannel_KeepsTheStoredLink()
+        {
+            var channel = AddChannel();
+            var video = AddVideo("Old Title", externalId: "abc123DEF45", channelId: channel.Id);
+            await Context.SaveChangesAsync();
+
+            await _service.UpdateVideoAsync(video.Id, new CreateVideoDto
+            {
+                Title = "Updated Title",
+                Platform = "YouTube",
+                Status = Status.Uncharted,
+                ExternalId = "abc123DEF45"
+            });
+
+            Context.ChangeTracker.Clear();
+            var stored = await Context.Videos.FindAsync(video.Id);
+            stored!.Title.Should().Be("Updated Title");
+            stored.ChannelId.Should().Be(channel.Id);
+        }
+
+        [Fact]
+        public async Task UpdateVideoAsync_StoresABlankIdAsNull()
+        {
+            var video = AddVideo("Title", externalId: "abc123DEF45");
+            await Context.SaveChangesAsync();
+
+            await _service.UpdateVideoAsync(video.Id, new CreateVideoDto
+            {
+                Title = "Title",
+                Platform = "YouTube",
+                Status = Status.Uncharted,
+                ExternalId = "  "
+            });
+
+            Context.ChangeTracker.Clear();
+            (await Context.Videos.FindAsync(video.Id))!.ExternalId.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task UpdateVideoAsync_WhenAnotherVideoHoldsTheId_ThrowsAConflictAndChangesNothing()
+        {
+            AddVideo("Owner", externalId: "abc123DEF45");
+            var other = AddVideo("Other", externalId: "zzz999YYY88");
+            await Context.SaveChangesAsync();
+
+            var exception = await Assert.ThrowsAsync<VideoIdentityConflictException>(() =>
+                _service.UpdateVideoAsync(other.Id, new CreateVideoDto
+                {
+                    Title = "Renamed",
+                    Platform = "YouTube",
+                    Status = Status.Uncharted,
+                    ExternalId = "abc123DEF45"
+                }));
+
+            exception.ExternalId.Should().Be("abc123DEF45");
+            Context.ChangeTracker.Clear();
+            var stored = await Context.Videos.FindAsync(other.Id);
+            stored!.Title.Should().Be("Other");
+            stored.ExternalId.Should().Be("zzz999YYY88");
+        }
+
+        [Fact]
+        public async Task UpdateVideoAsync_KeepingItsOwnId_IsNotAConflict()
+        {
+            var video = AddVideo("Title", externalId: "abc123DEF45");
+            await Context.SaveChangesAsync();
+
+            var updated = await _service.UpdateVideoAsync(video.Id, new CreateVideoDto
+            {
+                Title = "Renamed",
+                Platform = "YouTube",
+                Status = Status.Uncharted,
+                ExternalId = "abc123DEF45"
+            });
+
+            updated.Title.Should().Be("Renamed");
         }
 
         #endregion
@@ -388,7 +660,7 @@ namespace MyMediaVerse.UnitTests.Application
             };
 
             // Act
-            var result = await _service.CreateVideoAsync(dto);
+            var result = (await _service.CreateVideoAsync(dto)).Video;
 
             // Assert
             result.Should().NotBeNull();
@@ -429,7 +701,7 @@ namespace MyMediaVerse.UnitTests.Application
             };
 
             // Act
-            var result = await _service.CreateVideoAsync(dto);
+            var result = (await _service.CreateVideoAsync(dto)).Video;
 
             // Assert
             result.Should().NotBeNull();

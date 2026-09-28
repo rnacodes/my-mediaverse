@@ -234,7 +234,7 @@ namespace MyMediaVerse.IntegrationTests.Api
             var videoId = "dQw4w9WgXcQ";
             var expectedVideo = CreateVideoEntity(videoId, "Never Gonna Give You Up");
             var (client, _) = _factory.CreateClientWithSubstitute<IYouTubeService>(mock =>
-                mock.ImportVideoAsync(videoId).Returns(expectedVideo));
+                mock.ImportVideoAsync(videoId).Returns(new YouTubeImportResult(expectedVideo, true)));
 
             // Act
             var response = await client.PostAsync($"/api/YouTube/import/video/{videoId}", null);
@@ -325,7 +325,7 @@ namespace MyMediaVerse.IntegrationTests.Api
             var videoUrl = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
             var expectedVideo = CreateVideoEntity("dQw4w9WgXcQ", "Never Gonna Give You Up");
             var (client, _) = _factory.CreateClientWithSubstitute<IYouTubeService>(mock =>
-                mock.ImportFromUrlAsync(videoUrl).Returns(expectedVideo));
+                mock.ImportFromUrlAsync(videoUrl).Returns(new YouTubeImportResult(expectedVideo, true)));
 
             var requestBody = JsonSerializer.Serialize(new { url = videoUrl }, _jsonOptions);
             var content = new StringContent(requestBody, Encoding.UTF8, "application/json");

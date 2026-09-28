@@ -953,10 +953,6 @@ namespace MyMediaVerse.Web.API.Controllers
             if (!string.IsNullOrEmpty(ratingStr) && Enum.TryParse<Rating>(ratingStr, true, out Rating rating))
                 video.Rating = rating;
 
-            var ownershipStr = GetCsvValue(csv, "OwnershipStatus");
-            if (!string.IsNullOrEmpty(ownershipStr) && Enum.TryParse<OwnershipStatus>(ownershipStr, true, out OwnershipStatus ownership))
-                video.OwnershipStatus = ownership;
-
             return Task.FromResult<Video?>(video);
         }
 

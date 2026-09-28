@@ -109,9 +109,9 @@ namespace MyMediaVerse.Web.API.Controllers
                     return BadRequest(ModelState);
                 }
 
-                var video = await _videoService.CreateVideoAsync(dto);
-                var response = MapToResponseDto(video);
-                return CreatedAtAction(nameof(GetVideo), new { id = video.Id }, response);
+                var result = await _videoService.CreateVideoAsync(dto);
+                var response = MapToResponseDto(result.Video);
+                return CreatedAtAction(nameof(GetVideo), new { id = result.Video.Id }, response);
             }
             catch (Exception ex)
             {
@@ -198,7 +198,6 @@ namespace MyMediaVerse.Web.API.Controllers
                 LengthInSeconds = video.LengthInSeconds,
                 ExternalId = video.ExternalId,
                 Rating = video.Rating,
-                OwnershipStatus = video.OwnershipStatus,
                 DateCompleted = video.DateCompleted,
                 Notes = video.Notes,
                 RelatedNotes = video.RelatedNotes,

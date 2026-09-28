@@ -297,7 +297,7 @@ namespace MyMediaVerse.Application.Services
             }
         }
 
-        public async Task<YouTubeChannel> ImportChannelFromYouTubeAsync(string channelId)
+        public async Task<YouTubeChannelCreationResult> ImportChannelFromYouTubeAsync(string channelId)
         {
             try
             {
@@ -306,7 +306,7 @@ namespace MyMediaVerse.Application.Services
                 if (existingChannel != null)
                 {
                     _logger.LogInformation("Channel {ChannelId} already exists, returning existing channel", channelId);
-                    return existingChannel;
+                    return new YouTubeChannelCreationResult(existingChannel, false);
                 }
 
                 // Fetch channel data from YouTube API
@@ -319,11 +319,29 @@ namespace MyMediaVerse.Application.Services
                 // Map to entity
                 var channel = _mappingService.MapChannelToYouTubeChannelEntity(channelDto);
 
-                _context.Add(channel);
-                await _context.SaveChangesAsync();
+                try
+                {
+                    _context.Add(channel);
+                    await _context.SaveChangesAsync();
+                }
+                catch (DbUpdateException ex)
+                {
+                    // Another request imported the same channel first: drop the rejected row
+                    // from tracking and hand back the one that won.
+                    _context.ClearChangeTracker();
+
+                    var winner = await GetChannelByExternalIdAsync(channelId);
+                    if (winner == null)
+                    {
+                        throw;
+                    }
+
+                    _logger.LogInformation(ex, "Channel {ChannelId} was imported by another request first", channelId);
+                    return new YouTubeChannelCreationResult(winner, false);
+                }
 
                 _logger.LogInformation("Imported YouTube channel {Title} with external ID {ExternalId}", channel.Title, channel.ChannelExternalId);
-                return channel;
+                return new YouTubeChannelCreationResult(channel, true);
             }
             catch (Exception ex)
             {

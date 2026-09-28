@@ -44,6 +44,10 @@ namespace MyMediaVerse.UnitTests.Application
                 .GetChannelByExternalIdAsync(Arg.Any<string>())
                 .Returns((YouTubeChannel?)null);
 
+            _mockVideoService
+                .GetVideoByExternalIdAsync(Arg.Any<string>(), Arg.Any<string>())
+                .Returns((Video?)null);
+
             _service = new YouTubeService(
                 _mockApiClient,
                 _mockMappingService,
@@ -184,18 +188,19 @@ namespace MyMediaVerse.UnitTests.Application
                 .Returns(mappedVideo);
 
             _mockVideoService
-                .SaveVideoAsync(mappedVideo, true)
-                .Returns(savedVideo);
+                .SaveVideoAsync(mappedVideo)
+                .Returns(new VideoCreationResult(savedVideo, true));
 
             // Act
             var result = await _service.ImportVideoAsync(videoId);
 
             // Assert
-            result.Should().NotBeNull();
-            result.Should().BeSameAs(savedVideo);
+            result.Item.Should().BeSameAs(savedVideo);
+            result.Created.Should().BeTrue();
+            result.AutoImportedChannel.Should().BeNull();
             _mockApiClient.Received(1).GetVideoDetailsAsync(videoId);
             _mockMappingService.Received(1).MapVideoToEntity(videoDto);
-            _mockVideoService.Received(1).SaveVideoAsync(mappedVideo, true);
+            _mockVideoService.Received(1).SaveVideoAsync(mappedVideo);
         }
 
         [Fact]
@@ -216,7 +221,7 @@ namespace MyMediaVerse.UnitTests.Application
             exception.Identifier.Should().Be(videoId);
             _mockApiClient.Received(1).GetVideoDetailsAsync(videoId);
             _mockMappingService.DidNotReceive().MapVideoToEntity(Arg.Any<YouTubeVideoDto>());
-            _mockVideoService.DidNotReceive().SaveVideoAsync(Arg.Any<Video>(), Arg.Any<bool>());
+            _mockVideoService.DidNotReceive().SaveVideoAsync(Arg.Any<Video>());
         }
 
         [Fact]
@@ -235,6 +240,86 @@ namespace MyMediaVerse.UnitTests.Application
                 () => _service.ImportVideoAsync(videoId));
 
             exception.Should().BeSameAs(expectedException);
+        }
+
+        [Fact]
+        public async Task ImportVideoAsync_WhenTheIdIsAlreadyStored_ReturnsTheStoredVideoWithoutCallingYouTube()
+        {
+            var stored = new Video { Id = Guid.NewGuid(), Title = "Stored", MediaType = MediaType.Video, Platform = "YouTube", ExternalId = "abc123DEF45" };
+            _mockVideoService.GetVideoByExternalIdAsync("YouTube", "abc123DEF45").Returns(stored);
+
+            var result = await _service.ImportVideoAsync("abc123DEF45");
+
+            result.Item.Should().BeSameAs(stored);
+            result.Created.Should().BeFalse();
+            result.AutoImportedChannel.Should().BeNull();
+            await _mockApiClient.DidNotReceive().GetVideoDetailsAsync(Arg.Any<string>());
+            await _mockChannelService.DidNotReceive().ImportChannelFromYouTubeAsync(Arg.Any<string>());
+            await _mockVideoService.DidNotReceive().SaveVideoAsync(Arg.Any<Video>());
+        }
+
+        [Fact]
+        public async Task ImportVideoAsync_WhenItBringsInANewChannel_ReportsTheChannelAndLinksTheVideo()
+        {
+            var videoDto = new YouTubeVideoDto
+            {
+                Id = "video_with_channel",
+                Snippet = new YouTubeVideoSnippetDto { Title = "Test Video", ChannelId = "UC_new_channel" }
+            };
+            var mappedVideo = new Video { Title = "Test Video", MediaType = MediaType.Video, Platform = "YouTube" };
+            var newChannel = new YouTubeChannel { Id = Guid.NewGuid(), Title = "New Channel", ChannelExternalId = "UC_new_channel", MediaType = MediaType.Channel };
+            _mockApiClient.GetVideoDetailsAsync("video_with_channel").Returns(videoDto);
+            _mockChannelService.ImportChannelFromYouTubeAsync("UC_new_channel").Returns(new YouTubeChannelCreationResult(newChannel, true));
+            _mockMappingService.MapVideoToEntity(videoDto).Returns(mappedVideo);
+            _mockVideoService.SaveVideoAsync(mappedVideo).Returns(new VideoCreationResult(mappedVideo, true));
+
+            var result = await _service.ImportVideoAsync("video_with_channel");
+
+            result.Created.Should().BeTrue();
+            result.AutoImportedChannel.Should().BeSameAs(newChannel);
+            ((Video)result.Item).ChannelId.Should().Be(newChannel.Id);
+        }
+
+        [Fact]
+        public async Task ImportVideoAsync_WhenTheChannelIsAlreadyStored_LinksItWithoutReportingAnImport()
+        {
+            var videoDto = new YouTubeVideoDto
+            {
+                Id = "video_with_channel",
+                Snippet = new YouTubeVideoSnippetDto { Title = "Test Video", ChannelId = "UC_stored_channel" }
+            };
+            var mappedVideo = new Video { Title = "Test Video", MediaType = MediaType.Video, Platform = "YouTube" };
+            var storedChannel = new YouTubeChannel { Id = Guid.NewGuid(), Title = "Stored Channel", ChannelExternalId = "UC_stored_channel", MediaType = MediaType.Channel };
+            _mockApiClient.GetVideoDetailsAsync("video_with_channel").Returns(videoDto);
+            _mockChannelService.GetChannelByExternalIdAsync("UC_stored_channel").Returns(storedChannel);
+            _mockMappingService.MapVideoToEntity(videoDto).Returns(mappedVideo);
+            _mockVideoService.SaveVideoAsync(mappedVideo).Returns(new VideoCreationResult(mappedVideo, true));
+
+            var result = await _service.ImportVideoAsync("video_with_channel");
+
+            result.AutoImportedChannel.Should().BeNull();
+            ((Video)result.Item).ChannelId.Should().Be(storedChannel.Id);
+            await _mockChannelService.DidNotReceive().ImportChannelFromYouTubeAsync(Arg.Any<string>());
+        }
+
+        [Fact]
+        public async Task ImportVideoAsync_WhenTheSaveFindsTheVideoAlreadyStored_ReportsItAsNotCreated()
+        {
+            var videoDto = new YouTubeVideoDto
+            {
+                Id = "legacy_video",
+                Snippet = new YouTubeVideoSnippetDto { Title = "Test Video" }
+            };
+            var mappedVideo = new Video { Title = "Test Video", MediaType = MediaType.Video, Platform = "YouTube" };
+            var legacyRow = new Video { Id = Guid.NewGuid(), Title = "My Title", MediaType = MediaType.Video, Platform = "YouTube" };
+            _mockApiClient.GetVideoDetailsAsync("legacy_video").Returns(videoDto);
+            _mockMappingService.MapVideoToEntity(videoDto).Returns(mappedVideo);
+            _mockVideoService.SaveVideoAsync(mappedVideo).Returns(new VideoCreationResult(legacyRow, false));
+
+            var result = await _service.ImportVideoAsync("legacy_video");
+
+            result.Item.Should().BeSameAs(legacyRow);
+            result.Created.Should().BeFalse();
         }
 
         #endregion
@@ -261,22 +346,22 @@ namespace MyMediaVerse.UnitTests.Application
 
             // Setup for channel service calls
             _mockChannelService.GetChannelByExternalIdAsync(Arg.Any<string>()).Returns((YouTubeChannel?)null);
-            _mockChannelService.ImportChannelFromYouTubeAsync(Arg.Any<string>()).Returns(new YouTubeChannel { Id = Guid.NewGuid(), Title = "Imported Channel", ChannelExternalId = "channel_id", MediaType = MediaType.Channel });
+            _mockChannelService.ImportChannelFromYouTubeAsync(Arg.Any<string>()).Returns(new YouTubeChannelCreationResult(
+                new YouTubeChannel { Id = Guid.NewGuid(), Title = "Imported Channel", ChannelExternalId = "channel_id", MediaType = MediaType.Channel }, true));
 
             _mockMappingService
                 .MapVideoToEntity(videoDto)
                 .Returns(mappedVideo);
 
             _mockVideoService
-                .SaveVideoAsync(mappedVideo, true)
-                .Returns(savedVideo);
+                .SaveVideoAsync(mappedVideo)
+                .Returns(new VideoCreationResult(savedVideo, true));
 
             // Act
             var result = await _service.ImportFromUrlAsync(videoUrl);
 
             // Assert
-            result.Should().NotBeNull();
-            result.Should().BeSameAs(savedVideo);
+            result.Item.Should().BeSameAs(savedVideo);
             _mockApiClient.Received(1).GetVideoDetailsAsync(videoId);
         }
 
@@ -296,13 +381,14 @@ namespace MyMediaVerse.UnitTests.Application
 
             _mockPlaylistService
                 .ImportPlaylistFromYouTubeAsync(playlistId)
-                .Returns(importedPlaylist);
+                .Returns(new YouTubePlaylistCreationResult(importedPlaylist, true));
 
             // Act
             var result = await _service.ImportFromUrlAsync(playlistUrl);
 
             // Assert
-            result.Should().BeSameAs(importedPlaylist);
+            result.Item.Should().BeSameAs(importedPlaylist);
+            result.Created.Should().BeTrue();
             await _mockPlaylistService.Received(1).ImportPlaylistFromYouTubeAsync(playlistId);
         }
 
@@ -322,13 +408,14 @@ namespace MyMediaVerse.UnitTests.Application
 
             _mockChannelService
                 .ImportChannelFromYouTubeAsync(channelId)
-                .Returns(importedChannel);
+                .Returns(new YouTubeChannelCreationResult(importedChannel, false));
 
             // Act
             var result = await _service.ImportFromUrlAsync(channelUrl);
 
             // Assert
-            result.Should().BeSameAs(importedChannel);
+            result.Item.Should().BeSameAs(importedChannel);
+            result.Created.Should().BeFalse();
             await _mockChannelService.Received(1).ImportChannelFromYouTubeAsync(channelId);
         }
 
@@ -361,7 +448,7 @@ namespace MyMediaVerse.UnitTests.Application
             await Assert.ThrowsAsync<YouTubeQuotaExceededException>(
                 () => _service.ImportVideoAsync("video_with_channel"));
 
-            await _mockVideoService.DidNotReceive().SaveVideoAsync(Arg.Any<Video>(), Arg.Any<bool>());
+            await _mockVideoService.DidNotReceive().SaveVideoAsync(Arg.Any<Video>());
         }
 
         [Fact]
@@ -378,12 +465,13 @@ namespace MyMediaVerse.UnitTests.Application
                 .ImportChannelFromYouTubeAsync("UC_new_channel")
                 .ThrowsAsync(new HttpRequestException("connection reset"));
             _mockMappingService.MapVideoToEntity(videoDto).Returns(mappedVideo);
-            _mockVideoService.SaveVideoAsync(mappedVideo, true).Returns(mappedVideo);
+            _mockVideoService.SaveVideoAsync(mappedVideo).Returns(new VideoCreationResult(mappedVideo, true));
 
             var result = await _service.ImportVideoAsync("video_with_channel");
 
-            result.ChannelId.Should().BeNull();
-            await _mockVideoService.Received(1).SaveVideoAsync(mappedVideo, true);
+            ((Video)result.Item).ChannelId.Should().BeNull();
+            result.AutoImportedChannel.Should().BeNull();
+            await _mockVideoService.Received(1).SaveVideoAsync(mappedVideo);
         }
 
         [Fact]

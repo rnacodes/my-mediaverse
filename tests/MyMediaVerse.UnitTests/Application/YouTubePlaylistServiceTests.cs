@@ -280,6 +280,50 @@ namespace MyMediaVerse.UnitTests.Application
 
         #endregion
 
+        #region Import result Tests
+
+        [Fact]
+        public async Task ImportPlaylistFromYouTubeAsync_ForANewPlaylist_SavesItAndReportsItAsCreated()
+        {
+            var playlistDto = new YouTubePlaylistDto { Id = "PLnew", Snippet = new YouTubePlaylistSnippetDto { Title = "New Playlist" } };
+            _mockYouTubeApiClient.GetPlaylistDetailsAsync("PLnew").Returns(playlistDto);
+            _mockMappingService.MapPlaylistToYouTubePlaylistEntity(playlistDto).Returns(new YouTubePlaylist
+            {
+                Title = "New Playlist",
+                PlaylistExternalId = "PLnew",
+                MediaType = MediaType.Playlist
+            });
+
+            var result = await _service.ImportPlaylistFromYouTubeAsync("PLnew");
+
+            Assert.True(result.Created);
+            Assert.Equal("PLnew", result.Playlist.PlaylistExternalId);
+            Assert.Single(Context.YouTubePlaylists);
+        }
+
+        [Fact]
+        public async Task ImportPlaylistFromYouTubeAsync_WhenThePlaylistIsAlreadyStored_ReturnsItWithoutCallingYouTube()
+        {
+            var stored = new YouTubePlaylist
+            {
+                Id = Guid.NewGuid(),
+                Title = "Stored Playlist",
+                PlaylistExternalId = "PLstored",
+                MediaType = MediaType.Playlist
+            };
+            Context.YouTubePlaylists.Add(stored);
+            await Context.SaveChangesAsync();
+
+            var result = await _service.ImportPlaylistFromYouTubeAsync("PLstored");
+
+            Assert.False(result.Created);
+            Assert.Equal(stored.Id, result.Playlist.Id);
+            Assert.Single(Context.YouTubePlaylists);
+            await _mockYouTubeApiClient.DidNotReceive().GetPlaylistDetailsAsync(Arg.Any<string>());
+        }
+
+        #endregion
+
         #region YouTube not-found Tests
 
         [Fact]

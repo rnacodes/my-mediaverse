@@ -344,6 +344,39 @@ namespace MyMediaVerse.UnitTests.Application
 
         #endregion
 
+        #region Import result Tests
+
+        [Fact]
+        public async Task ImportChannelFromYouTubeAsync_ForANewChannel_SavesItAndReportsItAsCreated()
+        {
+            var channelDto = new YouTubeChannelDto { Id = "UCnew", Snippet = new YouTubeChannelSnippetDto { Title = "New Channel" } };
+            _mockYouTubeApiClient.GetChannelDetailsAsync("UCnew").Returns(channelDto);
+            _mockMappingService.MapChannelToYouTubeChannelEntity(channelDto).Returns(CreateTestChannel("New Channel", "UCnew"));
+
+            var result = await _service.ImportChannelFromYouTubeAsync("UCnew");
+
+            result.Created.Should().BeTrue();
+            result.Channel.ChannelExternalId.Should().Be("UCnew");
+            Context.YouTubeChannels.Should().ContainSingle();
+        }
+
+        [Fact]
+        public async Task ImportChannelFromYouTubeAsync_WhenTheChannelIsAlreadyStored_ReturnsItWithoutCallingYouTube()
+        {
+            var stored = CreateTestChannel("Stored Channel", "UCstored");
+            Context.YouTubeChannels.Add(stored);
+            await Context.SaveChangesAsync();
+
+            var result = await _service.ImportChannelFromYouTubeAsync("UCstored");
+
+            result.Created.Should().BeFalse();
+            result.Channel.Id.Should().Be(stored.Id);
+            Context.YouTubeChannels.Should().ContainSingle();
+            await _mockYouTubeApiClient.DidNotReceive().GetChannelDetailsAsync(Arg.Any<string>());
+        }
+
+        #endregion
+
         #region YouTube not-found Tests
 
         [Fact]

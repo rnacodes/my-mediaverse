@@ -2,6 +2,12 @@ using MyMediaVerse.Domain.Entities;
 
 namespace MyMediaVerse.Application.Interfaces
 {
+    /// <summary>
+    /// The outcome of importing a playlist: the stored row, and whether this call created it
+    /// or found it already in the library.
+    /// </summary>
+    public record YouTubePlaylistCreationResult(YouTubePlaylist Playlist, bool Created);
+
     public interface IYouTubePlaylistService
     {
         /// <summary>
@@ -28,8 +34,8 @@ namespace MyMediaVerse.Application.Interfaces
         /// Import a YouTube playlist from the YouTube API as a first-class YouTubePlaylist entity
         /// </summary>
         /// <param name="playlistExternalId">YouTube playlist ID</param>
-        /// <returns>The imported YouTubePlaylist entity</returns>
-        Task<YouTubePlaylist> ImportPlaylistFromYouTubeAsync(string playlistExternalId);
+        /// <returns>The stored playlist, and whether this call created it</returns>
+        Task<YouTubePlaylistCreationResult> ImportPlaylistFromYouTubeAsync(string playlistExternalId);
         
         /// <summary>
         /// Add a video to a playlist

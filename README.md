@@ -375,6 +375,8 @@ npm run test:run      # Single run
 npm run test:coverage # With coverage
 ```
 
+The coverage run prints a per-file table and writes an HTML report to `frontend/coverage/index.html`. Every source file under `src/` is counted, including files that have no tests yet (see the `coverage` block in `frontend/vitest.config.js`).
+
 ### Backend Coverage
 
 ```powershell

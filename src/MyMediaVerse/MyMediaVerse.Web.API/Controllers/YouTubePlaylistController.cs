@@ -137,8 +137,8 @@ namespace MyMediaVerse.Web.API.Controllers
                     return BadRequest(new { error = "Playlist external ID is required" });
                 }
 
-                var playlist = await _playlistService.ImportPlaylistFromYouTubeAsync(externalId);
-                return Ok(MapToResponseDto(playlist, includeVideos: false));
+                var result = await _playlistService.ImportPlaylistFromYouTubeAsync(externalId);
+                return Ok(MapToResponseDto(result.Playlist, includeVideos: false));
             }
             catch (YouTubeResourceNotFoundException ex)
             {

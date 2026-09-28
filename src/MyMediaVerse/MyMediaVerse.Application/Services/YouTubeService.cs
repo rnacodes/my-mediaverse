@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Helpers;
+using MyMediaVerse.Application.Utilities;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Shared.DTOs.YouTube;
 using MyMediaVerse.Shared.Exceptions;
@@ -83,11 +84,20 @@ namespace MyMediaVerse.Application.Services
             return await _youTubeApiClient.GetChannelUploadsAsync(channelId, maxResults, pageToken);
         }
 
-        public async Task<Video> ImportVideoAsync(string videoId)
+        public async Task<YouTubeImportResult> ImportVideoAsync(string videoId)
         {
             try
             {
                 _logger.LogInformation($"Importing YouTube video: {videoId}");
+
+                // A video already stored under this id is returned as it is, without
+                // spending a YouTube call.
+                var storedVideo = await _videoService.GetVideoByExternalIdAsync(VideoDuplicateFinder.YouTubePlatform, videoId);
+                if (storedVideo != null)
+                {
+                    _logger.LogInformation($"YouTube video {videoId} is already in the library");
+                    return new YouTubeImportResult(storedVideo, false);
+                }
 
                 var videoDto = await _youTubeApiClient.GetVideoDetailsAsync(videoId);
                 if (videoDto == null)
@@ -97,6 +107,7 @@ namespace MyMediaVerse.Application.Services
 
                 // Auto-import/link channel if available
                 Guid? channelId = null;
+                YouTubeChannel? autoImportedChannel = null;
                 if (!string.IsNullOrEmpty(videoDto.Snippet?.ChannelId))
                 {
                     try
@@ -116,8 +127,12 @@ namespace MyMediaVerse.Application.Services
                             // Import the channel
                             _logger.LogInformation($"Auto-importing channel: {videoDto.Snippet.ChannelTitle}");
                             var importedChannel = await _channelService.ImportChannelFromYouTubeAsync(videoDto.Snippet.ChannelId);
-                            channelId = importedChannel.Id;
-                            _logger.LogInformation($"Successfully auto-imported channel: {importedChannel.Title}");
+                            channelId = importedChannel.Channel.Id;
+                            if (importedChannel.Created)
+                            {
+                                autoImportedChannel = importedChannel.Channel;
+                            }
+                            _logger.LogInformation($"Successfully auto-imported channel: {importedChannel.Channel.Title}");
                         }
                     }
                     // A used-up daily quota stops the whole import; any other channel failure
@@ -134,11 +149,11 @@ namespace MyMediaVerse.Application.Services
                 {
                     video.ChannelId = channelId.Value;
                 }
-                var savedVideo = await _videoService.SaveVideoAsync(video, updateIfExists: true);
+                var saved = await _videoService.SaveVideoAsync(video);
 
                 _logger.LogInformation($"Successfully imported YouTube video: {video.Title}" + 
                     (channelId.HasValue ? $" (linked to channel)" : ""));
-                return savedVideo;
+                return new YouTubeImportResult(saved.Video, saved.Created, autoImportedChannel);
             }
             catch (Exception ex)
             {
@@ -147,7 +162,7 @@ namespace MyMediaVerse.Application.Services
             }
         }
 
-        public async Task<BaseMediaItem> ImportFromUrlAsync(string url)
+        public async Task<YouTubeImportResult> ImportFromUrlAsync(string url)
         {
             try
             {
@@ -164,7 +179,8 @@ namespace MyMediaVerse.Application.Services
                 var playlistId = YouTubeHelper.ExtractPlaylistIdFromUrl(url);
                 if (!string.IsNullOrEmpty(playlistId))
                 {
-                    return await _playlistService.ImportPlaylistFromYouTubeAsync(playlistId);
+                    var playlist = await _playlistService.ImportPlaylistFromYouTubeAsync(playlistId);
+                    return new YouTubeImportResult(playlist.Playlist, playlist.Created);
                 }
 
                 // Try to extract channel identifier (could be ID, handle, or username)
@@ -172,7 +188,8 @@ namespace MyMediaVerse.Application.Services
                 if (!string.IsNullOrEmpty(channelIdentifier))
                 {
                     var resolvedChannelId = await ResolveChannelIdAsync(channelIdentifier);
-                    return await _channelService.ImportChannelFromYouTubeAsync(resolvedChannelId);
+                    var channel = await _channelService.ImportChannelFromYouTubeAsync(resolvedChannelId);
+                    return new YouTubeImportResult(channel.Channel, channel.Created);
                 }
 
                 throw new ArgumentException($"Unable to extract valid YouTube ID from URL: {url}");

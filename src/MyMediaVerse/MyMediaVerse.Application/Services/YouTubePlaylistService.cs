@@ -91,7 +91,7 @@ namespace MyMediaVerse.Application.Services
                 .ToList();
         }
 
-        public async Task<YouTubePlaylist> ImportPlaylistFromYouTubeAsync(string playlistExternalId)
+        public async Task<YouTubePlaylistCreationResult> ImportPlaylistFromYouTubeAsync(string playlistExternalId)
         {
             try
             {
@@ -102,7 +102,7 @@ namespace MyMediaVerse.Application.Services
                 if (existingPlaylist != null)
                 {
                     _logger.LogInformation($"Playlist {playlistExternalId} already exists, returning existing playlist");
-                    return existingPlaylist;
+                    return new YouTubePlaylistCreationResult(existingPlaylist, false);
                 }
 
                 // Get playlist details from YouTube API
@@ -120,7 +120,9 @@ namespace MyMediaVerse.Application.Services
 
                 _logger.LogInformation($"Successfully imported playlist {savedPlaylist.Title} (videos not auto-imported - use selective import)");
 
-                return savedPlaylist;
+                // The save hands back a different row when another request imported the
+                // playlist first.
+                return new YouTubePlaylistCreationResult(savedPlaylist, ReferenceEquals(savedPlaylist, playlist));
             }
             catch (Exception ex)
             {
@@ -303,8 +305,26 @@ namespace MyMediaVerse.Application.Services
 
             // Topics and Genres will be handled via the navigation properties
             // EF Core will automatically track and manage these relationships
-            _context.Add(playlist);
-            await _context.SaveChangesAsync();
+            try
+            {
+                _context.Add(playlist);
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                // Another request saved the same playlist first: drop the rejected row from
+                // tracking and hand back the one that won.
+                _context.ClearChangeTracker();
+
+                var winner = await GetPlaylistByExternalIdAsync(playlist.PlaylistExternalId);
+                if (winner == null)
+                {
+                    throw;
+                }
+
+                _logger.LogInformation(ex, "Playlist {PlaylistId} was saved by another request first", playlist.PlaylistExternalId);
+                return winner;
+            }
 
             return playlist;
         }

@@ -117,7 +117,6 @@ namespace MyMediaVerse.Web.API.Controllers
                     LengthInSeconds = v.LengthInSeconds,
                     ExternalId = v.ExternalId,
                     Rating = v.Rating,
-                    OwnershipStatus = v.OwnershipStatus,
                     DateCompleted = v.DateCompleted,
                     Notes = v.Notes,
                     RelatedNotes = v.RelatedNotes,
@@ -233,8 +232,8 @@ namespace MyMediaVerse.Web.API.Controllers
         {
             try
             {
-                var channel = await _channelService.ImportChannelFromYouTubeAsync(channelId);
-                var response = MapToResponseDto(channel);
+                var result = await _channelService.ImportChannelFromYouTubeAsync(channelId);
+                var response = MapToResponseDto(result.Channel);
                 return Ok(response);
             }
             catch (YouTubeResourceNotFoundException ex)

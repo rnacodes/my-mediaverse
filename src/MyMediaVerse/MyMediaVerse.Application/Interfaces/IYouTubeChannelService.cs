@@ -4,6 +4,12 @@ using MyMediaVerse.DTOs;
 namespace MyMediaVerse.Application.Interfaces
 {
     /// <summary>
+    /// The outcome of importing a channel: the stored row, and whether this call created it
+    /// or found it already in the library.
+    /// </summary>
+    public record YouTubeChannelCreationResult(YouTubeChannel Channel, bool Created);
+
+    /// <summary>
     /// Service interface for YouTube Channel operations
     /// </summary>
     public interface IYouTubeChannelService
@@ -44,9 +50,10 @@ namespace MyMediaVerse.Application.Interfaces
         Task<bool> DeleteChannelAsync(Guid id);
         
         /// <summary>
-        /// Import a YouTube channel from the YouTube API by channel ID
+        /// Import a YouTube channel from the YouTube API by channel ID. A channel already in
+        /// the library is returned as it is, without calling YouTube.
         /// </summary>
-        Task<YouTubeChannel> ImportChannelFromYouTubeAsync(string channelId);
+        Task<YouTubeChannelCreationResult> ImportChannelFromYouTubeAsync(string channelId);
         
         /// <summary>
         /// Sync channel metadata from YouTube API (update subscriber count, video count, etc.)
