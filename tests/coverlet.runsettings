@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Code coverage settings for the backend test projects (Coverlet collector).
+
+  Pass this file to "dotnet test" with the settings option, together with the
+  "XPlat Code Coverage" collector. scripts/run-backend-coverage.ps1 (Windows) and
+  scripts/run-backend-coverage.sh (Linux) do that and also build the HTML report.
+-->
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat Code Coverage">
+        <Configuration>
+          <Format>cobertura</Format>
+
+          <!-- Only measure the application's own assemblies, never the test projects. -->
+          <Include>[MyMediaVerse.*]*</Include>
+          <Exclude>[MyMediaVerse.UnitTests]*,[MyMediaVerse.IntegrationTests]*</Exclude>
+
+          <!-- EF Core migrations are generated code and would otherwise make up most of the line count. -->
+          <ExcludeByFile>**/Migrations/**/*.cs</ExcludeByFile>
+
+          <!-- Do not add CompilerGeneratedAttribute here: it also drops every async method and lambda. -->
+          <ExcludeByAttribute>GeneratedCodeAttribute,ExcludeFromCodeCoverageAttribute</ExcludeByAttribute>
+
+          <!-- Auto-properties (DTOs, entities) carry no logic worth measuring. -->
+          <SkipAutoProps>true</SkipAutoProps>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

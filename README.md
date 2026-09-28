@@ -375,6 +375,15 @@ npm run test:run      # Single run
 npm run test:coverage # With coverage
 ```
 
+### Backend Coverage
+
+```powershell
+.\scripts\run-backend-coverage.ps1                      # Unit tests only
+.\scripts\run-backend-coverage.ps1 -IncludeIntegration  # Unit + integration (needs Docker)
+```
+
+On Linux, use `./scripts/run-backend-coverage.sh` (add `--integration` for both suites). The HTML report is written to `coverage/backend/index.html`. EF Core migrations and auto-properties are excluded from the numbers (see `tests/coverlet.runsettings`).
+
 Test results are saved to the `logs/` directory with timestamps.
 
 ---
