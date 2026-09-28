@@ -33,6 +33,17 @@ namespace MyMediaVerse.Domain.Entities
         public string? ExternalId { get; set; }
 
         /// <summary>
+        /// UTC timestamp of when the video was published on its platform
+        /// </summary>
+        public DateTime? PublishedAt { get; set; }
+
+        /// <summary>
+        /// UTC timestamp of the last time YouTube data was applied to this video (import or
+        /// refresh), or the last time a refresh run checked it
+        /// </summary>
+        public DateTime? YouTubeRefreshedAt { get; set; }
+
+        /// <summary>
         /// Gets the thumbnail for this video, inheriting from its channel if not set
         /// </summary>
         public string? GetEffectiveThumbnail()

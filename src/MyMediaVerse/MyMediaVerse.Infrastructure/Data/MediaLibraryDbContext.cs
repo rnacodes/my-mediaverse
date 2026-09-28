@@ -635,7 +635,12 @@ namespace MyMediaVerse.Infrastructure.Data
                     .OnDelete(DeleteBehavior.SetNull); // When channel deleted, videos remain but ChannelId becomes null
 
                 // Create indexes for better query performance
-                entity.HasIndex(e => e.ExternalId);
+                // One library item per video id on a platform. Blank ids are excluded so
+                // manually added videos never collide with each other.
+                entity.HasIndex(e => new { e.Platform, e.ExternalId })
+                    .IsUnique()
+                    .HasFilter("\"ExternalId\" IS NOT NULL AND \"ExternalId\" <> ''");
+                entity.HasIndex(e => e.YouTubeRefreshedAt);
                 entity.HasIndex(e => e.Platform);
                 entity.HasIndex(e => e.ChannelId);
             });
