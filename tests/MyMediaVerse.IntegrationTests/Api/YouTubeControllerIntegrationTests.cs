@@ -8,6 +8,7 @@ using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Domain.Entities;
+using MyMediaVerse.DTOs;
 using MyMediaVerse.IntegrationTests.Fixtures;
 using MyMediaVerse.Shared.DTOs.YouTube;
 using MyMediaVerse.Shared.Exceptions;
@@ -241,7 +242,7 @@ namespace MyMediaVerse.IntegrationTests.Api
 
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.Created);
-            var importedVideo = await response.Content.ReadFromJsonAsync<Video>(_jsonOptions);
+            var importedVideo = await response.Content.ReadFromJsonAsync<VideoResponseDto>(_jsonOptions);
             importedVideo.Should().NotBeNull();
             importedVideo!.Platform.Should().Be("YouTube");
             importedVideo.MediaType.Should().Be(MediaType.Video);
@@ -252,15 +253,15 @@ namespace MyMediaVerse.IntegrationTests.Api
         {
             // Arrange
             var (client, _) = _factory.CreateClientWithSubstitute<IYouTubeService>(mock =>
-                mock.ImportVideoAsync("invalid_video_id").Throws(new YouTubeResourceNotFoundException("video", "invalid_video_id")));
+                mock.ImportVideoAsync("gone0000001").Throws(new YouTubeResourceNotFoundException("video", "gone0000001")));
 
             // Act
-            var response = await client.PostAsync("/api/YouTube/import/video/invalid_video_id", null);
+            var response = await client.PostAsync("/api/YouTube/import/video/gone0000001", null);
 
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.NotFound);
             var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
-            body.GetProperty("error").GetString().Should().Contain("invalid_video_id");
+            body.GetProperty("error").GetString().Should().Contain("gone0000001");
         }
 
         [Fact]
@@ -335,7 +336,7 @@ namespace MyMediaVerse.IntegrationTests.Api
 
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.Created);
-            var importedVideo = await response.Content.ReadFromJsonAsync<Video>(_jsonOptions);
+            var importedVideo = await response.Content.ReadFromJsonAsync<VideoResponseDto>(_jsonOptions);
             importedVideo.Should().NotBeNull();
             importedVideo!.Platform.Should().Be("YouTube");
             importedVideo.MediaType.Should().Be(MediaType.Video);

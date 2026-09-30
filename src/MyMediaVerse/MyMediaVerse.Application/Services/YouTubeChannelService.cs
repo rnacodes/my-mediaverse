@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using MyMediaVerse.Application.Helpers;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Utilities;
 using MyMediaVerse.Domain.Entities;
@@ -367,32 +368,8 @@ namespace MyMediaVerse.Application.Services
                     throw new YouTubeResourceNotFoundException("channel", channel.ChannelExternalId);
                 }
 
-                // Update metadata
-                channel.Title = channelDto.Snippet?.Title ?? channel.Title;
-                channel.Description = channelDto.Snippet?.Description ?? channel.Description;
-                channel.Thumbnail = _mappingService.MapChannelToYouTubeChannelEntity(channelDto).Thumbnail;
-                channel.CustomUrl = channelDto.Snippet?.CustomUrl ?? channel.CustomUrl;
-                channel.Country = channelDto.Snippet?.Country ?? channel.Country;
-                channel.PublishedAt = channelDto.Snippet?.PublishedAt ?? channel.PublishedAt;
-
-                // Update statistics
-                if (channelDto.Statistics != null)
-                {
-                    if (long.TryParse(channelDto.Statistics.SubscriberCount, out var subscriberCount))
-                        channel.SubscriberCount = subscriberCount;
-                    
-                    if (long.TryParse(channelDto.Statistics.VideoCount, out var videoCount))
-                        channel.VideoCount = videoCount;
-                    
-                    if (long.TryParse(channelDto.Statistics.ViewCount, out var viewCount))
-                        channel.ViewCount = viewCount;
-                }
-
-                // Update uploads playlist ID
-                if (channelDto.ContentDetails?.RelatedPlaylists?.Uploads != null)
-                {
-                    channel.UploadsPlaylistId = channelDto.ContentDetails.RelatedPlaylists.Uploads;
-                }
+                // What YouTube may overwrite is decided in one place, shared with the refresh run.
+                YouTubeMetadataApplier.Apply(channel, channelDto);
 
                 channel.LastSyncedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();

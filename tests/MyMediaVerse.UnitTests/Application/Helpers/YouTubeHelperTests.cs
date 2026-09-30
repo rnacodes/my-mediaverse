@@ -1,5 +1,6 @@
 using AwesomeAssertions;
 using MyMediaVerse.Application.Helpers;
+using MyMediaVerse.Shared.DTOs.YouTube;
 
 namespace MyMediaVerse.UnitTests.Application.Helpers
 {
@@ -73,6 +74,71 @@ namespace MyMediaVerse.UnitTests.Application.Helpers
         public void ParseDurationToSeconds_ReadsIso8601_AndReturnsZeroWhenItCannot(string? duration, int expected)
         {
             YouTubeHelper.ParseDurationToSeconds(duration).Should().Be(expected);
+        }
+
+        [Theory]
+        [InlineData("dQw4w9WgXcQ", true)]
+        [InlineData("a-b_c-d_e-f", true)]
+        [InlineData("short", false)]
+        [InlineData("twelve_chars", false)]
+        [InlineData("has.a.dot.x", false)]
+        [InlineData("has a space", false)]
+        [InlineData("https://youtu.be/dQw4w9WgXcQ", false)]
+        [InlineData("", false)]
+        [InlineData(null, false)]
+        public void IsValidVideoId_AcceptsOnlyTheShapeOfAVideoId(string? videoId, bool expected)
+        {
+            YouTubeHelper.IsValidVideoId(videoId).Should().Be(expected);
+        }
+
+        [Fact]
+        public void GetBestThumbnailUrl_PrefersTheLargestSize_AndFallsBackInOrder()
+        {
+            var thumbnails = new YouTubeThumbnailsDto
+            {
+                Default = new YouTubeThumbnailDto { Url = "https://i.ytimg.com/default.jpg" },
+                Medium = new YouTubeThumbnailDto { Url = "https://i.ytimg.com/medium.jpg" },
+                High = new YouTubeThumbnailDto { Url = "https://i.ytimg.com/high.jpg" },
+                Standard = new YouTubeThumbnailDto { Url = "https://i.ytimg.com/standard.jpg" },
+                Maxres = new YouTubeThumbnailDto { Url = "https://i.ytimg.com/maxres.jpg" }
+            };
+
+            YouTubeHelper.GetBestThumbnailUrl(thumbnails).Should().Be("https://i.ytimg.com/maxres.jpg");
+
+            thumbnails.Maxres = null;
+            YouTubeHelper.GetBestThumbnailUrl(thumbnails).Should().Be("https://i.ytimg.com/standard.jpg");
+
+            thumbnails.Standard = null;
+            YouTubeHelper.GetBestThumbnailUrl(thumbnails).Should().Be("https://i.ytimg.com/high.jpg");
+
+            thumbnails.High = null;
+            YouTubeHelper.GetBestThumbnailUrl(thumbnails).Should().Be("https://i.ytimg.com/medium.jpg");
+
+            thumbnails.Medium = null;
+            YouTubeHelper.GetBestThumbnailUrl(thumbnails).Should().Be("https://i.ytimg.com/default.jpg");
+        }
+
+        [Fact]
+        public void GetBestThumbnailUrl_ReturnsNull_WhenYouTubeOffersNone()
+        {
+            YouTubeHelper.GetBestThumbnailUrl(null).Should().BeNull();
+            YouTubeHelper.GetBestThumbnailUrl(new YouTubeThumbnailsDto()).Should().BeNull();
+        }
+
+        [Theory]
+        [InlineData("https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg", true)]
+        [InlineData("https://I.YTIMG.COM/vi/dQw4w9WgXcQ/hqdefault.jpg", true)]
+        [InlineData("https://yt3.ggpht.com/avatar", true)]
+        [InlineData("https://yt3.googleusercontent.com/avatar", true)]
+        [InlineData("https://cdn.example.com/my-image.jpg", false)]
+        [InlineData("https://notytimg.com/image.jpg", false)]
+        [InlineData("https://example.com/ytimg.com/image.jpg", false)]
+        [InlineData("/uploads/my-image.jpg", false)]
+        [InlineData("", false)]
+        [InlineData(null, false)]
+        public void IsYouTubeImageUrl_RecognizesYouTubeImageHostsOnly(string? url, bool expected)
+        {
+            YouTubeHelper.IsYouTubeImageUrl(url).Should().Be(expected);
         }
     }
 }

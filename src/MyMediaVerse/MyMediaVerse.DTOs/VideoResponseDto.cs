@@ -49,6 +49,12 @@ namespace MyMediaVerse.DTOs
         
         [JsonPropertyName("externalId")]
         public string? ExternalId { get; set; }
+
+        /// <summary>
+        /// When the video was published on its platform (UTC)
+        /// </summary>
+        [JsonPropertyName("publishedAt")]
+        public DateTime? PublishedAt { get; set; }
         
         [JsonPropertyName("rating")]
         public Rating? Rating { get; set; }

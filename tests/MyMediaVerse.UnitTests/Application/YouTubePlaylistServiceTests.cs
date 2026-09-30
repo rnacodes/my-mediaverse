@@ -324,6 +324,121 @@ namespace MyMediaVerse.UnitTests.Application
 
         #endregion
 
+        #region SyncPlaylistVideosAsync Tests
+
+        [Fact]
+        public async Task SyncPlaylistVideosAsync_RefreshesThePlaylistsOwnDetails_AndStampsTheSync()
+        {
+            var playlist = new YouTubePlaylist
+            {
+                Id = Guid.NewGuid(),
+                Title = "Old name",
+                Description = "Old description",
+                PlaylistExternalId = "PLsync",
+                MediaType = MediaType.Playlist,
+                Notes = "My notes"
+            };
+            Context.YouTubePlaylists.Add(playlist);
+            await Context.SaveChangesAsync();
+            _mockYouTubeApiClient.GetPlaylistDetailsAsync("PLsync").Returns(new YouTubePlaylistDto
+            {
+                Id = "PLsync",
+                Snippet = new YouTubePlaylistSnippetDto
+                {
+                    Title = "New name",
+                    Description = "New description",
+                    Thumbnails = new YouTubeThumbnailsDto { High = new YouTubeThumbnailDto { Url = "https://i.ytimg.com/vi/abc/new.jpg" } }
+                },
+                Status = new YouTubePlaylistStatusDto { PrivacyStatus = "public" }
+            });
+            _mockYouTubeApiClient.GetAllPlaylistItemsAsync("PLsync").Returns(new List<YouTubePlaylistItemDto>());
+
+            await _service.SyncPlaylistVideosAsync(playlist.Id);
+
+            Context.ChangeTracker.Clear();
+            var stored = await Context.YouTubePlaylists.FindAsync(playlist.Id);
+            Assert.NotNull(stored);
+            Assert.Equal("New name", stored.Title);
+            Assert.Equal("New description", stored.Description);
+            Assert.Equal("https://i.ytimg.com/vi/abc/new.jpg", stored.Thumbnail);
+            Assert.Equal("public", stored.PrivacyStatus);
+            Assert.Equal("My notes", stored.Notes);
+            Assert.NotNull(stored.LastSyncedAt);
+        }
+
+        [Fact]
+        public async Task SyncPlaylistVideosAsync_CountsOnlyTheVideosStillAvailable()
+        {
+            var playlist = new YouTubePlaylist
+            {
+                Id = Guid.NewGuid(),
+                Title = "Playlist",
+                PlaylistExternalId = "PLsync",
+                MediaType = MediaType.Playlist
+            };
+            Context.YouTubePlaylists.Add(playlist);
+            await Context.SaveChangesAsync();
+            _mockYouTubeApiClient.GetPlaylistDetailsAsync("PLsync").Returns(new YouTubePlaylistDto
+            {
+                Id = "PLsync",
+                Snippet = new YouTubePlaylistSnippetDto { Title = "Playlist" },
+                ContentDetails = new YouTubePlaylistContentDetailsDto { ItemCount = 2 }
+            });
+            _mockYouTubeApiClient.GetAllPlaylistItemsAsync("PLsync").Returns(new List<YouTubePlaylistItemDto>
+            {
+                new()
+                {
+                    Snippet = new YouTubePlaylistItemSnippetDto
+                    {
+                        Title = "Still here",
+                        ChannelTitle = "Channel",
+                        ResourceId = new YouTubeResourceIdDto { VideoId = "here0000001" }
+                    }
+                },
+                new()
+                {
+                    Snippet = new YouTubePlaylistItemSnippetDto
+                    {
+                        Title = "Deleted video",
+                        ResourceId = new YouTubeResourceIdDto { VideoId = "gone0000001" }
+                    }
+                }
+            });
+
+            await _service.SyncPlaylistVideosAsync(playlist.Id);
+
+            Context.ChangeTracker.Clear();
+            var stored = await Context.YouTubePlaylists.FindAsync(playlist.Id);
+            Assert.Equal(1, stored!.VideoCount);
+        }
+
+        [Fact]
+        public async Task SyncPlaylistVideosAsync_WhenThePlaylistLeftYouTube_ThrowsNotFound_AndKeepsTheStoredRow()
+        {
+            var playlist = new YouTubePlaylist
+            {
+                Id = Guid.NewGuid(),
+                Title = "Stored Playlist",
+                PlaylistExternalId = "PLgone",
+                MediaType = MediaType.Playlist
+            };
+            Context.YouTubePlaylists.Add(playlist);
+            await Context.SaveChangesAsync();
+            _mockYouTubeApiClient.GetPlaylistDetailsAsync("PLgone").Returns((YouTubePlaylistDto?)null);
+
+            var exception = await Assert.ThrowsAsync<YouTubeResourceNotFoundException>(
+                () => _service.SyncPlaylistVideosAsync(playlist.Id));
+
+            Assert.Equal("playlist", exception.ResourceType);
+            await _mockYouTubeApiClient.DidNotReceive().GetAllPlaylistItemsAsync(Arg.Any<string>());
+            Context.ChangeTracker.Clear();
+            var stored = await Context.YouTubePlaylists.FindAsync(playlist.Id);
+            Assert.Equal("Stored Playlist", stored!.Title);
+            Assert.Null(stored.LastSyncedAt);
+        }
+
+        #endregion
+
         #region YouTube not-found Tests
 
         [Fact]

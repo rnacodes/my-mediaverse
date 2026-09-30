@@ -1,7 +1,52 @@
+using MyMediaVerse.Shared.DTOs.YouTube;
+
 namespace MyMediaVerse.Application.Helpers
 {
     public static class YouTubeHelper
     {
+        // Hosts YouTube serves video, channel and playlist images from.
+        private static readonly string[] YouTubeImageHosts = { "ytimg.com", "ggpht.com", "googleusercontent.com" };
+
+        /// <summary>
+        /// The largest thumbnail YouTube offers, or null when it offers none
+        /// </summary>
+        public static string? GetBestThumbnailUrl(YouTubeThumbnailsDto? thumbnails)
+        {
+            if (thumbnails == null)
+                return null;
+
+            // Prefer higher quality thumbnails
+            return thumbnails.Maxres?.Url ??
+                   thumbnails.Standard?.Url ??
+                   thumbnails.High?.Url ??
+                   thumbnails.Medium?.Url ??
+                   thumbnails.Default?.Url;
+        }
+
+        /// <summary>
+        /// Whether an image URL points at one of YouTube's image hosts. Any other URL was
+        /// chosen by hand or uploaded.
+        /// </summary>
+        public static bool IsYouTubeImageUrl(string? url)
+        {
+            if (string.IsNullOrWhiteSpace(url) || !Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri))
+                return false;
+
+            return YouTubeImageHosts.Any(host =>
+                uri.Host.Equals(host, StringComparison.OrdinalIgnoreCase) ||
+                uri.Host.EndsWith("." + host, StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>
+        /// Whether a value has the shape of a YouTube video id: exactly 11 characters drawn
+        /// from letters, digits, '-' and '_'
+        /// </summary>
+        public static bool IsValidVideoId(string? videoId)
+        {
+            return !string.IsNullOrEmpty(videoId)
+                && System.Text.RegularExpressions.Regex.IsMatch(videoId, @"^[a-zA-Z0-9_-]{11}$");
+        }
+
         /// <summary>
         /// Extract video ID from various YouTube URL formats
         /// </summary>

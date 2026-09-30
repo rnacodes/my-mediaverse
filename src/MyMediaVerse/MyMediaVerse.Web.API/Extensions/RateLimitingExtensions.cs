@@ -22,6 +22,12 @@ public static class RateLimitingExtensions
     /// </summary>
     public const string ExternalProxyPolicy = "external-proxy";
 
+    /// <summary>
+    /// Named policy for the YouTube search proxy. One search costs 100 of the 10,000 quota
+    /// units YouTube grants per day, far more than any other call, so it gets its own hourly cap.
+    /// </summary>
+    public const string YouTubeSearchPolicy = "youtube-search";
+
     // Header names used by the proxies in front of the demo/prod API. The real client IP
     // must be read from these, not the TCP peer, or every request shares one partition
     // (the proxy) and the whole rate limit + audit log becomes useless.
@@ -63,6 +69,17 @@ public static class RateLimitingExtensions
                     {
                         PermitLimit = 60,
                         Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0,
+                        QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+                    }));
+
+            options.AddPolicy(YouTubeSearchPolicy, httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: ResolveClientIp(httpContext),
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 20,
+                        Window = TimeSpan.FromHours(1),
                         QueueLimit = 0,
                         QueueProcessingOrder = QueueProcessingOrder.OldestFirst
                     }));

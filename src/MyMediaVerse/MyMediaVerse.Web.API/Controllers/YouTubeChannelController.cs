@@ -1,8 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using MyMediaVerse.Application.Interfaces;
-using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Shared.Exceptions;
+using MyMediaVerse.Shared.Interfaces;
+using MyMediaVerse.Web.API.Extensions;
 
 namespace MyMediaVerse.Web.API.Controllers
 {
@@ -11,11 +14,16 @@ namespace MyMediaVerse.Web.API.Controllers
     public class YouTubeChannelController : ControllerBase
     {
         private readonly IYouTubeChannelService _channelService;
+        private readonly IImportReindexService _importReindexService;
         private readonly ILogger<YouTubeChannelController> _logger;
 
-        public YouTubeChannelController(IYouTubeChannelService channelService, ILogger<YouTubeChannelController> logger)
+        public YouTubeChannelController(
+            IYouTubeChannelService channelService,
+            IImportReindexService importReindexService,
+            ILogger<YouTubeChannelController> logger)
         {
             _channelService = channelService;
+            _importReindexService = importReindexService;
             _logger = logger;
         }
 
@@ -29,7 +37,7 @@ namespace MyMediaVerse.Web.API.Controllers
             try
             {
                 var channels = await _channelService.GetAllChannelsAsync();
-                var response = channels.Select(MapToResponseDto).ToList();
+                var response = channels.Select(c => c.ToResponseDto()).ToList();
                 return Ok(response);
             }
             catch (Exception ex)
@@ -56,7 +64,7 @@ namespace MyMediaVerse.Web.API.Controllers
                     return NotFound($"YouTube channel with ID {id} not found.");
                 }
 
-                return Ok(MapToResponseDto(channel));
+                return Ok(channel.ToResponseDto());
             }
             catch (Exception ex)
             {
@@ -82,7 +90,7 @@ namespace MyMediaVerse.Web.API.Controllers
                     return NotFound($"YouTube channel with external ID {externalId} not found.");
                 }
 
-                return Ok(MapToResponseDto(channel));
+                return Ok(channel.ToResponseDto());
             }
             catch (Exception ex)
             {
@@ -102,27 +110,7 @@ namespace MyMediaVerse.Web.API.Controllers
             try
             {
                 var videos = await _channelService.GetChannelVideosAsync(id);
-                var response = videos.Select(v => new VideoResponseDto
-                {
-                    Id = v.Id,
-                    Title = v.Title,
-                    Description = v.Description,
-                    MediaType = v.MediaType,
-                    Status = v.Status,
-                    DateAdded = v.DateAdded,
-                    Link = v.Link,
-                    Thumbnail = v.GetEffectiveThumbnail(),
-                    Platform = v.Platform,
-                    ChannelId = v.ChannelId,
-                    LengthInSeconds = v.LengthInSeconds,
-                    ExternalId = v.ExternalId,
-                    Rating = v.Rating,
-                    DateCompleted = v.DateCompleted,
-                    Notes = v.Notes,
-                    RelatedNotes = v.RelatedNotes,
-                    Topics = v.Topics.Select(t => t.Name).ToArray(),
-                    Genres = v.Genres.Select(g => g.Name).ToArray()
-                }).ToList();
+                var response = videos.Select(v => v.ToResponseDto()).ToList();
 
                 return Ok(response);
             }
@@ -149,7 +137,7 @@ namespace MyMediaVerse.Web.API.Controllers
                 }
 
                 var channel = await _channelService.CreateChannelAsync(dto);
-                var response = MapToResponseDto(channel);
+                var response = channel.ToResponseDto();
                 return CreatedAtAction(nameof(GetChannel), new { id = channel.Id }, response);
             }
             catch (InvalidOperationException ex)
@@ -181,7 +169,7 @@ namespace MyMediaVerse.Web.API.Controllers
                 }
 
                 var channel = await _channelService.UpdateChannelAsync(id, dto);
-                var response = MapToResponseDto(channel);
+                var response = channel.ToResponseDto();
                 return Ok(response);
             }
             catch (ArgumentException ex)
@@ -226,15 +214,26 @@ namespace MyMediaVerse.Web.API.Controllers
         /// Import a YouTube channel from the YouTube API
         /// </summary>
         /// <param name="channelId">YouTube channel ID (e.g., UCxxxxxx)</param>
-        /// <returns>Imported YouTube channel</returns>
+        /// <returns>The channel: 201 when it was added, 200 when it was already in the library</returns>
+        // Explicit [Authorize] even though the fallback policy already requires a token: this endpoint
+        // writes to the library and proxies outbound YouTube calls per request.
+        [Authorize]
+        [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
         [HttpPost("import/{channelId}")]
         public async Task<ActionResult<YouTubeChannelResponseDto>> ImportChannel(string channelId)
         {
             try
             {
                 var result = await _channelService.ImportChannelFromYouTubeAsync(channelId);
-                var response = MapToResponseDto(result.Channel);
-                return Ok(response);
+                var response = result.Channel.ToResponseDto();
+                if (!result.Created)
+                {
+                    return Ok(response);
+                }
+
+                // Search reindex comes last, and only for a channel this import added.
+                await _importReindexService.ReindexItemAfterImportAsync(result.Channel.Id, "YouTube channel import");
+                return CreatedAtAction(nameof(GetChannel), new { id = result.Channel.Id }, response);
             }
             catch (YouTubeResourceNotFoundException ex)
             {
@@ -258,13 +257,17 @@ namespace MyMediaVerse.Web.API.Controllers
         /// </summary>
         /// <param name="id">Channel database ID</param>
         /// <returns>Updated YouTube channel</returns>
+        // Explicit [Authorize] even though the fallback policy already requires a token: this endpoint
+        // rewrites stored metadata and proxies an outbound YouTube call per request.
+        [Authorize]
+        [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
         [HttpPost("{id}/sync")]
         public async Task<ActionResult<YouTubeChannelResponseDto>> SyncChannelMetadata(Guid id)
         {
             try
             {
                 var channel = await _channelService.SyncChannelMetadataAsync(id);
-                var response = MapToResponseDto(channel);
+                var response = channel.ToResponseDto();
                 return Ok(response);
             }
             catch (ArgumentException ex)
@@ -307,41 +310,6 @@ namespace MyMediaVerse.Web.API.Controllers
                 _logger.LogError(ex, "Error occurred while checking if channel exists: {ExternalId}", externalId);
                 return StatusCode(500, new { error = "Failed to check channel existence", details = ex.Message });
             }
-        }
-
-        /// <summary>
-        /// Helper method to map YouTubeChannel entity to YouTubeChannelResponseDto
-        /// </summary>
-        private YouTubeChannelResponseDto MapToResponseDto(YouTubeChannel channel)
-        {
-            return new YouTubeChannelResponseDto
-            {
-                Id = channel.Id,
-                Title = channel.Title,
-                Description = channel.Description,
-                Link = channel.Link,
-                Thumbnail = channel.Thumbnail,
-                ChannelExternalId = channel.ChannelExternalId,
-                CustomUrl = channel.CustomUrl,
-                SubscriberCount = channel.SubscriberCount,
-                VideoCount = channel.VideoCount,
-                ViewCount = channel.ViewCount,
-                UploadsPlaylistId = channel.UploadsPlaylistId,
-                Country = channel.Country,
-                PublishedAt = channel.PublishedAt,
-                LastSyncedAt = channel.LastSyncedAt,
-                MediaType = channel.MediaType,
-                Status = channel.Status,
-                DateAdded = channel.DateAdded,
-                DateCompleted = channel.DateCompleted,
-                Rating = channel.Rating,
-                Notes = channel.Notes,
-                RelatedNotes = channel.RelatedNotes,
-                Topics = channel.Topics.Select(t => t.Name).ToArray(),
-                Genres = channel.Genres.Select(g => g.Name).ToArray(),
-                MixlistIds = channel.Mixlists.Select(m => m.Id).ToArray(),
-                VideoCountInDb = channel.Videos.Count
-            };
         }
     }
 }

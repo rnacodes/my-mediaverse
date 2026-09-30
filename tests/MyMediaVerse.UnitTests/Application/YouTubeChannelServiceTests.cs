@@ -377,6 +377,92 @@ namespace MyMediaVerse.UnitTests.Application
 
         #endregion
 
+        #region SyncChannelMetadataAsync Tests
+
+        [Fact]
+        public async Task SyncChannelMetadataAsync_AppliesYouTubeValues_AndStampsTheSync()
+        {
+            var channel = CreateTestChannel("Old name", "UCsync");
+            channel.SubscriberCount = 10;
+            channel.Notes = "My notes";
+            channel.Rating = Rating.Like;
+            Context.YouTubeChannels.Add(channel);
+            await Context.SaveChangesAsync();
+            _mockYouTubeApiClient.GetChannelDetailsAsync("UCsync").Returns(new YouTubeChannelDto
+            {
+                Id = "UCsync",
+                Snippet = new YouTubeChannelSnippetDto
+                {
+                    Title = "New name",
+                    Description = "New description",
+                    PublishedAt = new DateTime(2015, 3, 4, 0, 0, 0, DateTimeKind.Unspecified),
+                    Thumbnails = new YouTubeThumbnailsDto { High = new YouTubeThumbnailDto { Url = "https://yt3.ggpht.com/new" } }
+                },
+                Statistics = new YouTubeChannelStatisticsDto { SubscriberCount = "2000", VideoCount = "50", ViewCount = "123456" }
+            });
+
+            await _service.SyncChannelMetadataAsync(channel.Id);
+
+            Context.ChangeTracker.Clear();
+            var stored = await Context.YouTubeChannels.FindAsync(channel.Id);
+            stored!.Title.Should().Be("New name");
+            stored.Description.Should().Be("New description");
+            stored.SubscriberCount.Should().Be(2000);
+            stored.VideoCount.Should().Be(50);
+            stored.ViewCount.Should().Be(123456);
+            stored.Thumbnail.Should().Be("https://yt3.ggpht.com/new");
+            stored.PublishedAt!.Value.Kind.Should().Be(DateTimeKind.Utc);
+            stored.LastSyncedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromMinutes(1));
+            stored.Notes.Should().Be("My notes");
+            stored.Rating.Should().Be(Rating.Like);
+        }
+
+        [Fact]
+        public async Task SyncChannelMetadataAsync_WhenYouTubeSendsNoThumbnail_KeepsTheStoredOne()
+        {
+            var channel = CreateTestChannel("Channel", "UCsync");
+            channel.Thumbnail = "https://yt3.ggpht.com/stored";
+            Context.YouTubeChannels.Add(channel);
+            await Context.SaveChangesAsync();
+            _mockYouTubeApiClient.GetChannelDetailsAsync("UCsync").Returns(new YouTubeChannelDto
+            {
+                Id = "UCsync",
+                Snippet = new YouTubeChannelSnippetDto { Title = "Channel" }
+            });
+
+            await _service.SyncChannelMetadataAsync(channel.Id);
+
+            Context.ChangeTracker.Clear();
+            var stored = await Context.YouTubeChannels.FindAsync(channel.Id);
+            stored!.Thumbnail.Should().Be("https://yt3.ggpht.com/stored");
+        }
+
+        [Fact]
+        public async Task SyncChannelMetadataAsync_KeepsAThumbnailChosenByHand()
+        {
+            var channel = CreateTestChannel("Channel", "UCsync");
+            channel.Thumbnail = "https://cdn.example.com/my-avatar.jpg";
+            Context.YouTubeChannels.Add(channel);
+            await Context.SaveChangesAsync();
+            _mockYouTubeApiClient.GetChannelDetailsAsync("UCsync").Returns(new YouTubeChannelDto
+            {
+                Id = "UCsync",
+                Snippet = new YouTubeChannelSnippetDto
+                {
+                    Title = "Channel",
+                    Thumbnails = new YouTubeThumbnailsDto { High = new YouTubeThumbnailDto { Url = "https://yt3.ggpht.com/new" } }
+                }
+            });
+
+            await _service.SyncChannelMetadataAsync(channel.Id);
+
+            Context.ChangeTracker.Clear();
+            var stored = await Context.YouTubeChannels.FindAsync(channel.Id);
+            stored!.Thumbnail.Should().Be("https://cdn.example.com/my-avatar.jpg");
+        }
+
+        #endregion
+
         #region YouTube not-found Tests
 
         [Fact]

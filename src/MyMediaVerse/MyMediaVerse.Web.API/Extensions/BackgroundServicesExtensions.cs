@@ -41,6 +41,10 @@ public static class BackgroundServicesExtensions
         services.AddEnrichmentWorker<MovieTvEnrichmentHostedService, MovieTvEnrichmentOptions>(
             configuration, MovieTvEnrichmentOptions.SectionName, isTesting);
 
+        // YouTube refresh runs on demand only (one endpoint); scheduling is handled outside the
+        // API, so there is no hosted worker for it.
+        services.AddScoped<IYouTubeRefreshService, YouTubeRefreshService>();
+
         // Episode import is per show and user-triggered from the show's page; no worker.
         services.AddScoped<ITvEpisodeImportService, TvEpisodeImportService>();
 

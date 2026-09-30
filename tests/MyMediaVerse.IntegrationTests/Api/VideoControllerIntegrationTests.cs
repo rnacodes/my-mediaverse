@@ -184,6 +184,86 @@ namespace MyMediaVerse.IntegrationTests.Api
 
         #endregion
 
+        #region Identity Tests
+
+        private async Task<(HttpResponseMessage Response, VideoResponseDto? Video)> PostVideo(CreateVideoDto dto)
+        {
+            var content = new StringContent(JsonSerializer.Serialize(dto, _jsonOptions), Encoding.UTF8, "application/json");
+            var response = await _client.PostAsync("/api/video", content);
+            var body = await response.Content.ReadAsStringAsync();
+            return (response, response.IsSuccessStatusCode ? JsonSerializer.Deserialize<VideoResponseDto>(body, _jsonOptions) : null);
+        }
+
+        [Fact]
+        public async Task CreateVideo_ForAVideoAlreadyStored_ShouldReturnOkWithTheStoredVideo()
+        {
+            var dto = new CreateVideoDto
+            {
+                Title = "Stored Video",
+                Platform = "YouTube",
+                Status = Status.Uncharted,
+                ExternalId = "dQw4w9WgXcQ",
+                Link = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+            };
+
+            var (first, created) = await PostVideo(dto);
+            dto.Title = "Same video, typed again";
+            var (second, existing) = await PostVideo(dto);
+
+            Assert.Equal(HttpStatusCode.Created, first.StatusCode);
+            Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+            Assert.Equal(created!.Id, existing!.Id);
+            Assert.Equal("Stored Video", existing.Title);
+
+            var all = JsonSerializer.Deserialize<List<VideoResponseDto>>(
+                await (await _client.GetAsync("/api/video")).Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.Single(all!);
+        }
+
+        [Fact]
+        public async Task UpdateVideo_WithAnIdThatBelongsToAnotherVideo_ShouldReturnConflict()
+        {
+            var (_, first) = await PostVideo(new CreateVideoDto
+            {
+                Title = "First", Platform = "YouTube", Status = Status.Uncharted, ExternalId = "first000001"
+            });
+            var (_, second) = await PostVideo(new CreateVideoDto
+            {
+                Title = "Second", Platform = "YouTube", Status = Status.Uncharted, ExternalId = "second00001"
+            });
+
+            var update = new CreateVideoDto
+            {
+                Title = "Second", Platform = "YouTube", Status = Status.Uncharted, ExternalId = first!.ExternalId
+            };
+            var response = await _client.PutAsync($"/api/video/{second!.Id}",
+                new StringContent(JsonSerializer.Serialize(update, _jsonOptions), Encoding.UTF8, "application/json"));
+
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            var body = JsonSerializer.Deserialize<JsonElement>(await response.Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.Contains("first000001", body.GetProperty("error").GetString());
+
+            var stored = JsonSerializer.Deserialize<VideoResponseDto>(
+                await (await _client.GetAsync($"/api/video/{second.Id}")).Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.Equal("second00001", stored!.ExternalId);
+        }
+
+        [Fact]
+        public async Task GetVideo_ShouldNotSendOwnershipInTheBody()
+        {
+            var (_, created) = await PostVideo(new CreateVideoDto
+            {
+                Title = "No ownership", Platform = "YouTube", Status = Status.Uncharted
+            });
+
+            var response = await _client.GetAsync($"/api/video/{created!.Id}");
+
+            var body = JsonSerializer.Deserialize<JsonElement>(await response.Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.False(body.TryGetProperty("ownershipStatus", out _));
+        }
+
+        #endregion
+
         #region PUT Tests
 
         [Fact]

@@ -1,5 +1,6 @@
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Helpers;
+using MyMediaVerse.Application.Utilities;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Shared.DTOs.YouTube;
 
@@ -20,9 +21,11 @@ namespace MyMediaVerse.Application.Services
                 Platform = "YouTube",
                 ExternalId = videoDto.Id,
                 MediaType = MediaType.Video,
-                Thumbnail = GetBestThumbnailUrl(videoDto.Snippet.Thumbnails),
+                Thumbnail = YouTubeHelper.GetBestThumbnailUrl(videoDto.Snippet.Thumbnails),
                 LengthInSeconds = YouTubeHelper.ParseDurationToSeconds(videoDto.ContentDetails?.Duration),
-                DateAdded = DateTime.UtcNow
+                PublishedAt = DateTimeNormalizer.ToUtc(videoDto.Snippet.PublishedAt),
+                DateAdded = DateTime.UtcNow,
+                YouTubeRefreshedAt = DateTime.UtcNow
             };
 
             return video;
@@ -41,9 +44,9 @@ namespace MyMediaVerse.Application.Services
                 ChannelExternalId = channelDto.Id ?? throw new ArgumentException("Channel ID cannot be null"),
                 CustomUrl = channelDto.Snippet.CustomUrl,
                 MediaType = MediaType.Channel,
-                Thumbnail = GetBestThumbnailUrl(channelDto.Snippet.Thumbnails),
+                Thumbnail = YouTubeHelper.GetBestThumbnailUrl(channelDto.Snippet.Thumbnails),
                 Country = channelDto.Snippet.Country,
-                PublishedAt = channelDto.Snippet.PublishedAt,
+                PublishedAt = DateTimeNormalizer.ToUtc(channelDto.Snippet.PublishedAt),
                 DateAdded = DateTime.UtcNow,
                 LastSyncedAt = DateTime.UtcNow
             };
@@ -82,8 +85,8 @@ namespace MyMediaVerse.Application.Services
                 Link = $"https://www.youtube.com/playlist?list={playlistDto.Id}",
                 PlaylistExternalId = playlistDto.Id ?? throw new ArgumentException("Playlist ID cannot be null"),
                 MediaType = MediaType.Playlist,
-                Thumbnail = GetBestThumbnailUrl(playlistDto.Snippet.Thumbnails),
-                PublishedAt = playlistDto.Snippet.PublishedAt,
+                Thumbnail = YouTubeHelper.GetBestThumbnailUrl(playlistDto.Snippet.Thumbnails),
+                PublishedAt = DateTimeNormalizer.ToUtc(playlistDto.Snippet.PublishedAt),
                 DateAdded = DateTime.UtcNow,
                 LastSyncedAt = DateTime.UtcNow
             };
@@ -118,8 +121,13 @@ namespace MyMediaVerse.Application.Services
                 Platform = "YouTube",
                 ExternalId = videoId,
                 MediaType = MediaType.Video,
-                Thumbnail = GetBestThumbnailUrl(playlistItemDto.Snippet.Thumbnails),
-                DateAdded = DateTime.UtcNow
+                Thumbnail = YouTubeHelper.GetBestThumbnailUrl(playlistItemDto.Snippet.Thumbnails),
+                // The snippet's own date is when the item joined the playlist, not when the
+                // video was published.
+                PublishedAt = DateTimeNormalizer.ToUtc(
+                    videoDetails?.Snippet?.PublishedAt ?? playlistItemDto.ContentDetails?.VideoPublishedAt),
+                DateAdded = DateTime.UtcNow,
+                YouTubeRefreshedAt = DateTime.UtcNow
             };
 
             // If we have detailed video information, use it to enhance the entity
@@ -132,7 +140,7 @@ namespace MyMediaVerse.Application.Services
             {
                 // Use more detailed information from video details if available
                 video.Description = videoDetails.Snippet.Description ?? video.Description;
-                video.Thumbnail = GetBestThumbnailUrl(videoDetails.Snippet.Thumbnails) ?? video.Thumbnail;
+                video.Thumbnail = YouTubeHelper.GetBestThumbnailUrl(videoDetails.Snippet.Thumbnails) ?? video.Thumbnail;
             }
 
             return video;
@@ -160,19 +168,6 @@ namespace MyMediaVerse.Application.Services
             }
 
             return videos;
-        }
-
-        private static string? GetBestThumbnailUrl(YouTubeThumbnailsDto? thumbnails)
-        {
-            if (thumbnails == null)
-                return null;
-
-            // Prefer higher quality thumbnails
-            return thumbnails.Maxres?.Url ??
-                   thumbnails.Standard?.Url ??
-                   thumbnails.High?.Url ??
-                   thumbnails.Medium?.Url ??
-                   thumbnails.Default?.Url;
         }
     }
 }

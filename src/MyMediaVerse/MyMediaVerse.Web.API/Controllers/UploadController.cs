@@ -350,6 +350,12 @@ namespace MyMediaVerse.Web.API.Controllers
                                 break;
                             case MediaType.Video:
                                 mediaItem = await ProcessVideoRow(csv);
+                                if (mediaItem == null)
+                                {
+                                    skipped.Add($"Row {csv.CurrentIndex}: a video with this ID or link already exists; skipped");
+                                    skippedCount++;
+                                    continue;
+                                }
                                 break;
                             case MediaType.Website:
                                 mediaItem = await ProcessWebsiteRow(csv);
@@ -442,6 +448,21 @@ namespace MyMediaVerse.Web.API.Controllers
                             else if (mediaItem is Video video)
                             {
                                 _context.Videos.Add(video);
+                                try
+                                {
+                                    await _context.SaveChangesAsync();
+                                }
+                                catch (DbUpdateException)
+                                {
+                                    // Only this row leaves tracking. Clearing the whole tracker would
+                                    // also drop rows already counted as imported but not yet saved.
+                                    video.Topics.Clear();
+                                    video.Genres.Clear();
+                                    _context.ChangeTracker.DetectChanges();
+                                    _context.Entry(video).State = EntityState.Detached;
+                                    throw;
+                                }
+
                                 importedItems.Add(new
                                 {
                                     Id = video.Id,
@@ -919,24 +940,59 @@ namespace MyMediaVerse.Web.API.Controllers
             return article;
         }
 
-        private Task<Video?> ProcessVideoRow(CsvReader csv)
+        private async Task<Video?> ProcessVideoRow(CsvReader csv)
         {
+            var title = GetCsvValue(csv, "Title");
+            var link = GetCsvValue(csv, "Link");
+            if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(link))
+            {
+                throw new InvalidOperationException("a video row needs both a Title and a Link");
+            }
+
+            var platform = GetCsvValue(csv, "Platform");
+            if (string.IsNullOrWhiteSpace(platform))
+            {
+                platform = VideoDuplicateFinder.YouTubePlatform; // Default to YouTube, required field
+            }
+
+            // The id comes from its own column, else from the link when the link is a YouTube one.
+            var externalId = VideoDuplicateFinder.NormalizeExternalId(
+                GetCsvValue(csv, "VideoId") ?? GetCsvValue(csv, "ExternalId"));
+            if (externalId == null && platform.Equals(VideoDuplicateFinder.YouTubePlatform, StringComparison.OrdinalIgnoreCase))
+            {
+                externalId = VideoDuplicateFinder.ExtractYouTubeId(link);
+            }
+
+            var existing = await VideoDuplicateFinder.FindExistingAsync(_context.Videos, new VideoIdentity
+            {
+                Platform = platform,
+                ExternalId = externalId,
+                Link = link,
+                Title = title
+            });
+            if (existing != null)
+            {
+                _logger.LogInformation("CSV row {RowIndex}: video already exists (ID: {Id}); skipping",
+                    csv.CurrentIndex, existing.Id);
+                return null;
+            }
+
             var video = new Video
             {
-                Title = GetCsvValue(csv, "Title") ?? "Unknown Title",
+                Title = title,
                 MediaType = MediaType.Video,
-                Platform = GetCsvValue(csv, "Platform") ?? "YouTube", // Default to YouTube, required field
+                Platform = platform,
                 DateAdded = DateTime.UtcNow,
                 Status = ParseStatus(GetCsvValue(csv, "Status")) ?? Status.Uncharted
             };
 
             // Optional fields
             video.Description = GetCsvValue(csv, "Description");
-            video.Link = GetCsvValue(csv, "Link");
+            video.Link = link;
             video.Notes = GetCsvValue(csv, "Notes");
             video.RelatedNotes = GetCsvValue(csv, "RelatedNotes");
             video.Thumbnail = GetCsvValue(csv, "Thumbnail");
-            video.ExternalId = GetCsvValue(csv, "VideoId") ?? GetCsvValue(csv, "ExternalId");
+            video.ExternalId = externalId;
 
             // Parse numeric fields
             var lengthStr = GetCsvValue(csv, "LengthInSeconds") ?? GetCsvValue(csv, "DurationInSeconds");
@@ -953,7 +1009,7 @@ namespace MyMediaVerse.Web.API.Controllers
             if (!string.IsNullOrEmpty(ratingStr) && Enum.TryParse<Rating>(ratingStr, true, out Rating rating))
                 video.Rating = rating;
 
-            return Task.FromResult<Video?>(video);
+            return video;
         }
 
         private async Task<Website?> ProcessWebsiteRow(CsvReader csv)

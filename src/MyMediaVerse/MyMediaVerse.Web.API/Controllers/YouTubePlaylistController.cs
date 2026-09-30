@@ -1,8 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using MyMediaVerse.Application.Interfaces;
-using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Shared.Exceptions;
+using MyMediaVerse.Shared.Interfaces;
+using MyMediaVerse.Web.API.Extensions;
 
 namespace MyMediaVerse.Web.API.Controllers
 {
@@ -11,11 +14,16 @@ namespace MyMediaVerse.Web.API.Controllers
     public class YouTubePlaylistController : ControllerBase
     {
         private readonly IYouTubePlaylistService _playlistService;
+        private readonly IImportReindexService _importReindexService;
         private readonly ILogger<YouTubePlaylistController> _logger;
 
-        public YouTubePlaylistController(IYouTubePlaylistService playlistService, ILogger<YouTubePlaylistController> logger)
+        public YouTubePlaylistController(
+            IYouTubePlaylistService playlistService,
+            IImportReindexService importReindexService,
+            ILogger<YouTubePlaylistController> logger)
         {
             _playlistService = playlistService;
+            _importReindexService = importReindexService;
             _logger = logger;
         }
 
@@ -29,7 +37,7 @@ namespace MyMediaVerse.Web.API.Controllers
             try
             {
                 var playlists = await _playlistService.GetAllPlaylistsAsync();
-                var response = playlists.Select(p => MapToResponseDto(p)).ToList();
+                var response = playlists.Select(p => p.ToResponseDto()).ToList();
                 return Ok(response);
             }
             catch (Exception ex)
@@ -57,7 +65,7 @@ namespace MyMediaVerse.Web.API.Controllers
                     return NotFound($"YouTube playlist with ID {id} not found.");
                 }
 
-                return Ok(MapToResponseDto(playlist, includeVideos));
+                return Ok(playlist.ToResponseDto(includeVideos));
             }
             catch (Exception ex)
             {
@@ -84,7 +92,7 @@ namespace MyMediaVerse.Web.API.Controllers
                     return NotFound($"YouTube playlist with external ID {externalId} not found.");
                 }
 
-                return Ok(MapToResponseDto(playlist, includeVideos));
+                return Ok(playlist.ToResponseDto(includeVideos));
             }
             catch (Exception ex)
             {
@@ -126,7 +134,11 @@ namespace MyMediaVerse.Web.API.Controllers
         /// Import a YouTube playlist from YouTube API
         /// </summary>
         /// <param name="externalId">YouTube playlist ID</param>
-        /// <returns>The imported playlist</returns>
+        /// <returns>The playlist: 201 when it was added, 200 when it was already in the library</returns>
+        // Explicit [Authorize] even though the fallback policy already requires a token: this endpoint
+        // writes to the library and proxies outbound YouTube calls per request.
+        [Authorize]
+        [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
         [HttpPost("import/{externalId}")]
         public async Task<ActionResult<YouTubePlaylistResponseDto>> ImportPlaylist(string externalId)
         {
@@ -138,7 +150,15 @@ namespace MyMediaVerse.Web.API.Controllers
                 }
 
                 var result = await _playlistService.ImportPlaylistFromYouTubeAsync(externalId);
-                return Ok(MapToResponseDto(result.Playlist, includeVideos: false));
+                var response = result.Playlist.ToResponseDto();
+                if (!result.Created)
+                {
+                    return Ok(response);
+                }
+
+                // Search reindex comes last, and only for a playlist this import added.
+                await _importReindexService.ReindexItemAfterImportAsync(result.Playlist.Id, "YouTube playlist import");
+                return CreatedAtAction(nameof(GetPlaylist), new { id = result.Playlist.Id }, response);
             }
             catch (YouTubeResourceNotFoundException ex)
             {
@@ -162,13 +182,17 @@ namespace MyMediaVerse.Web.API.Controllers
         /// </summary>
         /// <param name="id">Playlist database ID</param>
         /// <returns>The updated playlist</returns>
+        // Explicit [Authorize] even though the fallback policy already requires a token: this endpoint
+        // rewrites stored data and proxies outbound YouTube calls per request.
+        [Authorize]
+        [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
         [HttpPost("{id}/sync")]
         public async Task<ActionResult<YouTubePlaylistResponseDto>> SyncPlaylist(Guid id)
         {
             try
             {
                 var playlist = await _playlistService.SyncPlaylistVideosAsync(id);
-                return Ok(MapToResponseDto(playlist, includeVideos: false));
+                return Ok(playlist.ToResponseDto());
             }
             catch (YouTubeResourceNotFoundException ex)
             {
@@ -271,49 +295,6 @@ namespace MyMediaVerse.Web.API.Controllers
                 _logger.LogError(ex, "Error deleting playlist: {Id}", id);
                 return StatusCode(500, new { error = "An error occurred while deleting the playlist" });
             }
-        }
-
-        private static YouTubePlaylistResponseDto MapToResponseDto(YouTubePlaylist playlist, bool includeVideos = false)
-        {
-            var dto = new YouTubePlaylistResponseDto
-            {
-                Id = playlist.Id,
-                Title = playlist.Title,
-                Description = playlist.Description,
-                Link = playlist.Link,
-                Thumbnail = playlist.Thumbnail,
-                PlaylistExternalId = playlist.PlaylistExternalId,
-                VideoCount = playlist.VideoCount,
-                PublishedAt = playlist.PublishedAt,
-                LastSyncedAt = playlist.LastSyncedAt,
-                PrivacyStatus = playlist.PrivacyStatus,
-                MediaType = playlist.MediaType,
-                Status = playlist.Status,
-                DateAdded = playlist.DateAdded,
-                Rating = playlist.Rating,
-                Notes = playlist.Notes,
-                Topics = playlist.Topics?.Select(t => t.Name).ToList() ?? new List<string>(),
-                Genres = playlist.Genres?.Select(g => g.Name).ToList() ?? new List<string>(),
-                MixlistIds = playlist.Mixlists?.Select(m => m.Id).ToArray() ?? Array.Empty<Guid>()
-            };
-
-            if (includeVideos && playlist.PlaylistVideos != null)
-            {
-                dto.Videos = playlist.PlaylistVideos
-                    .OrderBy(pv => pv.Position)
-                    .Select(pv => new VideoInfoDto
-                    {
-                        Id = pv.Video.Id,
-                        Title = pv.Video.Title,
-                        Thumbnail = pv.Video.GetEffectiveThumbnail(),
-                        LengthInSeconds = pv.Video.LengthInSeconds,
-                        Position = pv.Position,
-                        ExternalId = pv.Video.ExternalId
-                    })
-                    .ToList();
-            }
-
-            return dto;
         }
     }
 }

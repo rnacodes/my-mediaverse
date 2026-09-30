@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using MyMediaVerse.Application.Helpers;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Shared.Exceptions;
@@ -138,6 +139,16 @@ namespace MyMediaVerse.Application.Services
                 throw new InvalidOperationException($"Playlist with ID {playlistId} not found");
 
             _logger.LogInformation($"Syncing playlist: {playlist.Title}");
+
+            // The playlist's own details come first, so its sync stamp means its title,
+            // description and thumbnail are current too, not only its video list.
+            var playlistDto = await _youTubeApiClient.GetPlaylistDetailsAsync(playlist.PlaylistExternalId);
+            if (playlistDto == null)
+            {
+                throw new YouTubeResourceNotFoundException("playlist", playlist.PlaylistExternalId);
+            }
+
+            YouTubeMetadataApplier.Apply(playlist, playlistDto);
 
             // Get current videos from YouTube
             var playlistItems = await _youTubeApiClient.GetAllPlaylistItemsAsync(playlist.PlaylistExternalId);
