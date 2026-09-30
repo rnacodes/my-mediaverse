@@ -16,6 +16,9 @@ import {
     useUnlinkNoteFromMixlist,
 } from '@/hooks/useMixlist';
 import { useAllNotes, useNoteSearch } from '@/hooks/useNote';
+import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
+import { useDemoWriteBlocked } from '@/features/demo/useDemoWriteBlocked';
+import { DEMO_EDIT_BLOCKED } from '@/features/demo/demoMessages';
 
 function MixlistRelatedNotesSection({ mixlistId, mixlistName, setSnackbar }) {
     // State for dialog
@@ -47,6 +50,7 @@ function MixlistRelatedNotesSection({ mixlistId, mixlistName, setSnackbar }) {
     const linkMutation = useLinkNoteToMixlist();
     const unlinkMutation = useUnlinkNoteFromMixlist();
     const saving = linkMutation.isPending || unlinkMutation.isPending;
+    const demoWriteBlocked = useDemoWriteBlocked();
 
     // Toggle note selection
     const toggleNoteSelection = (noteId) => {
@@ -313,8 +317,10 @@ function MixlistRelatedNotesSection({ mixlistId, mixlistName, setSnackbar }) {
                                                 </IconButton>
                                             </Tooltip>
                                         )}
-                                        <Tooltip title="Unlink note">
+                                        <DemoWriteGuard title={DEMO_EDIT_BLOCKED}>
                                             <IconButton
+                                                aria-label="Unlink note"
+                                                title={demoWriteBlocked ? undefined : 'Unlink note'}
                                                 onClick={() => handleUnlinkNote(note.id, note.title)}
                                                 size="small"
                                                 disabled={saving}
@@ -328,7 +334,7 @@ function MixlistRelatedNotesSection({ mixlistId, mixlistName, setSnackbar }) {
                                             >
                                                 <DeleteIcon fontSize="small" />
                                             </IconButton>
-                                        </Tooltip>
+                                        </DemoWriteGuard>
                                     </Box>
                                 </Box>
                             </Box>

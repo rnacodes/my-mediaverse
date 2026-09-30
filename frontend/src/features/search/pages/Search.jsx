@@ -16,6 +16,7 @@ import { useBulkDeleteMedia } from '@/hooks/useMedia';
 import { useBulkDeleteHighlights } from '@/hooks/useHighlight';
 import { useBulkDeleteNotes } from '@/hooks/useNote';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
 
 
 
@@ -831,21 +832,23 @@ export default function Search({ defaultMediaTypes = [] }) {
                                             Add to Mixlist
                                         </Button>
                                     )}
-                                    <Button
-                                        variant="contained"
-                                        color="error"
-                                        size="small"
-                                        onClick={() => setDeleteDialogOpen(true)}
-                                        startIcon={<Delete />}
-                                        disabled={selectedItems.size === 0}
-                                        sx={{
-                                            minHeight: '44px',
-                                            fontSize: { xs: '0.8rem', sm: '0.875rem' },
-                                            width: { xs: '100%', sm: 'auto' }
-                                        }}
-                                    >
-                                        Delete ({selectedItems.size})
-                                    </Button>
+                                    <DemoWriteGuard title="Deleting is not available in the demo">
+                                        <Button
+                                            variant="contained"
+                                            color="error"
+                                            size="small"
+                                            onClick={() => setDeleteDialogOpen(true)}
+                                            startIcon={<Delete />}
+                                            disabled={selectedItems.size === 0}
+                                            sx={{
+                                                minHeight: '44px',
+                                                fontSize: { xs: '0.8rem', sm: '0.875rem' },
+                                                width: { xs: '100%', sm: 'auto' }
+                                            }}
+                                        >
+                                            Delete ({selectedItems.size})
+                                        </Button>
+                                    </DemoWriteGuard>
                                 </Box>
                             </Toolbar>
                         )}

@@ -209,12 +209,13 @@ function MediaProfilePage() {
         p: { xs: 2, sm: 3, md: 4 },
         boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
       }}>
-        {/* Header with back button and edit button */}
+        {/* Header with back button and edit button. TV episodes have no update endpoint, so Edit is hidden for them. */}
         <MediaHeader
           title={mediaItem?.title}
           mediaId={id}
           onReindex={handleReindex}
           reindexing={reindexing}
+          hideEdit={!!mediaItem?.isTvEpisode}
         />
 
         <Card sx={{ overflow: 'hidden', borderRadius: 2 }}>

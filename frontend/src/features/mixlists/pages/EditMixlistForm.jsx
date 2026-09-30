@@ -10,6 +10,7 @@ import { Save, Cancel, ArrowBack, Delete } from '@mui/icons-material';
 import { useMixlist, useUpdateMixlist, useDeleteMixlist } from '@/hooks/useMixlist';
 import { useUploadThumbnail } from '@/hooks/useUpload';
 import { useTopicSearch, useGenreSearch } from '@/hooks/useTopicGenre';
+import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
 
 function EditMixlistForm() {
     const { id } = useParams();
@@ -345,16 +346,18 @@ function EditMixlistForm() {
 
                                 {/* Action Buttons */}
                                 <Box sx={{ display: 'flex', gap: 2, justifyContent: 'space-between', mt: 4 }}>
-                                    <Button
-                                        variant="contained"
-                                        color="primary"
-                                        startIcon={<Delete />}
-                                        onClick={() => setDeleteDialogOpen(true)}
-                                        disabled={saving}
-                                        size="large"
-                                    >
-                                        Delete Mixlist
-                                    </Button>
+                                    <DemoWriteGuard>
+                                        <Button
+                                            variant="contained"
+                                            color="primary"
+                                            startIcon={<Delete />}
+                                            onClick={() => setDeleteDialogOpen(true)}
+                                            disabled={saving}
+                                            size="large"
+                                        >
+                                            Delete Mixlist
+                                        </Button>
+                                    </DemoWriteGuard>
                                     <Box sx={{ display: 'flex', gap: 2 }}>
                                         <Button
                                             variant="contained"

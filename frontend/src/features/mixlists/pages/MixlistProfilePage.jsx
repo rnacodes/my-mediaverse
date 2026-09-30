@@ -11,6 +11,7 @@ import { useMediaSearch } from '@/hooks/useMedia';
 import { useReindexMixlist } from '@/hooks/useTypesense';
 import SimpleMediaCarousel from '@/shared/SimpleMediaCarousel';
 import MixlistRelatedNotesSection from '../MixlistRelatedNotesSection';
+import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
 import { formatMediaType, formatStatus } from '@/utils/formatters';
 import { resolveMediaImage, getPlaceholderImage } from '@/utils/mediaImageUtils';
 
@@ -423,13 +424,16 @@ function MixlistProfilePage() {
                                                             }}
                                                         />
                                                     </Box>
-                                                    <IconButton
-                                                        onClick={() => handleRemoveMedia(mediaItem.id || mediaItem.Id)}
-                                                        size="small"
-                                                        color="error"
-                                                    >
-                                                        <Delete />
-                                                    </IconButton>
+                                                    <DemoWriteGuard>
+                                                        <IconButton
+                                                            aria-label="Remove from mixlist"
+                                                            onClick={() => handleRemoveMedia(mediaItem.id || mediaItem.Id)}
+                                                            size="small"
+                                                            color="error"
+                                                        >
+                                                            <Delete />
+                                                        </IconButton>
+                                                    </DemoWriteGuard>
                                                 </Paper>
                                             ))
                                         ) : (

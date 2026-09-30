@@ -16,6 +16,7 @@ import {
 } from '@mui/icons-material';
 import { useHighlight, useDeleteHighlight, useUpdateHighlight } from '@/hooks/useHighlight';
 import { getMediaTypeColor, COLORS } from '@/shared/DesignSystem';
+import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
 
 const EMPTY_EDIT_FORM = { text: '', note: '', title: '', author: '', tags: '' };
 
@@ -176,15 +177,17 @@ function HighlightProfilePage() {
                         >
                             Edit
                         </Button>
-                        <Button
-                            startIcon={<DeleteIcon />}
-                            onClick={() => setDeleteDialogOpen(true)}
-                            variant="contained"
-                            size="small"
-                            sx={{ color: '#fcfafa' }}
-                        >
-                            Delete
-                        </Button>
+                        <DemoWriteGuard>
+                            <Button
+                                startIcon={<DeleteIcon />}
+                                onClick={() => setDeleteDialogOpen(true)}
+                                variant="contained"
+                                size="small"
+                                sx={{ color: '#fcfafa' }}
+                            >
+                                Delete
+                            </Button>
+                        </DemoWriteGuard>
                     </Box>
                 </Box>
 

@@ -7,6 +7,7 @@ import {
 } from '@mui/icons-material';
 import { getYouTubeChannelUploads, importYouTubeVideo } from '@/api/youtubeService';
 import MediaHeader from '@/features/media/MediaHeader';
+import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
 import MediaInfoCard from '@/features/media/MediaInfoCard';
 import MediaDetailAccordion from '@/features/media/MediaDetailAccordion';
 import MixlistCarousel from '@/features/mixlists/MixlistCarousel';
@@ -259,9 +260,13 @@ function YouTubeChannelProfile() {
                 {/* Main Action Bar */}
                 <Box display="flex" gap={1} flexWrap="wrap" my={3}>
                     {getYouTubeUrl() && <Button variant="contained" size="small" startIcon={<YouTube />} href={getYouTubeUrl()} target="_blank">YouTube</Button>}
-                    <Button variant="contained" size="small" startIcon={<Sync />} onClick={handleSync} disabled={syncing}>{syncing ? <CircularProgress size={20} /> : 'Sync'}</Button>
+                    <DemoWriteGuard>
+                        <Button variant="contained" size="small" startIcon={<Sync />} onClick={handleSync} disabled={syncing}>{syncing ? <CircularProgress size={20} /> : 'Sync'}</Button>
+                    </DemoWriteGuard>
                     <Button variant="contained" size="small" startIcon={<Visibility />} onClick={handleViewAllVideos}>All Videos</Button>
-                    <Button variant="contained" size="small" startIcon={<Delete />} onClick={() => setDeleteConfirmDialog(true)} color="error">Delete</Button>
+                    <DemoWriteGuard>
+                        <Button variant="contained" size="small" startIcon={<Delete />} onClick={() => setDeleteConfirmDialog(true)} color="error">Delete</Button>
+                    </DemoWriteGuard>
                 </Box>
 
                 {/* Local Videos (Already Imported) */}

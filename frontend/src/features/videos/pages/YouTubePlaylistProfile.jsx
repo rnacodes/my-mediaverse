@@ -9,6 +9,7 @@ import { getYouTubePlaylistItems, importYouTubeVideo } from '@/api/youtubeServic
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import MediaHeader from '@/features/media/MediaHeader';
+import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
 import MediaInfoCard from '@/features/media/MediaInfoCard';
 import MixlistCarousel from '@/features/mixlists/MixlistCarousel';
 import TopicsGenresSection from '@/features/media/TopicsGenresSection';
@@ -305,9 +306,13 @@ function YouTubePlaylistProfile() {
                 {/* Main Action Bar */}
                 <Box display="flex" gap={1} flexWrap="wrap" my={3}>
                     {getYouTubeUrl() && <Button variant="contained" size="small" startIcon={<YouTube />} href={getYouTubeUrl()} target="_blank">YouTube</Button>}
-                    <Button variant="contained" size="small" startIcon={<Sync />} onClick={handleSync} disabled={syncing}>{syncing ? <CircularProgress size={20} /> : 'Sync'}</Button>
+                    <DemoWriteGuard>
+                        <Button variant="contained" size="small" startIcon={<Sync />} onClick={handleSync} disabled={syncing}>{syncing ? <CircularProgress size={20} /> : 'Sync'}</Button>
+                    </DemoWriteGuard>
                     <Button variant="contained" size="small" startIcon={<Visibility />} onClick={handleViewAllVideos}>All Videos</Button>
-                    <Button variant="contained" size="small" startIcon={<Delete />} onClick={() => setDeleteConfirmDialog(true)} color="error">Delete</Button>
+                    <DemoWriteGuard>
+                        <Button variant="contained" size="small" startIcon={<Delete />} onClick={() => setDeleteConfirmDialog(true)} color="error">Delete</Button>
+                    </DemoWriteGuard>
                 </Box>
 
                 {/* Local Videos (Already Imported) */}
