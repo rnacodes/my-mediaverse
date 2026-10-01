@@ -16,13 +16,16 @@ namespace MyMediaVerse.Application.Services
     {
         private readonly IApplicationDbContext _context;
         private readonly ILogger<VideoService> _logger;
+        private readonly IMediaService _mediaService;
 
         public VideoService(
             IApplicationDbContext context,
-            ILogger<VideoService> logger)
+            ILogger<VideoService> logger,
+            IMediaService mediaService)
         {
             _context = context;
             _logger = logger;
+            _mediaService = mediaService;
         }
 
         // Standard CRUD operations
@@ -277,16 +280,15 @@ namespace MyMediaVerse.Application.Services
         {
             try
             {
-                var video = await _context.Videos.FirstOrDefaultAsync(v => v.Id == id);
-                if (video == null)
+                // Only a video id is accepted here; any other media item is left alone.
+                if (!await _context.Videos.AnyAsync(v => v.Id == id))
                 {
                     return false;
                 }
 
-                _context.Remove(video);
-                await _context.SaveChangesAsync();
-
-                return true;
+                // The shared delete detaches mixlists, topics, and genres, cleans up a stored
+                // thumbnail, and removes the item from the search index.
+                return await _mediaService.DeleteMediaItemAsync(id);
             }
             catch (Exception ex)
             {

@@ -8,6 +8,7 @@ using MyMediaVerse.DTOs;
 using MyMediaVerse.Shared.DTOs.YouTube;
 using MyMediaVerse.Shared.Exceptions;
 using MyMediaVerse.Shared.Interfaces;
+using MyMediaVerse.UnitTests.TestData;
 using MyMediaVerse.UnitTests.TestHelpers;
 
 namespace MyMediaVerse.UnitTests.Application
@@ -19,13 +20,18 @@ namespace MyMediaVerse.UnitTests.Application
         private readonly IYouTubeMappingService _mockMappingService;
         private readonly ILogger<YouTubeChannelService> _mockLogger;
         private readonly YouTubeChannelService _service;
+        private readonly IThumbnailStorageService _mockThumbnailStorage = Substitute.For<IThumbnailStorageService>();
+        private readonly ITypesenseService _mockTypesense = Substitute.For<ITypesenseService>();
 
         public YouTubeChannelServiceTests()
         {
             _mockYouTubeApiClient = Substitute.For<IYouTubeApiClient>();
             _mockMappingService = Substitute.For<IYouTubeMappingService>();
             _mockLogger = Substitute.For<ILogger<YouTubeChannelService>>();
-            _service = new YouTubeChannelService(Context, _mockYouTubeApiClient, _mockMappingService, _mockLogger);
+            // Deletes go through the real shared delete path, so its effects are asserted here too.
+            var mediaService = new MediaService(
+                Context, Substitute.For<ILogger<MediaService>>(), _mockThumbnailStorage, _mockTypesense);
+            _service = new YouTubeChannelService(Context, _mockYouTubeApiClient, _mockMappingService, _mockLogger, mediaService);
         }
 
         private YouTubeChannel CreateTestChannel(string title = "Test Channel", string externalId = "UCtest123")
@@ -289,18 +295,39 @@ namespace MyMediaVerse.UnitTests.Application
         #region DeleteChannelAsync Tests
 
         [Fact]
-        public async Task DeleteChannelAsync_WhenExists_ShouldReturnTrue()
+        public async Task DeleteChannelAsync_ShouldDetachLinks_KeepItsVideos_AndRemoveTheChannelFromTheSearchIndex()
         {
-            // Arrange
             var channel = CreateTestChannel();
+            var video = new Video { Title = "Upload", Platform = "YouTube", ExternalId = "upload00001", Channel = channel };
+            var mixlist = TestDataFactory.CreateMixlist("Favorites");
+            mixlist.MediaItems.Add(channel);
+            Context.Mixlists.Add(mixlist);
             Context.YouTubeChannels.Add(channel);
+            Context.Videos.Add(video);
             await Context.SaveChangesAsync();
 
-            // Act
             var result = await _service.DeleteChannelAsync(channel.Id);
 
-            // Assert
             result.Should().BeTrue();
+            Context.MediaItems.Any(m => m.Id == channel.Id).Should().BeFalse();
+            Context.Mixlists.Single().MediaItems.Should().BeEmpty();
+            Context.Videos.Any(v => v.Id == video.Id).Should().BeTrue("deleting a channel keeps its videos");
+            await _mockTypesense.Received(1).DeleteMediaItemAsync(channel.Id);
+            await _mockTypesense.DidNotReceive().DeleteMediaItemAsync(video.Id);
+        }
+
+        [Fact]
+        public async Task DeleteChannelAsync_ShouldReturnFalse_AndDeleteNothing_WhenTheIdBelongsToAnotherMediaType()
+        {
+            var video = new Video { Title = "Not a channel", Platform = "YouTube" };
+            Context.Videos.Add(video);
+            await Context.SaveChangesAsync();
+
+            var result = await _service.DeleteChannelAsync(video.Id);
+
+            result.Should().BeFalse();
+            Context.Videos.Any(v => v.Id == video.Id).Should().BeTrue();
+            await _mockTypesense.DidNotReceive().DeleteMediaItemAsync(Arg.Any<Guid>());
         }
 
         [Fact]

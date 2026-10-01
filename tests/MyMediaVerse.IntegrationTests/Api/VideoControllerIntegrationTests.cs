@@ -2,9 +2,14 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using NSubstitute;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
+using MyMediaVerse.Infrastructure.Data;
 using MyMediaVerse.IntegrationTests.Fixtures;
+using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.IntegrationTests.Api
 {
@@ -393,6 +398,47 @@ namespace MyMediaVerse.IntegrationTests.Api
             // Verify the video is actually deleted
             var getResponse = await _client.GetAsync($"/api/video/{createdVideo.Id}");
             Assert.Equal(HttpStatusCode.NotFound, getResponse.StatusCode);
+        }
+
+        [Fact]
+        public async Task DeleteVideo_InAMixlistAndAPlaylist_RemovesItEverywhere_AndCleansTheSearchIndex()
+        {
+            // Against real Postgres: the video's own delete route hands off to the shared delete,
+            // which has to leave no orphaned base row and no dangling link behind.
+            var (client, typesense) = _factory.CreateClientWithSubstitute<ITypesenseService>();
+            var video = new Video { Title = "Video in two places", Platform = "YouTube", ExternalId = "delete00001" };
+            var playlist = new YouTubePlaylist { Title = "A playlist", PlaylistExternalId = "PLdelete", MediaType = MediaType.Playlist };
+            var mixlist = new Mixlist { Name = "A mixlist" };
+            mixlist.MediaItems.Add(video);
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<MediaLibraryDbContext>();
+                db.AddRange(video, playlist, mixlist);
+                db.Add(new YouTubePlaylistVideo { YouTubePlaylistId = playlist.Id, VideoId = video.Id, Position = 0 });
+                await db.SaveChangesAsync();
+            }
+
+            var delete = await client.DeleteAsync($"/api/video/{video.Id}");
+
+            Assert.Equal(HttpStatusCode.NoContent, delete.StatusCode);
+
+            // Every all-media query materializes each row by its type; an orphaned base row
+            // would make this endpoint return 500.
+            Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/media")).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/media/{video.Id}")).StatusCode);
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<MediaLibraryDbContext>();
+                Assert.False(await db.Videos.AnyAsync(v => v.Id == video.Id));
+                Assert.False(await db.MediaItems.AnyAsync(m => m.Id == video.Id));
+                Assert.False(await db.Set<YouTubePlaylistVideo>().AnyAsync(link => link.VideoId == video.Id));
+                Assert.True(await db.YouTubePlaylists.AnyAsync(p => p.Id == playlist.Id));
+                var storedMixlist = await db.Mixlists.Include(m => m.MediaItems).SingleAsync(m => m.Id == mixlist.Id);
+                Assert.Empty(storedMixlist.MediaItems);
+            }
+
+            await typesense.Received(1).DeleteMediaItemAsync(video.Id);
         }
 
         [Fact]

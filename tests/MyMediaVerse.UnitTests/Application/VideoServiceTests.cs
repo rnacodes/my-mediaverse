@@ -6,6 +6,8 @@ using MyMediaVerse.Application.Services;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Shared.Exceptions;
+using MyMediaVerse.Shared.Interfaces;
+using MyMediaVerse.UnitTests.TestData;
 using MyMediaVerse.UnitTests.TestHelpers;
 
 namespace MyMediaVerse.UnitTests.Application
@@ -15,11 +17,16 @@ namespace MyMediaVerse.UnitTests.Application
     {
         private readonly ILogger<VideoService> _mockLogger;
         private readonly VideoService _service;
+        private readonly IThumbnailStorageService _mockThumbnailStorage = Substitute.For<IThumbnailStorageService>();
+        private readonly ITypesenseService _mockTypesense = Substitute.For<ITypesenseService>();
 
         public VideoServiceTests()
         {
             _mockLogger = Substitute.For<ILogger<VideoService>>();
-            _service = new VideoService(Context, _mockLogger);
+            // Deletes go through the real shared delete path, so its effects are asserted here too.
+            var mediaService = new MediaService(
+                Context, Substitute.For<ILogger<MediaService>>(), _mockThumbnailStorage, _mockTypesense);
+            _service = new VideoService(Context, _mockLogger, mediaService);
         }
 
         #region GetAllVideosAsync Tests
@@ -255,26 +262,37 @@ namespace MyMediaVerse.UnitTests.Application
         #region DeleteVideoAsync Tests
 
         [Fact]
-        public async Task DeleteVideoAsync_WithValidId_ShouldDeleteVideo()
+        public async Task DeleteVideoAsync_ShouldDetachLinks_AndRemoveTheVideoFromTheSearchIndex()
         {
-            // Arrange
-            var videoId = Guid.NewGuid();
-            var video = new Video { Id = videoId, Title = "Test Video", Platform = "YouTube", Topics = new List<Topic>(), Genres = new List<Genre>() };
+            var video = new Video { Id = Guid.NewGuid(), Title = "Test Video", Platform = "YouTube", Topics = new List<Topic>(), Genres = new List<Genre>() };
+            video.Topics.Add(new Topic { Name = "learning" });
+            var mixlist = TestDataFactory.CreateMixlist("Favorites");
+            mixlist.MediaItems.Add(video);
+            Context.Mixlists.Add(mixlist);
             Context.Videos.Add(video);
             await Context.SaveChangesAsync();
-            
-            // Clear change tracker to avoid entity tracking conflicts
-            Context.ChangeTracker.Clear();
 
-            // Act
-            var result = await _service.DeleteVideoAsync(videoId);
+            var result = await _service.DeleteVideoAsync(video.Id);
 
-            // Assert
             result.Should().BeTrue();
-            
-            // Verify deleted from database
-            var deletedVideo = await Context.Videos.FindAsync(videoId);
-            deletedVideo.Should().BeNull();
+            Context.MediaItems.Any(m => m.Id == video.Id).Should().BeFalse();
+            Context.Mixlists.Single().MediaItems.Should().BeEmpty();
+            Context.Topics.Any(t => t.Name == "learning").Should().BeTrue("topics are shared and outlive the item");
+            await _mockTypesense.Received(1).DeleteMediaItemAsync(video.Id);
+        }
+
+        [Fact]
+        public async Task DeleteVideoAsync_ShouldReturnFalse_AndDeleteNothing_WhenTheIdBelongsToAnotherMediaType()
+        {
+            var channel = TestDataFactory.CreateYouTubeChannel("A Channel", "UCother");
+            Context.YouTubeChannels.Add(channel);
+            await Context.SaveChangesAsync();
+
+            var result = await _service.DeleteVideoAsync(channel.Id);
+
+            result.Should().BeFalse();
+            Context.YouTubeChannels.Any(c => c.Id == channel.Id).Should().BeTrue();
+            await _mockTypesense.DidNotReceive().DeleteMediaItemAsync(Arg.Any<Guid>());
         }
 
         [Fact]

@@ -16,17 +16,20 @@ namespace MyMediaVerse.Application.Services
         private readonly IYouTubeApiClient _youTubeApiClient;
         private readonly IYouTubeMappingService _mappingService;
         private readonly ILogger<YouTubeChannelService> _logger;
+        private readonly IMediaService _mediaService;
 
         public YouTubeChannelService(
             IApplicationDbContext context,
             IYouTubeApiClient youTubeApiClient,
             IYouTubeMappingService mappingService,
-            ILogger<YouTubeChannelService> logger)
+            ILogger<YouTubeChannelService> logger,
+            IMediaService mediaService)
         {
             _context = context;
             _youTubeApiClient = youTubeApiClient;
             _mappingService = mappingService;
             _logger = logger;
+            _mediaService = mediaService;
         }
 
         public async Task<IEnumerable<YouTubeChannel>> GetAllChannelsAsync()
@@ -278,18 +281,22 @@ namespace MyMediaVerse.Application.Services
         {
             try
             {
-                var channel = await _context.FindAsync<YouTubeChannel>(id);
-                
-                if (channel == null)
+                // Only a channel id is accepted here; any other media item is left alone.
+                if (!await _context.YouTubeChannels.AnyAsync(c => c.Id == id))
                 {
                     return false;
                 }
 
-                _context.Remove(channel);
-                await _context.SaveChangesAsync();
-                
-                _logger.LogInformation("Deleted YouTube channel with ID {Id}", id);
-                return true;
+                // The shared delete detaches mixlists, topics, and genres, cleans up a stored
+                // thumbnail, and removes the item from the search index. The channel's videos
+                // stay in the library with their channel link cleared.
+                var deleted = await _mediaService.DeleteMediaItemAsync(id);
+                if (deleted)
+                {
+                    _logger.LogInformation("Deleted YouTube channel with ID {Id}", id);
+                }
+
+                return deleted;
             }
             catch (Exception ex)
             {

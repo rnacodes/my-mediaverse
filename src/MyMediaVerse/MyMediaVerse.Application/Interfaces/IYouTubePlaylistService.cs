@@ -8,6 +8,20 @@ namespace MyMediaVerse.Application.Interfaces
     /// </summary>
     public record YouTubePlaylistCreationResult(YouTubePlaylist Playlist, bool Created);
 
+    /// <summary>
+    /// The outcome of syncing a playlist with YouTube: the stored row as it stands afterwards,
+    /// and what the sync changed. <paramref name="VideosCreated"/> counts videos that were new
+    /// to the library, <paramref name="VideosLinked"/> videos already in the library that joined
+    /// the playlist, <paramref name="VideosUnlinked"/> videos that left it (their rows stay), and
+    /// <paramref name="PositionsUpdated"/> videos whose place in the playlist moved.
+    /// </summary>
+    public record YouTubePlaylistSyncResult(
+        YouTubePlaylist Playlist,
+        int VideosCreated,
+        int VideosLinked,
+        int VideosUnlinked,
+        int PositionsUpdated);
+
     public interface IYouTubePlaylistService
     {
         /// <summary>
@@ -48,9 +62,12 @@ namespace MyMediaVerse.Application.Interfaces
         Task<bool> RemoveVideoFromPlaylistAsync(Guid playlistId, Guid videoId);
         
         /// <summary>
-        /// Sync playlist videos from YouTube API (add/remove videos to match YouTube)
+        /// Makes the stored playlist mirror YouTube: refreshes the playlist's own details, adds
+        /// the videos that joined it (reusing any already in the library), unlinks the ones that
+        /// left without deleting them, and follows YouTube's order. Nothing is saved unless every
+        /// YouTube request succeeds.
         /// </summary>
-        Task<YouTubePlaylist> SyncPlaylistVideosAsync(Guid playlistId);
+        Task<YouTubePlaylistSyncResult> SyncPlaylistVideosAsync(Guid playlistId);
         
         /// <summary>
         /// Save or update a YouTube playlist
@@ -58,7 +75,7 @@ namespace MyMediaVerse.Application.Interfaces
         Task<YouTubePlaylist> SavePlaylistAsync(YouTubePlaylist playlist, bool updateIfExists = false);
         
         /// <summary>
-        /// Delete a YouTube playlist
+        /// Delete a YouTube playlist. Its videos stay in the library.
         /// </summary>
         Task<bool> DeletePlaylistAsync(Guid id);
     }
