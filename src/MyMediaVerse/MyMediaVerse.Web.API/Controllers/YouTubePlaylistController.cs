@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.DTOs;
+using MyMediaVerse.Shared.DTOs.YouTube;
 using MyMediaVerse.Shared.Exceptions;
 using MyMediaVerse.Shared.Interfaces;
 using MyMediaVerse.Web.API.Extensions;
@@ -187,8 +188,9 @@ namespace MyMediaVerse.Web.API.Controllers
         [Authorize]
         [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
         [HttpPost("{id}/sync")]
-        public async Task<ActionResult<YouTubePlaylistResponseDto>> SyncPlaylist(Guid id)
+        public async Task<ActionResult<YouTubePlaylistSyncResultDto>> SyncPlaylist(Guid id)
         {
+            var startedAt = DateTime.UtcNow;
             try
             {
                 var result = await _playlistService.SyncPlaylistVideosAsync(id);
@@ -204,7 +206,19 @@ namespace MyMediaVerse.Web.API.Controllers
                     await _importReindexService.ReindexItemAfterImportAsync(result.Playlist.Id, "YouTube playlist sync");
                 }
 
-                return Ok(result.Playlist.ToResponseDto());
+                return Ok(new YouTubePlaylistSyncResultDto
+                {
+                    PlaylistId = result.Playlist.Id,
+                    PlaylistTitle = result.Playlist.Title,
+                    CreatedCount = result.VideosCreated,
+                    LinkedCount = result.VideosLinked,
+                    UnlinkedCount = result.VideosUnlinked,
+                    UpdatedCount = result.PositionsUpdated,
+                    VideoCount = result.Playlist.VideoCount ?? 0,
+                    StartedAt = startedAt,
+                    CompletedAt = DateTime.UtcNow,
+                    ReindexTriggered = true
+                });
             }
             catch (YouTubeResourceNotFoundException ex)
             {

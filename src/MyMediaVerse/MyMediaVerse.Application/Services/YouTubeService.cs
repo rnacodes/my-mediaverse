@@ -54,7 +54,7 @@ namespace MyMediaVerse.Application.Services
             return await _youTubeApiClient.GetPlaylistDetailsAsync(playlistId);
         }
 
-        public async Task<List<YouTubePlaylistItemDto>> GetPlaylistItemsAsync(string playlistId, int maxResults = 50, string? pageToken = null)
+        public async Task<YouTubePlaylistItemListResponseDto> GetPlaylistItemsAsync(string playlistId, int maxResults = 50, string? pageToken = null)
         {
             return await _youTubeApiClient.GetPlaylistItemsAsync(playlistId, maxResults, pageToken);
         }
@@ -79,7 +79,7 @@ namespace MyMediaVerse.Application.Services
             return await _youTubeApiClient.GetChannelByHandleAsync(handle);
         }
 
-        public async Task<List<YouTubePlaylistItemDto>> GetChannelUploadsAsync(string channelId, int maxResults = 25, string? pageToken = null)
+        public async Task<YouTubePlaylistItemListResponseDto> GetChannelUploadsAsync(string channelId, int maxResults = 25, string? pageToken = null)
         {
             return await _youTubeApiClient.GetChannelUploadsAsync(channelId, maxResults, pageToken);
         }

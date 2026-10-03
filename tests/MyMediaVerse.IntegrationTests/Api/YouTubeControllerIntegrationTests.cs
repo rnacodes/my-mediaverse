@@ -158,15 +158,18 @@ namespace MyMediaVerse.IntegrationTests.Api
                 CreatePlaylistItemDto("item2", "Test Video 2")
             };
             var (client, _) = _factory.CreateClientWithSubstitute<IYouTubeService>(mock =>
-                mock.GetPlaylistItemsAsync(playlistId, 50, null).Returns(expectedItems));
+                mock.GetPlaylistItemsAsync(playlistId, 50, null)
+                    .Returns(new YouTubePlaylistItemListResponseDto { Items = expectedItems, NextPageToken = "page2" }));
 
             // Act
             var response = await client.GetAsync($"/api/YouTube/playlists/{playlistId}/items");
 
             // Assert
             response.StatusCode.Should().Be(HttpStatusCode.OK);
-            var items = await response.Content.ReadFromJsonAsync<List<YouTubePlaylistItemDto>>(_jsonOptions);
-            items.Should().NotBeNull();
+            var page = await response.Content.ReadFromJsonAsync<YouTubePlaylistItemListResponseDto>(_jsonOptions);
+            page.Should().NotBeNull();
+            page!.Items.Should().HaveCount(2);
+            page.NextPageToken.Should().Be("page2");
         }
 
         #endregion

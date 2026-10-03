@@ -142,19 +142,8 @@ namespace MyMediaVerse.Application.Services
 
                 // Topics and genres the request names; a video that names none inherits its
                 // channel's when it is saved.
-                foreach (var topicName in dto.Topics?.Where(t => !string.IsNullOrWhiteSpace(t)) ?? Array.Empty<string>())
-                {
-                    var normalizedTopicName = topicName.Trim().ToLowerInvariant();
-                    var existingTopic = await _context.Topics.FirstOrDefaultAsync(t => t.Name == normalizedTopicName);
-                    video.Topics.Add(existingTopic ?? new Topic { Name = normalizedTopicName });
-                }
-
-                foreach (var genreName in dto.Genres?.Where(g => !string.IsNullOrWhiteSpace(g)) ?? Array.Empty<string>())
-                {
-                    var normalizedGenreName = genreName.Trim().ToLowerInvariant();
-                    var existingGenre = await _context.Genres.FirstOrDefaultAsync(g => g.Name == normalizedGenreName);
-                    video.Genres.Add(existingGenre ?? new Genre { Name = normalizedGenreName });
-                }
+                await HandleTopicsAsync(video, dto.Topics);
+                await HandleGenresAsync(video, dto.Genres);
 
                 return await AddNewAsync(video);
             }
@@ -215,55 +204,8 @@ namespace MyMediaVerse.Application.Services
                 video.Genres.Clear();
                 await _context.SaveChangesAsync();
 
-                // Add new Topics
-                if (dto.Topics?.Length > 0)
-                {
-                    foreach (var topicName in dto.Topics.Where(t => !string.IsNullOrWhiteSpace(t)))
-                    {
-                        var normalizedTopicName = topicName.Trim().ToLowerInvariant();
-                        var topic = await _context.Topics
-                            .AsNoTracking()
-                            .FirstOrDefaultAsync(t => t.Name == normalizedTopicName);
-
-                        if (topic == null)
-                        {
-                            topic = new Topic { Name = normalizedTopicName };
-                            _context.Add(topic);
-                            await _context.SaveChangesAsync();
-                        }
-
-                        var trackedTopic = await _context.Topics.FirstOrDefaultAsync(t => t.Id == topic.Id);
-                        if (trackedTopic != null && !video.Topics.Any(t => t.Id == trackedTopic.Id))
-                        {
-                            video.Topics.Add(trackedTopic);
-                        }
-                    }
-                }
-
-                // Add new Genres
-                if (dto.Genres?.Length > 0)
-                {
-                    foreach (var genreName in dto.Genres.Where(g => !string.IsNullOrWhiteSpace(g)))
-                    {
-                        var normalizedGenreName = genreName.Trim().ToLowerInvariant();
-                        var genre = await _context.Genres
-                            .AsNoTracking()
-                            .FirstOrDefaultAsync(g => g.Name == normalizedGenreName);
-
-                        if (genre == null)
-                        {
-                            genre = new Genre { Name = normalizedGenreName };
-                            _context.Add(genre);
-                            await _context.SaveChangesAsync();
-                        }
-
-                        var trackedGenre = await _context.Genres.FirstOrDefaultAsync(g => g.Id == genre.Id);
-                        if (trackedGenre != null && !video.Genres.Any(g => g.Id == trackedGenre.Id))
-                        {
-                            video.Genres.Add(trackedGenre);
-                        }
-                    }
-                }
+                await HandleTopicsAsync(video, dto.Topics);
+                await HandleGenresAsync(video, dto.Genres);
 
                 await _context.SaveChangesAsync();
 
@@ -441,6 +383,38 @@ namespace MyMediaVerse.Application.Services
                     var normalizedName = genre.Name.Trim().ToLowerInvariant();
                     var existingGenre = await _context.Genres.FirstOrDefaultAsync(g => g.Name == normalizedName);
                     (video.Genres ??= new List<Genre>()).Add(existingGenre ?? new Genre { Name = normalizedName });
+                }
+            }
+        }
+
+        private async Task HandleTopicsAsync(Video video, string[]? topics)
+        {
+            if (topics == null || topics.Length == 0)
+                return;
+
+            var resolver = new TopicResolver(_context);
+            foreach (var name in topics.Where(t => !string.IsNullOrWhiteSpace(t)))
+            {
+                var topic = await resolver.GetOrCreateAsync(name.Trim().ToLowerInvariant());
+                if (topic != null && !video.Topics.Contains(topic))
+                {
+                    video.Topics.Add(topic);
+                }
+            }
+        }
+
+        private async Task HandleGenresAsync(Video video, string[]? genres)
+        {
+            if (genres == null || genres.Length == 0)
+                return;
+
+            var resolver = new GenreResolver(_context);
+            foreach (var name in GenreNames.NormalizeList(genres))
+            {
+                var genre = await resolver.GetOrCreateAsync(name);
+                if (genre != null && !video.Genres.Contains(genre))
+                {
+                    video.Genres.Add(genre);
                 }
             }
         }

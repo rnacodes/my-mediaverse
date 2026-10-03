@@ -162,9 +162,9 @@ namespace MyMediaVerse.Web.API.Controllers
         /// <param name="playlistId">YouTube playlist ID</param>
         /// <param name="maxResults">Maximum number of results (default: 50)</param>
         /// <param name="pageToken">Page token for pagination</param>
-        /// <returns>List of playlist items</returns>
+        /// <returns>One page of playlist items with the token for the next page</returns>
         [HttpGet("playlists/{playlistId}/items")]
-        public async Task<ActionResult<List<YouTubePlaylistItemDto>>> GetPlaylistItems(
+        public async Task<ActionResult<YouTubePlaylistItemListResponseDto>> GetPlaylistItems(
             string playlistId,
             [FromQuery] int maxResults = 50,
             [FromQuery] string? pageToken = null)
@@ -277,9 +277,9 @@ namespace MyMediaVerse.Web.API.Controllers
         /// <param name="channelId">YouTube channel ID</param>
         /// <param name="maxResults">Maximum number of results (default: 25)</param>
         /// <param name="pageToken">Page token for pagination</param>
-        /// <returns>List of channel upload items</returns>
+        /// <returns>One page of channel uploads with the token for the next page</returns>
         [HttpGet("channels/{channelId}/uploads")]
-        public async Task<ActionResult<List<YouTubePlaylistItemDto>>> GetChannelUploads(
+        public async Task<ActionResult<YouTubePlaylistItemListResponseDto>> GetChannelUploads(
             string channelId,
             [FromQuery] int maxResults = 25,
             [FromQuery] string? pageToken = null)

@@ -1,5 +1,6 @@
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
+using MyMediaVerse.Shared.DTOs.YouTube;
 
 namespace MyMediaVerse.Application.Interfaces
 {
@@ -56,9 +57,17 @@ namespace MyMediaVerse.Application.Interfaces
         Task<YouTubeChannelCreationResult> ImportChannelFromYouTubeAsync(string channelId);
         
         /// <summary>
-        /// Sync channel metadata from YouTube API (update subscriber count, video count, etc.)
+        /// Refresh the channel's metadata from YouTube (title, counts, thumbnail, ...) and report
+        /// how many uploads the library does not hold yet.
         /// </summary>
-        Task<YouTubeChannel> SyncChannelMetadataAsync(Guid channelId);
+        Task<YouTubeChannelSyncResultDto> SyncChannelMetadataAsync(Guid channelId);
+
+        /// <summary>
+        /// Import the channel's newest uploads: stored videos are linked to the channel when they
+        /// have none, the rest are created under it. <paramref name="count"/> is clamped to one
+        /// YouTube page. Nothing is saved when YouTube's quota runs out mid-run.
+        /// </summary>
+        Task<YouTubeChannelImportResultDto> ImportLatestUploadsAsync(Guid channelId, int count);
         
         /// <summary>
         /// Check if a channel exists by external ID

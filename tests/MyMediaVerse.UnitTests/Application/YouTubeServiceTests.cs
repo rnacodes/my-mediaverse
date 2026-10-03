@@ -498,7 +498,7 @@ namespace MyMediaVerse.UnitTests.Application
             var playlistId = "test_playlist";
             var maxResults = 25;
             var pageToken = "test_token";
-            var expectedResult = new List<YouTubePlaylistItemDto>();
+            var expectedResult = new YouTubePlaylistItemListResponseDto { Items = new List<YouTubePlaylistItemDto>() };
 
             _mockApiClient
                 .GetPlaylistItemsAsync(playlistId, maxResults, pageToken)

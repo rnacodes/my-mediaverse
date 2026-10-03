@@ -8,11 +8,13 @@ namespace MyMediaVerse.Shared.Interfaces
         Task<YouTubeVideoDto?> GetVideoDetailsAsync(string videoId);
         Task<List<YouTubeVideoDto>> GetVideosAsync(List<string> videoIds);
         Task<YouTubePlaylistDto?> GetPlaylistDetailsAsync(string playlistId);
-        Task<List<YouTubePlaylistItemDto>> GetPlaylistItemsAsync(string playlistId, int maxResults = 50, string? pageToken = null);
+        /// <summary>One page of a playlist's items, with the token for the next page.</summary>
+        Task<YouTubePlaylistItemListResponseDto> GetPlaylistItemsAsync(string playlistId, int maxResults = 50, string? pageToken = null);
         Task<List<YouTubePlaylistItemDto>> GetAllPlaylistItemsAsync(string playlistId);
         Task<YouTubeChannelDto?> GetChannelDetailsAsync(string channelId);
         Task<YouTubeChannelDto?> GetChannelByUsernameAsync(string username);
         Task<YouTubeChannelDto?> GetChannelByHandleAsync(string handle);
-        Task<List<YouTubePlaylistItemDto>> GetChannelUploadsAsync(string channelId, int maxResults = 25, string? pageToken = null);
+        /// <summary>One page of a channel's uploads (newest first), with the token for the next page.</summary>
+        Task<YouTubePlaylistItemListResponseDto> GetChannelUploadsAsync(string channelId, int maxResults = 25, string? pageToken = null);
     }
 }

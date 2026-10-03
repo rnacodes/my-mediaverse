@@ -16,12 +16,12 @@ namespace MyMediaVerse.Application.Interfaces
         Task<YouTubeVideoDto?> GetVideoDetailsAsync(string videoId);
         Task<List<YouTubeVideoDto>> GetVideosAsync(List<string> videoIds);
         Task<YouTubePlaylistDto?> GetPlaylistDetailsAsync(string playlistId);
-        Task<List<YouTubePlaylistItemDto>> GetPlaylistItemsAsync(string playlistId, int maxResults = 50, string? pageToken = null);
+        Task<YouTubePlaylistItemListResponseDto> GetPlaylistItemsAsync(string playlistId, int maxResults = 50, string? pageToken = null);
         Task<List<YouTubePlaylistItemDto>> GetAllPlaylistItemsAsync(string playlistId);
         Task<YouTubeChannelDto?> GetChannelDetailsAsync(string channelId);
         Task<YouTubeChannelDto?> GetChannelByUsernameAsync(string username);
         Task<YouTubeChannelDto?> GetChannelByHandleAsync(string handle);
-        Task<List<YouTubePlaylistItemDto>> GetChannelUploadsAsync(string channelId, int maxResults = 25, string? pageToken = null);
+        Task<YouTubePlaylistItemListResponseDto> GetChannelUploadsAsync(string channelId, int maxResults = 25, string? pageToken = null);
         
         // Import methods
         Task<YouTubeImportResult> ImportVideoAsync(string videoId);

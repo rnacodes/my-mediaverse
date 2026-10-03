@@ -18,8 +18,7 @@ namespace MyMediaVerse.Application.Services
         private readonly IMediaService _mediaService;
         private readonly ILogger<YouTubePlaylistService> _logger;
 
-        // YouTube accepts at most 50 ids per videos request.
-        public const int VideoDetailsBatchSize = 50;
+        private readonly YouTubeVideoResolver _videoResolver;
 
         public YouTubePlaylistService(
             IApplicationDbContext context,
@@ -33,6 +32,7 @@ namespace MyMediaVerse.Application.Services
             _mappingService = mappingService;
             _mediaService = mediaService;
             _logger = logger;
+            _videoResolver = new YouTubeVideoResolver(context, youTubeApiClient, mappingService);
         }
 
         public async Task<YouTubePlaylist?> GetPlaylistByIdAsync(Guid id, bool includeVideos = false)
@@ -161,9 +161,9 @@ namespace MyMediaVerse.Application.Services
             // playlist only once.
             var itemsByVideoId = new Dictionary<string, YouTubePlaylistItemDto>(StringComparer.Ordinal);
             var orderedVideoIds = new List<string>();
-            foreach (var item in playlistItems.Where(item => !IsDeletedOrPrivateVideo(item)))
+            foreach (var item in playlistItems.Where(item => !YouTubeVideoResolver.IsDeletedOrPrivateVideo(item)))
             {
-                var videoId = GetVideoId(item);
+                var videoId = YouTubeVideoResolver.GetVideoId(item);
                 if (!string.IsNullOrEmpty(videoId) && itemsByVideoId.TryAdd(videoId, item))
                 {
                     orderedVideoIds.Add(videoId);
@@ -177,7 +177,7 @@ namespace MyMediaVerse.Application.Services
             var unlinkedCount = 0;
             foreach (var link in playlist.PlaylistVideos?.ToList() ?? new List<YouTubePlaylistVideo>())
             {
-                var videoId = link.Video == null ? null : GetStoredYouTubeId(link.Video);
+                var videoId = link.Video == null ? null : YouTubeVideoResolver.GetStoredYouTubeId(link.Video);
                 if (link.Video != null && (videoId == null || !itemsByVideoId.ContainsKey(videoId)))
                 {
                     _context.Remove(link);
@@ -194,14 +194,14 @@ namespace MyMediaVerse.Application.Services
             }
 
             var idsToAdd = orderedVideoIds.Where(id => !linksByVideoId.ContainsKey(id)).ToList();
-            var videosByYouTubeId = await FindStoredVideosAsync(idsToAdd);
+            var videosByYouTubeId = await _videoResolver.FindStoredVideosAsync(idsToAdd);
             var reusedIds = videosByYouTubeId.Keys.ToHashSet(StringComparer.Ordinal);
 
             var newIds = idsToAdd.Where(id => !videosByYouTubeId.ContainsKey(id)).ToList();
             var createdCount = 0;
             if (newIds.Count > 0)
             {
-                var newVideos = await BuildNewVideosAsync(newIds, itemsByVideoId);
+                var newVideos = await _videoResolver.BuildNewVideosAsync(newIds, itemsByVideoId);
                 foreach (var video in newVideos)
                 {
                     _context.Add(video);
@@ -259,151 +259,6 @@ namespace MyMediaVerse.Application.Services
 
             var synced = await GetPlaylistByIdAsync(playlistId, includeVideos: true) ?? playlist;
             return new YouTubePlaylistSyncResult(synced, createdCount, linkedCount, unlinkedCount, positionsUpdated);
-        }
-
-        private static string? GetVideoId(YouTubePlaylistItemDto item) =>
-            item.Snippet?.ResourceId?.VideoId ?? item.ContentDetails?.VideoId;
-
-        /// <summary>
-        /// The YouTube id a stored video is known by: its own id, or for a row saved before ids
-        /// were stored, the id held by its link.
-        /// </summary>
-        private static string? GetStoredYouTubeId(Video video) =>
-            VideoDuplicateFinder.NormalizeExternalId(video.ExternalId)
-            ?? VideoDuplicateFinder.ExtractYouTubeId(video.Link);
-
-        /// <summary>
-        /// Finds the videos already in the library for the given YouTube ids, keyed by that id.
-        /// A row saved before ids were stored is found through its link and given its id.
-        /// </summary>
-        private async Task<Dictionary<string, Video>> FindStoredVideosAsync(List<string> youTubeIds)
-        {
-            var found = new Dictionary<string, Video>(StringComparer.Ordinal);
-            if (youTubeIds.Count == 0)
-            {
-                return found;
-            }
-
-            var youTubeLower = VideoDuplicateFinder.YouTubePlatform.ToLower();
-            var stored = await _context.Videos
-                .Where(v => v.ExternalId != null && youTubeIds.Contains(v.ExternalId) && v.Platform.ToLower() == youTubeLower)
-                .ToListAsync();
-            foreach (var video in stored)
-            {
-                found.TryAdd(video.ExternalId!, video);
-            }
-
-            if (found.Count == youTubeIds.Count)
-            {
-                return found;
-            }
-
-            // The substring test narrows the candidates; the extraction confirms the id.
-            var legacyRows = await _context.Videos
-                .Where(v => (v.ExternalId == null || v.ExternalId == "") && v.Link != null && v.Link.Contains("youtu"))
-                .ToListAsync();
-            var wanted = youTubeIds.ToHashSet(StringComparer.Ordinal);
-            foreach (var video in legacyRows)
-            {
-                var youTubeId = VideoDuplicateFinder.ExtractYouTubeId(video.Link);
-                if (youTubeId != null && wanted.Contains(youTubeId) && found.TryAdd(youTubeId, video))
-                {
-                    VideoDuplicateFinder.AbsorbIdentity(video, new VideoIdentity
-                    {
-                        Platform = VideoDuplicateFinder.YouTubePlatform,
-                        ExternalId = youTubeId
-                    });
-                }
-            }
-
-            return found;
-        }
-
-        /// <summary>
-        /// Builds the videos that are new to the library. A video YouTube returns no details for
-        /// is left out. Each new video is linked to its channel when that channel is already
-        /// stored; a channel is never created here.
-        /// </summary>
-        private async Task<List<Video>> BuildNewVideosAsync(
-            List<string> newIds,
-            Dictionary<string, YouTubePlaylistItemDto> itemsByVideoId)
-        {
-            var details = new List<YouTubeVideoDto>();
-            foreach (var batch in newIds.Chunk(VideoDetailsBatchSize))
-            {
-                details.AddRange(await _youTubeApiClient.GetVideosAsync(batch.ToList()) ?? new List<YouTubeVideoDto>());
-            }
-
-            var detailsById = new Dictionary<string, YouTubeVideoDto>(StringComparer.Ordinal);
-            foreach (var detail in details.Where(detail => !string.IsNullOrEmpty(detail.Id)))
-            {
-                detailsById.TryAdd(detail.Id!, detail);
-            }
-
-            var itemsWithDetails = newIds
-                .Where(detailsById.ContainsKey)
-                .Select(id => itemsByVideoId[id])
-                .ToList();
-            if (itemsWithDetails.Count == 0)
-            {
-                return new List<Video>();
-            }
-
-            var channelExternalIds = detailsById.Values
-                .Select(detail => detail.Snippet?.ChannelId)
-                .Where(channelId => !string.IsNullOrEmpty(channelId))
-                .Distinct()
-                .ToList();
-            var storedChannels = await _context.YouTubeChannels
-                .Where(c => channelExternalIds.Contains(c.ChannelExternalId))
-                .Select(c => new { c.ChannelExternalId, c.Id })
-                .ToListAsync();
-            var channelIds = storedChannels.ToDictionary(c => c.ChannelExternalId, c => c.Id, StringComparer.Ordinal);
-
-            var videos = _mappingService.MapPlaylistItemsToVideoEntities(itemsWithDetails, details)
-                .Where(video => !string.IsNullOrEmpty(video.ExternalId))
-                .ToList();
-            foreach (var video in videos)
-            {
-                video.Status = Status.Uncharted;
-
-                var channelExternalId = detailsById[video.ExternalId!].Snippet?.ChannelId;
-                if (channelExternalId != null && channelIds.TryGetValue(channelExternalId, out var channelId))
-                {
-                    video.ChannelId = channelId;
-                }
-            }
-
-            return videos;
-        }
-
-        /// <summary>
-        /// Helper method to check if a playlist item represents a deleted or private video
-        /// </summary>
-        private static bool IsDeletedOrPrivateVideo(YouTubePlaylistItemDto item)
-        {
-            var title = item.Snippet?.Title ?? string.Empty;
-            var titleLower = title.ToLowerInvariant();
-
-            // Check for common deleted/private video indicators
-            if (titleLower == "deleted video" ||
-                titleLower == "private video" ||
-                titleLower == "[deleted video]" ||
-                titleLower == "[private video]")
-            {
-                return true;
-            }
-
-            // Check if the video has no channel info (often indicates deleted)
-            var channelTitle = item.Snippet?.ChannelTitle ?? string.Empty;
-            var videoId = GetVideoId(item);
-
-            if (string.IsNullOrEmpty(channelTitle) && string.IsNullOrEmpty(videoId))
-            {
-                return true;
-            }
-
-            return false;
         }
 
         public async Task<bool> AddVideoToPlaylistAsync(Guid playlistId, Guid videoId, int? position = null)

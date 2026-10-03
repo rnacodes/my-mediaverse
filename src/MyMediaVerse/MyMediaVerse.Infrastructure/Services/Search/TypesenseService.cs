@@ -381,7 +381,13 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 new Field("show_id", FieldType.String, false, optional: true, index: false), // TV episodes: parent show routing
                 new Field("show_title", FieldType.String, true, optional: true), // TV episodes: searchable parent show
                 new Field("season_number", FieldType.Int32, false, optional: true), // TV episodes: for ordering within a show
-                new Field("episode_number", FieldType.Int32, false, optional: true) // TV episodes: for ordering within a season
+                new Field("episode_number", FieldType.Int32, false, optional: true), // TV episodes: for ordering within a season
+                new Field("channel_title", FieldType.String, true, optional: true), // Videos: searchable, facetable parent channel
+                new Field("channel_id", FieldType.String, false, optional: true, index: false), // Videos: parent channel routing
+                new Field("length_in_seconds", FieldType.Int32, false, optional: true), // Videos: for sorting by length
+                new Field("channel_external_id", FieldType.String, false, optional: true, index: false), // Channels: YouTube id, not searched
+                new Field("subscriber_count", FieldType.Int64, false, optional: true), // Channels: for sorting
+                new Field("video_count", FieldType.Int32, false, optional: true) // Channels and playlists: for sorting
             };
         }
 
@@ -819,10 +825,43 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     break;
 
                 case "Video":
+                    // The channel's title comes back in the same query so a search for the
+                    // channel finds its videos.
                     var video = await _context.Videos.AsNoTracking()
-                        .FirstOrDefaultAsync(v => v.Id == item.Id);
-                    if (video?.Platform != null)
-                        additionalFields["platform"] = video.Platform;
+                        .Where(v => v.Id == item.Id)
+                        .Select(v => new { v.Platform, v.LengthInSeconds, v.ChannelId, ChannelTitle = v.Channel != null ? v.Channel.Title : null })
+                        .FirstOrDefaultAsync();
+                    if (video != null)
+                    {
+                        if (video.Platform != null)
+                            additionalFields["platform"] = video.Platform;
+                        if (video.LengthInSeconds > 0)
+                            additionalFields["length_in_seconds"] = video.LengthInSeconds;
+                        if (video.ChannelId.HasValue)
+                            additionalFields["channel_id"] = video.ChannelId.Value.ToString();
+                        if (!string.IsNullOrWhiteSpace(video.ChannelTitle))
+                            additionalFields["channel_title"] = video.ChannelTitle;
+                    }
+                    break;
+
+                case "Channel":
+                    var channel = await _context.YouTubeChannels.AsNoTracking()
+                        .FirstOrDefaultAsync(c => c.Id == item.Id);
+                    if (channel != null)
+                    {
+                        additionalFields["channel_external_id"] = channel.ChannelExternalId;
+                        if (channel.SubscriberCount.HasValue)
+                            additionalFields["subscriber_count"] = channel.SubscriberCount.Value;
+                        if (channel.VideoCount.HasValue)
+                            additionalFields["video_count"] = (int)Math.Min(channel.VideoCount.Value, int.MaxValue);
+                    }
+                    break;
+
+                case "Playlist":
+                    var playlist = await _context.YouTubePlaylists.AsNoTracking()
+                        .FirstOrDefaultAsync(pl => pl.Id == item.Id);
+                    if (playlist?.VideoCount != null)
+                        additionalFields["video_count"] = playlist.VideoCount.Value;
                     break;
 
                 case "Website":

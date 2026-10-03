@@ -270,8 +270,8 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             var result = await _youtubeApiClient.GetPlaylistItemsAsync(playlistId);
 
             // Assert
-            result.Should().HaveCount(2);
-            result.Select(i => i.Id).Should().Contain(new[] { "item1", "item2" });
+            result.Items.Should().HaveCount(2);
+            result.Items!.Select(i => i.Id).Should().Contain(new[] { "item1", "item2" });
 
             VerifyHttpRequest("GET", "playlistItems?");
         }

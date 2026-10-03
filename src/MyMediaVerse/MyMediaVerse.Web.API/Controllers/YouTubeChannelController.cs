@@ -1,8 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Options;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.DTOs;
+using MyMediaVerse.Shared.Configuration;
+using MyMediaVerse.Shared.DTOs.YouTube;
 using MyMediaVerse.Shared.Exceptions;
 using MyMediaVerse.Shared.Interfaces;
 using MyMediaVerse.Web.API.Extensions;
@@ -16,15 +19,18 @@ namespace MyMediaVerse.Web.API.Controllers
         private readonly IYouTubeChannelService _channelService;
         private readonly IImportReindexService _importReindexService;
         private readonly ILogger<YouTubeChannelController> _logger;
+        private readonly YouTubeSyncOptions _syncOptions;
 
         public YouTubeChannelController(
             IYouTubeChannelService channelService,
             IImportReindexService importReindexService,
-            ILogger<YouTubeChannelController> logger)
+            ILogger<YouTubeChannelController> logger,
+            IOptions<YouTubeSyncOptions> syncOptions)
         {
             _channelService = channelService;
             _importReindexService = importReindexService;
             _logger = logger;
+            _syncOptions = syncOptions.Value;
         }
 
         /// <summary>
@@ -253,22 +259,30 @@ namespace MyMediaVerse.Web.API.Controllers
         }
 
         /// <summary>
-        /// Sync channel metadata from YouTube API (update subscriber count, video count, etc.)
+        /// Refresh the channel's metadata from YouTube and report how many uploads the library
+        /// does not hold yet.
         /// </summary>
         /// <param name="id">Channel database ID</param>
-        /// <returns>Updated YouTube channel</returns>
+        /// <returns>The sync result (reporting contract shape)</returns>
         // Explicit [Authorize] even though the fallback policy already requires a token: this endpoint
         // rewrites stored metadata and proxies an outbound YouTube call per request.
         [Authorize]
         [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
         [HttpPost("{id}/sync")]
-        public async Task<ActionResult<YouTubeChannelResponseDto>> SyncChannelMetadata(Guid id)
+        public async Task<ActionResult<YouTubeChannelSyncResultDto>> SyncChannelMetadata(Guid id)
         {
             try
             {
-                var channel = await _channelService.SyncChannelMetadataAsync(id);
-                var response = channel.ToResponseDto();
-                return Ok(response);
+                var result = await _channelService.SyncChannelMetadataAsync(id);
+
+                // Search reindex comes last; only the channel's own document can have changed.
+                if (result.UpdatedCount > 0)
+                {
+                    await _importReindexService.ReindexItemAfterImportAsync(id, "YouTube channel sync");
+                    result.ReindexTriggered = true;
+                }
+
+                return Ok(result);
             }
             catch (ArgumentException ex)
             {
@@ -289,6 +303,56 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 _logger.LogError(ex, "Error occurred while syncing YouTube channel metadata for {Id}", id);
                 return StatusCode(500, new { error = "Failed to sync YouTube channel metadata", details = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Import the channel's newest uploads into the library.
+        /// </summary>
+        /// <param name="id">Channel database ID</param>
+        /// <param name="count">How many of the newest uploads to bring in; defaults to the configured count, capped at one YouTube page</param>
+        /// <returns>The import result (reporting contract shape)</returns>
+        // Explicit [Authorize] even though the fallback policy already requires a token: this endpoint
+        // writes to the library and proxies outbound YouTube calls per request.
+        [Authorize]
+        [EnableRateLimiting(RateLimitingExtensions.ExternalProxyPolicy)]
+        [HttpPost("{id}/import-latest")]
+        public async Task<ActionResult<YouTubeChannelImportResultDto>> ImportLatestUploads(Guid id, [FromQuery] int? count = null)
+        {
+            try
+            {
+                var result = await _channelService.ImportLatestUploadsAsync(id, count ?? _syncOptions.LatestUploadsCount);
+
+                // Search reindex comes last. New and newly linked videos both change documents.
+                var changed = result.CreatedCount + result.LinkedCount;
+                if (changed > 0)
+                {
+                    await _importReindexService.ReindexAfterImportAsync(changed, "YouTube channel import-latest");
+                    result.ReindexTriggered = true;
+                }
+
+                return Ok(result);
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "YouTube channel not found for import-latest: {Id}", id);
+                return NotFound(new { error = $"YouTube channel with ID {id} not found" });
+            }
+            catch (YouTubeQuotaExceededException ex)
+            {
+                _logger.LogWarning(ex, "YouTube quota used up while importing latest uploads for channel {Id}", id);
+                return StatusCode(503, new { error = "YouTube's daily quota is used up. Try again after it resets.", quotaExceeded = true });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while importing latest uploads for channel {Id}", id);
+                return StatusCode(500, new YouTubeChannelImportResultDto
+                {
+                    Success = false,
+                    ChannelId = id,
+                    ErrorMessage = "Failed to import the channel's latest uploads",
+                    StartedAt = DateTime.UtcNow
+                });
             }
         }
 

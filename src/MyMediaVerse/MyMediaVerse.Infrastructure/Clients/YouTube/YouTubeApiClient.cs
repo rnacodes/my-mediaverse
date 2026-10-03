@@ -160,14 +160,16 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
         }
 
         /// <summary>
-        /// Get videos from a specific playlist
+        /// One page of a playlist's items. The page keeps its next-page token so a caller can
+        /// ask for the following page; the items list is never null.
         /// </summary>
-        public async Task<List<YouTubePlaylistItemDto>> GetPlaylistItemsAsync(string playlistId, int maxResults = 50, string? pageToken = null)
+        public async Task<YouTubePlaylistItemListResponseDto> GetPlaylistItemsAsync(string playlistId, int maxResults = 50, string? pageToken = null)
         {
             try
             {
                 var page = await GetPlaylistItemsPageAsync(playlistId, maxResults, pageToken);
-                return page.Items ?? new List<YouTubePlaylistItemDto>();
+                page.Items ??= new List<YouTubePlaylistItemDto>();
+                return page;
             }
             catch (Exception ex) when (ex is not YouTubeQuotaExceededException and not YouTubeNotConfiguredException)
             {
@@ -279,7 +281,7 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
         /// <summary>
         /// Get videos from a channel's uploads playlist
         /// </summary>
-        public async Task<List<YouTubePlaylistItemDto>> GetChannelUploadsAsync(string channelId, int maxResults = 25, string? pageToken = null)
+        public async Task<YouTubePlaylistItemListResponseDto> GetChannelUploadsAsync(string channelId, int maxResults = 25, string? pageToken = null)
         {
             try
             {
@@ -290,7 +292,7 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
                 if (string.IsNullOrEmpty(uploadsPlaylistId))
                 {
                     _logger.LogWarning("No uploads playlist found for channel ID: {ChannelId}", channelId);
-                    return new List<YouTubePlaylistItemDto>();
+                    return new YouTubePlaylistItemListResponseDto { Items = new List<YouTubePlaylistItemDto>() };
                 }
 
                 return await GetPlaylistItemsAsync(uploadsPlaylistId, maxResults, pageToken);
