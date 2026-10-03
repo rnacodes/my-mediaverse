@@ -60,20 +60,6 @@ export const updateDocument = async (id, documentData) => {
     }
 };
 
-/**
- * Deletes a document.
- * @param {string} id - Document ID
- */
-export const deleteDocument = async (id) => {
-    try {
-        const response = await apiClient.delete(`/document/${id}`);
-        return response.data;
-    } catch (error) {
-        console.error('Error deleting document:', error);
-        throw error;
-    }
-};
-
 // ============================================
 // Document Query API calls
 // ============================================

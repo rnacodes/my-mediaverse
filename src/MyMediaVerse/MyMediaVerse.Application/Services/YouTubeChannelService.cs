@@ -1,9 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using MyMediaVerse.Application.Helpers;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Utilities;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
+using MyMediaVerse.Shared.Configuration;
+using MyMediaVerse.Shared.DTOs.YouTube;
+using MyMediaVerse.Shared.Exceptions;
 using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.Application.Services
@@ -14,17 +18,22 @@ namespace MyMediaVerse.Application.Services
         private readonly IYouTubeApiClient _youTubeApiClient;
         private readonly IYouTubeMappingService _mappingService;
         private readonly ILogger<YouTubeChannelService> _logger;
+        private readonly IMediaService _mediaService;
+        private readonly YouTubeVideoResolver _videoResolver;
 
         public YouTubeChannelService(
             IApplicationDbContext context,
             IYouTubeApiClient youTubeApiClient,
             IYouTubeMappingService mappingService,
-            ILogger<YouTubeChannelService> logger)
+            ILogger<YouTubeChannelService> logger,
+            IMediaService mediaService)
         {
             _context = context;
             _youTubeApiClient = youTubeApiClient;
             _mappingService = mappingService;
             _logger = logger;
+            _mediaService = mediaService;
+            _videoResolver = new YouTubeVideoResolver(context, youTubeApiClient, mappingService);
         }
 
         public async Task<IEnumerable<YouTubeChannel>> GetAllChannelsAsync()
@@ -141,41 +150,9 @@ namespace MyMediaVerse.Application.Services
                     LastSyncedAt = DateTime.UtcNow
                 };
 
-                // Handle Topics
-                if (dto.Topics?.Length > 0)
-                {
-                    foreach (var topicName in dto.Topics.Where(t => !string.IsNullOrWhiteSpace(t)))
-                    {
-                        var normalizedTopicName = topicName.Trim().ToLowerInvariant();
-                        var existingTopic = await _context.Topics.FirstOrDefaultAsync(t => t.Name == normalizedTopicName);
-                        if (existingTopic != null)
-                        {
-                            channel.Topics.Add(existingTopic);
-                        }
-                        else
-                        {
-                            channel.Topics.Add(new Topic { Name = normalizedTopicName });
-                        }
-                    }
-                }
+                await HandleTopicsAsync(channel, dto.Topics);
 
-                // Handle Genres
-                if (dto.Genres?.Length > 0)
-                {
-                    foreach (var genreName in dto.Genres.Where(g => !string.IsNullOrWhiteSpace(g)))
-                    {
-                        var normalizedGenreName = genreName.Trim().ToLowerInvariant();
-                        var existingGenre = await _context.Genres.FirstOrDefaultAsync(g => g.Name == normalizedGenreName);
-                        if (existingGenre != null)
-                        {
-                            channel.Genres.Add(existingGenre);
-                        }
-                        else
-                        {
-                            channel.Genres.Add(new Genre { Name = normalizedGenreName });
-                        }
-                    }
-                }
+                await HandleGenresAsync(channel, dto.Genres);
 
                 _context.Add(channel);
                 await _context.SaveChangesAsync();
@@ -222,43 +199,11 @@ namespace MyMediaVerse.Application.Services
                 channel.Notes = dto.Notes;
                 channel.RelatedNotes = dto.RelatedNotes;
 
-                // Update Topics
                 channel.Topics.Clear();
-                if (dto.Topics?.Length > 0)
-                {
-                    foreach (var topicName in dto.Topics.Where(t => !string.IsNullOrWhiteSpace(t)))
-                    {
-                        var normalizedTopicName = topicName.Trim().ToLowerInvariant();
-                        var existingTopic = await _context.Topics.FirstOrDefaultAsync(t => t.Name == normalizedTopicName);
-                        if (existingTopic != null)
-                        {
-                            channel.Topics.Add(existingTopic);
-                        }
-                        else
-                        {
-                            channel.Topics.Add(new Topic { Name = normalizedTopicName });
-                        }
-                    }
-                }
+                await HandleTopicsAsync(channel, dto.Topics);
 
-                // Update Genres
                 channel.Genres.Clear();
-                if (dto.Genres?.Length > 0)
-                {
-                    foreach (var genreName in dto.Genres.Where(g => !string.IsNullOrWhiteSpace(g)))
-                    {
-                        var normalizedGenreName = genreName.Trim().ToLowerInvariant();
-                        var existingGenre = await _context.Genres.FirstOrDefaultAsync(g => g.Name == normalizedGenreName);
-                        if (existingGenre != null)
-                        {
-                            channel.Genres.Add(existingGenre);
-                        }
-                        else
-                        {
-                            channel.Genres.Add(new Genre { Name = normalizedGenreName });
-                        }
-                    }
-                }
+                await HandleGenresAsync(channel, dto.Genres);
 
                 await _context.SaveChangesAsync();
                 
@@ -276,18 +221,22 @@ namespace MyMediaVerse.Application.Services
         {
             try
             {
-                var channel = await _context.FindAsync<YouTubeChannel>(id);
-                
-                if (channel == null)
+                // Only a channel id is accepted here; any other media item is left alone.
+                if (!await _context.YouTubeChannels.AnyAsync(c => c.Id == id))
                 {
                     return false;
                 }
 
-                _context.Remove(channel);
-                await _context.SaveChangesAsync();
-                
-                _logger.LogInformation("Deleted YouTube channel with ID {Id}", id);
-                return true;
+                // The shared delete detaches mixlists, topics, and genres, cleans up a stored
+                // thumbnail, and removes the item from the search index. The channel's videos
+                // stay in the library with their channel link cleared.
+                var deleted = await _mediaService.DeleteMediaItemAsync(id);
+                if (deleted)
+                {
+                    _logger.LogInformation("Deleted YouTube channel with ID {Id}", id);
+                }
+
+                return deleted;
             }
             catch (Exception ex)
             {
@@ -296,7 +245,7 @@ namespace MyMediaVerse.Application.Services
             }
         }
 
-        public async Task<YouTubeChannel> ImportChannelFromYouTubeAsync(string channelId)
+        public async Task<YouTubeChannelCreationResult> ImportChannelFromYouTubeAsync(string channelId)
         {
             try
             {
@@ -305,24 +254,42 @@ namespace MyMediaVerse.Application.Services
                 if (existingChannel != null)
                 {
                     _logger.LogInformation("Channel {ChannelId} already exists, returning existing channel", channelId);
-                    return existingChannel;
+                    return new YouTubeChannelCreationResult(existingChannel, false);
                 }
 
                 // Fetch channel data from YouTube API
                 var channelDto = await _youTubeApiClient.GetChannelDetailsAsync(channelId);
                 if (channelDto == null)
                 {
-                    throw new InvalidOperationException($"Channel {channelId} not found on YouTube");
+                    throw new YouTubeResourceNotFoundException("channel", channelId);
                 }
 
                 // Map to entity
                 var channel = _mappingService.MapChannelToYouTubeChannelEntity(channelDto);
 
-                _context.Add(channel);
-                await _context.SaveChangesAsync();
+                try
+                {
+                    _context.Add(channel);
+                    await _context.SaveChangesAsync();
+                }
+                catch (DbUpdateException ex)
+                {
+                    // Another request imported the same channel first: drop the rejected row
+                    // from tracking and hand back the one that won.
+                    _context.ClearChangeTracker();
+
+                    var winner = await GetChannelByExternalIdAsync(channelId);
+                    if (winner == null)
+                    {
+                        throw;
+                    }
+
+                    _logger.LogInformation(ex, "Channel {ChannelId} was imported by another request first", channelId);
+                    return new YouTubeChannelCreationResult(winner, false);
+                }
 
                 _logger.LogInformation("Imported YouTube channel {Title} with external ID {ExternalId}", channel.Title, channel.ChannelExternalId);
-                return channel;
+                return new YouTubeChannelCreationResult(channel, true);
             }
             catch (Exception ex)
             {
@@ -331,55 +298,44 @@ namespace MyMediaVerse.Application.Services
             }
         }
 
-        public async Task<YouTubeChannel> SyncChannelMetadataAsync(Guid channelId)
+        public async Task<YouTubeChannelSyncResultDto> SyncChannelMetadataAsync(Guid channelId)
         {
             try
             {
+                var result = new YouTubeChannelSyncResultDto { ChannelId = channelId, StartedAt = DateTime.UtcNow };
+
                 var channel = await _context.FindAsync<YouTubeChannel>(channelId);
                 if (channel == null)
                 {
                     throw new ArgumentException($"Channel with ID {channelId} not found");
                 }
 
+                result.ChannelTitle = channel.Title;
+
                 // Fetch latest data from YouTube API
                 var channelDto = await _youTubeApiClient.GetChannelDetailsAsync(channel.ChannelExternalId);
                 if (channelDto == null)
                 {
-                    throw new InvalidOperationException($"Channel {channel.ChannelExternalId} not found on YouTube");
+                    throw new YouTubeResourceNotFoundException("channel", channel.ChannelExternalId);
                 }
 
-                // Update metadata
-                channel.Title = channelDto.Snippet?.Title ?? channel.Title;
-                channel.Description = channelDto.Snippet?.Description ?? channel.Description;
-                channel.Thumbnail = _mappingService.MapChannelToYouTubeChannelEntity(channelDto).Thumbnail;
-                channel.CustomUrl = channelDto.Snippet?.CustomUrl ?? channel.CustomUrl;
-                channel.Country = channelDto.Snippet?.Country ?? channel.Country;
-                channel.PublishedAt = channelDto.Snippet?.PublishedAt ?? channel.PublishedAt;
-
-                // Update statistics
-                if (channelDto.Statistics != null)
-                {
-                    if (long.TryParse(channelDto.Statistics.SubscriberCount, out var subscriberCount))
-                        channel.SubscriberCount = subscriberCount;
-                    
-                    if (long.TryParse(channelDto.Statistics.VideoCount, out var videoCount))
-                        channel.VideoCount = videoCount;
-                    
-                    if (long.TryParse(channelDto.Statistics.ViewCount, out var viewCount))
-                        channel.ViewCount = viewCount;
-                }
-
-                // Update uploads playlist ID
-                if (channelDto.ContentDetails?.RelatedPlaylists?.Uploads != null)
-                {
-                    channel.UploadsPlaylistId = channelDto.ContentDetails.RelatedPlaylists.Uploads;
-                }
+                // What YouTube may overwrite is decided in one place, shared with the refresh run.
+                var changed = YouTubeMetadataApplier.Apply(channel, channelDto);
 
                 channel.LastSyncedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("Synced metadata for YouTube channel {Title}", channel.Title);
-                return channel;
+                result.ChannelTitle = channel.Title;
+                result.UpdatedCount = changed ? 1 : 0;
+                result.YouTubeVideoCount = channel.VideoCount;
+                result.StoredVideoCount = await _context.Videos.CountAsync(v => v.ChannelId == channel.Id);
+                result.NewUploadsCount = Math.Max(0, (channel.VideoCount ?? 0) - result.StoredVideoCount);
+                result.CompletedAt = DateTime.UtcNow;
+
+                _logger.LogInformation(
+                    "Synced metadata for YouTube channel {Title}: {Changed}, {Stored} of {OnYouTube} uploads stored",
+                    channel.Title, changed ? "changed" : "unchanged", result.StoredVideoCount, channel.VideoCount);
+                return result;
             }
             catch (Exception ex)
             {
@@ -388,17 +344,142 @@ namespace MyMediaVerse.Application.Services
             }
         }
 
-        public async Task<bool> ChannelExistsAsync(string externalId)
+        public async Task<YouTubeChannelImportResultDto> ImportLatestUploadsAsync(Guid channelId, int count)
         {
+            var result = new YouTubeChannelImportResultDto
+            {
+                ChannelId = channelId,
+                RequestedCount = Math.Clamp(count, 1, YouTubeSyncOptions.MaxLatestUploadsCount),
+                StartedAt = DateTime.UtcNow
+            };
+
             try
             {
-                return await _context.YouTubeChannels
-                    .AnyAsync(c => c.ChannelExternalId == externalId);
+                // Tracked on purpose: the channel's topics and genres are attached to the new
+                // videos, so they must be the stored rows, not detached copies.
+                var channel = await _context.YouTubeChannels
+                    .Include(c => c.Topics)
+                    .Include(c => c.Genres)
+                    .FirstOrDefaultAsync(c => c.Id == channelId);
+                if (channel == null)
+                {
+                    throw new ArgumentException($"Channel with ID {channelId} not found");
+                }
+
+                result.ChannelTitle = channel.Title;
+
+                // One page of the uploads playlist, newest first. YouTube returns nothing for a
+                // channel that has no uploads playlist or is gone.
+                var page = await _youTubeApiClient.GetChannelUploadsAsync(channel.ChannelExternalId, result.RequestedCount);
+
+                var itemsByVideoId = new Dictionary<string, YouTubePlaylistItemDto>(StringComparer.Ordinal);
+                var orderedVideoIds = new List<string>();
+                foreach (var item in (page.Items ?? new List<YouTubePlaylistItemDto>())
+                             .Where(item => !YouTubeVideoResolver.IsDeletedOrPrivateVideo(item)))
+                {
+                    var videoId = YouTubeVideoResolver.GetVideoId(item);
+                    if (!string.IsNullOrEmpty(videoId) && itemsByVideoId.TryAdd(videoId, item))
+                    {
+                        orderedVideoIds.Add(videoId);
+                    }
+                }
+
+                if (orderedVideoIds.Count == 0)
+                {
+                    result.Warnings.Add("YouTube listed no uploads for this channel.");
+                }
+
+                // Stored videos join the channel when they have none; linked ones are left alone.
+                var stored = await _videoResolver.FindStoredVideosAsync(orderedVideoIds);
+                foreach (var video in stored.Values)
+                {
+                    if (video.ChannelId == null)
+                    {
+                        video.ChannelId = channel.Id;
+                        result.LinkedCount++;
+                    }
+                    else
+                    {
+                        result.SkippedCount++;
+                    }
+                }
+
+                var newIds = orderedVideoIds.Where(id => !stored.ContainsKey(id)).ToList();
+                if (newIds.Count > 0)
+                {
+                    var newVideos = await _videoResolver.BuildNewVideosAsync(newIds, itemsByVideoId);
+                    var builtIds = new HashSet<string>(newVideos.Select(v => v.ExternalId!), StringComparer.Ordinal);
+
+                    foreach (var video in newVideos)
+                    {
+                        video.ChannelId = channel.Id;
+
+                        // A video that names no topics or genres takes its channel's.
+                        if (video.Topics.Count == 0)
+                        {
+                            foreach (var topic in channel.Topics) video.Topics.Add(topic);
+                        }
+                        if (video.Genres.Count == 0)
+                        {
+                            foreach (var genre in channel.Genres) video.Genres.Add(genre);
+                        }
+
+                        _context.Add(video);
+                        result.CreatedCount++;
+                    }
+
+                    foreach (var missingId in newIds.Where(id => !builtIds.Contains(id)))
+                    {
+                        result.FailedCount++;
+                        var title = itemsByVideoId[missingId].Snippet?.Title ?? missingId;
+                        result.Warnings.Add($"YouTube returned no details for \"{title}\" ({missingId}); it was not imported.");
+                    }
+                }
+
+                await _context.SaveChangesAsync();
+                result.CompletedAt = DateTime.UtcNow;
+
+                _logger.LogInformation(
+                    "Imported latest uploads for channel {Title}: {Created} created, {Linked} linked, {Skipped} already stored, {Failed} without details",
+                    channel.Title, result.CreatedCount, result.LinkedCount, result.SkippedCount, result.FailedCount);
+                return result;
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not ArgumentException and not YouTubeQuotaExceededException and not YouTubeNotConfiguredException)
             {
-                _logger.LogError(ex, "Error occurred while checking if channel exists with external ID {ExternalId}", externalId);
+                _logger.LogError(ex, "Error occurred while importing latest uploads for channel {ChannelId}", channelId);
                 throw;
+            }
+        }
+
+        private async Task HandleTopicsAsync(YouTubeChannel channel, string[]? topics)
+        {
+            if (topics == null || topics.Length == 0)
+                return;
+
+            var resolver = new TopicResolver(_context);
+            foreach (var name in topics.Where(t => !string.IsNullOrWhiteSpace(t)))
+            {
+                var topic = await resolver.GetOrCreateAsync(name.Trim().ToLowerInvariant());
+                if (topic != null && !channel.Topics.Contains(topic))
+                {
+                    channel.Topics.Add(topic);
+                }
+            }
+        }
+
+        private async Task HandleGenresAsync(YouTubeChannel channel, string[]? genres)
+        {
+            if (genres == null || genres.Length == 0)
+                return;
+
+            var resolver = new GenreResolver(_context);
+            foreach (var name in GenreNames.NormalizeList(genres))
+            {
+                var genre = await resolver.GetOrCreateAsync(name);
+                if (genre != null && !channel.Genres.Contains(genre))
+                {
+                    channel.Genres.Add(genre);
+                }
             }
         }
     }

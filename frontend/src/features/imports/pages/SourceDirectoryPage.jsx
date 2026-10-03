@@ -82,12 +82,12 @@ function SourceDirectoryPage() {
             color: COLORS.mediaTypes.video,
             available: true,
             connected: false,
-            action: () => navigate('/import-media'),
+            action: () => navigate('/import-media?section=youtube'),
             features: [
                 'Import videos by URL',
                 'Search YouTube content',
                 'Import playlists',
-                'Channel subscriptions'
+                'Import channels'
             ]
         },
         {

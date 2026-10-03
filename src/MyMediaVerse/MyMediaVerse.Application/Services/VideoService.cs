@@ -8,6 +8,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Utilities;
+using MyMediaVerse.Shared.Exceptions;
 
 namespace MyMediaVerse.Application.Services
 {
@@ -15,13 +16,16 @@ namespace MyMediaVerse.Application.Services
     {
         private readonly IApplicationDbContext _context;
         private readonly ILogger<VideoService> _logger;
+        private readonly IMediaService _mediaService;
 
         public VideoService(
             IApplicationDbContext context,
-            ILogger<VideoService> logger)
+            ILogger<VideoService> logger,
+            IMediaService mediaService)
         {
             _context = context;
             _logger = logger;
+            _mediaService = mediaService;
         }
 
         // Standard CRUD operations
@@ -34,6 +38,7 @@ namespace MyMediaVerse.Application.Services
                     .AsSplitQuery()
                     .Include(v => v.Topics)
                     .Include(v => v.Genres)
+                    .Include(v => v.Channel)
                     .ToListAsync();
             }
             catch (Exception ex)
@@ -52,6 +57,7 @@ namespace MyMediaVerse.Application.Services
                     .AsSplitQuery()
                     .Include(v => v.Topics)
                     .Include(v => v.Genres)
+                    .Include(v => v.Channel)
                     .FirstOrDefaultAsync(v => v.Id == id);
             }
             catch (Exception ex)
@@ -79,7 +85,33 @@ namespace MyMediaVerse.Application.Services
             }
         }
 
-        public async Task<Video> CreateVideoAsync(CreateVideoDto dto)
+        public async Task<Video?> GetVideoByExternalIdAsync(string platform, string externalId)
+        {
+            var normalizedId = VideoDuplicateFinder.NormalizeExternalId(externalId);
+            if (normalizedId == null || string.IsNullOrWhiteSpace(platform))
+            {
+                return null;
+            }
+
+            try
+            {
+                var platformLower = platform.Trim().ToLower();
+                return await _context.Videos
+                    .AsNoTracking()
+                    .AsSplitQuery()
+                    .Include(v => v.Topics)
+                    .Include(v => v.Genres)
+                    .Include(v => v.Channel)
+                    .FirstOrDefaultAsync(v => v.ExternalId == normalizedId && v.Platform.ToLower() == platformLower);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred while retrieving video with external ID {ExternalId}", externalId);
+                throw;
+            }
+        }
+
+        public async Task<VideoCreationResult> CreateVideoAsync(CreateVideoDto dto)
         {
             try
             {
@@ -93,67 +125,27 @@ namespace MyMediaVerse.Application.Services
                     DateAdded = DateTime.UtcNow,
                     DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted),
                     Rating = dto.Rating,
-                    OwnershipStatus = dto.OwnershipStatus,
                     Description = dto.Description,
                     RelatedNotes = dto.RelatedNotes,
                     Thumbnail = dto.Thumbnail,
                     Platform = dto.Platform,
                     ChannelId = dto.ChannelId,
                     LengthInSeconds = dto.LengthInSeconds,
-                    ExternalId = dto.ExternalId
+                    ExternalId = VideoDuplicateFinder.NormalizeExternalId(dto.ExternalId)
                 };
 
-                // Handle Topics: use DTO topics if provided, otherwise inherit from channel
-                var topicNames = dto.Topics?.Where(t => !string.IsNullOrWhiteSpace(t)).ToArray();
-                if ((topicNames == null || topicNames.Length == 0) && dto.ChannelId.HasValue)
+                var existing = await FindAndMergeAsync(video);
+                if (existing != null)
                 {
-                    var channel = await _context.YouTubeChannels
-                        .Include(c => c.Topics)
-                        .FirstOrDefaultAsync(c => c.Id == dto.ChannelId.Value);
-                    topicNames = channel?.Topics?.Select(t => t.Name).ToArray() ?? Array.Empty<string>();
+                    return new VideoCreationResult(existing, false);
                 }
 
-                foreach (var topicName in topicNames ?? Array.Empty<string>())
-                {
-                    var normalizedTopicName = topicName.Trim().ToLowerInvariant();
-                    var existingTopic = await _context.Topics.FirstOrDefaultAsync(t => t.Name == normalizedTopicName);
-                    if (existingTopic != null)
-                    {
-                        video.Topics.Add(existingTopic);
-                    }
-                    else
-                    {
-                        video.Topics.Add(new Topic { Name = normalizedTopicName });
-                    }
-                }
+                // Topics and genres the request names; a video that names none inherits its
+                // channel's when it is saved.
+                await HandleTopicsAsync(video, dto.Topics);
+                await HandleGenresAsync(video, dto.Genres);
 
-                // Handle Genres: use DTO genres if provided, otherwise inherit from channel
-                var genreNames = dto.Genres?.Where(g => !string.IsNullOrWhiteSpace(g)).ToArray();
-                if ((genreNames == null || genreNames.Length == 0) && dto.ChannelId.HasValue)
-                {
-                    var channel = await _context.YouTubeChannels
-                        .Include(c => c.Genres)
-                        .FirstOrDefaultAsync(c => c.Id == dto.ChannelId.Value);
-                    genreNames = channel?.Genres?.Select(g => g.Name).ToArray() ?? Array.Empty<string>();
-                }
-
-                foreach (var genreName in genreNames ?? Array.Empty<string>())
-                {
-                    var normalizedGenreName = genreName.Trim().ToLowerInvariant();
-                    var existingGenre = await _context.Genres.FirstOrDefaultAsync(g => g.Name == normalizedGenreName);
-                    if (existingGenre != null)
-                    {
-                        video.Genres.Add(existingGenre);
-                    }
-                    else
-                    {
-                        video.Genres.Add(new Genre { Name = normalizedGenreName });
-                    }
-                }
-
-                _context.Add(video);
-                await _context.SaveChangesAsync();
-                return video;
+                return await AddNewAsync(video);
             }
             catch (Exception ex)
             {
@@ -177,6 +169,19 @@ namespace MyMediaVerse.Application.Services
                     throw new ArgumentException($"Video with ID {id} not found");
                 }
 
+                // A blank id is stored as null, and an id belongs to one video per platform.
+                var externalId = VideoDuplicateFinder.NormalizeExternalId(dto.ExternalId);
+                if (externalId != null)
+                {
+                    var platformLower = dto.Platform.Trim().ToLower();
+                    var takenByAnother = await _context.Videos.AnyAsync(v =>
+                        v.Id != id && v.ExternalId == externalId && v.Platform.ToLower() == platformLower);
+                    if (takenByAnother)
+                    {
+                        throw new VideoIdentityConflictException(dto.Platform, externalId);
+                    }
+                }
+
                 // Update properties
                 video.Title = dto.Title;
                 video.Link = dto.Link;
@@ -184,14 +189,14 @@ namespace MyMediaVerse.Application.Services
                 video.Status = dto.Status;
                 video.DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted);
                 video.Rating = dto.Rating;
-                video.OwnershipStatus = dto.OwnershipStatus;
                 video.Description = dto.Description;
-                video.RelatedNotes = dto.RelatedNotes;
+                video.RelatedNotes = StoredValue.UnlessProvided(dto.RelatedNotes, video.RelatedNotes);
                 video.Thumbnail = dto.Thumbnail;
                 video.Platform = dto.Platform;
-                video.ChannelId = dto.ChannelId;
+                // The edit form does not send the channel, so a missing one means "unchanged".
+                video.ChannelId = StoredValue.UnlessProvided(dto.ChannelId, video.ChannelId);
                 video.LengthInSeconds = dto.LengthInSeconds;
-                video.ExternalId = dto.ExternalId;
+                video.ExternalId = externalId;
 
                 // Clear existing topics and genres and save immediately so the removed
                 // join rows are persisted before the new ones are added.
@@ -199,55 +204,8 @@ namespace MyMediaVerse.Application.Services
                 video.Genres.Clear();
                 await _context.SaveChangesAsync();
 
-                // Add new Topics
-                if (dto.Topics?.Length > 0)
-                {
-                    foreach (var topicName in dto.Topics.Where(t => !string.IsNullOrWhiteSpace(t)))
-                    {
-                        var normalizedTopicName = topicName.Trim().ToLowerInvariant();
-                        var topic = await _context.Topics
-                            .AsNoTracking()
-                            .FirstOrDefaultAsync(t => t.Name == normalizedTopicName);
-
-                        if (topic == null)
-                        {
-                            topic = new Topic { Name = normalizedTopicName };
-                            _context.Add(topic);
-                            await _context.SaveChangesAsync();
-                        }
-
-                        var trackedTopic = await _context.Topics.FirstOrDefaultAsync(t => t.Id == topic.Id);
-                        if (trackedTopic != null && !video.Topics.Any(t => t.Id == trackedTopic.Id))
-                        {
-                            video.Topics.Add(trackedTopic);
-                        }
-                    }
-                }
-
-                // Add new Genres
-                if (dto.Genres?.Length > 0)
-                {
-                    foreach (var genreName in dto.Genres.Where(g => !string.IsNullOrWhiteSpace(g)))
-                    {
-                        var normalizedGenreName = genreName.Trim().ToLowerInvariant();
-                        var genre = await _context.Genres
-                            .AsNoTracking()
-                            .FirstOrDefaultAsync(g => g.Name == normalizedGenreName);
-
-                        if (genre == null)
-                        {
-                            genre = new Genre { Name = normalizedGenreName };
-                            _context.Add(genre);
-                            await _context.SaveChangesAsync();
-                        }
-
-                        var trackedGenre = await _context.Genres.FirstOrDefaultAsync(g => g.Id == genre.Id);
-                        if (trackedGenre != null && !video.Genres.Any(g => g.Id == trackedGenre.Id))
-                        {
-                            video.Genres.Add(trackedGenre);
-                        }
-                    }
-                }
+                await HandleTopicsAsync(video, dto.Topics);
+                await HandleGenresAsync(video, dto.Genres);
 
                 await _context.SaveChangesAsync();
 
@@ -264,18 +222,15 @@ namespace MyMediaVerse.Application.Services
         {
             try
             {
-                var video = await GetVideoByIdAsync(id);
-                if (video == null)
+                // Only a video id is accepted here; any other media item is left alone.
+                if (!await _context.Videos.AnyAsync(v => v.Id == id))
                 {
                     return false;
                 }
 
-                var videoId = video.Id;
-
-                _context.Remove(video);
-                await _context.SaveChangesAsync();
-
-                return true;
+                // The shared delete detaches mixlists, topics, and genres, cleans up a stored
+                // thumbnail, and removes the item from the search index.
+                return await _mediaService.DeleteMediaItemAsync(id);
             }
             catch (Exception ex)
             {
@@ -302,108 +257,166 @@ namespace MyMediaVerse.Application.Services
             }
         }
 
-        public async Task<Video> SaveVideoAsync(Video video, bool updateIfExists = true)
+        public async Task<VideoCreationResult> SaveVideoAsync(Video video)
         {
-            // Check if a video with the same title already exists
-            var existingVideo = await GetVideoByTitleAsync(video.Title, video.ChannelId);
+            video.ExternalId = VideoDuplicateFinder.NormalizeExternalId(video.ExternalId);
 
-            if (existingVideo != null)
+            var existing = await FindAndMergeAsync(video);
+            if (existing != null)
             {
-                if (updateIfExists)
-                {
-                    // Update existing video properties
-                    existingVideo.Link = video.Link ?? existingVideo.Link;
-                    existingVideo.Notes = video.Notes ?? existingVideo.Notes;
-                    existingVideo.Thumbnail = video.Thumbnail ?? existingVideo.Thumbnail;
-                    existingVideo.Platform = video.Platform ?? existingVideo.Platform;
-                    existingVideo.ChannelId = video.ChannelId ?? existingVideo.ChannelId;
-                    existingVideo.LengthInSeconds = video.LengthInSeconds > 0 ? video.LengthInSeconds : existingVideo.LengthInSeconds;
-                    // Don't overwrite these if they exist
-                    existingVideo.Description = existingVideo.Description ?? video.Description;
-                    existingVideo.RelatedNotes = existingVideo.RelatedNotes ?? video.RelatedNotes;
-
-                    await _context.SaveChangesAsync();
-
-                    return existingVideo;
-                }
-                else
-                {
-                    return existingVideo; // Return existing without modifications
-                }
+                return new VideoCreationResult(existing, false);
             }
-            else
-            {
-                // It's a new video — inherit topics/genres from channel if none provided
-                if ((video.Topics == null || !video.Topics.Any()) && video.ChannelId.HasValue)
-                {
-                    var channel = await _context.YouTubeChannels
-                        .Include(c => c.Topics)
-                        .FirstOrDefaultAsync(c => c.Id == video.ChannelId.Value);
-                    if (channel?.Topics != null)
-                    {
-                        foreach (var topic in channel.Topics)
-                        {
-                            var normalizedName = topic.Name.Trim().ToLowerInvariant();
-                            var existingTopic = await _context.Topics
-                                .FirstOrDefaultAsync(t => t.Name == normalizedName);
-                            (video.Topics ??= new List<Topic>()).Add(existingTopic ?? new Topic { Name = normalizedName });
-                        }
-                    }
-                }
-                if ((video.Genres == null || !video.Genres.Any()) && video.ChannelId.HasValue)
-                {
-                    var channel = await _context.YouTubeChannels
-                        .Include(c => c.Genres)
-                        .FirstOrDefaultAsync(c => c.Id == video.ChannelId.Value);
-                    if (channel?.Genres != null)
-                    {
-                        foreach (var genre in channel.Genres)
-                        {
-                            var normalizedName = genre.Name.Trim().ToLowerInvariant();
-                            var existingGenre = await _context.Genres
-                                .FirstOrDefaultAsync(g => g.Name == normalizedName);
-                            (video.Genres ??= new List<Genre>()).Add(existingGenre ?? new Genre { Name = normalizedName });
-                        }
-                    }
-                }
 
+            return await AddNewAsync(video);
+        }
+
+        private IQueryable<Video> VideosWithDetails() =>
+            _context.Videos
+                .AsSplitQuery()
+                .Include(v => v.Topics)
+                .Include(v => v.Genres)
+                .Include(v => v.Channel);
+
+        /// <summary>
+        /// Looks for the incoming video in the library. A row already known by the same id is
+        /// returned untouched; a row found by its link or title gains the id and has its blank
+        /// fields filled. Returns null when the video is new.
+        /// </summary>
+        private async Task<Video?> FindAndMergeAsync(Video incoming)
+        {
+            var identity = VideoIdentity.From(incoming);
+            var existing = await VideoDuplicateFinder.FindExistingAsync(VideosWithDetails(), identity);
+            if (existing == null)
+            {
+                return null;
+            }
+
+            _logger.LogInformation("Video {Title} is already in the library (ID: {Id})", existing.Title, existing.Id);
+
+            var knownByTheSameId = !string.IsNullOrEmpty(existing.ExternalId)
+                && existing.ExternalId == incoming.ExternalId
+                && string.Equals(existing.Platform?.Trim(), incoming.Platform?.Trim(), StringComparison.OrdinalIgnoreCase);
+            if (knownByTheSameId)
+            {
+                return existing;
+            }
+
+            var changed = VideoDuplicateFinder.AbsorbIdentity(existing, identity);
+            changed |= VideoDuplicateFinder.AbsorbMetadata(existing, incoming);
+            if (changed)
+            {
+                await _context.SaveChangesAsync();
+            }
+
+            return existing;
+        }
+
+        /// <summary>
+        /// Saves a video that is not in the library yet. If another request saves the same video
+        /// first, the unique id index rejects this one and the row that won is returned instead.
+        /// </summary>
+        private async Task<VideoCreationResult> AddNewAsync(Video video)
+        {
+            var identity = VideoIdentity.From(video);
+            await InheritChannelTopicsAndGenresAsync(video);
+
+            try
+            {
                 _context.Add(video);
                 await _context.SaveChangesAsync();
+                return new VideoCreationResult(video, true);
+            }
+            catch (DbUpdateException ex)
+            {
+                // The failed video and any new topic or genre rows are still tracked; left in
+                // place they would fail the next save in the same request.
+                _context.ClearChangeTracker();
 
-                return video;
+                var winner = await VideoDuplicateFinder.FindExistingAsync(VideosWithDetails(), identity);
+                if (winner == null)
+                {
+                    throw;
+                }
+
+                _logger.LogInformation(ex, "Video {Title} was saved by another request first (ID: {Id})", winner.Title, winner.Id);
+                return new VideoCreationResult(winner, false);
             }
         }
 
-        public async Task<bool> VideoExistsAsync(string title, Guid? channelId = null)
+        private async Task InheritChannelTopicsAndGenresAsync(Video video)
         {
-            var query = _context.Videos.AsQueryable();
-
-            // Always check title (case-insensitive)
-            query = query.Where(v => v.Title.ToLower() == title.ToLower());
-
-            // If channel ID is provided, also check that
-            if (channelId.HasValue)
+            if (!video.ChannelId.HasValue)
             {
-                query = query.Where(v => v.ChannelId == channelId.Value);
+                return;
             }
 
-            return await query.AnyAsync();
+            var needsTopics = video.Topics == null || !video.Topics.Any();
+            var needsGenres = video.Genres == null || !video.Genres.Any();
+            if (!needsTopics && !needsGenres)
+            {
+                return;
+            }
+
+            var channel = await _context.YouTubeChannels
+                .Include(c => c.Topics)
+                .Include(c => c.Genres)
+                .FirstOrDefaultAsync(c => c.Id == video.ChannelId.Value);
+            if (channel == null)
+            {
+                return;
+            }
+
+            if (needsTopics)
+            {
+                foreach (var topic in channel.Topics)
+                {
+                    var normalizedName = topic.Name.Trim().ToLowerInvariant();
+                    var existingTopic = await _context.Topics.FirstOrDefaultAsync(t => t.Name == normalizedName);
+                    (video.Topics ??= new List<Topic>()).Add(existingTopic ?? new Topic { Name = normalizedName });
+                }
+            }
+
+            if (needsGenres)
+            {
+                foreach (var genre in channel.Genres)
+                {
+                    var normalizedName = genre.Name.Trim().ToLowerInvariant();
+                    var existingGenre = await _context.Genres.FirstOrDefaultAsync(g => g.Name == normalizedName);
+                    (video.Genres ??= new List<Genre>()).Add(existingGenre ?? new Genre { Name = normalizedName });
+                }
+            }
         }
 
-        public async Task<Video?> GetVideoByTitleAsync(string title, Guid? channelId = null)
+        private async Task HandleTopicsAsync(Video video, string[]? topics)
         {
-            var query = _context.Videos.AsQueryable();
+            if (topics == null || topics.Length == 0)
+                return;
 
-            // Always check title (case-insensitive)
-            query = query.Where(v => v.Title.ToLower() == title.ToLower());
-
-            // If channel ID is provided, also check that
-            if (channelId.HasValue)
+            var resolver = new TopicResolver(_context);
+            foreach (var name in topics.Where(t => !string.IsNullOrWhiteSpace(t)))
             {
-                query = query.Where(v => v.ChannelId == channelId.Value);
+                var topic = await resolver.GetOrCreateAsync(name.Trim().ToLowerInvariant());
+                if (topic != null && !video.Topics.Contains(topic))
+                {
+                    video.Topics.Add(topic);
+                }
             }
+        }
 
-            return await query.FirstOrDefaultAsync();
+        private async Task HandleGenresAsync(Video video, string[]? genres)
+        {
+            if (genres == null || genres.Length == 0)
+                return;
+
+            var resolver = new GenreResolver(_context);
+            foreach (var name in GenreNames.NormalizeList(genres))
+            {
+                var genre = await resolver.GetOrCreateAsync(name);
+                if (genre != null && !video.Genres.Contains(genre))
+                {
+                    video.Genres.Add(genre);
+                }
+            }
         }
     }
 }

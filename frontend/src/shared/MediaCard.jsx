@@ -18,6 +18,8 @@ import {
   Podcasts,
   SportsEsports,
   YouTube,
+  Subscriptions,
+  PlaylistPlay,
   Language,
   MenuBook,
   AutoAwesome
@@ -36,6 +38,8 @@ const mediaTypeIcons = {
   music: <LibraryMusic />,
   game: <SportsEsports />,
   video: <YouTube />,
+  channel: <Subscriptions />,
+  playlist: <PlaylistPlay />,
   website: <Language />,
   document: <MenuBook />,
   default: <AutoAwesome />

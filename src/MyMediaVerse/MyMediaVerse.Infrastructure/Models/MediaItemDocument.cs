@@ -109,6 +109,30 @@ namespace MyMediaVerse.Infrastructure.Models
         [JsonPropertyName("platform")]
         public string? Platform { get; set; }
 
+        /// <summary>Title of a video's channel - searchable and facetable</summary>
+        [JsonPropertyName("channel_title")]
+        public string? ChannelTitle { get; set; }
+
+        /// <summary>Database id of a video's channel - for routing, not searched</summary>
+        [JsonPropertyName("channel_id")]
+        public string? ChannelId { get; set; }
+
+        /// <summary>Video length in seconds</summary>
+        [JsonPropertyName("length_in_seconds")]
+        public int? LengthInSeconds { get; set; }
+
+        /// <summary>A channel's YouTube id - not searched</summary>
+        [JsonPropertyName("channel_external_id")]
+        public string? ChannelExternalId { get; set; }
+
+        /// <summary>A channel's subscriber count as YouTube reports it</summary>
+        [JsonPropertyName("subscriber_count")]
+        public long? SubscriberCount { get; set; }
+
+        /// <summary>Uploads on a channel or items in a playlist, as YouTube reports them</summary>
+        [JsonPropertyName("video_count")]
+        public int? VideoCount { get; set; }
+
         /// <summary>
         /// Series ID (for Podcast Episodes) - used to distinguish episodes from series in routing
         /// </summary>

@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using NSubstitute;
 using MyMediaVerse.Infrastructure.Clients.Google;
 using MyMediaVerse.Shared.DTOs.GoogleBooks;
+using MyMediaVerse.Shared.Exceptions;
 using MyMediaVerse.Shared.Interfaces;
 using MyMediaVerse.UnitTests.TestHelpers;
 using Xunit;
@@ -272,6 +273,61 @@ namespace MyMediaVerse.UnitTests.Infrastructure
 
             // Assert
             Assert.Null(result);
+        }
+
+        [Fact]
+        public async Task SearchBooksAsync_WithoutApiKey_ThrowsNotConfiguredWithoutCallingGoogle()
+        {
+            await WithoutApiKeyAsync(async client =>
+            {
+                await Assert.ThrowsAsync<GoogleBooksNotConfiguredException>(() => client.SearchBooksAsync("test book"));
+            });
+
+            _mockHttpMessageHandler.Requests.Should().BeEmpty();
+        }
+
+        [Fact]
+        public async Task GetVolumeByIdAsync_WithoutApiKey_ThrowsNotConfiguredWithoutCallingGoogle()
+        {
+            await WithoutApiKeyAsync(async client =>
+            {
+                await Assert.ThrowsAsync<GoogleBooksNotConfiguredException>(() => client.GetVolumeByIdAsync("abc123"));
+            });
+
+            _mockHttpMessageHandler.Requests.Should().BeEmpty();
+        }
+
+        [Fact]
+        public async Task SearchBooksAsync_WithApiKey_SendsKeyInRequest()
+        {
+            SetupMockHttpResponse(new GoogleBooksSearchResultDto { TotalItems = 0 });
+
+            await _googleBooksApiClient.SearchBooksAsync("test book");
+
+            _mockHttpMessageHandler.Requests.Should().ContainSingle(req =>
+                req.RequestUri!.ToString().Contains("key=test-api-key"));
+        }
+
+        // The client prefers the environment variable over configuration, so it is cleared for
+        // the duration of the call to keep the test independent of the machine it runs on.
+        private async Task WithoutApiKeyAsync(Func<IGoogleBooksApiClient, Task> act)
+        {
+            const string variableName = "GOOGLE_BOOKS_API_KEY";
+            var original = Environment.GetEnvironmentVariable(variableName);
+            Environment.SetEnvironmentVariable(variableName, null);
+
+            try
+            {
+                var configuration = Substitute.For<IConfiguration>();
+                configuration["GoogleBooks:ApiKey"].Returns((string?)null);
+
+                var client = new GoogleBooksApiClient(_httpClient, _mockLogger, configuration);
+                await act(client);
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable(variableName, original);
+            }
         }
 
         private void SetupMockHttpResponse<T>(T responseObject)

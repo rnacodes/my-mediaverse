@@ -29,7 +29,7 @@ public static class ExternalApiClientsExtensions
     {
         services.AddHttpClient();
 
-        services.AddYouTubeApiClient();
+        services.AddYouTubeApiClient(configuration);
         services.AddPodcastDirectories(configuration, logger);
         services.AddPodcastFeedReader(configuration);
         services.AddReadwiseClients(configuration, logger);
@@ -46,8 +46,11 @@ public static class ExternalApiClientsExtensions
         return services;
     }
 
-    private static void AddYouTubeApiClient(this IServiceCollection services)
+    private static void AddYouTubeApiClient(this IServiceCollection services, IConfiguration configuration)
     {
+        // "Import latest uploads" reads its default count from "YouTubeSync" (code defaults).
+        services.Configure<YouTubeSyncOptions>(configuration.GetSection(YouTubeSyncOptions.SectionName));
+
         services.AddHttpClient<IYouTubeApiClient, YouTubeApiClient>(client =>
         {
             client.BaseAddress = new Uri("https://www.googleapis.com/youtube/v3/");

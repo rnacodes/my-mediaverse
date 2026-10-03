@@ -28,10 +28,6 @@ export const updateTvShow = (id, tvShowData) => {
     return apiClient.put(`/tvshow/${id}`, tvShowData);
 };
 
-export const deleteTvShow = (id) => {
-    return apiClient.delete(`/tvshow/${id}`);
-};
-
 // The API answers 201 when the show was just created and 200 when a show with
 // the same TMDB id was already in the library (the existing row is returned
 // untouched). Callers need both the item and which of the two happened.
@@ -88,16 +84,6 @@ export const importTvShowEpisodesFromTmdb = async (showId) => {
         return response;
     } catch (error) {
         console.error('Error importing TV show episodes from TMDB:', error);
-        throw error;
-    }
-};
-
-export const deleteTvShowEpisode = async (id) => {
-    try {
-        const response = await apiClient.delete(`/tvshow/episodes/${id}`);
-        return response;
-    } catch (error) {
-        console.error('Error deleting TV show episode:', error);
         throw error;
     }
 };

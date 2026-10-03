@@ -44,24 +44,6 @@ namespace MyMediaVerse.IntegrationTests.Api
         #region Media Item Validation Tests
 
         [Fact]
-        public async Task CreateMedia_WithMissingTitle_ShouldReturnBadRequest()
-        {
-            // Arrange - title is required
-            var data = new
-            {
-                mediaType = "Book",
-                status = "Uncharted",
-                author = "Test Author"
-            };
-
-            // Act
-            var response = await _client.PostAsync("/api/media", CreateJsonContent(data));
-
-            // Assert
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        }
-
-        [Fact]
         public async Task CreateBook_WithValidData_ShouldReturnCreated()
         {
             // Arrange

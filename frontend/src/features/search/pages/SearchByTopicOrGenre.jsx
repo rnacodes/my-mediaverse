@@ -367,22 +367,25 @@ function SearchByTopicOrGenre() {
                                                 >
                                                     <EditIcon fontSize="small" />
                                                 </IconButton>
-                                                <IconButton
-                                                    size="small"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleDeleteClick('topic', topic);
-                                                    }}
-                                                    sx={{
-                                                        backgroundColor: '#9c27b0',
-                                                        color: 'white',
-                                                        '&:hover': {
-                                                            backgroundColor: '#7b1fa2'
-                                                        }
-                                                    }}
-                                                >
-                                                    <DeleteIcon fontSize="small" />
-                                                </IconButton>
+                                                <DemoWriteGuard title="Deleting topics is not available in the demo">
+                                                    <IconButton
+                                                        size="small"
+                                                        aria-label="Delete topic"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleDeleteClick('topic', topic);
+                                                        }}
+                                                        sx={{
+                                                            backgroundColor: '#9c27b0',
+                                                            color: 'white',
+                                                            '&:hover': {
+                                                                backgroundColor: '#7b1fa2'
+                                                            }
+                                                        }}
+                                                    >
+                                                        <DeleteIcon fontSize="small" />
+                                                    </IconButton>
+                                                </DemoWriteGuard>
                                             </Box>
                                             <CardContent sx={{ p: 2 }}>
                                                 <Chip
@@ -498,22 +501,25 @@ function SearchByTopicOrGenre() {
                                                 >
                                                     <EditIcon fontSize="small" />
                                                 </IconButton>
-                                                <IconButton
-                                                    size="small"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleDeleteClick('genre', genre);
-                                                    }}
-                                                    sx={{
-                                                        backgroundColor: '#9c27b0',
-                                                        color: 'white',
-                                                        '&:hover': {
-                                                            backgroundColor: '#7b1fa2'
-                                                        }
-                                                    }}
-                                                >
-                                                    <DeleteIcon fontSize="small" />
-                                                </IconButton>
+                                                <DemoWriteGuard title="Deleting genres is not available in the demo">
+                                                    <IconButton
+                                                        size="small"
+                                                        aria-label="Delete genre"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleDeleteClick('genre', genre);
+                                                        }}
+                                                        sx={{
+                                                            backgroundColor: '#9c27b0',
+                                                            color: 'white',
+                                                            '&:hover': {
+                                                                backgroundColor: '#7b1fa2'
+                                                            }
+                                                        }}
+                                                    >
+                                                        <DeleteIcon fontSize="small" />
+                                                    </IconButton>
+                                                </DemoWriteGuard>
                                             </Box>
                                             <CardContent sx={{ p: 2 }}>
                                                 <Chip

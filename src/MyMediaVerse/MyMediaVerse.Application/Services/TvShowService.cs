@@ -201,7 +201,7 @@ namespace MyMediaVerse.Application.Services
                 tvShow.Rating = dto.Rating;
                 tvShow.OwnershipStatus = dto.OwnershipStatus;
                 tvShow.Description = dto.Description;
-                tvShow.RelatedNotes = dto.RelatedNotes;
+                tvShow.RelatedNotes = StoredValue.UnlessProvided(dto.RelatedNotes, tvShow.RelatedNotes);
                 tvShow.Thumbnail = dto.Thumbnail;
                 tvShow.Creator = dto.Creator;
                 tvShow.Cast = dto.Cast;
@@ -210,9 +210,13 @@ namespace MyMediaVerse.Application.Services
                 tvShow.NumberOfSeasons = dto.NumberOfSeasons;
                 tvShow.NumberOfEpisodes = dto.NumberOfEpisodes;
                 tvShow.ContentRating = dto.ContentRating;
-                tvShow.TmdbId = dto.TmdbId;
-                tvShow.TmdbRating = dto.TmdbRating;
-                tvShow.TmdbPosterPath = dto.TmdbPosterPath;
+
+                // TMDB owns these; the edit form does not send them, and a request that leaves
+                // them out must not erase the identity the refresh depends on.
+                tvShow.TmdbId = StoredValue.UnlessProvided(dto.TmdbId, tvShow.TmdbId);
+                tvShow.TmdbRating = StoredValue.UnlessProvided(dto.TmdbRating, tvShow.TmdbRating);
+                tvShow.TmdbPosterPath = StoredValue.UnlessProvided(dto.TmdbPosterPath, tvShow.TmdbPosterPath);
+
                 tvShow.Tagline = dto.Tagline;
                 tvShow.Homepage = dto.Homepage;
                 tvShow.OriginalLanguage = dto.OriginalLanguage;

@@ -217,7 +217,7 @@ namespace MyMediaVerse.Application.Services
                 book.Rating = dto.Rating;
                 book.OwnershipStatus = dto.OwnershipStatus;
                 book.Description = dto.Description;
-                book.RelatedNotes = dto.RelatedNotes;
+                book.RelatedNotes = StoredValue.UnlessProvided(dto.RelatedNotes, book.RelatedNotes);
                 book.Thumbnail = dto.Thumbnail;
                 book.Author = dto.Author;
                 book.ISBN = IsbnNormalizer.Normalize(dto.ISBN) ?? dto.ISBN;
@@ -225,13 +225,18 @@ namespace MyMediaVerse.Application.Services
                 book.Format = dto.Format;
                 book.PartOfSeries = dto.PartOfSeries;
                 book.GoodreadsRating = dto.GoodreadsRating;
-                book.AverageRating = dto.AverageRating;
+                book.AverageRating = StoredValue.UnlessProvided(dto.AverageRating, book.AverageRating);
                 book.Publisher = dto.Publisher;
                 book.YearPublished = dto.YearPublished;
-                book.OriginalPublicationYear = dto.OriginalPublicationYear;
+                book.OriginalPublicationYear = StoredValue.UnlessProvided(dto.OriginalPublicationYear, book.OriginalPublicationYear);
                 book.DateRead = DateTimeNormalizer.ToUtc(dto.DateRead);
                 book.MyReview = dto.MyReview;
-                book.GoodreadsTags = dto.GoodreadsTags ?? new List<string>();
+
+                // Catalog values the edit form does not send: an empty list means "not sent".
+                if (dto.GoodreadsTags is { Count: > 0 })
+                {
+                    book.GoodreadsTags = dto.GoodreadsTags;
+                }
 
                 // If GoodreadsRating is provided but Rating is not, auto-convert
                 if (dto.GoodreadsRating.HasValue && !dto.Rating.HasValue)

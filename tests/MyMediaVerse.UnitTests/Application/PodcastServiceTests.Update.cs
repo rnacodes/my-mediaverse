@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using Microsoft.EntityFrameworkCore;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 
@@ -95,6 +96,27 @@ namespace MyMediaVerse.UnitTests.Application
             result.IsSubscribed.Should().BeTrue();
             result.LastSyncDate.Should().Be(lastSync);
             result.TotalEpisodes.Should().Be(42);
+        }
+
+        [Fact]
+        public async Task UpdatePodcastSeriesAsync_WhenTheRequestLeavesOutTheFeedAndAppleId_KeepsTheStoredOnes()
+        {
+            var created = await _service.CreatePodcastSeriesAsync(new CreatePodcastSeriesDto
+            {
+                Title = "Show",
+                RssFeedUrl = "https://feeds.example.com/show",
+                ApplePodcastsId = "123456789"
+            });
+            Context.ChangeTracker.Clear();
+
+            await _service.UpdatePodcastSeriesAsync(created.Series.Id,
+                new CreatePodcastSeriesDto { Title = "Show (edited)", Status = Status.ActivelyExploring });
+
+            var stored = await Context.PodcastSeries.AsNoTracking().SingleAsync();
+            stored.Title.Should().Be("Show (edited)");
+            stored.RssFeedUrl.Should().Be("https://feeds.example.com/show");
+            stored.FeedUrlKey.Should().Be("feeds.example.com/show");
+            stored.ApplePodcastsId.Should().Be("123456789");
         }
 
         [Fact]
@@ -291,6 +313,41 @@ namespace MyMediaVerse.UnitTests.Application
 
             // Assert
             result.ExternalId.Should().Be("listennotes-ep-999");
+        }
+
+        [Fact]
+        public async Task UpdatePodcastEpisodeAsync_WhenTheRequestLeavesOutThePublisher_KeepsTheStoredOne()
+        {
+            var seriesId = Guid.NewGuid();
+            Context.PodcastSeries.Add(new PodcastSeries
+            {
+                Id = seriesId,
+                Title = "Parent Series",
+                Status = Status.Uncharted,
+                Topics = new List<Topic>(),
+                Genres = new List<Genre>()
+            });
+
+            var episodeId = Guid.NewGuid();
+            Context.PodcastEpisodes.Add(new PodcastEpisode
+            {
+                Id = episodeId,
+                Title = "Episode",
+                SeriesId = seriesId,
+                Publisher = "Original Publisher",
+                Status = Status.Uncharted,
+                Topics = new List<Topic>(),
+                Genres = new List<Genre>()
+            });
+            await Context.SaveChangesAsync();
+            Context.ChangeTracker.Clear();
+
+            await _service.UpdatePodcastEpisodeAsync(episodeId,
+                new CreatePodcastEpisodeDto { Title = "Episode (edited)", SeriesId = seriesId, Status = Status.Uncharted });
+
+            var stored = await Context.PodcastEpisodes.AsNoTracking().SingleAsync(e => e.Id == episodeId);
+            stored.Title.Should().Be("Episode (edited)");
+            stored.Publisher.Should().Be("Original Publisher");
         }
 
         [Fact]

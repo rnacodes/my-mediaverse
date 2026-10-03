@@ -13,8 +13,9 @@ import {
   Podcasts,
   SportsEsports,
   YouTube,
-  Language,
-  PlaylistPlay
+  Subscriptions,
+  PlaylistPlay,
+  Language
 } from '@mui/icons-material';
 import { commonStyles, COLORS } from './DesignSystem';
 import { searchAll } from '@/services/searchService';
@@ -59,6 +60,8 @@ const SearchBar = ({
     music: <LibraryMusic />,
     game: <SportsEsports />,
     video: <YouTube />,
+    channel: <Subscriptions />,
+    playlist: <PlaylistPlay />,
     website: <Language />
   };
 
@@ -145,6 +148,8 @@ const SearchBar = ({
       } else if (item.mediaType === 'Channel') {
         // It's a YouTube channel
         window.location.href = `/youtube-channel/${item.id || item.Id}`;
+      } else if (item.mediaType === 'Playlist') {
+        window.location.href = `/youtube-playlist/${item.id || item.Id}`;
       } else {
         // It's a media item
         window.location.href = `/media/${item.id || item.Id}`;

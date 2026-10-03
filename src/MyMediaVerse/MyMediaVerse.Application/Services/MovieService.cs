@@ -194,17 +194,21 @@ namespace MyMediaVerse.Application.Services
                 movie.Rating = dto.Rating;
                 movie.OwnershipStatus = dto.OwnershipStatus;
                 movie.Description = dto.Description;
-                movie.RelatedNotes = dto.RelatedNotes;
+                movie.RelatedNotes = StoredValue.UnlessProvided(dto.RelatedNotes, movie.RelatedNotes);
                 movie.Thumbnail = dto.Thumbnail;
                 movie.Director = dto.Director;
                 movie.Cast = dto.Cast;
                 movie.ReleaseYear = dto.ReleaseYear;
                 movie.RuntimeMinutes = dto.RuntimeMinutes;
                 movie.MpaaRating = dto.MpaaRating;
-                movie.ImdbId = dto.ImdbId;
-                movie.TmdbId = dto.TmdbId;
-                movie.TmdbRating = dto.TmdbRating;
-                movie.TmdbBackdropPath = dto.TmdbBackdropPath;
+
+                // TMDB owns these; the edit form does not send them, and a request that leaves
+                // them out must not erase the identity the refresh depends on.
+                movie.ImdbId = StoredValue.UnlessProvided(dto.ImdbId, movie.ImdbId);
+                movie.TmdbId = StoredValue.UnlessProvided(dto.TmdbId, movie.TmdbId);
+                movie.TmdbRating = StoredValue.UnlessProvided(dto.TmdbRating, movie.TmdbRating);
+                movie.TmdbBackdropPath = StoredValue.UnlessProvided(dto.TmdbBackdropPath, movie.TmdbBackdropPath);
+
                 movie.Tagline = dto.Tagline;
                 movie.Homepage = dto.Homepage;
                 movie.OriginalLanguage = dto.OriginalLanguage;

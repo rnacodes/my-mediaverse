@@ -21,7 +21,6 @@ import {
   getAllPodcastEpisodes,
   createPodcastEpisode,
   updatePodcastEpisode,
-  deletePodcastEpisode,
 } from '../api/podcastService';
 import { podcastKeys, mediaKeys } from '../api/queryKeys';
 
@@ -258,17 +257,6 @@ export function useUpdatePodcastEpisode() {
         queryClient.invalidateQueries({ queryKey: podcastKeys.series.episodes(variables.seriesId) });
       }
       queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
-    },
-  });
-}
-
-export function useDeletePodcastEpisode() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id) => deletePodcastEpisode(id).then((r) => r.data),
-    onSuccess: (_data, id) => {
-      queryClient.invalidateQueries({ queryKey: podcastKeys.episodes.lists() });
-      queryClient.removeQueries({ queryKey: podcastKeys.episodes.detail(id) });
     },
   });
 }

@@ -33,9 +33,6 @@ namespace MyMediaVerse.DTOs
         [JsonPropertyName("rating")]
         public Rating? Rating { get; set; }
         
-        [JsonPropertyName("ownershipStatus")]
-        public OwnershipStatus? OwnershipStatus { get; set; }
-        
         [JsonPropertyName("description")]
         public string? Description { get; set; }
         

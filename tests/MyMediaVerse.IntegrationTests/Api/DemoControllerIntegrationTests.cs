@@ -187,12 +187,11 @@ namespace MyMediaVerse.IntegrationTests.Api
         public async Task DemoWriteGate_InTestingEnvironment_AllowsWriteOperations()
         {
             // In Testing environment (not Demo), the write gate should allow all operations
-            // Create a simple media item to verify POST is allowed
+            // Create a simple article to verify POST is allowed
             var createDto = new
             {
                 title = "Test Filter Media",
                 description = "Testing that write ops work in non-demo env",
-                mediaType = "Article",
                 status = "Uncharted"
             };
 
@@ -203,7 +202,7 @@ namespace MyMediaVerse.IntegrationTests.Api
             );
 
             // Act
-            var response = await _client.PostAsync("/api/media", content);
+            var response = await _client.PostAsync("/api/article", content);
 
             // Assert - Should succeed (not get blocked by the demo gate). Asserting success rather
             // than merely "not Forbidden" so an auth failure (401) can't slip through unnoticed.

@@ -24,6 +24,22 @@ export default defineConfig({
     env: {
       VITE_API_URL: 'http://localhost:5033/api'
     },
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'lcov'],
+      reportsDirectory: './coverage',
+      // Listing the source folders makes files with no tests at all count as 0%,
+      // instead of being left out of the report.
+      include: ['src/**/*.{js,jsx}'],
+      exclude: [
+        '**/*.test.{js,jsx}',
+        'src/test/**',
+        'src/test-utils/**',
+        'src/test-utils.js',
+        'src/main.jsx',
+        'src/assets/**',
+      ],
+    },
   },
   define: {
     'import.meta.env.VITE_API_URL': JSON.stringify('http://localhost:5033/api')

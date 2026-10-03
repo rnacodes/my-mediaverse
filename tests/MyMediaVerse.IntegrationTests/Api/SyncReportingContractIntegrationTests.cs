@@ -7,6 +7,7 @@ using MyMediaVerse.DTOs;
 using MyMediaVerse.IntegrationTests.Fixtures;
 using NSubstitute;
 using MyMediaVerse.Shared.DTOs.TMDB;
+using MyMediaVerse.Shared.DTOs.YouTube;
 using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.IntegrationTests.Api
@@ -282,6 +283,99 @@ namespace MyMediaVerse.IntegrationTests.Api
             body.GetProperty("success").GetBoolean().Should().BeFalse();
             body.GetProperty("operation").GetString().Should().Be("tmdb-refresh-stale");
             body.GetProperty("errorMessage").GetString().Should().Contain("database unavailable");
+        }
+
+        #endregion
+
+        #region YouTube refresh
+
+        [Fact]
+        public async Task YouTubeRefreshStale_WhenRunCompletesWithItemFailures_ShouldStillReturnOk()
+        {
+            var (client, _) = _factory.CreateClientWithSubstitute<IYouTubeRefreshService>(svc =>
+                svc.RefreshStaleAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                    .Returns(new YouTubeRefreshResultDto
+                    {
+                        FailedCount = 1,
+                        SkippedCount = 1,
+                        VideosProcessed = 2,
+                        Errors = { "Failed to refresh the channel 'Broken': Service Unavailable" },
+                        Warnings = { "YouTube no longer returns the video 'Removed Upstream'" },
+                        StartedAt = DateTime.UtcNow,
+                        CompletedAt = DateTime.UtcNow
+                    }));
+
+            var response = await client.PostAsync("/api/youtube/refresh-stale", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var body = await ReadBodyAsync(response);
+            body.GetProperty("success").GetBoolean().Should().BeTrue();
+            body.GetProperty("operation").GetString().Should().Be("youtube-refresh-stale");
+            body.GetProperty("failedCount").GetInt32().Should().Be(1);
+            body.GetProperty("skippedCount").GetInt32().Should().Be(1);
+            body.GetProperty("totalProcessed").GetInt32().Should().Be(2);
+            body.GetProperty("videosProcessed").GetInt32().Should().Be(2);
+            body.GetProperty("quotaExceeded").GetBoolean().Should().BeFalse();
+            body.GetProperty("reindexTriggered").GetBoolean().Should().BeFalse();
+        }
+
+        [Fact]
+        public async Task YouTubeRefreshStale_WhenTheQuotaRanOut_ShouldStillReturnOk()
+        {
+            var (client, _) = _factory.CreateClientWithSubstitute<IYouTubeRefreshService>(svc =>
+                svc.RefreshStaleAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                    .Returns(new YouTubeRefreshResultDto
+                    {
+                        UnchangedCount = 3,
+                        QuotaExceeded = true,
+                        RemainingCount = 7,
+                        Warnings = { "YouTube's daily quota ran out before every stale item was refreshed." },
+                        StartedAt = DateTime.UtcNow,
+                        CompletedAt = DateTime.UtcNow
+                    }));
+
+            var response = await client.PostAsync("/api/youtube/refresh-stale", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var body = await ReadBodyAsync(response);
+            body.GetProperty("success").GetBoolean().Should().BeTrue();
+            body.GetProperty("quotaExceeded").GetBoolean().Should().BeTrue();
+            body.GetProperty("remainingCount").GetInt32().Should().Be(7);
+            body.GetProperty("warnings").GetArrayLength().Should().Be(1);
+        }
+
+        [Fact]
+        public async Task YouTubeRefreshStale_WhenRunAborts_ShouldReturn500WithResultBody()
+        {
+            var (client, _) = _factory.CreateClientWithSubstitute<IYouTubeRefreshService>(svc =>
+                svc.RefreshStaleAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                    .Returns(new YouTubeRefreshResultDto
+                    {
+                        Success = false,
+                        ErrorMessage = "YouTube refresh run failed: database unavailable",
+                        StartedAt = DateTime.UtcNow
+                    }));
+
+            var response = await client.PostAsync("/api/youtube/refresh-stale", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
+            var body = await ReadBodyAsync(response);
+            body.GetProperty("success").GetBoolean().Should().BeFalse();
+            body.GetProperty("operation").GetString().Should().Be("youtube-refresh-stale");
+            body.GetProperty("errorMessage").GetString().Should().Contain("database unavailable");
+        }
+
+        [Fact]
+        public async Task YouTubeRefreshStale_ShouldPassTheRequestedLimitAndAge_ToTheRun()
+        {
+            var (client, service) = _factory.CreateClientWithSubstitute<IYouTubeRefreshService>(svc =>
+                svc.RefreshStaleAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                    .Returns(new YouTubeRefreshResultDto { StartedAt = DateTime.UtcNow, CompletedAt = DateTime.UtcNow }));
+
+            var response = await client.PostAsync("/api/youtube/refresh-stale?limit=25&olderThanDays=7", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            await service.Received(1).RefreshStaleAsync(25, 7, Arg.Any<CancellationToken>());
         }
 
         #endregion

@@ -2,9 +2,14 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using NSubstitute;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
+using MyMediaVerse.Infrastructure.Data;
 using MyMediaVerse.IntegrationTests.Fixtures;
+using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.IntegrationTests.Api
 {
@@ -184,6 +189,86 @@ namespace MyMediaVerse.IntegrationTests.Api
 
         #endregion
 
+        #region Identity Tests
+
+        private async Task<(HttpResponseMessage Response, VideoResponseDto? Video)> PostVideo(CreateVideoDto dto)
+        {
+            var content = new StringContent(JsonSerializer.Serialize(dto, _jsonOptions), Encoding.UTF8, "application/json");
+            var response = await _client.PostAsync("/api/video", content);
+            var body = await response.Content.ReadAsStringAsync();
+            return (response, response.IsSuccessStatusCode ? JsonSerializer.Deserialize<VideoResponseDto>(body, _jsonOptions) : null);
+        }
+
+        [Fact]
+        public async Task CreateVideo_ForAVideoAlreadyStored_ShouldReturnOkWithTheStoredVideo()
+        {
+            var dto = new CreateVideoDto
+            {
+                Title = "Stored Video",
+                Platform = "YouTube",
+                Status = Status.Uncharted,
+                ExternalId = "dQw4w9WgXcQ",
+                Link = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+            };
+
+            var (first, created) = await PostVideo(dto);
+            dto.Title = "Same video, typed again";
+            var (second, existing) = await PostVideo(dto);
+
+            Assert.Equal(HttpStatusCode.Created, first.StatusCode);
+            Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+            Assert.Equal(created!.Id, existing!.Id);
+            Assert.Equal("Stored Video", existing.Title);
+
+            var all = JsonSerializer.Deserialize<List<VideoResponseDto>>(
+                await (await _client.GetAsync("/api/video")).Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.Single(all!);
+        }
+
+        [Fact]
+        public async Task UpdateVideo_WithAnIdThatBelongsToAnotherVideo_ShouldReturnConflict()
+        {
+            var (_, first) = await PostVideo(new CreateVideoDto
+            {
+                Title = "First", Platform = "YouTube", Status = Status.Uncharted, ExternalId = "first000001"
+            });
+            var (_, second) = await PostVideo(new CreateVideoDto
+            {
+                Title = "Second", Platform = "YouTube", Status = Status.Uncharted, ExternalId = "second00001"
+            });
+
+            var update = new CreateVideoDto
+            {
+                Title = "Second", Platform = "YouTube", Status = Status.Uncharted, ExternalId = first!.ExternalId
+            };
+            var response = await _client.PutAsync($"/api/video/{second!.Id}",
+                new StringContent(JsonSerializer.Serialize(update, _jsonOptions), Encoding.UTF8, "application/json"));
+
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            var body = JsonSerializer.Deserialize<JsonElement>(await response.Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.Contains("first000001", body.GetProperty("error").GetString());
+
+            var stored = JsonSerializer.Deserialize<VideoResponseDto>(
+                await (await _client.GetAsync($"/api/video/{second.Id}")).Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.Equal("second00001", stored!.ExternalId);
+        }
+
+        [Fact]
+        public async Task GetVideo_ShouldNotSendOwnershipInTheBody()
+        {
+            var (_, created) = await PostVideo(new CreateVideoDto
+            {
+                Title = "No ownership", Platform = "YouTube", Status = Status.Uncharted
+            });
+
+            var response = await _client.GetAsync($"/api/video/{created!.Id}");
+
+            var body = JsonSerializer.Deserialize<JsonElement>(await response.Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.False(body.TryGetProperty("ownershipStatus", out _));
+        }
+
+        #endregion
+
         #region PUT Tests
 
         [Fact]
@@ -313,6 +398,47 @@ namespace MyMediaVerse.IntegrationTests.Api
             // Verify the video is actually deleted
             var getResponse = await _client.GetAsync($"/api/video/{createdVideo.Id}");
             Assert.Equal(HttpStatusCode.NotFound, getResponse.StatusCode);
+        }
+
+        [Fact]
+        public async Task DeleteVideo_InAMixlistAndAPlaylist_RemovesItEverywhere_AndCleansTheSearchIndex()
+        {
+            // Against real Postgres: the video's own delete route hands off to the shared delete,
+            // which has to leave no orphaned base row and no dangling link behind.
+            var (client, typesense) = _factory.CreateClientWithSubstitute<ITypesenseService>();
+            var video = new Video { Title = "Video in two places", Platform = "YouTube", ExternalId = "delete00001" };
+            var playlist = new YouTubePlaylist { Title = "A playlist", PlaylistExternalId = "PLdelete", MediaType = MediaType.Playlist };
+            var mixlist = new Mixlist { Name = "A mixlist" };
+            mixlist.MediaItems.Add(video);
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<MediaLibraryDbContext>();
+                db.AddRange(video, playlist, mixlist);
+                db.Add(new YouTubePlaylistVideo { YouTubePlaylistId = playlist.Id, VideoId = video.Id, Position = 0 });
+                await db.SaveChangesAsync();
+            }
+
+            var delete = await client.DeleteAsync($"/api/video/{video.Id}");
+
+            Assert.Equal(HttpStatusCode.NoContent, delete.StatusCode);
+
+            // Every all-media query materializes each row by its type; an orphaned base row
+            // would make this endpoint return 500.
+            Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/media")).StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/media/{video.Id}")).StatusCode);
+
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<MediaLibraryDbContext>();
+                Assert.False(await db.Videos.AnyAsync(v => v.Id == video.Id));
+                Assert.False(await db.MediaItems.AnyAsync(m => m.Id == video.Id));
+                Assert.False(await db.Set<YouTubePlaylistVideo>().AnyAsync(link => link.VideoId == video.Id));
+                Assert.True(await db.YouTubePlaylists.AnyAsync(p => p.Id == playlist.Id));
+                var storedMixlist = await db.Mixlists.Include(m => m.MediaItems).SingleAsync(m => m.Id == mixlist.Id);
+                Assert.Empty(storedMixlist.MediaItems);
+            }
+
+            await typesense.Received(1).DeleteMediaItemAsync(video.Id);
         }
 
         [Fact]

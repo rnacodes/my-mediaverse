@@ -87,7 +87,7 @@ function BookImportSection({ expanded, onAccordionChange }) {
 
         } catch (err) {
             console.error('Book search error:', err);
-            setBookError('Failed to search books. Please try again.');
+            setBookError(err.response?.data?.error || 'Failed to search books. Please try again.');
             setBookIsLoading(false);
         }
     };

@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.IntegrationTests.Fixtures;
+using MyMediaVerse.IntegrationTests.Helpers;
 using Xunit;
 
 namespace MyMediaVerse.IntegrationTests.Api
@@ -36,12 +37,14 @@ namespace MyMediaVerse.IntegrationTests.Api
         public Task DisposeAsync() => Task.CompletedTask;
 
         [Fact]
-        public async Task CreateMediaItem_WithBookType_ShouldReturnBadRequestJson()
+        public async Task CreateMediaItem_ThroughTheGenericRoute_ShouldReturnMethodNotAllowed()
         {
+            // Every media type is created through its own endpoint; /api/media only reads,
+            // updates, and deletes.
             var createDto = new CreateMediaItemDto
             {
-                Title = "A Book Through The Wrong Door",
-                MediaType = MediaType.Book,
+                Title = "Through The Wrong Door",
+                MediaType = MediaType.Article,
                 Status = Status.Uncharted
             };
 
@@ -49,152 +52,17 @@ namespace MyMediaVerse.IntegrationTests.Api
 
             var response = await _client.PostAsync("/api/media", content);
 
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-            var body = JsonSerializer.Deserialize<JsonElement>(await response.Content.ReadAsStringAsync(), _jsonOptions);
-            Assert.True(body.TryGetProperty("error", out var error));
-            Assert.Contains("/api/book", error.GetString());
-        }
-
-        [Fact]
-        public async Task CreateMediaItem_WithArticleType_ShouldReturnCreated()
-        {
-            var createDto = new CreateMediaItemDto
-            {
-                Title = "New Test Article",
-                Description = "A comprehensive test article",
-                MediaType = MediaType.Article,
-                Link = "https://example.com/article",
-                Status = Status.Uncharted,
-                Rating = Rating.Like,
-                Topics = new[] { "technology", "science" },
-                Genres = new[] { "news", "research" }
-            };
-
-            var content = new StringContent(
-                JsonSerializer.Serialize(createDto, _jsonOptions),
-                Encoding.UTF8,
-                "application/json"
-            );
-
-            var response = await _client.PostAsync("/api/media", content);
-
-            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-
-            var responseContent = await response.Content.ReadAsStringAsync();
-            var createdMedia = JsonSerializer.Deserialize<MediaItemResponseDto>(responseContent, _jsonOptions);
-
-            Assert.NotNull(createdMedia);
-            Assert.Equal("New Test Article", createdMedia!.Title);
-            Assert.Equal(MediaType.Article, createdMedia.MediaType);
-            Assert.Contains("technology", createdMedia.Topics);
-            Assert.Contains("news", createdMedia.Genres);
-        }
-
-        [Fact]
-        public async Task CreateMediaItem_WithVideoType_ShouldReturnCreated()
-        {
-            var createDto = new CreateMediaItemDto
-            {
-                Title = "New Test Video",
-                Description = "A test video description",
-                MediaType = MediaType.Video,
-                Link = "https://youtube.com/watch?v=test",
-                Status = Status.Uncharted,
-                Topics = new[] { "tutorial", "programming" },
-                Genres = new[] { "educational" }
-            };
-
-            var content = new StringContent(
-                JsonSerializer.Serialize(createDto, _jsonOptions),
-                Encoding.UTF8,
-                "application/json"
-            );
-
-            var response = await _client.PostAsync("/api/media", content);
-
-            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-
-            var responseContent = await response.Content.ReadAsStringAsync();
-            var createdMedia = JsonSerializer.Deserialize<MediaItemResponseDto>(responseContent, _jsonOptions);
-
-            Assert.NotNull(createdMedia);
-            Assert.Equal("New Test Video", createdMedia!.Title);
-            Assert.Equal(MediaType.Video, createdMedia.MediaType);
-        }
-
-        [Fact]
-        public async Task CreateMediaItem_WithPodcastType_ShouldReturnBadRequest()
-        {
-            // A series' identity is its feed; POST /api/podcast/series owns podcast creation.
-            var createDto = new CreateMediaItemDto
-            {
-                Title = "New Test Podcast",
-                Description = "A test podcast description",
-                MediaType = MediaType.Podcast,
-                Status = Status.Uncharted
-            };
-
-            var content = new StringContent(
-                JsonSerializer.Serialize(createDto, _jsonOptions),
-                Encoding.UTF8,
-                "application/json"
-            );
-
-            var response = await _client.PostAsync("/api/media", content);
-
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        }
-
-        [Fact]
-        public async Task CreateMediaItem_WithMovieType_ShouldReturnCreated()
-        {
-            var createDto = new CreateMediaItemDto
-            {
-                Title = "Test Movie via Media Controller",
-                MediaType = MediaType.Movie,
-                Status = Status.Uncharted
-            };
-
-            var content = new StringContent(
-                JsonSerializer.Serialize(createDto, _jsonOptions),
-                Encoding.UTF8,
-                "application/json"
-            );
-
-            var response = await _client.PostAsync("/api/media", content);
-
-            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-
-            var responseContent = await response.Content.ReadAsStringAsync();
-            var createdMedia = JsonSerializer.Deserialize<MediaItemResponseDto>(responseContent, _jsonOptions);
-            Assert.NotNull(createdMedia);
-            Assert.Equal(MediaType.Movie, createdMedia!.MediaType);
+            Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
         }
 
         [Fact]
         public async Task UpdateMediaItem_WithValidData_ShouldReturnOk()
         {
-            var createDto = new CreateMediaItemDto
-            {
-                Title = "Original Article Title",
-                Description = "Original description",
-                MediaType = MediaType.Article,
-                Status = Status.Uncharted,
-                Topics = new[] { "original" },
-                Genres = new[] { "tech" }
-            };
-
-            var createContent = new StringContent(
-                JsonSerializer.Serialize(createDto, _jsonOptions),
-                Encoding.UTF8,
-                "application/json"
-            );
-
-            var createResponse = await _client.PostAsync("/api/media", createContent);
-            var createdMedia = JsonSerializer.Deserialize<MediaItemResponseDto>(
-                await createResponse.Content.ReadAsStringAsync(),
-                _jsonOptions
-            );
+            var createdMedia = await _client.CreateArticleAsync(
+                "Original Article Title",
+                topics: new[] { "original" },
+                genres: new[] { "tech" },
+                description: "Original description");
 
             var updateDto = new CreateMediaItemDto
             {
@@ -214,7 +82,7 @@ namespace MyMediaVerse.IntegrationTests.Api
                 "application/json"
             );
 
-            var response = await _client.PutAsync($"/api/media/{createdMedia!.Id}", updateContent);
+            var response = await _client.PutAsync($"/api/media/{createdMedia.Id}", updateContent);
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
@@ -252,29 +120,13 @@ namespace MyMediaVerse.IntegrationTests.Api
         [Fact]
         public async Task DeleteMediaItem_WithValidId_ShouldReturnNoContent()
         {
-            var createDto = new CreateMediaItemDto
-            {
-                Title = "Article to Delete",
-                Description = "This article will be deleted",
-                MediaType = MediaType.Article,
-                Status = Status.Uncharted,
-                Topics = new[] { "test" },
-                Genres = new[] { "test" }
-            };
+            var createdMedia = await _client.CreateArticleAsync(
+                "Article to Delete",
+                topics: new[] { "test" },
+                genres: new[] { "test" },
+                description: "This article will be deleted");
 
-            var createContent = new StringContent(
-                JsonSerializer.Serialize(createDto, _jsonOptions),
-                Encoding.UTF8,
-                "application/json"
-            );
-
-            var createResponse = await _client.PostAsync("/api/media", createContent);
-            var createdMedia = JsonSerializer.Deserialize<MediaItemResponseDto>(
-                await createResponse.Content.ReadAsStringAsync(),
-                _jsonOptions
-            );
-
-            var response = await _client.DeleteAsync($"/api/media/{createdMedia!.Id}");
+            var response = await _client.DeleteAsync($"/api/media/{createdMedia.Id}");
 
             Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
 
@@ -290,69 +142,6 @@ namespace MyMediaVerse.IntegrationTests.Api
             var response = await _client.DeleteAsync($"/api/media/{invalidId}");
 
             Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        }
-
-        [Fact]
-        public async Task CreateMediaItem_WithMalformedJson_ShouldReturnBadRequest()
-        {
-            var malformedJson = "{ invalid json }";
-            var content = new StringContent(malformedJson, Encoding.UTF8, "application/json");
-
-            var response = await _client.PostAsync("/api/media", content);
-
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        }
-
-        [Fact]
-        public async Task CreateMediaItem_WithNullData_ShouldReturnBadRequest()
-        {
-            var content = new StringContent("null", Encoding.UTF8, "application/json");
-
-            var response = await _client.PostAsync("/api/media", content);
-
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        }
-
-        [Fact]
-        public async Task CreateMediaItem_WithEmptyTitle_ShouldReturnBadRequest()
-        {
-            var createDto = new CreateMediaItemDto
-            {
-                Title = "",
-                MediaType = MediaType.Article,
-                Status = Status.Uncharted
-            };
-
-            var content = new StringContent(
-                JsonSerializer.Serialize(createDto, _jsonOptions),
-                Encoding.UTF8,
-                "application/json"
-            );
-
-            var response = await _client.PostAsync("/api/media", content);
-
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        }
-
-        [Fact]
-        public async Task CreateMediaItem_WithLongTitle_ShouldReturnBadRequest()
-        {
-            var createDto = new CreateMediaItemDto
-            {
-                Title = new string('A', 501),
-                MediaType = MediaType.Article,
-                Status = Status.Uncharted
-            };
-
-            var content = new StringContent(
-                JsonSerializer.Serialize(createDto, _jsonOptions),
-                Encoding.UTF8,
-                "application/json"
-            );
-
-            var response = await _client.PostAsync("/api/media", content);
-
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
     }
 }

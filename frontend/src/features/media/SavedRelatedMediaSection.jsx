@@ -42,6 +42,9 @@ import {
 import { useMediaSearch } from '@/hooks/useMedia';
 import { formatMediaType } from '@/utils/formatters';
 import { getAspectRatio } from '@/utils/mediaImageUtils';
+import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
+import { useDemoWriteBlocked } from '@/features/demo/useDemoWriteBlocked';
+import { DEMO_EDIT_BLOCKED } from '@/features/demo/demoMessages';
 
 // eslint-disable-next-line no-unused-vars -- refreshTrigger kept for API compatibility; mutation hooks now invalidate the related-media query automatically.
 function SavedRelatedMediaSection({ mediaItem, setSnackbar, refreshTrigger }) {
@@ -74,6 +77,7 @@ function SavedRelatedMediaSection({ mediaItem, setSnackbar, refreshTrigger }) {
 
   const saveMutation = useSaveRelatedMedia();
   const removeMutation = useRemoveRelatedMedia();
+  const demoWriteBlocked = useDemoWriteBlocked();
 
   const handleExpandClick = () => {
     setExpanded((prev) => !prev);
@@ -258,8 +262,10 @@ function SavedRelatedMediaSection({ mediaItem, setSnackbar, refreshTrigger }) {
                     }}
                   >
                     {/* Delete button */}
-                    <Tooltip title="Remove">
+                    <DemoWriteGuard title={DEMO_EDIT_BLOCKED}>
                       <IconButton
+                        aria-label="Remove"
+                        title={demoWriteBlocked ? undefined : 'Remove'}
                         size="small"
                         onClick={() => handleRemoveRelated(relation)}
                         disabled={removingId === relation.relatedMediaItem?.id}
@@ -279,7 +285,7 @@ function SavedRelatedMediaSection({ mediaItem, setSnackbar, refreshTrigger }) {
                           <DeleteIcon fontSize="small" />
                         )}
                       </IconButton>
-                    </Tooltip>
+                    </DemoWriteGuard>
                     <Box
                       component={RouterLink}
                       to={`/media/${relation.relatedMediaItem?.id}`}

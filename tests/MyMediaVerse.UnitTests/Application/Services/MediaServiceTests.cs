@@ -18,10 +18,9 @@ namespace MyMediaVerse.UnitTests.Application.Services
     /// InMemory provider (so the service's own LINQ is exercised) and substitutes only the
     /// I/O boundary, <see cref="IThumbnailStorageService"/>.
     ///
-    /// Note: Website and PodcastEpisode are intentionally NOT creatable through
-    /// <see cref="MediaService.CreateMediaItemAsync"/> — websites have a dedicated
-    /// WebsiteService, and podcast-episode creation is tracked under a separate review.
-    /// The dispatch tests assert the current NotSupportedException behavior for those.
+    /// Note: media items are created through each type's own service, never here, so this
+    /// class has no create tests. The topic and genre rules shared by every write are
+    /// covered through <see cref="MediaService.UpdateMediaItemAsync"/>.
     /// </summary>
     [Trait("Category", "Unit")]
     public class MediaServiceTests : InMemoryDbTestBase
@@ -115,163 +114,6 @@ namespace MyMediaVerse.UnitTests.Application.Services
 
         #endregion
 
-        #region CreateMediaItemAsync — dispatch by media type
-
-        [Theory]
-        [InlineData(MediaType.Article, typeof(Article))]
-        [InlineData(MediaType.Video, typeof(Video))]
-        [InlineData(MediaType.Movie, typeof(Movie))]
-        [InlineData(MediaType.TVShow, typeof(TvShow))]
-        [InlineData(MediaType.Channel, typeof(YouTubeChannel))]
-        public async Task CreateMediaItemAsync_ShouldDispatchToConcreteEntityType(
-            MediaType mediaType, Type expectedEntityType)
-        {
-            var dto = MakeDto("Dispatch Test", mediaType);
-
-            var result = await _service.CreateMediaItemAsync(dto);
-
-            var stored = await Context.MediaItems
-                .AsNoTracking()
-                .FirstOrDefaultAsync(m => m.Id == result.Id);
-            stored.Should().NotBeNull();
-            stored!.GetType().Should().Be(expectedEntityType);
-        }
-
-        [Fact]
-        public async Task CreateMediaItemAsync_ShouldRejectPodcasts_WithGuidanceToPodcastEndpoint()
-        {
-            // A series' identity is its feed; the podcast endpoint owns that duplicate check,
-            // so MediaController returns 400 and the service throws.
-            var act = () => _service.CreateMediaItemAsync(MakeDto("My Show", MediaType.Podcast));
-
-            await act.Should().ThrowAsync<NotSupportedException>()
-                .WithMessage("*POST /api/podcast/series*");
-        }
-
-        [Theory]
-        [InlineData(MediaType.Website)]
-        [InlineData(MediaType.Document)]
-        [InlineData(MediaType.Playlist)]
-        [InlineData(MediaType.Music)]
-        public async Task CreateMediaItemAsync_ShouldThrowNotSupported_ForUnsupportedTypes(MediaType mediaType)
-        {
-            var act = () => _service.CreateMediaItemAsync(MakeDto("x", mediaType));
-
-            await act.Should().ThrowAsync<NotSupportedException>();
-        }
-
-        [Fact]
-        public async Task CreateMediaItemAsync_ShouldRejectBooks_WithGuidanceToBookEndpoint()
-        {
-            // The generic DTO has no author field, so a book created here would be
-            // permanently authorless; MediaController returns 400 and the service throws.
-            var act = () => _service.CreateMediaItemAsync(MakeDto("A Book", MediaType.Book));
-
-            await act.Should().ThrowAsync<NotSupportedException>()
-                .WithMessage("*POST /api/book*");
-        }
-
-        [Fact]
-        public async Task CreateMediaItemAsync_ShouldPersistEntity_AndReturnGeneratedId()
-        {
-            var result = await _service.CreateMediaItemAsync(MakeDto("Persisted", MediaType.Movie));
-
-            result.Id.Should().NotBeEmpty();
-            (await Context.MediaItems.CountAsync()).Should().Be(1);
-        }
-
-        [Fact]
-        public async Task CreateMediaItemAsync_ShouldMapBaseProperties()
-        {
-            var dto = MakeDto("Mapped", MediaType.Article);
-            dto.Link = "https://example.com/a";
-            dto.Notes = "some notes";
-            dto.Description = "a description";
-            dto.Status = Status.ActivelyExploring;
-            dto.Rating = Rating.Like;
-
-            var result = await _service.CreateMediaItemAsync(dto);
-
-            result.Title.Should().Be("Mapped");
-            result.Link.Should().Be("https://example.com/a");
-            result.Notes.Should().Be("some notes");
-            result.Description.Should().Be("a description");
-            result.Status.Should().Be(Status.ActivelyExploring);
-            result.Rating.Should().Be(Rating.Like);
-        }
-
-        #endregion
-
-        #region CreateMediaItemAsync — topics & genres
-
-        [Fact]
-        public async Task CreateMediaItemAsync_ShouldCreateAndAssociateNewTopics()
-        {
-            var dto = MakeDto("Tagged", MediaType.Movie, topics: new[] { "science", "history" });
-
-            var result = await _service.CreateMediaItemAsync(dto);
-
-            result.Topics.Should().BeEquivalentTo(new[] { "science", "history" });
-            (await Context.Topics.CountAsync()).Should().Be(2);
-        }
-
-        [Fact]
-        public async Task CreateMediaItemAsync_ShouldNormalizeTopicsToLowercase()
-        {
-            var dto = MakeDto("Cased", MediaType.Movie, topics: new[] { "SCIENCE", "History" });
-
-            var result = await _service.CreateMediaItemAsync(dto);
-
-            result.Topics.Should().BeEquivalentTo(new[] { "science", "history" });
-        }
-
-        [Fact]
-        public async Task CreateMediaItemAsync_ShouldDeduplicateTopics_AfterNormalization()
-        {
-            var dto = MakeDto("Dupes", MediaType.Movie, topics: new[] { "Tech", "tech", " tech " });
-
-            var result = await _service.CreateMediaItemAsync(dto);
-
-            result.Topics.Should().ContainSingle().Which.Should().Be("tech");
-            (await Context.Topics.CountAsync()).Should().Be(1);
-        }
-
-        [Fact]
-        public async Task CreateMediaItemAsync_ShouldSkipBlankTopics()
-        {
-            var dto = MakeDto("Blanks", MediaType.Movie, topics: new[] { "valid", "", "   " });
-
-            var result = await _service.CreateMediaItemAsync(dto);
-
-            result.Topics.Should().ContainSingle().Which.Should().Be("valid");
-        }
-
-        [Fact]
-        public async Task CreateMediaItemAsync_ShouldReuseExistingTopic_InsteadOfCreatingDuplicate()
-        {
-            Context.Topics.Add(new Topic { Name = "tech" });
-            await Context.SaveChangesAsync();
-
-            var result = await _service.CreateMediaItemAsync(
-                MakeDto("Reuse", MediaType.Movie, topics: new[] { "Tech" }));
-
-            result.Topics.Should().ContainSingle().Which.Should().Be("tech");
-            (await Context.Topics.CountAsync()).Should().Be(1);
-        }
-
-        [Fact]
-        public async Task CreateMediaItemAsync_ShouldCreateAndAssociateGenres()
-        {
-            var dto = MakeDto("Genred", MediaType.Movie, genres: new[] { "thriller" });
-
-            var result = await _service.CreateMediaItemAsync(dto);
-
-            result.Genres.Should().ContainSingle().Which.Should().Be("thriller");
-            (await Context.Genres.CountAsync()).Should().Be(1);
-        }
-
-        #endregion
-
         #region UpdateMediaItemAsync
 
         [Fact]
@@ -344,6 +186,75 @@ namespace MyMediaVerse.UnitTests.Application.Services
             var result = await _service.UpdateMediaItemAsync(movie.Id, dto);
 
             result.Genres.Should().ContainSingle().Which.Should().Be("comedy");
+        }
+
+        [Fact]
+        public async Task UpdateMediaItemAsync_ShouldNormalizeTopicsToLowercase()
+        {
+            var movie = TestDataFactory.CreateMovie();
+            Context.Movies.Add(movie);
+            await Context.SaveChangesAsync();
+
+            var result = await _service.UpdateMediaItemAsync(
+                movie.Id, MakeDto(movie.Title, MediaType.Movie, topics: new[] { "SCIENCE", "History" }));
+
+            result.Topics.Should().BeEquivalentTo(new[] { "science", "history" });
+        }
+
+        [Fact]
+        public async Task UpdateMediaItemAsync_ShouldDeduplicateTopics_AfterNormalization()
+        {
+            var movie = TestDataFactory.CreateMovie();
+            Context.Movies.Add(movie);
+            await Context.SaveChangesAsync();
+
+            var result = await _service.UpdateMediaItemAsync(
+                movie.Id, MakeDto(movie.Title, MediaType.Movie, topics: new[] { "Tech", "tech", " tech " }));
+
+            result.Topics.Should().ContainSingle().Which.Should().Be("tech");
+            (await Context.Topics.CountAsync()).Should().Be(1);
+        }
+
+        [Fact]
+        public async Task UpdateMediaItemAsync_ShouldSkipBlankTopics()
+        {
+            var movie = TestDataFactory.CreateMovie();
+            Context.Movies.Add(movie);
+            await Context.SaveChangesAsync();
+
+            var result = await _service.UpdateMediaItemAsync(
+                movie.Id, MakeDto(movie.Title, MediaType.Movie, topics: new[] { "valid", "", "   " }));
+
+            result.Topics.Should().ContainSingle().Which.Should().Be("valid");
+        }
+
+        [Fact]
+        public async Task UpdateMediaItemAsync_ShouldReuseExistingTopic_InsteadOfCreatingDuplicate()
+        {
+            Context.Topics.Add(new Topic { Name = "tech" });
+            var movie = TestDataFactory.CreateMovie();
+            Context.Movies.Add(movie);
+            await Context.SaveChangesAsync();
+
+            var result = await _service.UpdateMediaItemAsync(
+                movie.Id, MakeDto(movie.Title, MediaType.Movie, topics: new[] { "Tech" }));
+
+            result.Topics.Should().ContainSingle().Which.Should().Be("tech");
+            (await Context.Topics.CountAsync()).Should().Be(1);
+        }
+
+        [Fact]
+        public async Task UpdateMediaItemAsync_ShouldNormalizeAndDeduplicateGenres()
+        {
+            var movie = TestDataFactory.CreateMovie();
+            Context.Movies.Add(movie);
+            await Context.SaveChangesAsync();
+
+            var result = await _service.UpdateMediaItemAsync(
+                movie.Id, MakeDto(movie.Title, MediaType.Movie, genres: new[] { "Thriller", "thriller", " THRILLER " }));
+
+            result.Genres.Should().ContainSingle().Which.Should().Be("thriller");
+            (await Context.Genres.CountAsync()).Should().Be(1);
         }
 
         #endregion
@@ -557,145 +468,6 @@ namespace MyMediaVerse.UnitTests.Application.Services
 
             deletedCount.Should().Be(2);
             (await Context.MediaItems.CountAsync()).Should().Be(0);
-        }
-
-        #endregion
-
-        #region SearchMediaAsync / GetMediaByType / GetMediaByTopic / GetMediaByGenre
-
-        [Fact]
-        public async Task SearchMediaAsync_ShouldMatchByTitle()
-        {
-            Context.Books.Add(TestDataFactory.CreateBook("Unique Whale Title"));
-            Context.Books.Add(TestDataFactory.CreateBook("Something Else"));
-            await Context.SaveChangesAsync();
-
-            var result = await _service.SearchMediaAsync("whale");
-
-            result.Should().ContainSingle().Which.Title.Should().Be("Unique Whale Title");
-        }
-
-        [Fact]
-        public async Task SearchMediaAsync_ShouldMatchByDescription()
-        {
-            var book = TestDataFactory.CreateBook("No Match Title");
-            book.Description = "a story about submarines";
-            Context.Books.Add(book);
-            await Context.SaveChangesAsync();
-
-            var result = await _service.SearchMediaAsync("submarine");
-
-            result.Should().ContainSingle();
-        }
-
-        [Fact]
-        public async Task SearchMediaAsync_ShouldMatchByTopic()
-        {
-            var book = TestDataFactory.CreateBook("Topic Match");
-            book.Topics = new List<Topic> { new() { Name = "astronomy" } };
-            Context.Books.Add(book);
-            await Context.SaveChangesAsync();
-
-            var result = await _service.SearchMediaAsync("astronomy");
-
-            result.Should().ContainSingle();
-        }
-
-        [Fact]
-        public async Task SearchMediaAsync_ShouldMatchByGenre()
-        {
-            var movie = TestDataFactory.CreateMovie("Genre Match");
-            movie.Genres = new List<Genre> { new() { Name = "horror" } };
-            Context.Movies.Add(movie);
-            await Context.SaveChangesAsync();
-
-            var result = await _service.SearchMediaAsync("horror");
-
-            result.Should().ContainSingle();
-        }
-
-        [Fact]
-        public async Task SearchMediaAsync_ShouldBeCaseInsensitive()
-        {
-            Context.Books.Add(TestDataFactory.CreateBook("MixedCase Title"));
-            await Context.SaveChangesAsync();
-
-            var result = await _service.SearchMediaAsync("MIXEDCASE");
-
-            result.Should().ContainSingle();
-        }
-
-        [Fact]
-        public async Task SearchMediaAsync_ShouldReturnEmpty_WhenNoMatch()
-        {
-            Context.Books.Add(TestDataFactory.CreateBook("Nothing Relevant"));
-            await Context.SaveChangesAsync();
-
-            var result = await _service.SearchMediaAsync("zzzznomatch");
-
-            result.Should().BeEmpty();
-        }
-
-        [Fact]
-        public async Task GetMediaByTypeAsync_ShouldReturnOnlyMatchingType()
-        {
-            Context.Books.AddRange(TestDataFactory.CreateBooks(2));
-            Context.Movies.Add(TestDataFactory.CreateMovie());
-            await Context.SaveChangesAsync();
-
-            var result = await _service.GetMediaByTypeAsync("Book");
-
-            result.Should().HaveCount(2);
-            result.Should().OnlyContain(m => m.MediaType == MediaType.Book);
-        }
-
-        [Fact]
-        public async Task GetMediaByTypeAsync_ShouldBeCaseInsensitive()
-        {
-            Context.Books.Add(TestDataFactory.CreateBook());
-            await Context.SaveChangesAsync();
-
-            var result = await _service.GetMediaByTypeAsync("book");
-
-            result.Should().ContainSingle();
-        }
-
-        [Fact]
-        public async Task GetMediaByTypeAsync_ShouldThrowArgumentException_WhenTypeInvalid()
-        {
-            var act = () => _service.GetMediaByTypeAsync("NotARealType");
-
-            await act.Should().ThrowAsync<ArgumentException>();
-        }
-
-        [Fact]
-        public async Task GetMediaByTopicAsync_ShouldReturnItemsWithTopic()
-        {
-            var topic = new Topic { Name = "shared-topic" };
-            var book = TestDataFactory.CreateBook();
-            book.Topics = new List<Topic> { topic };
-            Context.Books.Add(book);
-            Context.Books.Add(TestDataFactory.CreateBook("No Topic"));
-            await Context.SaveChangesAsync();
-
-            var result = await _service.GetMediaByTopicAsync(topic.Id);
-
-            result.Should().ContainSingle();
-        }
-
-        [Fact]
-        public async Task GetMediaByGenreAsync_ShouldReturnItemsWithGenre()
-        {
-            var genre = new Genre { Name = "shared-genre" };
-            var movie = TestDataFactory.CreateMovie();
-            movie.Genres = new List<Genre> { genre };
-            Context.Movies.Add(movie);
-            Context.Movies.Add(TestDataFactory.CreateMovie("No Genre"));
-            await Context.SaveChangesAsync();
-
-            var result = await _service.GetMediaByGenreAsync(genre.Id);
-
-            result.Should().ContainSingle();
         }
 
         #endregion

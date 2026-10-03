@@ -8,7 +8,8 @@ import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
 import { DEMO_EDIT_BLOCKED } from '@/features/demo/demoMessages';
 
 // `actions` renders extra page-specific controls beside Reindex and Edit Media.
-function MediaHeader({ title, mediaId, onReindex, reindexing, actions = null }) {
+// `hideEdit` drops the Edit Media button for items the edit form cannot save.
+function MediaHeader({ title, mediaId, onReindex, reindexing, actions = null, hideEdit = false }) {
   const navigate = useNavigate();
   const theme = useTheme();
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
@@ -62,17 +63,19 @@ function MediaHeader({ title, mediaId, onReindex, reindexing, actions = null }) 
             </Button>
           </DemoWriteGuard>
         )}
-        <DemoWriteGuard title={DEMO_EDIT_BLOCKED} style={{ order: 1 }}>
-          <Button
-            onClick={() => navigate(`/media/${mediaId}/edit`)}
-            startIcon={<Edit />}
-            variant="contained"
-            size={isTablet ? 'medium' : 'large'}
-            sx={{ order: { xs: 1, sm: 0 }, flex: 1 }}
-          >
-            Edit Media
-          </Button>
-        </DemoWriteGuard>
+        {!hideEdit && (
+          <DemoWriteGuard title={DEMO_EDIT_BLOCKED} style={{ order: 1 }}>
+            <Button
+              onClick={() => navigate(`/media/${mediaId}/edit`)}
+              startIcon={<Edit />}
+              variant="contained"
+              size={isTablet ? 'medium' : 'large'}
+              sx={{ order: { xs: 1, sm: 0 }, flex: 1 }}
+            >
+              Edit Media
+            </Button>
+          </DemoWriteGuard>
+        )}
       </Box>
     </Box>
   );

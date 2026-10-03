@@ -4,7 +4,6 @@ import {
   getDocumentById,
   createDocument,
   updateDocument,
-  deleteDocument,
   getDocumentsByType,
   getDocumentsByCorrespondent,
   getArchivedDocuments,
@@ -103,18 +102,6 @@ export function useUpdateDocument() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
       queryClient.invalidateQueries({ queryKey: documentKeys.detail(variables.id) });
-      queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
-    },
-  });
-}
-
-export function useDeleteDocument() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id) => deleteDocument(id),
-    onSuccess: (_data, id) => {
-      queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
-      queryClient.removeQueries({ queryKey: documentKeys.detail(id) });
       queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
     },
   });

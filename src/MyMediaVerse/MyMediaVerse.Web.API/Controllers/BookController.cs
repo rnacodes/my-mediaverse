@@ -5,6 +5,7 @@ using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Shared.DTOs.GoogleBooks;
 using MyMediaVerse.Shared.DTOs.OpenLibrary;
 using MyMediaVerse.DTOs;
+using MyMediaVerse.Shared.Exceptions;
 using MyMediaVerse.Shared.Interfaces;
 using MyMediaVerse.Web.API.Extensions;
 
@@ -14,6 +15,8 @@ namespace MyMediaVerse.Web.API.Controllers
     [Route("api/[controller]")]
     public class BookController : ControllerBase
     {
+        private const string GoogleBooksNotConfiguredMessage = "Google Books is not configured on this server.";
+
         private readonly IBookService _bookService;
         private readonly IBookMappingService _bookMappingService;
         private readonly ILogger<BookController> _logger;
@@ -329,6 +332,11 @@ namespace MyMediaVerse.Web.API.Controllers
 
                 return Ok(results);
             }
+            catch (GoogleBooksNotConfiguredException ex)
+            {
+                _logger.LogWarning(ex, "Google Books search requested but no API key is configured");
+                return StatusCode(503, new { error = GoogleBooksNotConfiguredMessage });
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while searching Google Books for query: {Query}", searchDto.Query);
@@ -378,6 +386,11 @@ namespace MyMediaVerse.Web.API.Controllers
 
                 var responseDto = await _bookMappingService.MapToResponseDtoAsync(createdBook);
                 return CreatedAtAction(nameof(GetBook), new { id = createdBook.Id }, responseDto);
+            }
+            catch (GoogleBooksNotConfiguredException ex)
+            {
+                _logger.LogWarning(ex, "Google Books import requested but no API key is configured");
+                return StatusCode(503, new { error = GoogleBooksNotConfiguredMessage });
             }
             catch (InvalidOperationException ex)
             {

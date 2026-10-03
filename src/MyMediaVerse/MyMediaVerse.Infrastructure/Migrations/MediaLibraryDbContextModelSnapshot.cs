@@ -1275,11 +1275,21 @@ namespace MyMediaVerse.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<DateTime?>("PublishedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("YouTubeRefreshedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.HasIndex("ChannelId");
 
-                    b.HasIndex("ExternalId");
-
                     b.HasIndex("Platform");
+
+                    b.HasIndex("YouTubeRefreshedAt");
+
+                    b.HasIndex("Platform", "ExternalId")
+                        .IsUnique()
+                        .HasFilter("\"ExternalId\" IS NOT NULL AND \"ExternalId\" <> ''");
 
                     b.ToTable("Videos", (string)null);
                 });

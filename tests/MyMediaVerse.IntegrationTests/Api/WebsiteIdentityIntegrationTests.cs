@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AwesomeAssertions;
@@ -310,29 +309,6 @@ namespace MyMediaVerse.IntegrationTests.Api
             var response = await _factory.CreateAnonymousClient().PostAsync($"/api/website/{Guid.NewGuid()}/screenshot", null);
 
             response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-        }
-
-        #endregion
-
-        #region Generic media endpoint
-
-        [Fact]
-        public async Task AddMediaItem_WebsiteThroughGenericEndpoint_ReturnsBadRequestErrorObject()
-        {
-            var createDto = new CreateMediaItemDto
-            {
-                Title = "A Website Through The Wrong Door",
-                MediaType = MediaType.Website,
-                Status = Status.Uncharted
-            };
-            var content = new StringContent(JsonSerializer.Serialize(createDto, _jsonOptions), Encoding.UTF8, "application/json");
-
-            var response = await _client.PostAsync("/api/media", content);
-
-            response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-            var body = await ReadJson(response);
-            body.TryGetProperty("error", out var error).Should().BeTrue();
-            error.GetString().Should().Contain("/api/website");
         }
 
         #endregion

@@ -172,12 +172,22 @@ namespace MyMediaVerse.Application.Services
             series.Rating = dto.Rating;
             series.OwnershipStatus = dto.OwnershipStatus;
             series.Description = dto.Description;
-            series.RelatedNotes = dto.RelatedNotes;
+            series.RelatedNotes = StoredValue.UnlessProvided(dto.RelatedNotes, series.RelatedNotes);
             series.Thumbnail = dto.Thumbnail;
             series.Publisher = dto.Publisher;
-            series.RssFeedUrl = feedUrl;
-            series.FeedUrlKey = feedKey;
-            series.ApplePodcastsId = appleId;
+
+            // The feed and the Apple id are the series' identity; the edit form does not send
+            // them, and a request that leaves them out must not erase what sync depends on.
+            if (feedUrl != null)
+            {
+                series.RssFeedUrl = feedUrl;
+                series.FeedUrlKey = feedKey;
+            }
+
+            if (appleId != null)
+            {
+                series.ApplePodcastsId = appleId;
+            }
 
             series.Topics.Clear();
             series.Genres.Clear();
@@ -373,14 +383,14 @@ namespace MyMediaVerse.Application.Services
             episode.Rating = dto.Rating;
             episode.OwnershipStatus = dto.OwnershipStatus;
             episode.Description = dto.Description;
-            episode.RelatedNotes = dto.RelatedNotes;
+            episode.RelatedNotes = StoredValue.UnlessProvided(dto.RelatedNotes, episode.RelatedNotes);
             episode.Thumbnail = dto.Thumbnail;
             episode.AudioLink = dto.AudioLink;
             episode.ReleaseDate = DateTimeNormalizer.ToUtc(dto.ReleaseDate);
             episode.DurationInSeconds = dto.DurationInSeconds;
             episode.EpisodeNumber = dto.EpisodeNumber;
             episode.SeasonNumber = dto.SeasonNumber;
-            episode.Publisher = dto.Publisher;
+            episode.Publisher = StoredValue.UnlessProvided(dto.Publisher, episode.Publisher);
 
             // Clear existing topics and genres and save immediately so the removed
             // join rows are persisted before the new ones are added.

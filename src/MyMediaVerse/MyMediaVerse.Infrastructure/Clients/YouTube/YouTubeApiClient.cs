@@ -13,21 +13,29 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
         private readonly HttpClient _httpClient;
         private readonly ILogger<YouTubeApiClient> _logger;
         private readonly JsonSerializerOptions _jsonOptions;
-        private readonly string _apiKey;
+        private readonly string? _configuredApiKey;
 
         public YouTubeApiClient(HttpClient httpClient, ILogger<YouTubeApiClient> logger, IConfiguration configuration)
         {
             _httpClient = httpClient;
             _logger = logger;
-            _apiKey = Environment.GetEnvironmentVariable("YOUTUBE_API_KEY") ??
-                     configuration["ApiKeys:YouTube"] ??
-                     "YOUTUBE_API_KEY";
+            var apiKey = Environment.GetEnvironmentVariable("YOUTUBE_API_KEY") ??
+                         configuration["ApiKeys:YouTube"];
+            // The literal variable name is what an unfilled config template carries.
+            _configuredApiKey = string.IsNullOrWhiteSpace(apiKey) || apiKey == "YOUTUBE_API_KEY" ? null : apiKey;
             _jsonOptions = new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true,
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             };
         }
+
+        // Resolved on first use so the app still starts without a key; only YouTube calls fail.
+        private string ApiKey => _configuredApiKey ?? throw new YouTubeNotConfiguredException();
+
+        // Ids, handles, and page tokens arrive from URLs and request parameters, so each is
+        // escaped before it goes into a query string.
+        private static string Escape(string value) => Uri.EscapeDataString(value);
 
         /// <summary>
         /// Search for videos, channels, and playlists on YouTube
@@ -36,23 +44,22 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
         {
             try
             {
-                var encodedQuery = Uri.EscapeDataString(query);
-                var url = $"search?part=snippet&q={encodedQuery}&type={type}&maxResults={maxResults}&key={_apiKey}";
+                var url = $"search?part=snippet&q={Escape(query)}&type={Escape(type)}&maxResults={maxResults}&key={ApiKey}";
 
                 if (!string.IsNullOrEmpty(pageToken))
-                    url += $"&pageToken={pageToken}";
+                    url += $"&pageToken={Escape(pageToken)}";
 
                 if (!string.IsNullOrEmpty(channelId))
-                    url += $"&channelId={channelId}";
+                    url += $"&channelId={Escape(channelId)}";
 
-                _logger.LogInformation($"Searching YouTube with query: {query}, type: {type}, maxResults: {maxResults}");
+                _logger.LogInformation("Searching YouTube with query: {Query}, type: {Type}, maxResults: {MaxResults}", query, type, maxResults);
 
                 var jsonContent = await GetJsonAsync(url, $"search for '{query}'");
                 var result = JsonSerializer.Deserialize<YouTubeSearchResultDto>(jsonContent, _jsonOptions);
 
                 return result ?? new YouTubeSearchResultDto();
             }
-            catch (Exception ex) when (ex is not YouTubeQuotaExceededException)
+            catch (Exception ex) when (ex is not YouTubeQuotaExceededException and not YouTubeNotConfiguredException)
             {
                 _logger.LogError(ex, "Error searching YouTube for query: {Query}", query);
                 throw;
@@ -66,16 +73,16 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
         {
             try
             {
-                var url = $"videos?part=snippet,contentDetails,statistics,status&id={videoId}&key={_apiKey}";
+                var url = $"videos?part=snippet,contentDetails,statistics,status&id={Escape(videoId)}&key={ApiKey}";
 
-                _logger.LogInformation($"Getting YouTube video details for ID: {videoId}");
+                _logger.LogInformation("Getting YouTube video details for ID: {VideoId}", videoId);
 
                 var jsonContent = await GetJsonAsync(url, $"video details for {videoId}");
                 var result = JsonSerializer.Deserialize<YouTubeVideoListResponseDto>(jsonContent, _jsonOptions);
 
                 return result?.Items?.FirstOrDefault();
             }
-            catch (Exception ex) when (ex is not YouTubeQuotaExceededException)
+            catch (Exception ex) when (ex is not YouTubeQuotaExceededException and not YouTubeNotConfiguredException)
             {
                 _logger.LogError(ex, "Error getting YouTube video details for ID: {VideoId}", videoId);
                 throw;
@@ -92,17 +99,18 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
                 if (!videoIds.Any())
                     return new List<YouTubeVideoDto>();
 
-                var ids = string.Join(",", videoIds);
-                var url = $"videos?part=snippet,contentDetails,statistics,status&id={ids}&key={_apiKey}";
+                // The comma is the list separator YouTube expects, so each id is escaped on its own.
+                var ids = string.Join(",", videoIds.Select(Escape));
+                var url = $"videos?part=snippet,contentDetails,statistics,status&id={ids}&key={ApiKey}";
 
-                _logger.LogInformation($"Getting YouTube videos for IDs: {ids}");
+                _logger.LogInformation("Getting YouTube videos for {Count} IDs", videoIds.Count);
 
                 var jsonContent = await GetJsonAsync(url, "video details batch");
                 var result = JsonSerializer.Deserialize<YouTubeVideoListResponseDto>(jsonContent, _jsonOptions);
 
                 return result?.Items ?? new List<YouTubeVideoDto>();
             }
-            catch (Exception ex) when (ex is not YouTubeQuotaExceededException)
+            catch (Exception ex) when (ex is not YouTubeQuotaExceededException and not YouTubeNotConfiguredException)
             {
                 _logger.LogError(ex, "Error getting YouTube videos for IDs: {VideoIds}", string.Join(",", videoIds));
                 throw;
@@ -116,16 +124,16 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
         {
             try
             {
-                var url = $"playlists?part=snippet,status,contentDetails&id={playlistId}&key={_apiKey}";
+                var url = $"playlists?part=snippet,status,contentDetails&id={Escape(playlistId)}&key={ApiKey}";
 
-                _logger.LogInformation($"Getting YouTube playlist details for ID: {playlistId}");
+                _logger.LogInformation("Getting YouTube playlist details for ID: {PlaylistId}", playlistId);
 
                 var jsonContent = await GetJsonAsync(url, $"playlist details for {playlistId}");
                 var result = JsonSerializer.Deserialize<YouTubePlaylistListResponseDto>(jsonContent, _jsonOptions);
 
                 return result?.Items?.FirstOrDefault();
             }
-            catch (Exception ex) when (ex is not YouTubeQuotaExceededException)
+            catch (Exception ex) when (ex is not YouTubeQuotaExceededException and not YouTubeNotConfiguredException)
             {
                 _logger.LogError(ex, "Error getting YouTube playlist details for ID: {PlaylistId}", playlistId);
                 throw;
@@ -139,12 +147,12 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
         /// </summary>
         private async Task<YouTubePlaylistItemListResponseDto> GetPlaylistItemsPageAsync(string playlistId, int maxResults, string? pageToken)
         {
-            var url = $"playlistItems?part=snippet,contentDetails&playlistId={playlistId}&maxResults={maxResults}&key={_apiKey}";
+            var url = $"playlistItems?part=snippet,contentDetails&playlistId={Escape(playlistId)}&maxResults={maxResults}&key={ApiKey}";
 
             if (!string.IsNullOrEmpty(pageToken))
-                url += $"&pageToken={pageToken}";
+                url += $"&pageToken={Escape(pageToken)}";
 
-            _logger.LogInformation($"Getting YouTube playlist items for playlist ID: {playlistId}");
+            _logger.LogInformation("Getting YouTube playlist items for playlist ID: {PlaylistId}", playlistId);
 
             var jsonContent = await GetJsonAsync(url, $"playlist items for {playlistId}");
             return JsonSerializer.Deserialize<YouTubePlaylistItemListResponseDto>(jsonContent, _jsonOptions)
@@ -152,16 +160,18 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
         }
 
         /// <summary>
-        /// Get videos from a specific playlist
+        /// One page of a playlist's items. The page keeps its next-page token so a caller can
+        /// ask for the following page; the items list is never null.
         /// </summary>
-        public async Task<List<YouTubePlaylistItemDto>> GetPlaylistItemsAsync(string playlistId, int maxResults = 50, string? pageToken = null)
+        public async Task<YouTubePlaylistItemListResponseDto> GetPlaylistItemsAsync(string playlistId, int maxResults = 50, string? pageToken = null)
         {
             try
             {
                 var page = await GetPlaylistItemsPageAsync(playlistId, maxResults, pageToken);
-                return page.Items ?? new List<YouTubePlaylistItemDto>();
+                page.Items ??= new List<YouTubePlaylistItemDto>();
+                return page;
             }
-            catch (Exception ex) when (ex is not YouTubeQuotaExceededException)
+            catch (Exception ex) when (ex is not YouTubeQuotaExceededException and not YouTubeNotConfiguredException)
             {
                 _logger.LogError(ex, "Error getting YouTube playlist items for playlist ID: {PlaylistId}", playlistId);
                 throw;
@@ -190,7 +200,7 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
 
                 return allItems;
             }
-            catch (Exception ex) when (ex is not YouTubeQuotaExceededException)
+            catch (Exception ex) when (ex is not YouTubeQuotaExceededException and not YouTubeNotConfiguredException)
             {
                 _logger.LogError(ex, "Error getting all YouTube playlist items for playlist ID: {PlaylistId}", playlistId);
                 throw;
@@ -204,16 +214,16 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
         {
             try
             {
-                var url = $"channels?part=snippet,contentDetails,statistics,brandingSettings&id={channelId}&key={_apiKey}";
+                var url = $"channels?part=snippet,contentDetails,statistics,brandingSettings&id={Escape(channelId)}&key={ApiKey}";
 
-                _logger.LogInformation($"Getting YouTube channel details for ID: {channelId}");
+                _logger.LogInformation("Getting YouTube channel details for ID: {ChannelId}", channelId);
 
                 var jsonContent = await GetJsonAsync(url, $"channel details for {channelId}");
                 var result = JsonSerializer.Deserialize<YouTubeChannelListResponseDto>(jsonContent, _jsonOptions);
 
                 return result?.Items?.FirstOrDefault();
             }
-            catch (Exception ex) when (ex is not YouTubeQuotaExceededException)
+            catch (Exception ex) when (ex is not YouTubeQuotaExceededException and not YouTubeNotConfiguredException)
             {
                 _logger.LogError(ex, "Error getting YouTube channel details for ID: {ChannelId}", channelId);
                 throw;
@@ -227,16 +237,16 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
         {
             try
             {
-                var url = $"channels?part=snippet,contentDetails,statistics,brandingSettings&forUsername={username}&key={_apiKey}";
+                var url = $"channels?part=snippet,contentDetails,statistics,brandingSettings&forUsername={Escape(username)}&key={ApiKey}";
 
-                _logger.LogInformation($"Getting YouTube channel details for username: {username}");
+                _logger.LogInformation("Getting YouTube channel details for username: {Username}", username);
 
                 var jsonContent = await GetJsonAsync(url, $"channel details for username {username}");
                 var result = JsonSerializer.Deserialize<YouTubeChannelListResponseDto>(jsonContent, _jsonOptions);
 
                 return result?.Items?.FirstOrDefault();
             }
-            catch (Exception ex) when (ex is not YouTubeQuotaExceededException)
+            catch (Exception ex) when (ex is not YouTubeQuotaExceededException and not YouTubeNotConfiguredException)
             {
                 _logger.LogError(ex, "Error getting YouTube channel details for username: {Username}", username);
                 throw;
@@ -252,7 +262,7 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
             {
                 // Ensure handle has @ prefix as required by the YouTube API
                 var handleWithPrefix = handle.StartsWith("@") ? handle : $"@{handle}";
-                var url = $"channels?part=snippet,contentDetails,statistics,brandingSettings&forHandle={handleWithPrefix}&key={_apiKey}";
+                var url = $"channels?part=snippet,contentDetails,statistics,brandingSettings&forHandle={Escape(handleWithPrefix)}&key={ApiKey}";
 
                 _logger.LogInformation("Getting YouTube channel details for handle: {Handle}", handleWithPrefix);
 
@@ -261,7 +271,7 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
 
                 return result?.Items?.FirstOrDefault();
             }
-            catch (Exception ex) when (ex is not YouTubeQuotaExceededException)
+            catch (Exception ex) when (ex is not YouTubeQuotaExceededException and not YouTubeNotConfiguredException)
             {
                 _logger.LogError(ex, "Error getting YouTube channel details for handle: {Handle}", handle);
                 throw;
@@ -271,7 +281,7 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
         /// <summary>
         /// Get videos from a channel's uploads playlist
         /// </summary>
-        public async Task<List<YouTubePlaylistItemDto>> GetChannelUploadsAsync(string channelId, int maxResults = 25, string? pageToken = null)
+        public async Task<YouTubePlaylistItemListResponseDto> GetChannelUploadsAsync(string channelId, int maxResults = 25, string? pageToken = null)
         {
             try
             {
@@ -281,13 +291,13 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
 
                 if (string.IsNullOrEmpty(uploadsPlaylistId))
                 {
-                    _logger.LogWarning($"No uploads playlist found for channel ID: {channelId}");
-                    return new List<YouTubePlaylistItemDto>();
+                    _logger.LogWarning("No uploads playlist found for channel ID: {ChannelId}", channelId);
+                    return new YouTubePlaylistItemListResponseDto { Items = new List<YouTubePlaylistItemDto>() };
                 }
 
                 return await GetPlaylistItemsAsync(uploadsPlaylistId, maxResults, pageToken);
             }
-            catch (Exception ex) when (ex is not YouTubeQuotaExceededException)
+            catch (Exception ex) when (ex is not YouTubeQuotaExceededException and not YouTubeNotConfiguredException)
             {
                 _logger.LogError(ex, "Error getting YouTube channel uploads for channel ID: {ChannelId}", channelId);
                 throw;
@@ -360,93 +370,6 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
             }
 
             return null;
-        }
-
-        /// <summary>
-        /// Extract video ID from various YouTube URL formats
-        /// </summary>
-        public static string? ExtractVideoIdFromUrl(string url)
-        {
-            if (string.IsNullOrEmpty(url))
-                return null;
-
-            // Handle different YouTube URL formats
-            var patterns = new[]
-            {
-                @"(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})",
-                @"youtube\.com\/v\/([a-zA-Z0-9_-]{11})",
-                @"youtube\.com\/watch\?.*v=([a-zA-Z0-9_-]{11})"
-            };
-
-            foreach (var pattern in patterns)
-            {
-                var match = System.Text.RegularExpressions.Regex.Match(url, pattern);
-                if (match.Success)
-                    return match.Groups[1].Value;
-            }
-
-            // If it's already just a video ID
-            if (System.Text.RegularExpressions.Regex.IsMatch(url, @"^[a-zA-Z0-9_-]{11}$"))
-                return url;
-
-            return null;
-        }
-
-        /// <summary>
-        /// Extract playlist ID from YouTube URL
-        /// </summary>
-        public static string? ExtractPlaylistIdFromUrl(string url)
-        {
-            if (string.IsNullOrEmpty(url))
-                return null;
-
-            var match = System.Text.RegularExpressions.Regex.Match(url, @"[?&]list=([a-zA-Z0-9_-]+)");
-            return match.Success ? match.Groups[1].Value : null;
-        }
-
-        /// <summary>
-        /// Extract channel ID from YouTube URL
-        /// </summary>
-        public static string? ExtractChannelIdFromUrl(string url)
-        {
-            if (string.IsNullOrEmpty(url))
-                return null;
-
-            var patterns = new[]
-            {
-                @"youtube\.com\/channel\/([a-zA-Z0-9_-]+)",
-                @"youtube\.com\/c\/([a-zA-Z0-9_-]+)",
-                @"youtube\.com\/user\/([a-zA-Z0-9_-]+)",
-                @"youtube\.com\/@([a-zA-Z0-9_.-]+)"
-            };
-
-            foreach (var pattern in patterns)
-            {
-                var match = System.Text.RegularExpressions.Regex.Match(url, pattern);
-                if (match.Success)
-                    return match.Groups[1].Value;
-            }
-
-            return null;
-        }
-
-        /// <summary>
-        /// Parse ISO 8601 duration format (PT4M13S) to seconds
-        /// </summary>
-        public static int ParseDurationToSeconds(string? duration)
-        {
-            if (string.IsNullOrEmpty(duration))
-                return 0;
-
-            try
-            {
-                var timeSpan = System.Xml.XmlConvert.ToTimeSpan(duration);
-                return (int)timeSpan.TotalSeconds;
-            }
-            catch
-            {
-                return 0;
-            }
         }
     }
 }

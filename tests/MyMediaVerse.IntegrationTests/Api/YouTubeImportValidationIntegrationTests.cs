@@ -7,6 +7,7 @@ using MyMediaVerse.IntegrationTests.Fixtures;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Xunit;
+using MyMediaVerse.Shared.Exceptions;
 
 namespace MyMediaVerse.IntegrationTests.Api
 {
@@ -61,23 +62,33 @@ namespace MyMediaVerse.IntegrationTests.Api
         }
 
         [Fact]
-        public async Task ImportVideo_WithInvalidVideoId_ShouldReturnErrorResponse()
+        public async Task ImportVideo_WithInvalidVideoId_ShouldReturnBadRequest()
         {
             // Arrange - substitute IYouTubeService so the test never reaches the real YouTube API.
-            // The controller catches InvalidOperationException as NotFound, which matches the assertion.
-            var (client, _) = _factory.CreateClientWithSubstitute<IYouTubeService>(mock =>
-                mock.ImportVideoAsync(Arg.Any<string>())
-                    .Throws(new InvalidOperationException("Video not found")));
+            // An id that does not have the shape of a video id is rejected before any lookup.
+            var (client, service) = _factory.CreateClientWithSubstitute<IYouTubeService>();
 
             // Act
             var response = await client.PostAsync("/api/youtube/import/video/INVALID_ID_X", null);
 
-            // Assert - should fail (either 400 or 500 depending on YouTube API behavior)
-            Assert.True(
-                response.StatusCode == HttpStatusCode.BadRequest ||
-                response.StatusCode == HttpStatusCode.NotFound ||
-                response.StatusCode == HttpStatusCode.InternalServerError,
-                $"Expected error response but got {(int)response.StatusCode}");
+            // Assert
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Empty(service.ReceivedCalls());
+        }
+
+        [Fact]
+        public async Task ImportVideo_WithAnIdYouTubeDoesNotHave_ShouldReturnNotFound()
+        {
+            // Arrange - the controller reports "YouTube has no such video" as 404.
+            var (client, _) = _factory.CreateClientWithSubstitute<IYouTubeService>(mock =>
+                mock.ImportVideoAsync(Arg.Any<string>())
+                    .Throws(new YouTubeResourceNotFoundException("video", "gone0000001")));
+
+            // Act
+            var response = await client.PostAsync("/api/youtube/import/video/gone0000001", null);
+
+            // Assert
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         }
 
         #endregion
@@ -209,23 +220,19 @@ namespace MyMediaVerse.IntegrationTests.Api
         }
 
         [Fact]
-        public async Task ImportYouTubePlaylist_WithInvalidExternalId_ShouldReturnErrorResponse()
+        public async Task ImportYouTubePlaylist_WithInvalidExternalId_ShouldReturnNotFound()
         {
             // Arrange - substitute IYouTubePlaylistService so the test never reaches the real YouTube API.
-            // The controller catches InvalidOperationException as NotFound, which matches the assertion.
+            // The controller reports "YouTube has no such playlist" as 404.
             var (client, _) = _factory.CreateClientWithSubstitute<IYouTubePlaylistService>(mock =>
                 mock.ImportPlaylistFromYouTubeAsync(Arg.Any<string>())
-                    .Throws(new InvalidOperationException("Playlist not found")));
+                    .Throws(new YouTubeResourceNotFoundException("playlist", "INVALID_PL_ID")));
 
             // Act - use a clearly invalid playlist ID
             var response = await client.PostAsync("/api/youtubeplaylist/import/INVALID_PL_ID", null);
 
             // Assert
-            Assert.True(
-                response.StatusCode == HttpStatusCode.BadRequest ||
-                response.StatusCode == HttpStatusCode.NotFound ||
-                response.StatusCode == HttpStatusCode.InternalServerError,
-                $"Expected error response but got {(int)response.StatusCode}");
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         }
 
         #endregion

@@ -299,7 +299,9 @@ function PodcastSeriesProfile() {
                             {enriching ? <CircularProgress size={20} /> : series.enrichedAt ? 'Refresh from feed' : 'Enrich now'}
                         </Button>
                     </DemoWriteGuard>
-                    <Button variant="contained" size="small" startIcon={<Delete />} onClick={() => setDeleteConfirmDialog(true)} color="error">Delete</Button>
+                    <DemoWriteGuard>
+                        <Button variant="contained" size="small" startIcon={<Delete />} onClick={() => setDeleteConfirmDialog(true)} color="error">Delete</Button>
+                    </DemoWriteGuard>
                 </Box>
                 {METADATA_SOURCE_LABELS[series.metadataSource] && (
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: -2, mb: 3 }}>

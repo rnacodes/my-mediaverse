@@ -64,6 +64,19 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         [Fact]
+        public void MapVideoToEntity_StampsTheRefresh_AndStoresThePublishedDateAsUtc()
+        {
+            var videoDto = CreateTestVideoDto("vid123", "Test");
+            videoDto.Snippet!.PublishedAt = new DateTime(2021, 5, 6, 7, 8, 9, DateTimeKind.Unspecified);
+
+            var result = _service.MapVideoToEntity(videoDto);
+
+            result.YouTubeRefreshedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+            result.PublishedAt.Should().Be(new DateTime(2021, 5, 6, 7, 8, 9));
+            result.PublishedAt!.Value.Kind.Should().Be(DateTimeKind.Utc);
+        }
+
+        [Fact]
         public void MapVideoToEntity_NullTitle_DefaultsToUnknownTitle()
         {
             var videoDto = CreateTestVideoDto("vid123", null);
@@ -132,6 +145,18 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         [Fact]
+        public void MapChannelToYouTubeChannelEntity_StoresThePublishedDateAsUtc()
+        {
+            var channelDto = CreateTestChannelDto("UC123", "My Channel");
+            channelDto.Snippet!.PublishedAt = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
+
+            var result = _service.MapChannelToYouTubeChannelEntity(channelDto);
+
+            result.PublishedAt.Should().Be(new DateTime(2020, 1, 1));
+            result.PublishedAt!.Value.Kind.Should().Be(DateTimeKind.Utc);
+        }
+
+        [Fact]
         public void MapChannelToYouTubeChannelEntity_NullStatistics_SkipsStatistics()
         {
             var channelDto = CreateTestChannelDto("UC123", "Test");
@@ -175,6 +200,18 @@ namespace MyMediaVerse.UnitTests.Application
             result.VideoCount.Should().Be(25);
             result.PrivacyStatus.Should().Be("public");
             result.Link.Should().Be("https://www.youtube.com/playlist?list=PL123");
+        }
+
+        [Fact]
+        public void MapPlaylistToYouTubePlaylistEntity_StoresThePublishedDateAsUtc()
+        {
+            var playlistDto = CreateTestPlaylistDto("PL123", "My Playlist");
+            playlistDto.Snippet!.PublishedAt = new DateTime(2021, 6, 15, 0, 0, 0, DateTimeKind.Unspecified);
+
+            var result = _service.MapPlaylistToYouTubePlaylistEntity(playlistDto);
+
+            result.PublishedAt.Should().Be(new DateTime(2021, 6, 15));
+            result.PublishedAt!.Value.Kind.Should().Be(DateTimeKind.Utc);
         }
 
         [Fact]
@@ -232,6 +269,51 @@ namespace MyMediaVerse.UnitTests.Application
 
             result.Description.Should().Be("Better description");
             result.LengthInSeconds.Should().Be(600); // 10 minutes
+        }
+
+        [Fact]
+        public void MapPlaylistItemToVideoEntity_UsesTheVideosOwnPublishedDate_NotTheDateItJoinedThePlaylist()
+        {
+            var playlistItemDto = new YouTubePlaylistItemDto
+            {
+                Id = "item1",
+                Snippet = new YouTubePlaylistItemSnippetDto
+                {
+                    Title = "Video",
+                    PublishedAt = new DateTime(2024, 2, 2, 0, 0, 0, DateTimeKind.Utc),
+                    ResourceId = new YouTubeResourceIdDto { VideoId = "vid789" }
+                },
+                ContentDetails = new YouTubePlaylistItemContentDetailsDto
+                {
+                    VideoId = "vid789",
+                    VideoPublishedAt = new DateTime(2019, 9, 9, 0, 0, 0, DateTimeKind.Unspecified)
+                }
+            };
+
+            var result = _service.MapPlaylistItemToVideoEntity(playlistItemDto);
+
+            result.PublishedAt.Should().Be(new DateTime(2019, 9, 9));
+            result.PublishedAt!.Value.Kind.Should().Be(DateTimeKind.Utc);
+            result.YouTubeRefreshedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+        }
+
+        [Fact]
+        public void MapPlaylistItemToVideoEntity_WithoutAVideoDate_LeavesThePublishedDateEmpty()
+        {
+            var playlistItemDto = new YouTubePlaylistItemDto
+            {
+                Id = "item1",
+                Snippet = new YouTubePlaylistItemSnippetDto
+                {
+                    Title = "Video",
+                    PublishedAt = new DateTime(2024, 2, 2, 0, 0, 0, DateTimeKind.Utc),
+                    ResourceId = new YouTubeResourceIdDto { VideoId = "vid789" }
+                }
+            };
+
+            var result = _service.MapPlaylistItemToVideoEntity(playlistItemDto);
+
+            result.PublishedAt.Should().BeNull();
         }
 
         [Fact]

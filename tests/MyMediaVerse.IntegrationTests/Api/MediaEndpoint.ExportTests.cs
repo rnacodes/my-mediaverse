@@ -1,10 +1,10 @@
 using System.Net;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.IntegrationTests.Fixtures;
+using MyMediaVerse.IntegrationTests.Helpers;
 using Xunit;
 
 namespace MyMediaVerse.IntegrationTests.Api
@@ -38,27 +38,9 @@ namespace MyMediaVerse.IntegrationTests.Api
         [Fact]
         public async Task ExportMediaItem_WithValidId_ShouldReturnCsvFile()
         {
-            var createDto = new CreateMediaItemDto
-            {
-                Title = "Article to Export",
-                Description = "Export test",
-                MediaType = MediaType.Article,
-                Status = Status.Uncharted
-            };
+            var createdMedia = await _client.CreateArticleAsync("Article to Export", description: "Export test");
 
-            var createContent = new StringContent(
-                JsonSerializer.Serialize(createDto, _jsonOptions),
-                Encoding.UTF8,
-                "application/json"
-            );
-
-            var createResponse = await _client.PostAsync("/api/media", createContent);
-            var createdMedia = JsonSerializer.Deserialize<MediaItemResponseDto>(
-                await createResponse.Content.ReadAsStringAsync(),
-                _jsonOptions
-            );
-
-            var response = await _client.GetAsync($"/api/media/{createdMedia!.Id}/export");
+            var response = await _client.GetAsync($"/api/media/{createdMedia.Id}/export");
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             Assert.Equal("text/csv", response.Content.Headers.ContentType?.MediaType);

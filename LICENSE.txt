@@ -18,6 +18,73 @@ https://github.com/rnacodes/my-mediaverse
 
 Copies or forks found elsewhere are not authorized distributions.
 
+THIRD-PARTY DATA SOURCES AND REQUIRED ATTRIBUTION
+
+My MediaVerse retrieves media information from third-party services under
+their published API terms. Several of those terms require attribution,
+which the application displays as described below. Anyone granted
+permission to use this software must keep these attributions in place, or
+provide equivalent ones, and must comply with each provider's current
+terms. My MediaVerse is not affiliated with, endorsed by, or certified by
+any of the services named here.
+
+YouTube
+Video, channel and playlist information is retrieved through YouTube API
+Services and is used in accordance with the YouTube API Services Terms of
+Service and Developer Policies. The application credits YouTube as the
+source wherever this information appears, including the site footer and
+the import page, and links each video, channel and playlist back to
+YouTube. The Terms & Privacy page (/privacy) informs users that they are
+bound by the YouTube Terms of Service (https://www.youtube.com/t/terms),
+links to the Google Privacy Policy (http://www.google.com/policies/privacy),
+and states that the application stores only public details of the items
+added to the library, refreshes them at least every 30 days, and does not
+access any YouTube or Google account.
+
+TMDB (The Movie Database)
+Movie and TV show metadata and images are retrieved from the TMDB API
+under the TMDB API Terms of Use. As those terms require, the application
+displays the TMDB logo together with the notice "This product uses the
+TMDB API but is not endorsed or certified by TMDB" in the site footer and
+on the import page, and links movies and shows back to their TMDB pages.
+
+Trakt
+TV watch history, watchlists and ratings are imported from the Trakt API
+under the Trakt API Terms of Service and branding guidelines. The
+application displays the Trakt logo with the credit "Powered by Trakt",
+linked to https://trakt.tv, in the site footer, on the import page, and
+on the Trakt sync page.
+
+Google Books and Open Library
+Book information and cover images are retrieved from the Google Books API
+under the Google Books API Terms of Service and the Google Books branding
+guidelines. The application displays the "Powered by Google" logo beside
+Google Books search results and on book profiles, and links each book
+that uses Google Books data back to its Google Books page. Book
+information may be supplemented with material from Open Library
+(https://openlibrary.org), a project of the Internet Archive, and both
+sources are credited in the site footer.
+
+Podcasts
+Podcasts are feed-first: all stored series and episode metadata, including
+artwork, is read from each show's own publicly available RSS feed, which
+remains the property of the show's publisher. Podcast directories are used
+only to find shows and resolve them to their feed URLs. Search results on
+the import page come from the Apple Podcasts directory through the iTunes
+Search API, in accordance with Apple's terms for that service, and the
+import page displays the credit "Search results from Apple Podcasts" above
+them, with a link to each show's Apple Podcasts page. When a show cannot be
+found through Apple, Podcast Index (https://podcastindex.org), an open
+podcast directory, is used as a fallback, and each such result is marked
+"Found via Podcast Index". No podcast directory data is stored beyond the
+identifiers needed to recognize a show.
+
+Third-party logos and trademarks
+The TMDB, Trakt and Google logos included in this repository are the
+trademarks of their respective owners and are used solely to satisfy the
+attribution requirements above. They are not covered by the copyright
+claim on this software, and no rights in them are granted or implied.
+
 For permissions or licensing inquiries, contact:
 Rashida Asante-Eccleston <rashida@raeccleston.com>
 

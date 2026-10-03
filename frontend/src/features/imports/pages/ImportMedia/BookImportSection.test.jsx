@@ -149,4 +149,37 @@ describe('BookImportSection', () => {
 
     expect(screen.queryByText('Google Result')).not.toBeInTheDocument();
   });
+
+  it('shows the reason the server gives when a search fails', async () => {
+    server.use(
+      http.get(`${API_BASE}/book/search-googlebooks`, () =>
+        HttpResponse.json(
+          { error: 'Google Books is not configured on this server.' },
+          { status: 503 },
+        ),
+      ),
+    );
+
+    const { user } = renderExpanded();
+
+    await searchFor(user, 'dune');
+
+    expect(
+      await screen.findByText('Google Books is not configured on this server.'),
+    ).toBeInTheDocument();
+  });
+
+  it('falls back to a generic message when a failed search gives no reason', async () => {
+    server.use(
+      http.get(`${API_BASE}/book/search-googlebooks`, () => HttpResponse.error()),
+    );
+
+    const { user } = renderExpanded();
+
+    await searchFor(user, 'dune');
+
+    expect(
+      await screen.findByText('Failed to search books. Please try again.'),
+    ).toBeInTheDocument();
+  });
 });

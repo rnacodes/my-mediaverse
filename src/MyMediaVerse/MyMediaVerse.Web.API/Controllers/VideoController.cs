@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.DTOs;
+using MyMediaVerse.Shared.Exceptions;
+using MyMediaVerse.Web.API.Extensions;
 
 namespace MyMediaVerse.Web.API.Controllers
 {
@@ -25,7 +27,7 @@ namespace MyMediaVerse.Web.API.Controllers
             try
             {
                 var videos = await _videoService.GetAllVideosAsync();
-                var response = videos.Select(MapToResponseDto).ToList();
+                var response = videos.Select(v => v.ToResponseDto()).ToList();
                 return Ok(response);
             }
             catch (Exception ex)
@@ -48,7 +50,7 @@ namespace MyMediaVerse.Web.API.Controllers
                     return NotFound($"Video with ID {id} not found.");
                 }
 
-                return Ok(MapToResponseDto(video));
+                return Ok(video.ToResponseDto());
             }
             catch (Exception ex)
             {
@@ -88,7 +90,7 @@ namespace MyMediaVerse.Web.API.Controllers
             try
             {
                 var videos = await _videoService.GetVideosByChannelAsync(channelId);
-                var response = videos.Select(MapToResponseDto).ToList();
+                var response = videos.Select(v => v.ToResponseDto()).ToList();
                 return Ok(response);
             }
             catch (Exception ex)
@@ -109,9 +111,13 @@ namespace MyMediaVerse.Web.API.Controllers
                     return BadRequest(ModelState);
                 }
 
-                var video = await _videoService.CreateVideoAsync(dto);
-                var response = MapToResponseDto(video);
-                return CreatedAtAction(nameof(GetVideo), new { id = video.Id }, response);
+                var result = await _videoService.CreateVideoAsync(dto);
+                var response = result.Video.ToResponseDto();
+
+                // A video already in the library is returned as it is stored, not created again.
+                return result.Created
+                    ? CreatedAtAction(nameof(GetVideo), new { id = result.Video.Id }, response)
+                    : Ok(response);
             }
             catch (Exception ex)
             {
@@ -132,13 +138,18 @@ namespace MyMediaVerse.Web.API.Controllers
                 }
 
                 var video = await _videoService.UpdateVideoAsync(id, dto);
-                var response = MapToResponseDto(video);
+                var response = video.ToResponseDto();
                 return Ok(response);
             }
             catch (ArgumentException ex)
             {
                 _logger.LogWarning(ex, "Video not found for update: {Id}", id);
                 return NotFound($"Video with ID {id} not found");
+            }
+            catch (VideoIdentityConflictException ex)
+            {
+                _logger.LogWarning(ex, "Video {Id} was given an id that belongs to another video", id);
+                return Conflict(new { error = ex.Message });
             }
             catch (Exception ex)
             {
@@ -167,44 +178,6 @@ namespace MyMediaVerse.Web.API.Controllers
                 _logger.LogError(ex, "Error occurred while deleting video with ID {Id}", id);
                 return StatusCode(500, new { error = "Failed to delete video", details = ex.Message });
             }
-        }
-
-        /// <summary>
-        /// Helper method to map Video entity to VideoResponseDto
-        /// </summary>
-        private VideoResponseDto MapToResponseDto(Video video)
-        {
-            return new VideoResponseDto
-            {
-                Id = video.Id,
-                Title = video.Title,
-                Description = video.Description,
-                MediaType = video.MediaType,
-                Status = video.Status,
-                DateAdded = video.DateAdded,
-                Link = video.Link,
-                Thumbnail = video.GetEffectiveThumbnail(),
-                Platform = video.Platform,
-                ChannelId = video.ChannelId,
-                Channel = video.Channel != null ? new YouTubeChannelInfoDto
-                {
-                    Id = video.Channel.Id,
-                    Title = video.Channel.Title,
-                    Thumbnail = video.Channel.Thumbnail,
-                    ChannelExternalId = video.Channel.ChannelExternalId,
-                    CustomUrl = video.Channel.CustomUrl,
-                    SubscriberCount = video.Channel.SubscriberCount
-                } : null,
-                LengthInSeconds = video.LengthInSeconds,
-                ExternalId = video.ExternalId,
-                Rating = video.Rating,
-                OwnershipStatus = video.OwnershipStatus,
-                DateCompleted = video.DateCompleted,
-                Notes = video.Notes,
-                RelatedNotes = video.RelatedNotes,
-                Topics = video.Topics.Select(t => t.Name).ToArray(),
-                Genres = video.Genres.Select(g => g.Name).ToArray()
-            };
         }
     }
 }

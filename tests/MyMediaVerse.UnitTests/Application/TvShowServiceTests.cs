@@ -340,6 +340,34 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         [Fact]
+        public async Task UpdateTvShowAsync_WhenTheRequestLeavesOutTmdbFields_KeepsTheStoredOnes()
+        {
+            var tvShowId = Guid.NewGuid();
+            Context.TvShows.Add(new TvShow
+            {
+                Id = tvShowId,
+                Title = "Breaking Bad",
+                TmdbId = "1396",
+                TmdbRating = 8.9,
+                TmdbPosterPath = "/poster.jpg",
+                RelatedNotes = "[[breaking-bad-notes]]",
+                Topics = new List<Topic>(),
+                Genres = new List<Genre>()
+            });
+            await Context.SaveChangesAsync();
+
+            await _service.UpdateTvShowAsync(tvShowId, new CreateTvShowDto { Title = "Breaking Bad (edited)", Status = Status.Completed });
+
+            Context.ChangeTracker.Clear();
+            var stored = await Context.TvShows.FindAsync(tvShowId);
+            stored!.Title.Should().Be("Breaking Bad (edited)");
+            stored.TmdbId.Should().Be("1396");
+            stored.TmdbRating.Should().Be(8.9);
+            stored.TmdbPosterPath.Should().Be("/poster.jpg");
+            stored.RelatedNotes.Should().Be("[[breaking-bad-notes]]");
+        }
+
+        [Fact]
         public async Task UpdateTvShowAsync_ShouldThrowInvalidOperationException_WhenTvShowDoesNotExist()
         {
             // Arrange

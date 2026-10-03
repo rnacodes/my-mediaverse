@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using MyMediaVerse.Application.Interfaces;
-using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
 
 namespace MyMediaVerse.Web.API.Controllers
@@ -33,41 +32,6 @@ namespace MyMediaVerse.Web.API.Controllers
                 _logger.LogError(ex, "Failed to retrieve media items");
                 return StatusCode(500, new { error = "Failed to retrieve media items", details = ex.Message, type = ex.GetType().Name });
             }
-        }
-
-        // POST: api/media
-        [HttpPost]
-        public async Task<IActionResult> AddMediaItem([FromBody] CreateMediaItemDto dto)
-        {
-            if (dto == null)
-            {
-                return BadRequest("Media item data is null.");
-            }
-
-            // The generic media DTO has no author field, so a book created here would be
-            // permanently authorless; the book endpoint owns book creation (RAS-160 owns
-            // the wider generic-API cleanup — this is a guard, not a redesign).
-            if (dto.MediaType == MediaType.Book)
-            {
-                return BadRequest(new { error = "Books must be created via POST /api/book." });
-            }
-
-            // A website's identity is its URL and the website endpoint owns that normalization
-            // and duplicate check; the generic path would insert an unkeyed row.
-            if (dto.MediaType == MediaType.Website)
-            {
-                return BadRequest(new { error = "Websites must be created via POST /api/website." });
-            }
-
-            // A podcast series' identity is its feed and the podcast endpoints own that duplicate
-            // check; the generic path would insert a series with no feed and no dedup.
-            if (dto.MediaType == MediaType.Podcast)
-            {
-                return BadRequest(new { error = "Podcasts must be created via POST /api/podcast/series." });
-            }
-
-            var response = await _mediaService.CreateMediaItemAsync(dto);
-            return CreatedAtAction(nameof(GetMediaItem), new { id = response.Id }, response);
         }
 
         // GET: api/media/{id}
@@ -166,75 +130,6 @@ namespace MyMediaVerse.Web.API.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, new { error = "Failed to bulk delete media items", details = ex.Message });
-            }
-        }
-
-        // GET: api/media/search?query={query}
-        [HttpGet("search")]
-        public async Task<ActionResult<IEnumerable<MediaItemResponseDto>>> SearchMedia([FromQuery] string query)
-        {
-            if (string.IsNullOrWhiteSpace(query))
-            {
-                return BadRequest("Search query cannot be empty.");
-            }
-
-            try
-            {
-                var results = await _mediaService.SearchMediaAsync(query);
-                return Ok(results);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { error = "Search failed", details = ex.Message });
-            }
-        }
-
-        // GET: api/media/by-topic/{topicId}
-        [HttpGet("by-topic/{topicId}")]
-        public async Task<ActionResult<IEnumerable<MediaItemResponseDto>>> GetMediaByTopic(Guid topicId)
-        {
-            try
-            {
-                var result = await _mediaService.GetMediaByTopicAsync(topicId);
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { error = "Failed to retrieve media by topic", details = ex.Message });
-            }
-        }
-
-        // GET: api/media/by-genre/{genreId}
-        [HttpGet("by-genre/{genreId}")]
-        public async Task<ActionResult<IEnumerable<MediaItemResponseDto>>> GetMediaByGenre(Guid genreId)
-        {
-            try
-            {
-                var result = await _mediaService.GetMediaByGenreAsync(genreId);
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { error = "Failed to retrieve media by genre", details = ex.Message });
-            }
-        }
-
-        // GET: api/media/by-type/{mediaType}
-        [HttpGet("by-type/{mediaType}")]
-        public async Task<ActionResult<IEnumerable<MediaItemResponseDto>>> GetMediaByType(string mediaType)
-        {
-            try
-            {
-                var result = await _mediaService.GetMediaByTypeAsync(mediaType);
-                return Ok(result);
-            }
-            catch (ArgumentException)
-            {
-                return BadRequest($"Invalid media type: {mediaType}");
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { error = "Failed to retrieve media by type", details = ex.Message });
             }
         }
 

@@ -10,9 +10,10 @@ import { Search, Download, VideoLibrary, ExpandMore, OpenInNew } from '@mui/icon
 import {
     searchYouTube, getYouTubePlaylistDetails,
     importYouTubeVideo, importYouTubePlaylistEntity, importYouTubeChannelEntity,
-    importFromYouTubeUrl, checkYouTubeChannelExists
+    importFromYouTubeUrl
 } from '@/api/youtubeService';
 import WhiteOutlineButton from '@/shared/WhiteOutlineButton';
+import AttributionBadge from '@/shared/AttributionBadge';
 import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
 import { DEMO_IMPORT_BLOCKED } from '@/features/demo/demoMessages';
 import { getPlaceholderImage } from '@/utils/mediaImageUtils';
@@ -31,6 +32,16 @@ function YouTubeImportSection({ expanded, onAccordionChange, onSnackbar }) {
     const [youtubeSuccess, setYoutubeSuccess] = useState('');
     const [displayedCount, setDisplayedCount] = useState(10);
     const [hasSearched, setHasSearched] = useState(false);
+
+    // An import answers 201 for a new item and 200 for one the library already holds.
+    const importMessage = (result, label) =>
+        result.alreadyInLibrary
+            ? { message: `${label} is already in your library. Opening it...`, severity: 'info' }
+            : { message: `${label} imported successfully!`, severity: 'success' };
+
+    // The backend sends { error } on a failed import; fall back to the axios message.
+    const importErrorText = (err) =>
+        err.response?.data?.error || err.message || 'Please check the URL and try again.';
 
     const handleYoutubeSearch = async () => {
         if (!youtubeSearchQuery.trim()) {
@@ -146,15 +157,6 @@ function YouTubeImportSection({ expanded, onAccordionChange, onSnackbar }) {
                 }
 
                 if (channelId && !result) {
-                    const exists = await checkYouTubeChannelExists(channelId);
-                    if (exists) {
-                        onSnackbar({ open: true, message: 'This channel has already been imported. Redirecting to channel page...', severity: 'info' });
-                        setYoutubeIsLoading(false);
-                        setTimeout(() => {
-                            navigate(`/youtube-channel/${channelId}`);
-                        }, 1500);
-                        return;
-                    }
                     result = await importYouTubeChannelEntity(channelId);
                     navigateTo = `/youtube-channel/${result.id || result.Id}`;
                 }
@@ -163,7 +165,7 @@ function YouTubeImportSection({ expanded, onAccordionChange, onSnackbar }) {
             }
 
             const contentTypeLabel = youtubeSearchType.charAt(0).toUpperCase() + youtubeSearchType.slice(1);
-            onSnackbar({ open: true, message: `YouTube ${contentTypeLabel} imported successfully!`, severity: 'success' });
+            onSnackbar({ open: true, ...importMessage(result, `YouTube ${contentTypeLabel}`) });
             setYoutubeIsLoading(false);
             setYoutubeUrl('');
 
@@ -177,7 +179,7 @@ function YouTubeImportSection({ expanded, onAccordionChange, onSnackbar }) {
 
         } catch (err) {
             console.error('YouTube URL import error:', err);
-            onSnackbar({ open: true, message: `Failed to import: ${err.message || 'Please check the URL and try again.'}`, severity: 'error' });
+            onSnackbar({ open: true, message: `Failed to import: ${importErrorText(err)}`, severity: 'error' });
             setYoutubeIsLoading(false);
         }
     };
@@ -193,7 +195,7 @@ function YouTubeImportSection({ expanded, onAccordionChange, onSnackbar }) {
             if (item.kind === 'youtube#video') {
                 result = await importYouTubeVideo(item.id);
 
-                onSnackbar({ open: true, message: `"${item.title}" imported successfully!`, severity: 'success' });
+                onSnackbar({ open: true, ...importMessage(result, `"${item.title}"`) });
                 setYoutubeIsLoading(false);
 
                 const mediaId = result.id || result.Id;
@@ -205,7 +207,7 @@ function YouTubeImportSection({ expanded, onAccordionChange, onSnackbar }) {
             } else if (item.kind === 'youtube#playlist') {
                 result = await importYouTubePlaylistEntity(item.id);
 
-                onSnackbar({ open: true, message: `Playlist "${item.title}" imported successfully!`, severity: 'success' });
+                onSnackbar({ open: true, ...importMessage(result, `Playlist "${item.title}"`) });
                 setYoutubeIsLoading(false);
 
                 if (result.id) {
@@ -214,19 +216,9 @@ function YouTubeImportSection({ expanded, onAccordionChange, onSnackbar }) {
                     }, 1500);
                 }
             } else if (item.kind === 'youtube#channel') {
-                const exists = await checkYouTubeChannelExists(item.id);
-                if (exists) {
-                    onSnackbar({ open: true, message: 'This channel has already been imported. Redirecting to channel page...', severity: 'info' });
-                    setYoutubeIsLoading(false);
-                    setTimeout(() => {
-                        navigate(`/youtube-channel/${item.id}`);
-                    }, 1500);
-                    return;
-                }
-
                 result = await importYouTubeChannelEntity(item.id);
 
-                onSnackbar({ open: true, message: `Channel "${item.title}" imported successfully!`, severity: 'success' });
+                onSnackbar({ open: true, ...importMessage(result, `Channel "${item.title}"`) });
                 setYoutubeIsLoading(false);
 
                 if (result.id) {
@@ -240,7 +232,7 @@ function YouTubeImportSection({ expanded, onAccordionChange, onSnackbar }) {
 
         } catch (err) {
             console.error('YouTube import error:', err);
-            onSnackbar({ open: true, message: `Failed to import: ${err.message}`, severity: 'error' });
+            onSnackbar({ open: true, message: `Failed to import: ${importErrorText(err)}`, severity: 'error' });
             setYoutubeIsLoading(false);
         }
     };
@@ -580,6 +572,7 @@ function YouTubeImportSection({ expanded, onAccordionChange, onSnackbar }) {
                         </Box>
                     )}
 
+                    <AttributionBadge provider="youtube" sx={{ mt: 3 }} />
                 </Box>
             </AccordionDetails>
         </Accordion>

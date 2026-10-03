@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box, Container, Typography, Link } from '@mui/material';
+import { Link as RouterLink } from 'react-router-dom';
 import { COLORS, SPACING } from './DesignSystem';
 import AttributionBadge from './AttributionBadge';
 
@@ -88,6 +89,9 @@ const Footer = () => {
             <AttributionBadge provider="trakt" sx={{ display: 'flex', alignItems: 'center', gap: 1, '& p': { fontSize: '0.75rem', color: COLORS.text.secondary } }} />
           </Box>
 
+          {/* YouTube asks that every page showing its data names it as the source. */}
+          <AttributionBadge provider="youtube" sx={{ textAlign: 'center', fontSize: '0.95rem', color: COLORS.text.secondary }} />
+
           {/* Links */}
           <Box
             sx={{
@@ -134,6 +138,25 @@ const Footer = () => {
               }}
             >
               raeccleston.com
+            </Link>
+            <Typography variant="body2" sx={{ color: COLORS.text.hint }}>
+              •
+            </Typography>
+            <Link
+              component={RouterLink}
+              to="/privacy"
+              sx={{
+                color: COLORS.text.primary,
+                textDecoration: 'underline',
+                fontSize: '1rem',
+                fontWeight: 500,
+                transition: 'color 0.3s ease',
+                '&:hover': {
+                  color: COLORS.primary.light
+                }
+              }}
+            >
+              Terms &amp; Privacy
             </Link>
           </Box>
         </Box>

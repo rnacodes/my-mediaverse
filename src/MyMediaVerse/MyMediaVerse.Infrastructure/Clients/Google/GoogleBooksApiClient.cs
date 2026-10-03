@@ -2,13 +2,15 @@ using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using MyMediaVerse.Shared.DTOs.GoogleBooks;
+using MyMediaVerse.Shared.Exceptions;
 using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.Infrastructure.Clients.Google
 {
     /// <summary>
     /// Client for Google Books API.
-    /// Requires GOOGLE_BOOKS_API_KEY environment variable or GoogleBooks:ApiKey configuration.
+    /// Requires GOOGLE_BOOKS_API_KEY environment variable or GoogleBooks:ApiKey configuration;
+    /// without a key every call throws <see cref="GoogleBooksNotConfiguredException"/>.
     /// </summary>
     public class GoogleBooksApiClient : IGoogleBooksApiClient
     {
@@ -41,6 +43,8 @@ namespace MyMediaVerse.Infrastructure.Clients.Google
 
         public async Task<GoogleBooksSearchResultDto> SearchBooksAsync(string query, int? startIndex = null, int? maxResults = null)
         {
+            EnsureConfigured();
+
             try
             {
                 var queryParams = new List<string>
@@ -50,7 +54,7 @@ namespace MyMediaVerse.Infrastructure.Clients.Google
 
                 if (startIndex.HasValue) queryParams.Add($"startIndex={startIndex}");
                 if (maxResults.HasValue) queryParams.Add($"maxResults={Math.Min(maxResults.Value, 40)}"); // Max 40 per request
-                if (!string.IsNullOrEmpty(_apiKey)) queryParams.Add($"key={_apiKey}");
+                queryParams.Add($"key={_apiKey}");
 
                 var queryString = string.Join("&", queryParams);
                 var fullUrl = $"volumes?{queryString}";
@@ -95,15 +99,13 @@ namespace MyMediaVerse.Infrastructure.Clients.Google
 
         public async Task<GoogleBooksVolumeDto?> GetVolumeByIdAsync(string volumeId)
         {
+            EnsureConfigured();
+
             try
             {
                 _logger.LogInformation("Getting Google Books volume details for ID: {VolumeId}", volumeId);
 
-                var url = $"volumes/{volumeId}";
-                if (!string.IsNullOrEmpty(_apiKey))
-                {
-                    url += $"?key={_apiKey}";
-                }
+                var url = $"volumes/{volumeId}?key={_apiKey}";
 
                 var response = await _httpClient.GetAsync(url);
 
@@ -130,5 +132,12 @@ namespace MyMediaVerse.Infrastructure.Clients.Google
             }
         }
 
+        private void EnsureConfigured()
+        {
+            if (string.IsNullOrEmpty(_apiKey))
+            {
+                throw new GoogleBooksNotConfiguredException();
+            }
+        }
     }
 }

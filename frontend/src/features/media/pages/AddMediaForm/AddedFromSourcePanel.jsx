@@ -1,5 +1,6 @@
 import { Link as RouterLink } from 'react-router-dom';
-import { Alert, AlertTitle, Box, Button, Typography } from '@mui/material';
+import { Alert, AlertTitle, Box, Typography } from '@mui/material';
+import WhiteOutlineButton from '@/shared/WhiteOutlineButton';
 
 /**
  * Media types that are not typed in by hand: each is created from its source, so this panel
@@ -42,9 +43,9 @@ function AddedFromSourcePanel() {
               <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{item.label}</Typography>
               <Typography variant="body2" color="text.secondary">{item.description}</Typography>
             </Box>
-            <Button component={RouterLink} to={item.to} size="small" variant="outlined" sx={{ whiteSpace: 'nowrap' }}>
+            <WhiteOutlineButton component={RouterLink} to={item.to} size="small" sx={{ whiteSpace: 'nowrap' }}>
               {item.action}
-            </Button>
+            </WhiteOutlineButton>
           </Box>
         ))}
       </Box>

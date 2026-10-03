@@ -32,7 +32,6 @@ import ImportGenresTopicsPage from './features/imports/pages/ImportGenresTopicsP
 import SearchByTopicOrGenre from './features/search/pages/SearchByTopicOrGenre';
 import Search from './features/search/pages/Search';
 import UploadMediaPage from './features/media/pages/UploadMediaPage';
-import YouTubeCallback from './features/videos/pages/YouTubeCallback';
 import ReadwiseSyncPage from './features/imports/pages/ReadwiseSyncPage';
 import TraktSyncPage from './features/imports/pages/TraktSyncPage';
 import HighlightLinkingPage from './features/notes/pages/HighlightLinkingPage';
@@ -55,6 +54,7 @@ import DemoDataUploadPage from './features/demo/pages/DemoDataUploadPage';
 
 const DemoUnlockPage = lazy(() => import('./features/demo/pages/DemoUnlockPage'));
 const DemoPage = lazy(() => import('./features/demo/pages/DemoPage'));
+const PrivacyPage = lazy(() => import('./features/legal/pages/PrivacyPage'));
 const ImportMixlistPage = lazy(() => import('./features/imports/pages/ImportMixlistPage'));
 const TypesenseAdminPage = lazy(() => import('./features/admin/pages/TypesenseAdminPage'));
 const BackgroundJobsPage = lazy(() => import('./features/admin/pages/BackgroundJobsPage'));
@@ -91,6 +91,7 @@ function RoutedContent() {
                 send visitors to the unlock page instead. */}
             <Route path="/login" element={isDemoMode() ? <Navigate to="/demo-unlock" replace /> : <LoginPage />} />
             <Route path="/demo" element={<DemoPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
 
             {/* Protected routes - require login in production, open in demo */}
             <Route path="/" element={
@@ -143,9 +144,6 @@ function RoutedContent() {
             } />
             <Route path="/media/:id/edit" element={
               <ConditionalProtectedRoute><EditMediaForm /></ConditionalProtectedRoute>
-            } />
-            <Route path="/youtube/callback" element={
-              <ConditionalProtectedRoute><YouTubeCallback /></ConditionalProtectedRoute>
             } />
             <Route path="/readwise-sync" element={
               <ConditionalProtectedRoute><DemoRestrictedRoute><ReadwiseSyncPage /></DemoRestrictedRoute></ConditionalProtectedRoute>

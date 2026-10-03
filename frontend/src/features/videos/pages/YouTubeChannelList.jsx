@@ -41,7 +41,7 @@ function YouTubeChannelList() {
                 <Button
                     variant="contained"
                     startIcon={<Add />}
-                    onClick={() => navigate('/import-media?tab=youtube')}
+                    onClick={() => navigate('/import-media?section=youtube')}
                 >
                     Import Channel
                 </Button>

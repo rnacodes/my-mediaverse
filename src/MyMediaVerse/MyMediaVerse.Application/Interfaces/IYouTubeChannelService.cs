@@ -1,8 +1,15 @@
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
+using MyMediaVerse.Shared.DTOs.YouTube;
 
 namespace MyMediaVerse.Application.Interfaces
 {
+    /// <summary>
+    /// The outcome of importing a channel: the stored row, and whether this call created it
+    /// or found it already in the library.
+    /// </summary>
+    public record YouTubeChannelCreationResult(YouTubeChannel Channel, bool Created);
+
     /// <summary>
     /// Service interface for YouTube Channel operations
     /// </summary>
@@ -44,19 +51,23 @@ namespace MyMediaVerse.Application.Interfaces
         Task<bool> DeleteChannelAsync(Guid id);
         
         /// <summary>
-        /// Import a YouTube channel from the YouTube API by channel ID
+        /// Import a YouTube channel from the YouTube API by channel ID. A channel already in
+        /// the library is returned as it is, without calling YouTube.
         /// </summary>
-        Task<YouTubeChannel> ImportChannelFromYouTubeAsync(string channelId);
+        Task<YouTubeChannelCreationResult> ImportChannelFromYouTubeAsync(string channelId);
         
         /// <summary>
-        /// Sync channel metadata from YouTube API (update subscriber count, video count, etc.)
+        /// Refresh the channel's metadata from YouTube (title, counts, thumbnail, ...) and report
+        /// how many uploads the library does not hold yet.
         /// </summary>
-        Task<YouTubeChannel> SyncChannelMetadataAsync(Guid channelId);
-        
+        Task<YouTubeChannelSyncResultDto> SyncChannelMetadataAsync(Guid channelId);
+
         /// <summary>
-        /// Check if a channel exists by external ID
+        /// Import the channel's newest uploads: stored videos are linked to the channel when they
+        /// have none, the rest are created under it. <paramref name="count"/> is clamped to one
+        /// YouTube page. Nothing is saved when YouTube's quota runs out mid-run.
         /// </summary>
-        Task<bool> ChannelExistsAsync(string externalId);
+        Task<YouTubeChannelImportResultDto> ImportLatestUploadsAsync(Guid channelId, int count);
     }
 }
 
