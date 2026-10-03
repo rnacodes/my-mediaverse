@@ -51,7 +51,9 @@ export const getPlaceholderImage = (mediaType) =>
  */
 export const resolveMediaImage = (item, typeHint) => {
   if (!item) return getPlaceholderImage(typeHint);
-  return item.thumbnail || getPlaceholderImage(typeHint || item.mediaType);
+  // A video without a thumbnail of its own shows its channel's avatar. Display only:
+  // the edit form reads the item's own thumbnail, so nothing is written back.
+  return item.thumbnail || item.channel?.thumbnail || getPlaceholderImage(typeHint || item.mediaType);
 };
 
 /**

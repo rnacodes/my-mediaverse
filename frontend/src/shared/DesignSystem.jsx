@@ -57,6 +57,8 @@ export const COLORS = {
     music: '#ff9800',
     game: '#795548',
     video: '#f44336',
+    channel: '#ff7043',
+    playlist: '#26a69a',
     website: '#607d8b',
     document: '#9e9e9e'
   }

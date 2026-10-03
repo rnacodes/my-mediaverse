@@ -3,7 +3,7 @@ import { Container, Box, Typography, Grid, Button, Chip, Paper, TextField, Circu
 import WhiteOutlineButton from '@/shared/WhiteOutlineButton';
 import MediaCard from '@/shared/MediaCard';
 import { formatMediaType, formatStatus, getRatingIcon, getRatingText } from '@/utils/formatters';
-import { Book, Movie, Tv, Article, LibraryMusic, Podcasts, SportsEsports, YouTube, Language, MenuBook, AutoAwesome, ViewModule, ViewList } from '@mui/icons-material';
+import { Book, Movie, Tv, Article, LibraryMusic, Podcasts, SportsEsports, YouTube, Subscriptions, PlaylistPlay, Language, MenuBook, AutoAwesome, ViewModule, ViewList } from '@mui/icons-material';
 import { COLORS, BORDER_RADIUS, SHADOWS } from '@/shared';
 import SearchBar from '@/shared/SearchBar';
 import SimpleMediaCarousel from '@/shared/SimpleMediaCarousel';
@@ -82,6 +82,8 @@ const mediaTypeIcons = {
   music: <LibraryMusic />,
   game: <SportsEsports />,
   video: <YouTube />,
+  channel: <Subscriptions />,
+  playlist: <PlaylistPlay />,
   website: <Language />,
   document: <MenuBook />,
   default: <AutoAwesome />

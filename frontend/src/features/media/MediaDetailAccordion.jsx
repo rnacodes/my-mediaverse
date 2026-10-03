@@ -51,6 +51,28 @@ function describeWebsiteActionResult(result) {
   return result.warningMessage || 'No usable screenshot could be rendered.';
 }
 
+// One label/value row, as the per-type branches below draw them.
+function DetailRow({ label, children }) {
+  return (
+    <Box sx={{
+      display: 'flex',
+      flexDirection: { xs: 'column', sm: 'row' },
+      alignItems: { xs: 'flex-start', sm: 'center' },
+      gap: { xs: 0.5, sm: 0 }
+    }}>
+      <Typography variant="body1" sx={{ mr: 1, minWidth: { sm: '140px' }, fontSize: '0.875rem' }}>
+        <strong>{label}:</strong>
+      </Typography>
+      <Typography variant="body1" component="div" sx={{ fontSize: '0.875rem' }}>{children}</Typography>
+    </Box>
+  );
+}
+
+const formatCount = (value) => (value == null ? null : Number(value).toLocaleString());
+const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : null);
+
+const externalLinkSx = { fontSize: '0.875rem', color: '#ffffff', '&:hover': { color: '#e3f2fd' } };
+
 function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBookEnriched, onWebsiteUpdated, onVideoLinked, onFetchContent, fetchingContent }) {
   const [enrichResult, setEnrichResult] = useState(null);
   const [channelDialogOpen, setChannelDialogOpen] = useState(false);
@@ -1886,6 +1908,45 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
           </Box>
         )}
         
+        {mediaItem.mediaType === 'Channel' && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {mediaItem.channelExternalId && (
+              <DetailRow label="YouTube channel">
+                <Link href={`https://www.youtube.com/channel/${mediaItem.channelExternalId}`} target="_blank" rel="noopener noreferrer" sx={externalLinkSx}>
+                  {mediaItem.customUrl || mediaItem.channelExternalId}
+                </Link>
+              </DetailRow>
+            )}
+            {mediaItem.subscriberCount != null && <DetailRow label="Subscribers">{formatCount(mediaItem.subscriberCount)}</DetailRow>}
+            {mediaItem.videoCount != null && (
+              <DetailRow label="Uploads on YouTube">
+                {formatCount(mediaItem.videoCount)}
+                {mediaItem.videoCountInDb != null && ` (${formatCount(mediaItem.videoCountInDb)} in your library)`}
+              </DetailRow>
+            )}
+            {mediaItem.viewCount != null && <DetailRow label="Views">{formatCount(mediaItem.viewCount)}</DetailRow>}
+            {mediaItem.country && <DetailRow label="Country">{mediaItem.country}</DetailRow>}
+            {mediaItem.publishedAt && <DetailRow label="On YouTube since">{formatDate(mediaItem.publishedAt)}</DetailRow>}
+            {mediaItem.lastSyncedAt && <DetailRow label="Last synced">{formatDate(mediaItem.lastSyncedAt)}</DetailRow>}
+          </Box>
+        )}
+
+        {mediaItem.mediaType === 'Playlist' && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {mediaItem.playlistExternalId && (
+              <DetailRow label="YouTube playlist">
+                <Link href={`https://www.youtube.com/playlist?list=${mediaItem.playlistExternalId}`} target="_blank" rel="noopener noreferrer" sx={externalLinkSx}>
+                  {mediaItem.playlistExternalId}
+                </Link>
+              </DetailRow>
+            )}
+            {mediaItem.videoCount != null && <DetailRow label="Videos on YouTube">{formatCount(mediaItem.videoCount)}</DetailRow>}
+            {mediaItem.privacyStatus && <DetailRow label="Privacy">{mediaItem.privacyStatus}</DetailRow>}
+            {mediaItem.publishedAt && <DetailRow label="On YouTube since">{formatDate(mediaItem.publishedAt)}</DetailRow>}
+            {mediaItem.lastSyncedAt && <DetailRow label="Last synced">{formatDate(mediaItem.lastSyncedAt)}</DetailRow>}
+          </Box>
+        )}
+
         {/* Show message if no specific properties are available */}
         {((mediaItem.mediaType === 'Podcast' && !mediaItem.podcastType && !mediaItem.durationInSeconds && !mediaItem.publisher && !mediaItem.audioLink && !mediaItem.releaseDate) ||
           (mediaItem.mediaType === 'Book' && !mediaItem.author && !mediaItem.isbn && !mediaItem.asin && !mediaItem.format && mediaItem.partOfSeries === undefined) ||

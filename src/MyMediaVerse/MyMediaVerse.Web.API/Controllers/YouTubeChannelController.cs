@@ -355,26 +355,6 @@ namespace MyMediaVerse.Web.API.Controllers
                 });
             }
         }
-
-        /// <summary>
-        /// Check if a channel exists by external YouTube ID
-        /// </summary>
-        /// <param name="externalId">YouTube channel ID</param>
-        /// <returns>Boolean indicating if channel exists</returns>
-        [HttpGet("exists/{externalId}")]
-        public async Task<ActionResult<bool>> CheckChannelExists(string externalId)
-        {
-            try
-            {
-                var exists = await _channelService.ChannelExistsAsync(externalId);
-                return Ok(new { exists });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error occurred while checking if channel exists: {ExternalId}", externalId);
-                return StatusCode(500, new { error = "Failed to check channel existence", details = ex.Message });
-            }
-        }
     }
 }
 

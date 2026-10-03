@@ -342,35 +342,6 @@ namespace MyMediaVerse.UnitTests.Application
 
         #endregion
 
-        #region ChannelExistsAsync Tests
-
-        [Fact]
-        public async Task ChannelExistsAsync_WhenExists_ShouldReturnTrue()
-        {
-            // Arrange
-            var channel = CreateTestChannel("Existing", "UCexists");
-            Context.YouTubeChannels.Add(channel);
-            await Context.SaveChangesAsync();
-
-            // Act
-            var result = await _service.ChannelExistsAsync("UCexists");
-
-            // Assert
-            result.Should().BeTrue();
-        }
-
-        [Fact]
-        public async Task ChannelExistsAsync_WhenNotExists_ShouldReturnFalse()
-        {
-            // Act
-            var result = await _service.ChannelExistsAsync("UCmissing");
-
-            // Assert
-            result.Should().BeFalse();
-        }
-
-        #endregion
-
         #region Import result Tests
 
         [Fact]

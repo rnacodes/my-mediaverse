@@ -68,11 +68,6 @@ namespace MyMediaVerse.Application.Interfaces
         /// YouTube page. Nothing is saved when YouTube's quota runs out mid-run.
         /// </summary>
         Task<YouTubeChannelImportResultDto> ImportLatestUploadsAsync(Guid channelId, int count);
-        
-        /// <summary>
-        /// Check if a channel exists by external ID
-        /// </summary>
-        Task<bool> ChannelExistsAsync(string externalId);
     }
 }
 

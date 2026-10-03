@@ -32,7 +32,6 @@ import ImportGenresTopicsPage from './features/imports/pages/ImportGenresTopicsP
 import SearchByTopicOrGenre from './features/search/pages/SearchByTopicOrGenre';
 import Search from './features/search/pages/Search';
 import UploadMediaPage from './features/media/pages/UploadMediaPage';
-import YouTubeCallback from './features/videos/pages/YouTubeCallback';
 import ReadwiseSyncPage from './features/imports/pages/ReadwiseSyncPage';
 import TraktSyncPage from './features/imports/pages/TraktSyncPage';
 import HighlightLinkingPage from './features/notes/pages/HighlightLinkingPage';
@@ -145,9 +144,6 @@ function RoutedContent() {
             } />
             <Route path="/media/:id/edit" element={
               <ConditionalProtectedRoute><EditMediaForm /></ConditionalProtectedRoute>
-            } />
-            <Route path="/youtube/callback" element={
-              <ConditionalProtectedRoute><YouTubeCallback /></ConditionalProtectedRoute>
             } />
             <Route path="/readwise-sync" element={
               <ConditionalProtectedRoute><DemoRestrictedRoute><ReadwiseSyncPage /></DemoRestrictedRoute></ConditionalProtectedRoute>

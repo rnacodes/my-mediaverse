@@ -4,20 +4,8 @@ import { apiClient } from './apiClient';
 // Video API calls
 // ============================================
 
-export const getAllVideos = () => {
-    return apiClient.get('/video');
-};
-
 export const getVideoById = (id) => {
     return apiClient.get(`/video/${id}`);
-};
-
-export const getVideosByChannel = (channelName) => {
-    return apiClient.get(`/video/channel/${encodeURIComponent(channelName)}`);
-};
-
-export const getVideoSeries = () => {
-    return apiClient.get('/video/series');
 };
 
 export const createVideo = (videoData) => {

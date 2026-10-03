@@ -187,34 +187,6 @@ namespace MyMediaVerse.IntegrationTests.Api
         }
 
         #endregion
-
-        #region CheckChannelExists
-
-        [Fact]
-        public async Task CheckChannelExists_ShouldReturnTrue_WhenChannelExists()
-        {
-            var dto = CreateValidChannelDto();
-            await _client.PostAsJsonAsync("/api/youtubechannel", dto);
-
-            var response = await _client.GetAsync($"/api/youtubechannel/exists/{dto.ChannelExternalId}");
-
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
-            var result = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
-            result.GetProperty("exists").GetBoolean().Should().BeTrue();
-        }
-
-        [Fact]
-        public async Task CheckChannelExists_ShouldReturnFalse_WhenChannelDoesNotExist()
-        {
-            var response = await _client.GetAsync($"/api/youtubechannel/exists/UCnonexistent{Guid.NewGuid():N}");
-
-            response.StatusCode.Should().Be(HttpStatusCode.OK);
-            var result = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
-            result.GetProperty("exists").GetBoolean().Should().BeFalse();
-        }
-
-        #endregion
-
         #region GetChannelVideos
 
         [Fact]

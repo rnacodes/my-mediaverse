@@ -25,6 +25,8 @@ export const MediaListItem = React.memo(({ item, isSelected = false, onToggleSel
         } else if (item.mediaType === 'Channel') {
             // Navigate YouTube channels to their dedicated profile page
             navigate(`/youtube-channel/${item.id}`);
+        } else if (item.mediaType === 'Playlist') {
+            navigate(`/youtube-playlist/${item.id}`);
         } else if (item.mediaType === 'TVShow' && item.tvType === 'Show') {
             // Shows have their own page; episodes resolve through the generic profile
             navigate(`/tv-show/${item.id}`);
@@ -54,6 +56,10 @@ export const MediaListItem = React.memo(({ item, isSelected = false, onToggleSel
                 return item.creator ? `Created by ${item.creator}` : null;
             case 'Video':
                 return item.channel || item.platform;
+            case 'Channel':
+                return item.subscriberCount != null ? `${Number(item.subscriberCount).toLocaleString()} subscribers` : null;
+            case 'Playlist':
+                return item.videoCount != null ? `${Number(item.videoCount).toLocaleString()} videos` : null;
             case 'Podcast':
                 // An episode is credited to its show; a series to its publisher.
                 return item.seriesTitle || item.publisher;
@@ -87,6 +93,9 @@ export const MediaListItem = React.memo(({ item, isSelected = false, onToggleSel
                     parts.push(item.releaseYear);
                 }
                 if (item.tmdbRating) parts.push(`${item.tmdbRating}★`);
+                break;
+            case 'Channel':
+                if (item.videoCount != null) parts.push(`${Number(item.videoCount).toLocaleString()} videos`);
                 break;
             case 'Video':
                 if (item.lengthInSeconds) {

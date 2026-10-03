@@ -82,6 +82,8 @@ const transformMediaHits = (hits) => hits.map(hit => {
         publisher: doc.publisher || null,
         channel: doc.channel_title || doc.channel || null,
         platform: doc.platform || null,
+        subscriberCount: doc.subscriber_count ?? null,
+        videoCount: doc.video_count ?? null,
         goodreadsRating: doc.goodreads_rating || null,
         tmdbRating: doc.tmdb_rating || null,
         releaseYear: doc.release_year || null,

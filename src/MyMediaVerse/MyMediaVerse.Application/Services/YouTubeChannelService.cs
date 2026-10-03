@@ -446,20 +446,6 @@ namespace MyMediaVerse.Application.Services
             }
         }
 
-        public async Task<bool> ChannelExistsAsync(string externalId)
-        {
-            try
-            {
-                return await _context.YouTubeChannels
-                    .AnyAsync(c => c.ChannelExternalId == externalId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error occurred while checking if channel exists with external ID {ExternalId}", externalId);
-                throw;
-            }
-        }
-
         private async Task HandleTopicsAsync(YouTubeChannel channel, string[]? topics)
         {
             if (topics == null || topics.Length == 0)

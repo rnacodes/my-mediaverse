@@ -2,20 +2,21 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Box, Typography, Button, Card, CardContent, Chip, Divider, IconButton, CircularProgress, Alert, Accordion, AccordionSummary, AccordionDetails, List, Dialog, DialogTitle, DialogContent, DialogActions, Snackbar, ListItemButton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper } from '@mui/material';
 import {
-    Sync, Delete,
+    Sync, Delete, Download,
     ExpandMore, Visibility, Add, CheckCircle, YouTube
 } from '@mui/icons-material';
 import { getYouTubeChannelUploads, importYouTubeVideo } from '@/api/youtubeService';
 import MediaHeader from '@/features/media/MediaHeader';
 import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
 import { DEMO_IMPORT_BLOCKED } from '@/features/demo/demoMessages';
+import ImportResultPanel from '@/shared/ImportResultPanel';
 import MediaInfoCard from '@/features/media/MediaInfoCard';
 import MediaDetailAccordion from '@/features/media/MediaDetailAccordion';
 import MixlistCarousel from '@/features/mixlists/MixlistCarousel';
 import TopicsGenresSection from '@/features/media/TopicsGenresSection';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
-import { useYouTubeChannel, useYouTubeChannelVideos, useDeleteYouTubeChannel, useSyncYouTubeChannelMetadata } from '@/hooks/useYoutube';
+import { useYouTubeChannel, useYouTubeChannelVideos, useDeleteYouTubeChannel, useSyncYouTubeChannelMetadata, useImportLatestYouTubeChannelUploads } from '@/hooks/useYoutube';
 import { useAllMixlists } from '@/hooks/useMixlist';
 import { useReindexMediaItem } from '@/hooks/useTypesense';
 import {
@@ -37,10 +38,14 @@ function YouTubeChannelProfile() {
     const [allVideosFromApi, setAllVideosFromApi] = useState([]);
     const [displayedVideos, setDisplayedVideos] = useState([]);
     const [loadingAllVideos, setLoadingAllVideos] = useState(false);
+    const [nextPageToken, setNextPageToken] = useState(null);
+    const [loadingMore, setLoadingMore] = useState(false);
 
     const [importedVideos, setImportedVideos] = useState(new Map());
     const [importingVideo, setImportingVideo] = useState(null);
     const [refreshKey, setRefreshKey] = useState(0);
+    const [syncResult, setSyncResult] = useState(null);
+    const [importResult, setImportResult] = useState(null);
 
     const { id } = useParams();
     const navigate = useNavigate();
@@ -68,6 +73,8 @@ function YouTubeChannelProfile() {
 
     const syncMutation = useSyncYouTubeChannelMetadata();
     const syncing = syncMutation.isPending;
+    const importLatestMutation = useImportLatestYouTubeChannelUploads();
+    const importingLatest = importLatestMutation.isPending;
     const deleteMutation = useDeleteYouTubeChannel();
 
     const reindexMutation = useReindexMediaItem();
@@ -125,19 +132,10 @@ function YouTubeChannelProfile() {
             setLoadingAllVideos(true);
             setViewAllVideosDialog(true);
 
-            let allVideos = [];
-            let pageToken = null;
-            let hasMore = true;
-
-            // Fetch videos from YouTube API via backend using the uploads endpoint
-            while (hasMore) {
-                const data = await getYouTubeChannelUploads(channel.channelExternalId, 50, pageToken);
-                const fetched = data.items || data || [];
-                allVideos = [...allVideos, ...fetched];
-
-                pageToken = data.nextPageToken;
-                hasMore = pageToken !== null && pageToken !== undefined && allVideos.length < 200; // Limit to 200 for performance
-            }
+            // One page at a time; "Load more" asks YouTube for the next page.
+            const data = await getYouTubeChannelUploads(channel.channelExternalId, 50, null);
+            const allVideos = (data.items || []);
+            setNextPageToken(data.nextPageToken ?? null);
 
             setAllVideosFromApi(allVideos);
             setDisplayedVideos(allVideos.slice(0, 10)); // Start by showing first 10
@@ -151,10 +149,28 @@ function YouTubeChannelProfile() {
         }
     };
 
-    const loadMoreLocal = () => {
+    // Shows ten more of what is loaded; once that runs out, fetches the next page.
+    const loadMore = async () => {
         const currentCount = displayedVideos.length;
-        const nextBatch = allVideosFromApi.slice(0, currentCount + 10);
-        setDisplayedVideos(nextBatch);
+        if (currentCount < allVideosFromApi.length) {
+            setDisplayedVideos(allVideosFromApi.slice(0, currentCount + 10));
+            return;
+        }
+        if (!nextPageToken) return;
+        try {
+            setLoadingMore(true);
+            const data = await getYouTubeChannelUploads(channel.channelExternalId, 50, nextPageToken);
+            const fetched = (data.items || []);
+            const all = [...allVideosFromApi, ...fetched];
+            setAllVideosFromApi(all);
+            setDisplayedVideos(all.slice(0, currentCount + 10));
+            setNextPageToken(data.nextPageToken ?? null);
+        } catch (error) {
+            console.error('Error fetching more videos:', error);
+            setSnackbar({ open: true, message: 'Failed to fetch more videos from YouTube', severity: 'error' });
+        } finally {
+            setLoadingMore(false);
+        }
     };
 
     const checkImportedVideos = () => {
@@ -185,9 +201,42 @@ function YouTubeChannelProfile() {
     };
 
     const handleSync = () => {
+        setImportResult(null);
         syncMutation.mutate(id, {
-            onSuccess: () => setSnackbar({ open: true, message: 'Channel metadata synced successfully!', severity: 'success' }),
-            onError: () => setSnackbar({ open: true, message: 'Failed to sync channel', severity: 'error' }),
+            onSuccess: (result) => {
+                setSyncResult(result);
+                const pending = result?.newUploadsCount ?? 0;
+                setSnackbar({
+                    open: true,
+                    message: pending > 0
+                        ? `Channel synced. About ${pending} upload${pending === 1 ? '' : 's'} not in your library yet.`
+                        : 'Channel synced. Your library holds all of its uploads.',
+                    severity: 'success',
+                });
+            },
+            onError: (error) => setSnackbar({ open: true, message: error.response?.data?.error || 'Failed to sync channel', severity: 'error' }),
+        });
+    };
+
+    // Brings in the newest uploads (the backend's configured count). Stored videos are
+    // linked to the channel, new ones created under it.
+    const handleImportLatest = () => {
+        setSyncResult(null);
+        importLatestMutation.mutate({ id }, {
+            onSuccess: (result) => {
+                setImportResult(result);
+                videosQuery.refetch();
+                setSnackbar({
+                    open: true,
+                    message: `${result.createdCount} new video${result.createdCount === 1 ? '' : 's'} imported, ${result.linkedCount} linked.`,
+                    severity: 'success',
+                });
+            },
+            onError: (error) => {
+                const body = error.response?.data;
+                if (body && body.success === false) setImportResult(body);
+                setSnackbar({ open: true, message: body?.error || body?.errorMessage || 'Failed to import the latest uploads', severity: 'error' });
+            },
         });
     };
 
@@ -234,13 +283,7 @@ function YouTubeChannelProfile() {
                         />
 
                         <Divider sx={{ my: 3 }} />
-                        {/* Hide MediaDetailAccordion when empty - YouTube channels don't have specific details yet */}
-                        {/* Keeping the component here for future use when channel-specific details are added */}
-                        {(channel.mediaType === 'Podcast' || channel.mediaType === 'Book' ||
-                          channel.mediaType === 'Movie' || channel.mediaType === 'TVShow' ||
-                          channel.mediaType === 'Video' || channel.mediaType === 'Article') && (
-                            <MediaDetailAccordion mediaItem={channel} navigate={navigate} />
-                        )}
+                        <MediaDetailAccordion mediaItem={channel} navigate={navigate} />
                         <TopicsGenresSection
                             mediaItem={channel}
                             setSnackbar={setSnackbar}
@@ -264,11 +307,42 @@ function YouTubeChannelProfile() {
                     <DemoWriteGuard>
                         <Button variant="contained" size="small" startIcon={<Sync />} onClick={handleSync} disabled={syncing}>{syncing ? <CircularProgress size={20} /> : 'Sync'}</Button>
                     </DemoWriteGuard>
+                    <DemoWriteGuard title={DEMO_IMPORT_BLOCKED}>
+                        <Button variant="contained" size="small" startIcon={<Download />} onClick={handleImportLatest} disabled={importingLatest}>{importingLatest ? <CircularProgress size={20} /> : 'Import latest uploads'}</Button>
+                    </DemoWriteGuard>
                     <Button variant="contained" size="small" startIcon={<Visibility />} onClick={handleViewAllVideos}>All Videos</Button>
                     <DemoWriteGuard>
                         <Button variant="contained" size="small" startIcon={<Delete />} onClick={() => setDeleteConfirmDialog(true)} color="error">Delete</Button>
                     </DemoWriteGuard>
                 </Box>
+
+                <ImportResultPanel
+                    result={syncResult}
+                    title="Channel sync complete"
+                    failedTitle="Channel sync failed"
+                    stats={[
+                        { label: 'Updated', key: 'updatedCount', color: '#90caf9' },
+                        { label: 'In your library', key: 'storedVideoCount', color: '#4caf50' },
+                        { label: 'Not imported yet', key: 'newUploadsCount', color: (v) => (v ? '#ffb74d' : 'text.secondary') },
+                    ]}
+                    footer={(r) => (r.youTubeVideoCount != null ? `YouTube lists ${r.youTubeVideoCount} uploads; the "not imported" figure is an estimate.` : '')}
+                    onDismiss={() => setSyncResult(null)}
+                    testId="channel-sync-result"
+                />
+                <ImportResultPanel
+                    result={importResult}
+                    title="Latest uploads imported"
+                    failedTitle="Import failed"
+                    stats={[
+                        { label: 'Created', key: 'createdCount', color: '#4caf50' },
+                        { label: 'Linked', key: 'linkedCount', color: '#90caf9' },
+                        { label: 'Already stored', key: 'skippedCount' },
+                        { label: 'Without details', key: 'failedCount', color: (v) => (v ? '#f44336' : 'text.secondary') },
+                    ]}
+                    footer={(r) => (r.requestedCount ? `Checked the newest ${r.requestedCount} uploads.` : '')}
+                    onDismiss={() => setImportResult(null)}
+                    testId="channel-import-latest-result"
+                />
 
                 {/* Local Videos (Already Imported) */}
                 <Accordion defaultExpanded sx={{ borderRadius: 2 }}>
@@ -346,10 +420,12 @@ function YouTubeChannelProfile() {
                             </TableContainer>
                             <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <Typography variant="caption" color="text.secondary">
-                                    Showing {displayedVideos.length} of {allVideosFromApi.length} available videos
+                                    Showing {displayedVideos.length} of {allVideosFromApi.length} loaded{nextPageToken ? ', more on YouTube' : ''}
                                 </Typography>
-                                {displayedVideos.length < allVideosFromApi.length && (
-                                    <Button size="small" variant="contained" onClick={loadMoreLocal}>Load 10 More</Button>
+                                {(displayedVideos.length < allVideosFromApi.length || nextPageToken) && (
+                                    <Button size="small" variant="contained" onClick={loadMore} disabled={loadingMore}>
+                                        {loadingMore ? <CircularProgress size={18} /> : (displayedVideos.length < allVideosFromApi.length ? 'Load 10 More' : 'Load more from YouTube')}
+                                    </Button>
                                 )}
                             </Box>
                         </>

@@ -23,27 +23,6 @@ export const searchYouTube = async (query, type = 'video', maxResults = 25, page
     }
 };
 
-export const getYouTubeVideoDetails = async (videoId) => {
-    try {
-        const response = await apiClient.get(`/youtube/videos/${videoId}`);
-        return response.data;
-    } catch (error) {
-        console.error('Error getting YouTube video details:', error);
-        throw error;
-    }
-};
-
-export const getYouTubeVideos = async (videoIds) => {
-    try {
-        const idsString = Array.isArray(videoIds) ? videoIds.join(',') : videoIds;
-        const response = await apiClient.get(`/youtube/videos?videoIds=${encodeURIComponent(idsString)}`);
-        return response.data;
-    } catch (error) {
-        console.error('Error getting YouTube videos:', error);
-        throw error;
-    }
-};
-
 export const getYouTubePlaylistDetails = async (playlistId) => {
     try {
         const response = await apiClient.get(`/youtube/playlists/${playlistId}`);
@@ -66,36 +45,6 @@ export const getYouTubePlaylistItems = async (playlistId, maxResults = 50, pageT
         return response.data;
     } catch (error) {
         console.error('Error getting YouTube playlist items:', error);
-        throw error;
-    }
-};
-
-export const getAllYouTubePlaylistItems = async (playlistId) => {
-    try {
-        const response = await apiClient.get(`/youtube/playlists/${playlistId}/all-items`);
-        return response.data;
-    } catch (error) {
-        console.error('Error getting all YouTube playlist items:', error);
-        throw error;
-    }
-};
-
-export const getYouTubeChannelDetails = async (channelId) => {
-    try {
-        const response = await apiClient.get(`/youtube/channels/${channelId}`);
-        return response.data;
-    } catch (error) {
-        console.error('Error getting YouTube channel details:', error);
-        throw error;
-    }
-};
-
-export const getYouTubeChannelByUsername = async (username) => {
-    try {
-        const response = await apiClient.get(`/youtube/channels/by-username/${username}`);
-        return response.data;
-    } catch (error) {
-        console.error('Error getting YouTube channel by username:', error);
         throw error;
     }
 };
@@ -157,42 +106,12 @@ export const getYouTubeChannelById = async (id) => {
     }
 };
 
-export const getYouTubeChannelByExternalId = async (externalId) => {
-    try {
-        const response = await apiClient.get(`/youtubechannel/by-external/${externalId}`);
-        return response.data;
-    } catch (error) {
-        console.error('Error getting YouTube channel by external ID:', error);
-        throw error;
-    }
-};
-
 export const getYouTubeChannelVideos = async (channelId) => {
     try {
         const response = await apiClient.get(`/youtubechannel/${channelId}/videos`);
         return response.data;
     } catch (error) {
         console.error('Error getting YouTube channel videos:', error);
-        throw error;
-    }
-};
-
-export const createYouTubeChannel = async (channelData) => {
-    try {
-        const response = await apiClient.post('/youtubechannel', channelData);
-        return response.data;
-    } catch (error) {
-        console.error('Error creating YouTube channel:', error);
-        throw error;
-    }
-};
-
-export const updateYouTubeChannel = async (id, channelData) => {
-    try {
-        const response = await apiClient.put(`/youtubechannel/${id}`, channelData);
-        return response.data;
-    } catch (error) {
-        console.error('Error updating YouTube channel:', error);
         throw error;
     }
 };
@@ -226,16 +145,16 @@ export const syncYouTubeChannelMetadata = async (id) => {
     }
 };
 
-export const checkYouTubeChannelExists = async (externalId) => {
+export const importLatestYouTubeChannelUploads = async (id, count = null) => {
     try {
-        const response = await apiClient.get(`/youtubechannel/exists/${externalId}`);
-        return response.data.exists;
+        const query = count ? `?count=${count}` : '';
+        const response = await apiClient.post(`/youtubechannel/${id}/import-latest${query}`);
+        return response.data;
     } catch (error) {
-        console.error('Error checking if YouTube channel exists:', error);
+        console.error('Error importing latest YouTube channel uploads:', error);
         throw error;
     }
 };
-
 export const importFromYouTubeUrl = async (url) => {
     try {
         const response = await apiClient.post('/youtube/import/url', { url });
@@ -250,16 +169,6 @@ export const importFromYouTubeUrl = async (url) => {
 // YouTube Playlist Management API calls
 // ============================================
 
-export const getAllYouTubePlaylists = async () => {
-    try {
-        const response = await apiClient.get('/youtubeplaylist');
-        return response.data;
-    } catch (error) {
-        console.error('Error getting all YouTube playlists:', error);
-        throw error;
-    }
-};
-
 export const getYouTubePlaylistById = async (id, includeVideos = false) => {
     try {
         const params = new URLSearchParams({
@@ -269,19 +178,6 @@ export const getYouTubePlaylistById = async (id, includeVideos = false) => {
         return response.data;
     } catch (error) {
         console.error('Error getting YouTube playlist by ID:', error);
-        throw error;
-    }
-};
-
-export const getYouTubePlaylistByExternalId = async (externalId, includeVideos = false) => {
-    try {
-        const params = new URLSearchParams({
-            includeVideos: includeVideos.toString()
-        });
-        const response = await apiClient.get(`/youtubeplaylist/by-external/${externalId}?${params}`);
-        return response.data;
-    } catch (error) {
-        console.error('Error getting YouTube playlist by external ID:', error);
         throw error;
     }
 };
@@ -323,16 +219,6 @@ export const addVideoToYouTubePlaylist = async (playlistId, videoId, position = 
         return response.data;
     } catch (error) {
         console.error('Error adding video to YouTube playlist:', error);
-        throw error;
-    }
-};
-
-export const removeVideoFromYouTubePlaylist = async (playlistId, videoId) => {
-    try {
-        const response = await apiClient.delete(`/youtubeplaylist/${playlistId}/videos/${videoId}`);
-        return response.data;
-    } catch (error) {
-        console.error('Error removing video from YouTube playlist:', error);
         throw error;
     }
 };

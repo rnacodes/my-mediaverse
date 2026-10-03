@@ -13,6 +13,7 @@ const getItemPath = (item) => {
     if (item.isHighlight) return `/highlight/${item.id}`;
     if (item.mediaType === 'Podcast' && isPodcastSeries(item)) return `/podcast-series/${item.id}`;
     if (item.mediaType === 'Channel') return `/youtube-channel/${item.id}`;
+    if (item.mediaType === 'Playlist') return `/youtube-playlist/${item.id}`;
     // Shows have their own page; episodes (and TV docs indexed before tv_type existed) go
     // through the generic profile, which resolves them.
     if (item.mediaType === 'TVShow' && item.tvType === 'Show') return `/tv-show/${item.id}`;
@@ -49,6 +50,10 @@ export const SearchResultCard = React.memo(({ item, isSelected = false, onToggle
                 return item.creator ? `Created by ${item.creator}` : null;
             case 'Video':
                 return item.channel || item.platform;
+            case 'Channel':
+                return item.subscriberCount != null ? `${Number(item.subscriberCount).toLocaleString()} subscribers` : null;
+            case 'Playlist':
+                return item.videoCount != null ? `${Number(item.videoCount).toLocaleString()} videos` : null;
             case 'Podcast':
                 // An episode is credited to its show; a series to its publisher.
                 return item.seriesTitle || item.publisher;
@@ -82,6 +87,9 @@ export const SearchResultCard = React.memo(({ item, isSelected = false, onToggle
                     parts.push(item.releaseYear);
                 }
                 if (item.tmdbRating) parts.push(`${item.tmdbRating}★`);
+                break;
+            case 'Channel':
+                if (item.videoCount != null) parts.push(`${Number(item.videoCount).toLocaleString()} videos`);
                 break;
             case 'Video':
                 if (item.lengthInSeconds) {

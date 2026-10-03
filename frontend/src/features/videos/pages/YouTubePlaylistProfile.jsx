@@ -12,6 +12,8 @@ import MediaHeader from '@/features/media/MediaHeader';
 import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
 import { DEMO_IMPORT_BLOCKED } from '@/features/demo/demoMessages';
 import MediaInfoCard from '@/features/media/MediaInfoCard';
+import MediaDetailAccordion from '@/features/media/MediaDetailAccordion';
+import ImportResultPanel from '@/shared/ImportResultPanel';
 import MixlistCarousel from '@/features/mixlists/MixlistCarousel';
 import TopicsGenresSection from '@/features/media/TopicsGenresSection';
 import {
@@ -41,9 +43,12 @@ function YouTubePlaylistProfile() {
     const [allVideosFromApi, setAllVideosFromApi] = useState([]);
     const [displayedVideos, setDisplayedVideos] = useState([]);
     const [loadingAllVideos, setLoadingAllVideos] = useState(false);
+    const [nextPageToken, setNextPageToken] = useState(null);
+    const [loadingMore, setLoadingMore] = useState(false);
     const [importedVideos, setImportedVideos] = useState(new Map());
     const [importingVideo, setImportingVideo] = useState(null);
     const [refreshKey, setRefreshKey] = useState(0);
+    const [syncResult, setSyncResult] = useState(null);
 
     const { id } = useParams();
     const navigate = useNavigate();
@@ -120,8 +125,15 @@ function YouTubePlaylistProfile() {
 
     const handleSync = () => {
         syncMutation.mutate(id, {
-            onSuccess: () => setSnackbar({ open: true, message: 'Playlist synced successfully', severity: 'success' }),
-            onError: () => setSnackbar({ open: true, message: 'Failed to sync playlist', severity: 'error' }),
+            onSuccess: (result) => {
+                setSyncResult(result);
+                setSnackbar({
+                    open: true,
+                    message: `Playlist synced: ${result.createdCount} new, ${result.linkedCount} linked, ${result.unlinkedCount} removed.`,
+                    severity: 'success',
+                });
+            },
+            onError: (error) => setSnackbar({ open: true, message: error.response?.data?.error || 'Failed to sync playlist', severity: 'error' }),
         });
     };
 
@@ -170,30 +182,13 @@ function YouTubePlaylistProfile() {
             setLoadingAllVideos(true);
             setViewAllVideosDialog(true);
 
-            let allVideos = [];
-            let pageToken = null;
-            let hasMore = true;
+            // One page at a time; "Load more" asks YouTube for the next page.
+            const data = await getYouTubePlaylistItems(playlist.playlistExternalId, 50, null);
+            const allVideos = (data.items || []).filter(video => !isDeletedOrPrivateVideo(video));
+            setNextPageToken(data.nextPageToken ?? null);
 
-            // Fetch playlist items from YouTube API via backend
-            while (hasMore) {
-                const data = await getYouTubePlaylistItems(playlist.playlistExternalId, 50, pageToken);
-                const fetched = data.items || data || [];
-                allVideos = [...allVideos, ...fetched];
-
-                pageToken = data.nextPageToken;
-                hasMore = pageToken !== null && pageToken !== undefined && allVideos.length < 200;
-            }
-
-            // Filter out deleted and private videos
-            const availableVideos = allVideos.filter(video => !isDeletedOrPrivateVideo(video));
-            const filteredCount = allVideos.length - availableVideos.length;
-
-            if (filteredCount > 0) {
-                console.log(`Filtered out ${filteredCount} deleted/private videos from playlist`);
-            }
-
-            setAllVideosFromApi(availableVideos);
-            setDisplayedVideos(availableVideos.slice(0, 10));
+            setAllVideosFromApi(allVideos);
+            setDisplayedVideos(allVideos.slice(0, 10));
             checkImportedVideos();
         } catch (error) {
             console.error('Error fetching all videos:', error);
@@ -204,10 +199,28 @@ function YouTubePlaylistProfile() {
         }
     };
 
-    const loadMoreLocal = () => {
+    // Shows ten more of what is loaded; once that runs out, fetches the next page.
+    const loadMore = async () => {
         const currentCount = displayedVideos.length;
-        const nextBatch = allVideosFromApi.slice(0, currentCount + 10);
-        setDisplayedVideos(nextBatch);
+        if (currentCount < allVideosFromApi.length) {
+            setDisplayedVideos(allVideosFromApi.slice(0, currentCount + 10));
+            return;
+        }
+        if (!nextPageToken) return;
+        try {
+            setLoadingMore(true);
+            const data = await getYouTubePlaylistItems(playlist.playlistExternalId, 50, nextPageToken);
+            const fetched = (data.items || []).filter(video => !isDeletedOrPrivateVideo(video));
+            const all = [...allVideosFromApi, ...fetched];
+            setAllVideosFromApi(all);
+            setDisplayedVideos(all.slice(0, currentCount + 10));
+            setNextPageToken(data.nextPageToken ?? null);
+        } catch (error) {
+            console.error('Error fetching more videos:', error);
+            setSnackbar({ open: true, message: 'Failed to fetch more videos from YouTube', severity: 'error' });
+        } finally {
+            setLoadingMore(false);
+        }
     };
 
     const checkImportedVideos = () => {
@@ -287,6 +300,7 @@ function YouTubePlaylistProfile() {
                         />
 
                         <Divider sx={{ my: 3 }} />
+                        <MediaDetailAccordion mediaItem={playlist} navigate={navigate} />
                         <TopicsGenresSection
                             mediaItem={playlist}
                             setSnackbar={setSnackbar}
@@ -315,6 +329,21 @@ function YouTubePlaylistProfile() {
                         <Button variant="contained" size="small" startIcon={<Delete />} onClick={() => setDeleteConfirmDialog(true)} color="error">Delete</Button>
                     </DemoWriteGuard>
                 </Box>
+
+                <ImportResultPanel
+                    result={syncResult}
+                    title="Playlist sync complete"
+                    failedTitle="Playlist sync failed"
+                    stats={[
+                        { label: 'Created', key: 'createdCount', color: '#4caf50' },
+                        { label: 'Linked', key: 'linkedCount', color: '#90caf9' },
+                        { label: 'Removed', key: 'unlinkedCount', color: (v) => (v ? '#ffb74d' : 'text.secondary') },
+                        { label: 'Moved', key: 'updatedCount' },
+                    ]}
+                    footer={(r) => `${r.videoCount ?? 0} video${r.videoCount === 1 ? '' : 's'} on YouTube now.`}
+                    onDismiss={() => setSyncResult(null)}
+                    testId="playlist-sync-result"
+                />
 
                 {/* Local Videos (Already Imported) */}
                 <Accordion defaultExpanded sx={{ borderRadius: 2 }}>
@@ -407,10 +436,12 @@ function YouTubePlaylistProfile() {
                             </TableContainer>
                             <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <Typography variant="caption" color="text.secondary">
-                                    Showing {displayedVideos.length} of {allVideosFromApi.length} available videos
+                                    Showing {displayedVideos.length} of {allVideosFromApi.length} loaded{nextPageToken ? ', more on YouTube' : ''}
                                 </Typography>
-                                {displayedVideos.length < allVideosFromApi.length && (
-                                    <Button size="small" variant="contained" onClick={loadMoreLocal}>Load 10 More</Button>
+                                {(displayedVideos.length < allVideosFromApi.length || nextPageToken) && (
+                                    <Button size="small" variant="contained" onClick={loadMore} disabled={loadingMore}>
+                                        {loadingMore ? <CircularProgress size={18} /> : (displayedVideos.length < allVideosFromApi.length ? 'Load 10 More' : 'Load more from YouTube')}
+                                    </Button>
                                 )}
                             </Box>
                         </>
