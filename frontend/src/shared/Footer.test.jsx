@@ -13,4 +13,12 @@ describe('Footer', () => {
     expect(screen.getByRole('link', { name: 'Google Books' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Open Library' })).toBeInTheDocument();
   });
+
+  it('credits YouTube and links the Terms & Privacy page, as the YouTube API terms ask', () => {
+    renderWithProviders(<Footer />);
+
+    expect(screen.getByText(/video, channel and playlist information from/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'YouTube' })).toHaveAttribute('href', 'https://www.youtube.com');
+    expect(screen.getByRole('link', { name: /terms & privacy/i })).toHaveAttribute('href', '/privacy');
+  });
 });

@@ -6,8 +6,8 @@ import { defaultValues } from './schema';
 
 // Articles and Websites are created from their source (Readwise sync, the website importer),
 // so the type selector must not offer them as things to type in.
-function Harness() {
-  const methods = useForm({ defaultValues });
+function Harness({ values = {} }) {
+  const methods = useForm({ defaultValues: { ...defaultValues, ...values } });
   return (
     <FormProvider {...methods}>
       <CommonFields />
@@ -25,5 +25,16 @@ describe('CommonFields media type selector', () => {
     const options = within(listbox).getAllByRole('option').map((o) => o.textContent);
     expect(options).toEqual(['Book', 'Movie', 'Podcast', 'TV Show', 'Video']);
     expect(options.join(' ')).not.toMatch(/coming soon/i);
+  });
+});
+
+describe('CommonFields ownership status', () => {
+  it('hides the Ownership Status select for a Video and shows it for a Book', () => {
+    const { unmount } = renderWithProviders(<Harness values={{ mediaType: 'Video' }} />, { route: '/add-media' });
+    expect(screen.queryByLabelText(/ownership status/i)).not.toBeInTheDocument();
+    unmount();
+
+    renderWithProviders(<Harness values={{ mediaType: 'Book' }} />, { route: '/add-media' });
+    expect(screen.getByLabelText(/ownership status/i)).toBeInTheDocument();
   });
 });

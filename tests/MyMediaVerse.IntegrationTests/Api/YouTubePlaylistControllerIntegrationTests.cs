@@ -3,8 +3,13 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AwesomeAssertions;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
+using MyMediaVerse.Infrastructure.Data;
 using MyMediaVerse.IntegrationTests.Fixtures;
+using MyMediaVerse.Shared.Interfaces;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using MyMediaVerse.Application.Interfaces;
@@ -154,6 +159,39 @@ namespace MyMediaVerse.IntegrationTests.Api
             response.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
             var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
             body.GetProperty("quotaExceeded").GetBoolean().Should().BeTrue();
+        }
+
+        #endregion
+
+        #region Shared delete
+
+        [Fact]
+        public async Task DeletePlaylist_KeepsItsVideos_DropsTheLinks_AndCleansTheSearchIndex()
+        {
+            var (client, typesense) = _factory.CreateClientWithSubstitute<ITypesenseService>();
+            var playlist = new YouTubePlaylist { Title = "Playlist to delete", PlaylistExternalId = "PLdelete", MediaType = MediaType.Playlist };
+            var video = new Video { Title = "Keeps living", Platform = "YouTube", ExternalId = "keep0000002" };
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<MediaLibraryDbContext>();
+                db.AddRange(playlist, video);
+                db.Add(new YouTubePlaylistVideo { YouTubePlaylistId = playlist.Id, VideoId = video.Id, Position = 0 });
+                await db.SaveChangesAsync();
+            }
+
+            var delete = await client.DeleteAsync($"/api/youtubeplaylist/{playlist.Id}");
+
+            delete.IsSuccessStatusCode.Should().BeTrue();
+            (await client.GetAsync("/api/media")).StatusCode.Should().Be(HttpStatusCode.OK);
+            using (var scope = _factory.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<MediaLibraryDbContext>();
+                (await db.MediaItems.AnyAsync(m => m.Id == playlist.Id)).Should().BeFalse();
+                (await db.Set<YouTubePlaylistVideo>().AnyAsync(link => link.YouTubePlaylistId == playlist.Id)).Should().BeFalse();
+                (await db.Videos.AnyAsync(v => v.Id == video.Id)).Should().BeTrue();
+            }
+            await typesense.Received(1).DeleteMediaItemAsync(playlist.Id);
+            await typesense.DidNotReceive().DeleteMediaItemAsync(video.Id);
         }
 
         #endregion

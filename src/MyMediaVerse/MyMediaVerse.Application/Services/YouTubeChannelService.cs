@@ -355,7 +355,12 @@ namespace MyMediaVerse.Application.Services
 
             try
             {
-                var channel = await GetChannelByIdAsync(channelId);
+                // Tracked on purpose: the channel's topics and genres are attached to the new
+                // videos, so they must be the stored rows, not detached copies.
+                var channel = await _context.YouTubeChannels
+                    .Include(c => c.Topics)
+                    .Include(c => c.Genres)
+                    .FirstOrDefaultAsync(c => c.Id == channelId);
                 if (channel == null)
                 {
                     throw new ArgumentException($"Channel with ID {channelId} not found");

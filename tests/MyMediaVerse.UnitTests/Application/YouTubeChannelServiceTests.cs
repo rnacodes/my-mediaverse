@@ -1,4 +1,5 @@
 using AwesomeAssertions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using MyMediaVerse.Application.Interfaces;
@@ -28,6 +29,13 @@ namespace MyMediaVerse.UnitTests.Application
             _mockYouTubeApiClient = Substitute.For<IYouTubeApiClient>();
             _mockMappingService = Substitute.For<IYouTubeMappingService>();
             _mockLogger = Substitute.For<ILogger<YouTubeChannelService>>();
+
+            var realMapper = new YouTubeMappingService();
+            _mockMappingService
+                .MapPlaylistItemsToVideoEntities(Arg.Any<List<YouTubePlaylistItemDto>>(), Arg.Any<List<YouTubeVideoDto>?>())
+                .Returns(call => realMapper.MapPlaylistItemsToVideoEntities(
+                    call.ArgAt<List<YouTubePlaylistItemDto>>(0), call.ArgAt<List<YouTubeVideoDto>?>(1)));
+
             // Deletes go through the real shared delete path, so its effects are asserted here too.
             var mediaService = new MediaService(
                 Context, Substitute.For<ILogger<MediaService>>(), _mockThumbnailStorage, _mockTypesense);
@@ -371,6 +379,91 @@ namespace MyMediaVerse.UnitTests.Application
             result.Channel.Id.Should().Be(stored.Id);
             Context.YouTubeChannels.Should().ContainSingle();
             await _mockYouTubeApiClient.DidNotReceive().GetChannelDetailsAsync(Arg.Any<string>());
+        }
+
+        #endregion
+
+        #region ImportLatestUploadsAsync Tests
+
+        private static YouTubePlaylistItemDto Upload(string videoId, int position) => new()
+        {
+            Snippet = new YouTubePlaylistItemSnippetDto
+            {
+                Title = $"Upload {videoId}",
+                ChannelTitle = "Channel",
+                Position = position,
+                PublishedAt = new DateTime(2025, 8, 26, 2, 39, 50, DateTimeKind.Utc),
+                ResourceId = new YouTubeResourceIdDto { VideoId = videoId }
+            }
+        };
+
+        /// <summary>YouTube returns details for every requested id, except the ones listed as unavailable.</summary>
+        private void YouTubeReturnsVideoDetails(params string[] unavailable) =>
+            _mockYouTubeApiClient.GetVideosAsync(Arg.Any<List<string>>()).Returns(call => call.Arg<List<string>>()
+                .Where(id => !unavailable.Contains(id))
+                .Select(id => new YouTubeVideoDto
+                {
+                    Id = id,
+                    Snippet = new YouTubeVideoSnippetDto { Title = $"Upload {id}", ChannelId = "UCimp" },
+                    ContentDetails = new YouTubeVideoContentDetailsDto { Duration = "PT5M" }
+                })
+                .ToList());
+
+        [Fact]
+        public async Task ImportLatestUploadsAsync_LinksStoredVideosWithoutAChannel_SkipsLinkedOnes_AndCreatesTheRestUnderTheChannel()
+        {
+            var channel = CreateTestChannel("Imported Channel", "UCimp");
+            channel.Topics.Add(new Topic { Name = "coding" });
+            channel.Genres.Add(new Genre { Name = "tech" });
+            var unlinked = new Video { Title = "Stored, no channel", Platform = "YouTube", ExternalId = "vidA", Link = "https://www.youtube.com/watch?v=vidA" };
+            var linked = new Video { Title = "Stored, linked", Platform = "YouTube", ExternalId = "vidB", Link = "https://www.youtube.com/watch?v=vidB", Channel = channel };
+            Context.AddRange(channel, unlinked, linked);
+            await Context.SaveChangesAsync();
+            _mockYouTubeApiClient.GetChannelUploadsAsync("UCimp", Arg.Any<int>(), null)
+                .Returns(new YouTubePlaylistItemListResponseDto { Items = new List<YouTubePlaylistItemDto> { Upload("vidC", 0), Upload("vidA", 1), Upload("vidB", 2) } });
+            YouTubeReturnsVideoDetails();
+
+            var result = await _service.ImportLatestUploadsAsync(channel.Id, count: 200);
+
+            result.Success.Should().BeTrue();
+            result.RequestedCount.Should().Be(50, "a run never asks YouTube for more than one page");
+            result.CreatedCount.Should().Be(1);
+            result.LinkedCount.Should().Be(1);
+            result.SkippedCount.Should().Be(1);
+            result.FailedCount.Should().Be(0);
+            await _mockYouTubeApiClient.Received(1).GetChannelUploadsAsync("UCimp", 50, null);
+            await _mockYouTubeApiClient.Received(1).GetVideosAsync(Arg.Is<List<string>>(ids => ids.Single() == "vidC"));
+
+            Context.ChangeTracker.Clear();
+            var videos = Context.Videos.Include(v => v.Topics).Include(v => v.Genres).ToList();
+            videos.Should().HaveCount(3);
+            videos.Single(v => v.ExternalId == "vidA").ChannelId.Should().Be(channel.Id);
+            videos.Single(v => v.ExternalId == "vidB").ChannelId.Should().Be(channel.Id);
+            var created = videos.Single(v => v.ExternalId == "vidC");
+            created.ChannelId.Should().Be(channel.Id);
+            created.Status.Should().Be(Status.Uncharted);
+            created.Topics.Select(t => t.Name).Should().Equal("coding");
+            created.Genres.Select(g => g.Name).Should().Equal("tech");
+        }
+
+        [Fact]
+        public async Task ImportLatestUploadsAsync_WhenYouTubeHasNoDetailsForAnUpload_ReportsIt_AndSavesTheOthers()
+        {
+            var channel = CreateTestChannel("Imported Channel", "UCimp");
+            Context.Add(channel);
+            await Context.SaveChangesAsync();
+            _mockYouTubeApiClient.GetChannelUploadsAsync("UCimp", Arg.Any<int>(), null)
+                .Returns(new YouTubePlaylistItemListResponseDto { Items = new List<YouTubePlaylistItemDto> { Upload("vidX", 0), Upload("vidY", 1) } });
+            YouTubeReturnsVideoDetails(unavailable: "vidY");
+
+            var result = await _service.ImportLatestUploadsAsync(channel.Id, count: 25);
+
+            result.Success.Should().BeTrue();
+            result.CreatedCount.Should().Be(1);
+            result.FailedCount.Should().Be(1);
+            result.Warnings.Should().ContainSingle(w => w.Contains("vidY"));
+            Context.ChangeTracker.Clear();
+            Context.Videos.Select(v => v.ExternalId).Should().Equal("vidX");
         }
 
         #endregion

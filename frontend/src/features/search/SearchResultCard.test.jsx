@@ -35,6 +35,12 @@ describe('SearchResultCard navigation', () => {
     expect(screen.getByRole('link')).toHaveAttribute('href', '/media/abc-123');
   });
 
+  it('links a YouTube playlist to its own page', () => {
+    renderCard({ mediaType: 'Playlist', videoCount: 6 });
+
+    expect(screen.getByRole('link')).toHaveAttribute('href', '/youtube-playlist/abc-123');
+  });
+
   it('links a highlight to /highlight/:id', () => {
     renderCard({ isHighlight: true, mediaType: 'Highlight' });
 

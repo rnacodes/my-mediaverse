@@ -94,6 +94,17 @@ export const handlers = [
   http.get(`${API_BASE}/youtube/playlists/:id`, ({ params }) =>
     HttpResponse.json(makeYouTubePlaylist({ id: params.id })),
   ),
+  // Imports answer 201 for a new item; a test overrides with 200 for "already in the library".
+  http.post(`${API_BASE}/youtube/import/video/:videoId`, ({ params }) =>
+    HttpResponse.json({ id: `imported-${params.videoId}`, title: 'Imported video', mediaType: 'Video' }, { status: 201 }),
+  ),
+  http.post(`${API_BASE}/youtubechannel/:id/import-latest`, ({ params }) =>
+    HttpResponse.json({
+      success: true, operation: 'youtube-channel-import-latest', channelId: params.id,
+      requestedCount: 25, createdCount: 0, linkedCount: 0, skippedCount: 0, failedCount: 0,
+      warnings: [], errors: [], reindexTriggered: false,
+    }),
+  ),
 
   // --- Highlights / Notes ---
   http.get(`${API_BASE}/notes`, () => HttpResponse.json([makeNote()])),
