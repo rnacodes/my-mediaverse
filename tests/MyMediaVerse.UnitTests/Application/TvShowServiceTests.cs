@@ -107,55 +107,6 @@ namespace MyMediaVerse.UnitTests.Application
 
         #endregion
 
-        #region GetTvShowsByCreatorAsync Tests
-
-        [Fact(Skip = "ILike is PostgreSQL-specific and not supported in InMemory database. Test in integration tests instead.")]
-        public async Task GetTvShowsByCreatorAsync_ShouldReturnTvShowsByCreator()
-        {
-            // Arrange
-            var tvShows = new List<TvShow>
-            {
-                new TvShow { Id = Guid.NewGuid(), Title = "Breaking Bad", Creator = "Vince Gilligan", Topics = new List<Topic>(), Genres = new List<Genre>() },
-                new TvShow { Id = Guid.NewGuid(), Title = "Better Call Saul", Creator = "Vince Gilligan", Topics = new List<Topic>(), Genres = new List<Genre>() },
-                new TvShow { Id = Guid.NewGuid(), Title = "Game of Thrones", Creator = "David Benioff", Topics = new List<Topic>(), Genres = new List<Genre>() }
-            };
-            Context.TvShows.AddRange(tvShows);
-            await Context.SaveChangesAsync();
-
-            // Act
-            var result = await _service.GetTvShowsByCreatorAsync("Vince Gilligan");
-
-            // Assert
-            result.Should().NotBeNull();
-            result.Should().HaveCount(2);
-            result.Should().OnlyContain(t => t.Creator!.Contains("Vince Gilligan"));
-        }
-
-        [Fact(Skip = "ILike is PostgreSQL-specific and not supported in InMemory database. Test in integration tests instead.")]
-        public async Task GetTvShowsByCreatorAsync_ShouldBeCaseInsensitive()
-        {
-            // Arrange
-            var tvShow = new TvShow 
-            { 
-                Id = Guid.NewGuid(), 
-                Title = "Breaking Bad", 
-                Creator = "Vince Gilligan", 
-                Topics = new List<Topic>(), 
-                Genres = new List<Genre>() 
-            };
-            Context.TvShows.Add(tvShow);
-            await Context.SaveChangesAsync();
-
-            // Act
-            var result = await _service.GetTvShowsByCreatorAsync("vince gilligan");
-
-            // Assert
-            result.Should().HaveCount(1);
-            result.First().Creator.Should().Be("Vince Gilligan");
-        }
-
-        #endregion
-
         #region GetTvShowsByYearAsync Tests
 
         [Fact]
