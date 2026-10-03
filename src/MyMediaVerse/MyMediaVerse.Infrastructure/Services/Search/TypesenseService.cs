@@ -889,7 +889,7 @@ namespace MyMediaVerse.Infrastructure.Services.Search
         /// Copies the type-specific values onto the document. Shared by the single-item upsert and the
         /// bulk reindex; a null value leaves the document field unset.
         /// </summary>
-        private static void ApplyAdditionalFields(MediaItemDocument document, Dictionary<string, object> additionalFields)
+        internal static void ApplyAdditionalFields(MediaItemDocument document, Dictionary<string, object> additionalFields)
         {
             if (additionalFields.TryGetValue("author", out var author))
                 document.Author = author?.ToString();
@@ -933,6 +933,18 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 document.SeasonNumber = Convert.ToInt32(seasonNumber);
             if (additionalFields.TryGetValue("episode_number", out var episodeNumber) && episodeNumber != null)
                 document.EpisodeNumber = Convert.ToInt32(episodeNumber);
+            if (additionalFields.TryGetValue("channel_title", out var channelTitle))
+                document.ChannelTitle = channelTitle?.ToString();
+            if (additionalFields.TryGetValue("channel_id", out var channelId))
+                document.ChannelId = channelId?.ToString();
+            if (additionalFields.TryGetValue("length_in_seconds", out var lengthInSeconds) && lengthInSeconds != null)
+                document.LengthInSeconds = Convert.ToInt32(lengthInSeconds);
+            if (additionalFields.TryGetValue("channel_external_id", out var channelExternalId))
+                document.ChannelExternalId = channelExternalId?.ToString();
+            if (additionalFields.TryGetValue("subscriber_count", out var subscriberCount) && subscriberCount != null)
+                document.SubscriberCount = Convert.ToInt64(subscriberCount);
+            if (additionalFields.TryGetValue("video_count", out var videoCount) && videoCount != null)
+                document.VideoCount = Convert.ToInt32(videoCount);
         }
 
         /// <summary>

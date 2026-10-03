@@ -201,5 +201,34 @@ namespace MyMediaVerse.UnitTests.Infrastructure
 
             missing.Should().BeEmpty();
         }
+
+        // Columns the document builder sets directly; everything else in the schema must be copied
+        // from the per-type field dictionary, or a new schema field silently never reaches the index
+        private static readonly HashSet<string> BaseColumns = new()
+        {
+            "id", "title", "media_type", "description", "topics", "genres", "date_added", "status", "rating", "thumbnail",
+            "embedding", "embedding_source"
+        };
+
+        [Fact]
+        public void ApplyAdditionalFields_CopiesEveryTypeSpecificSchemaField_OntoTheDocument()
+        {
+            var fields = TypesenseService.MediaBaseFields().Where(f => !BaseColumns.Contains(f.Name)).ToList();
+            var values = fields.ToDictionary(f => f.Name, f => (object)(f.Type switch
+            {
+                FieldType.Int32 => 7,
+                FieldType.Int64 => 7L,
+                FieldType.Float => 7.5,
+                FieldType.Bool => true,
+                _ => "seven"
+            }));
+            var document = new MyMediaVerse.Infrastructure.Models.MediaItemDocument { Id = "1", Title = "t", MediaType = "Video", Status = "Uncharted" };
+
+            TypesenseService.ApplyAdditionalFields(document, values);
+
+            var json = System.Text.Json.JsonSerializer.Serialize(document);
+            var missing = fields.Select(f => f.Name).Where(name => !json.Contains($"\"{name}\":")).ToList();
+            missing.Should().BeEmpty("every type-specific schema field needs a line in ApplyAdditionalFields");
+        }
     }
 }
