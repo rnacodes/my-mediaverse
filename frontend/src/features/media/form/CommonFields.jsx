@@ -13,6 +13,7 @@ function CommonFields({ lockMediaType = false }) {
   const { control, watch, setValue, formState: { errors } } = useFormContext();
   const status = watch('status');
   const thumbnail = watch('thumbnail');
+  const mediaType = watch('mediaType');
 
   // Local inputs that drive the topic/genre search queries.
   const [genreInput, setGenreInput] = useState('');
@@ -162,22 +163,24 @@ function CommonFields({ lockMediaType = false }) {
         </FormControl>
       )}
 
-      {/* Ownership Status */}
-      <FormControl fullWidth margin="normal" sx={{ mb: 3, ...selectFormSx }}>
-        <InputLabel id="ownership-label">Ownership Status</InputLabel>
-        <Controller
-          name="ownershipStatus"
-          control={control}
-          render={({ field }) => (
-            <Select labelId="ownership-label" label="Ownership Status" {...field}>
-              <MenuItem value="">None</MenuItem>
-              <MenuItem value="Own">Own</MenuItem>
-              <MenuItem value="Rented">Rented</MenuItem>
-              <MenuItem value="Streamed">Streamed</MenuItem>
-            </Select>
-          )}
-        />
-      </FormControl>
+      {/* Ownership Status — not kept for videos, so the select is hidden for that type */}
+      {mediaType !== 'Video' && (
+        <FormControl fullWidth margin="normal" sx={{ mb: 3, ...selectFormSx }}>
+          <InputLabel id="ownership-label">Ownership Status</InputLabel>
+          <Controller
+            name="ownershipStatus"
+            control={control}
+            render={({ field }) => (
+              <Select labelId="ownership-label" label="Ownership Status" {...field}>
+                <MenuItem value="">None</MenuItem>
+                <MenuItem value="Own">Own</MenuItem>
+                <MenuItem value="Rented">Rented</MenuItem>
+                <MenuItem value="Streamed">Streamed</MenuItem>
+              </Select>
+            )}
+          />
+        </FormControl>
+      )}
 
       {/* Thumbnail URL */}
       <ControlledTextField

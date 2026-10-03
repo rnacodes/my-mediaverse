@@ -116,10 +116,17 @@ export const getYouTubeChannelUploads = async (channelId, maxResults = 25, pageT
     }
 };
 
+// The import endpoints answer 201 when they created the item and 200 when the
+// library already held it. Callers get that as `alreadyInLibrary` beside the body.
+const withImportStatus = (response) => ({
+    ...response.data,
+    alreadyInLibrary: response.status === 200
+});
+
 export const importYouTubeVideo = async (videoId) => {
     try {
         const response = await apiClient.post(`/youtube/import/video/${videoId}`);
-        return response.data;
+        return withImportStatus(response);
     } catch (error) {
         console.error('Error importing YouTube video:', error);
         throw error;
@@ -202,7 +209,7 @@ export const deleteYouTubeChannel = async (id) => {
 export const importYouTubeChannelEntity = async (channelId) => {
     try {
         const response = await apiClient.post(`/youtubechannel/import/${channelId}`);
-        return response.data;
+        return withImportStatus(response);
     } catch (error) {
         console.error('Error importing YouTube channel entity:', error);
         throw error;
@@ -232,7 +239,7 @@ export const checkYouTubeChannelExists = async (externalId) => {
 export const importFromYouTubeUrl = async (url) => {
     try {
         const response = await apiClient.post('/youtube/import/url', { url });
-        return response.data;
+        return withImportStatus(response);
     } catch (error) {
         console.error('Error importing from YouTube URL:', error);
         throw error;
@@ -292,7 +299,7 @@ export const getYouTubePlaylistVideos = async (id) => {
 export const importYouTubePlaylistEntity = async (playlistExternalId) => {
     try {
         const response = await apiClient.post(`/youtubeplaylist/import/${playlistExternalId}`);
-        return response.data;
+        return withImportStatus(response);
     } catch (error) {
         console.error('Error importing YouTube playlist:', error);
         throw error;

@@ -151,6 +151,9 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
           link: mediaItem.link || '',
           notes: mediaItem.notes || '',
           status: mediaItem.status,
+          // The video PUT replaces these, so send what the item already has.
+          rating: mediaItem.rating || null,
+          dateCompleted: mediaItem.dateCompleted || null,
           description: mediaItem.description || '',
           thumbnail: mediaItem.thumbnail || '',
           topics: mediaItem.topicNames || mediaItem.topics || [],
@@ -1302,21 +1305,23 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
             {/* Link to Channel button - shown when video has no channel */}
             {!mediaItem.channel && (
               <Box sx={{ mt: 1 }}>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={handleOpenChannelDialog}
-                  sx={{
-                    borderColor: 'rgba(255, 255, 255, 0.3)',
-                    color: 'text.primary',
-                    '&:hover': {
-                      borderColor: 'rgba(255, 255, 255, 0.5)',
-                      backgroundColor: 'rgba(255, 255, 255, 0.05)'
-                    }
-                  }}
-                >
-                  Link to Channel
-                </Button>
+                <DemoWriteGuard>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={handleOpenChannelDialog}
+                    sx={{
+                      borderColor: 'rgba(255, 255, 255, 0.3)',
+                      color: 'text.primary',
+                      '&:hover': {
+                        borderColor: 'rgba(255, 255, 255, 0.5)',
+                        backgroundColor: 'rgba(255, 255, 255, 0.05)'
+                      }
+                    }}
+                  >
+                    Link to Channel
+                  </Button>
+                </DemoWriteGuard>
               </Box>
             )}
 

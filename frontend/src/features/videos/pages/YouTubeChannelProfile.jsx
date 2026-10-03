@@ -8,6 +8,7 @@ import {
 import { getYouTubeChannelUploads, importYouTubeVideo } from '@/api/youtubeService';
 import MediaHeader from '@/features/media/MediaHeader';
 import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
+import { DEMO_IMPORT_BLOCKED } from '@/features/demo/demoMessages';
 import MediaInfoCard from '@/features/media/MediaInfoCard';
 import MediaDetailAccordion from '@/features/media/MediaDetailAccordion';
 import MixlistCarousel from '@/features/mixlists/MixlistCarousel';
@@ -328,9 +329,11 @@ function YouTubeChannelProfile() {
                                                         {importedVideos.has(videoId) ? (
                                                             <CheckCircle color="success" />
                                                         ) : (
-                                                            <IconButton onClick={() => handleImportVideo(video)} disabled={importingVideo === videoId}>
-                                                                {importingVideo === videoId ? <CircularProgress size={20} /> : <Add />}
-                                                            </IconButton>
+                                                            <DemoWriteGuard title={DEMO_IMPORT_BLOCKED}>
+                                                                <IconButton onClick={() => handleImportVideo(video)} disabled={importingVideo === videoId}>
+                                                                    {importingVideo === videoId ? <CircularProgress size={20} /> : <Add />}
+                                                                </IconButton>
+                                                            </DemoWriteGuard>
                                                         )}
                                                     </TableCell>
                                                     <TableCell sx={{ fontWeight: 500 }}>{title}</TableCell>

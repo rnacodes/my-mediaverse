@@ -33,7 +33,7 @@ const mockMediaItems = [
   {
     id: 3,
     title: 'Breaking Bad',
-    mediaType: 'tv',
+    mediaType: 'tvshow',
     status: 'completed',
     rating: 5.0,
     notes: 'One of the greatest TV series ever made.',
@@ -77,7 +77,7 @@ const mediaTypeIcons = {
   podcast: <Podcasts />,
   book: <Book />,
   movie: <Movie />,
-  tv: <Tv />,
+  tvshow: <Tv />,
   article: <Article />,
   music: <LibraryMusic />,
   game: <SportsEsports />,

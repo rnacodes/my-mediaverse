@@ -40,6 +40,12 @@ const PROVIDERS = {
         url: 'https://podcastindex.org',
         text: 'Found via',
     },
+    youtube: {
+        layout: 'text',
+        name: 'YouTube',
+        url: 'https://www.youtube.com',
+        text: 'Video, channel and playlist information from',
+    },
 };
 
 function AttributionBadge({ provider, size = 'medium', className, sx }) {

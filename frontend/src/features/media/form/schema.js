@@ -339,8 +339,9 @@ export function buildTvShowPayload(d) {
 }
 
 export function buildVideoPayload(d) {
+  const { ownershipStatus: _ownershipStatus, ...base } = typedBase(d, 'Video');
   return {
-    ...typedBase(d, 'Video'),
+    ...base,
     platform: d.platform || 'YouTube',
     lengthInSeconds: d.lengthInSeconds ? parseInt(d.lengthInSeconds, 10) : 0,
     externalId: d.externalId || null,

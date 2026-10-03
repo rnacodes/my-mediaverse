@@ -55,6 +55,7 @@ import DemoDataUploadPage from './features/demo/pages/DemoDataUploadPage';
 
 const DemoUnlockPage = lazy(() => import('./features/demo/pages/DemoUnlockPage'));
 const DemoPage = lazy(() => import('./features/demo/pages/DemoPage'));
+const PrivacyPage = lazy(() => import('./features/legal/pages/PrivacyPage'));
 const ImportMixlistPage = lazy(() => import('./features/imports/pages/ImportMixlistPage'));
 const TypesenseAdminPage = lazy(() => import('./features/admin/pages/TypesenseAdminPage'));
 const BackgroundJobsPage = lazy(() => import('./features/admin/pages/BackgroundJobsPage'));
@@ -91,6 +92,7 @@ function RoutedContent() {
                 send visitors to the unlock page instead. */}
             <Route path="/login" element={isDemoMode() ? <Navigate to="/demo-unlock" replace /> : <LoginPage />} />
             <Route path="/demo" element={<DemoPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
 
             {/* Protected routes - require login in production, open in demo */}
             <Route path="/" element={
