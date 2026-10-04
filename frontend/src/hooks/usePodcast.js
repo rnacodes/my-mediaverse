@@ -132,7 +132,8 @@ export function usePodcastEpisode(id, options = {}) {
 export function useCreatePodcastSeries() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (seriesData) => createPodcastSeries(seriesData).then((r) => r.data),
+    // 201 = created, 200 = the library already held it (same flag as the YouTube imports).
+    mutationFn: (seriesData) => createPodcastSeries(seriesData).then((r) => ({ ...r.data, alreadyInLibrary: r.status === 200 })),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: podcastKeys.series.lists() });
       queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
@@ -239,7 +240,7 @@ export function useImportPodcastSeriesFromFeed() {
 export function useCreatePodcastEpisode() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (episodeData) => createPodcastEpisode(episodeData).then((r) => r.data),
+    mutationFn: (episodeData) => createPodcastEpisode(episodeData).then((r) => ({ ...r.data, alreadyInLibrary: r.status === 200 })),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: podcastKeys.episodes.lists() });
     },

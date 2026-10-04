@@ -28,7 +28,8 @@ export function usePlaylistsForVideo(videoId, options = {}) {
 export function useCreateVideo() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (videoData) => createVideo(videoData).then((r) => r.data),
+    // 201 = created, 200 = the library already held it (same flag as the YouTube imports).
+    mutationFn: (videoData) => createVideo(videoData).then((r) => ({ ...r.data, alreadyInLibrary: r.status === 200 })),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: videoKeys.lists() });
       queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });

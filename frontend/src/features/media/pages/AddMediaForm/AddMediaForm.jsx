@@ -57,6 +57,10 @@ function AddMediaForm() {
       const created = await createMediaItem(data);
       const mediaId = created.id || created.Id;
 
+      if (created.alreadyInLibrary) {
+        alert(`"${created.title}" is already in your library, so nothing new was added. Opening the existing item.`);
+      }
+
       for (const mixlist of data.selectedMixlists) {
         if (!mediaId) break;
         try {
