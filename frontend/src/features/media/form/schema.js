@@ -1,7 +1,5 @@
 import { z } from 'zod';
 
-export const SUPPORTED_TYPES = ['Podcast', 'Book', 'Movie', 'TVShow', 'Video'];
-
 export const defaultValues = {
   title: '',
   mediaType: '',
@@ -35,6 +33,7 @@ export const defaultValues = {
   seasonNumber: '',
   releaseDate: '',
   audioLink: '',
+  rssFeedUrl: '',
   // Movie
   director: '',
   releaseYear: '',
@@ -60,6 +59,16 @@ export const defaultValues = {
   platform: 'YouTube',
   lengthInSeconds: '',
   externalId: '',
+  // Website (also uses author + rssFeedUrl)
+  publication: '',
+};
+
+// Base fields a source owns, by media type. The edit form disables these and
+// sends their stored values back unchanged.
+export const lockedFieldsByType = {
+  Article: ['title', 'link', 'description', 'thumbnail', 'status'],
+  Channel: ['link', 'thumbnail'],
+  Playlist: ['link', 'thumbnail'],
 };
 
 export const mediaSchema = z
@@ -96,6 +105,7 @@ export const mediaSchema = z
     seasonNumber: z.string().optional(),
     releaseDate: z.string().optional(),
     audioLink: z.string().optional(),
+    rssFeedUrl: z.string().optional(),
     // Movie
     director: z.string().optional(),
     releaseYear: z.string().optional(),
@@ -121,6 +131,8 @@ export const mediaSchema = z
     platform: z.string(),
     lengthInSeconds: z.string().optional(),
     externalId: z.string().optional(),
+    // Website
+    publication: z.string().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.mediaType === 'Book' && !data.author?.trim()) {
@@ -227,8 +239,16 @@ export function mapMediaItemToFormValues(mediaItem) {
         ...base,
         podcastType: 'Series',
         publisher: m.publisher ?? '',
+        rssFeedUrl: m.rssFeedUrl ?? '',
       };
     }
+    case 'Website':
+      return {
+        ...base,
+        rssFeedUrl: m.rssFeedUrl ?? '',
+        author: m.author ?? '',
+        publication: m.publication ?? '',
+      };
     default:
       return base;
   }
@@ -303,6 +323,7 @@ export function buildSeriesPayload(d) {
   return {
     ...typedBase(d, 'Podcast'),
     publisher: d.publisher || null,
+    rssFeedUrl: d.rssFeedUrl?.trim() || null,
   };
 }
 
@@ -345,5 +366,17 @@ export function buildVideoPayload(d) {
     platform: d.platform || 'YouTube',
     lengthInSeconds: d.lengthInSeconds ? parseInt(d.lengthInSeconds, 10) : 0,
     externalId: d.externalId || null,
+  };
+}
+
+// Matches CreateWebsiteDto, which names the link `url` and has no ownership status.
+export function buildWebsitePayload(d) {
+  const { link, mediaType: _mediaType, ownershipStatus: _ownershipStatus, ...base } = typedBase(d, 'Website');
+  return {
+    ...base,
+    url: link,
+    rssFeedUrl: d.rssFeedUrl?.trim() || null,
+    author: d.author?.trim() || null,
+    publication: d.publication?.trim() || null,
   };
 }

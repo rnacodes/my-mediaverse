@@ -9,7 +9,13 @@ import { useUploadThumbnail } from '@/hooks/useUpload';
 import { ControlledTextField } from '@/shared/form/controls';
 import { fieldSx, selectFormSx } from '@/shared/form/styles';
 
-function CommonFields({ lockMediaType = false }) {
+// Types that keep no ownership status.
+const NO_OWNERSHIP_TYPES = ['Video', 'Website', 'Article', 'Channel', 'Playlist'];
+
+// lockedFields names the source-owned inputs to disable (title, link, description,
+// thumbnail, status). Their values stay in the form, so they are saved back unchanged.
+function CommonFields({ lockMediaType = false, lockedFields = [] }) {
+  const isLocked = (name) => lockedFields.includes(name);
   const { control, watch, setValue, formState: { errors } } = useFormContext();
   const status = watch('status');
   const thumbnail = watch('thumbnail');
@@ -54,6 +60,7 @@ function CommonFields({ lockMediaType = false }) {
             variant="outlined"
             fullWidth
             required
+            disabled={isLocked('title')}
             margin="normal"
             sx={{
               mb: 3,
@@ -83,6 +90,13 @@ function CommonFields({ lockMediaType = false }) {
               <MenuItem value="Podcast">Podcast</MenuItem>
               <MenuItem value="TVShow">TV Show</MenuItem>
               <MenuItem value="Video">Video</MenuItem>
+              {/* Shown on the locked edit form only, so the field can name these types. */}
+              {lockMediaType && [
+                <MenuItem key="Article" value="Article">Article</MenuItem>,
+                <MenuItem key="Website" value="Website">Website</MenuItem>,
+                <MenuItem key="Channel" value="Channel">Channel</MenuItem>,
+                <MenuItem key="Playlist" value="Playlist">Playlist</MenuItem>,
+              ]}
             </Select>
           )}
         />
@@ -94,7 +108,7 @@ function CommonFields({ lockMediaType = false }) {
       )}
 
       {/* Link */}
-      <ControlledTextField name="link" label="Link" placeholder="https://example.com" variant="outlined" fullWidth margin="normal" sx={{ mb: 3 }} />
+      <ControlledTextField name="link" label="Link" placeholder="https://example.com" variant="outlined" fullWidth margin="normal" disabled={isLocked('link')} sx={{ mb: 3 }} />
 
       {/* Description */}
       <ControlledTextField
@@ -106,6 +120,7 @@ function CommonFields({ lockMediaType = false }) {
         multiline
         rows={3}
         margin="normal"
+        disabled={isLocked('description')}
         sx={{ mb: 3 }}
       />
 
@@ -120,10 +135,10 @@ function CommonFields({ lockMediaType = false }) {
             control={control}
             render={({ field }) => (
               <RadioGroup {...field} row sx={{ gap: 2, '& .MuiFormControlLabel-label': { fontSize: '14px' } }}>
-                <FormControlLabel value="Uncharted" control={<Radio size="small" />} label="Uncharted" />
-                <FormControlLabel value="ActivelyExploring" control={<Radio size="small" />} label="Actively Exploring" />
-                <FormControlLabel value="Completed" control={<Radio size="small" />} label="Completed" />
-                <FormControlLabel value="Abandoned" control={<Radio size="small" />} label="Abandoned" />
+                <FormControlLabel value="Uncharted" control={<Radio size="small" />} label="Uncharted" disabled={isLocked('status')} />
+                <FormControlLabel value="ActivelyExploring" control={<Radio size="small" />} label="Actively Exploring" disabled={isLocked('status')} />
+                <FormControlLabel value="Completed" control={<Radio size="small" />} label="Completed" disabled={isLocked('status')} />
+                <FormControlLabel value="Abandoned" control={<Radio size="small" />} label="Abandoned" disabled={isLocked('status')} />
               </RadioGroup>
             )}
           />
@@ -163,8 +178,8 @@ function CommonFields({ lockMediaType = false }) {
         </FormControl>
       )}
 
-      {/* Ownership Status — not kept for videos, so the select is hidden for that type */}
-      {mediaType !== 'Video' && (
+      {/* Ownership Status — hidden for the types that do not keep one */}
+      {!NO_OWNERSHIP_TYPES.includes(mediaType) && (
         <FormControl fullWidth margin="normal" sx={{ mb: 3, ...selectFormSx }}>
           <InputLabel id="ownership-label">Ownership Status</InputLabel>
           <Controller
@@ -190,33 +205,36 @@ function CommonFields({ lockMediaType = false }) {
         variant="outlined"
         fullWidth
         margin="normal"
+        disabled={isLocked('thumbnail')}
       />
 
       {/* Thumbnail Upload */}
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="body1" sx={{ mb: 2, fontSize: '16px', fontWeight: 'bold', color: '#ffffff' }}>
-          Upload Thumbnail
-        </Typography>
-        <Button
-          variant="contained"
-          color="secondary"
-          component="label"
-          sx={{ fontSize: '16px', fontWeight: 'bold', textTransform: 'none', py: 1.5, px: 3, borderRadius: '8px', color: '#ffffff' }}
-        >
-          Choose File
-          <input type="file" accept="image/*" hidden onChange={handleThumbnailUpload} />
-        </Button>
-        {thumbnailFile && (
-          <Typography variant="body2" sx={{ mt: 1, fontSize: '14px', color: '#ffffff' }}>
-            Selected: {thumbnailFile.name}
+      {!isLocked('thumbnail') && (
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="body1" sx={{ mb: 2, fontSize: '16px', fontWeight: 'bold', color: '#ffffff' }}>
+            Upload Thumbnail
           </Typography>
-        )}
-        {!thumbnailFile && thumbnail && (
-          <Typography variant="body2" sx={{ mt: 1, fontSize: '14px', color: '#ffffff' }}>
-            Current: {thumbnail}
-          </Typography>
-        )}
-      </Box>
+          <Button
+            variant="contained"
+            color="secondary"
+            component="label"
+            sx={{ fontSize: '16px', fontWeight: 'bold', textTransform: 'none', py: 1.5, px: 3, borderRadius: '8px', color: '#ffffff' }}
+          >
+            Choose File
+            <input type="file" accept="image/*" hidden onChange={handleThumbnailUpload} />
+          </Button>
+          {thumbnailFile && (
+            <Typography variant="body2" sx={{ mt: 1, fontSize: '14px', color: '#ffffff' }}>
+              Selected: {thumbnailFile.name}
+            </Typography>
+          )}
+          {!thumbnailFile && thumbnail && (
+            <Typography variant="body2" sx={{ mt: 1, fontSize: '14px', color: '#ffffff' }}>
+              Current: {thumbnail}
+            </Typography>
+          )}
+        </Box>
+      )}
 
       {/* Genres */}
       <Box sx={{ mb: 3 }}>

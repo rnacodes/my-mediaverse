@@ -16,6 +16,8 @@ import { useUpdateBook } from '@/hooks/useBook';
 import { useUpdateMovie } from '@/hooks/useMovie';
 import { useUpdateTvShow } from '@/hooks/useTvShow';
 import { useUpdateVideo } from '@/hooks/useVideo';
+import { useUpdateWebsite } from '@/hooks/useWebsite';
+import { useYouTubeChannel, useYouTubePlaylist } from '@/hooks/useYoutube';
 import { useUpdatePodcastSeries, useUpdatePodcastEpisode } from '@/hooks/usePodcast';
 import { useNotesForMedia, useUnlinkNoteFromMedia } from '@/hooks/useNote';
 import { useAllMixlists, useRemoveMediaFromMixlist } from '@/hooks/useMixlist';
@@ -24,12 +26,13 @@ import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
 import { useDemoWriteBlocked } from '@/features/demo/useDemoWriteBlocked';
 import { DEMO_EDIT_BLOCKED } from '@/features/demo/demoMessages';
 import {
-  mediaSchema, defaultValues, mapMediaItemToFormValues,
+  mediaSchema, defaultValues, mapMediaItemToFormValues, lockedFieldsByType,
   buildBookPayload, buildEpisodePayload, buildSeriesPayload,
-  buildMoviePayload, buildTvShowPayload, buildVideoPayload, buildMediaPayload,
+  buildMoviePayload, buildTvShowPayload, buildVideoPayload, buildWebsitePayload, buildMediaPayload,
 } from '@/features/media/form/schema';
 import CommonFields from '@/features/media/form/CommonFields';
 import TypeSpecificFields from '@/features/media/form/TypeSpecificFields';
+import ManagedBySourceFields from '@/features/media/form/ManagedBySourceFields';
 import LinkNotesDialog from './LinkNotesDialog';
 import AddToMixlistDialog from './AddToMixlistDialog';
 import { getVaultColor } from './schema';
@@ -49,6 +52,10 @@ function EditMediaForm() {
 
   // Base + type-specific detail, merged for prefill.
   const { basicQuery, mediaItem, isDetailReady, isLoading, error } = useMergedMediaItem(id);
+
+  const channelQuery = useYouTubeChannel(id, { enabled: mediaItem?.mediaType === 'Channel' });
+  const playlistQuery = useYouTubePlaylist(id, false, { enabled: mediaItem?.mediaType === 'Playlist' });
+  const lastSyncedAt = channelQuery.data?.lastSyncedAt ?? playlistQuery.data?.lastSyncedAt;
 
   const linkedNotesQuery = useNotesForMedia(id);
   const linkedNotes = linkedNotesQuery.data ?? [];
@@ -70,6 +77,7 @@ function EditMediaForm() {
   const updateMovie = useUpdateMovie();
   const updateTvShow = useUpdateTvShow();
   const updateVideo = useUpdateVideo();
+  const updateWebsite = useUpdateWebsite();
   const updateSeries = useUpdatePodcastSeries();
   const updateEpisode = useUpdatePodcastEpisode();
   const updateMedia = useUpdateMedia();
@@ -118,6 +126,8 @@ function EditMediaForm() {
         return updateTvShow.mutateAsync({ id, tvShowData: buildTvShowPayload(data) });
       case 'Video':
         return updateVideo.mutateAsync({ id, videoData: buildVideoPayload(data) });
+      case 'Website':
+        return updateWebsite.mutateAsync({ id, websiteData: buildWebsitePayload(data) });
       case 'Podcast':
         return data.podcastType === 'Episode'
           ? updateEpisode.mutateAsync({ id, episodeData: buildEpisodePayload(data), seriesId: data.podcastSeriesId })
@@ -231,8 +241,9 @@ function EditMediaForm() {
             <FormProvider {...methods}>
               <Box component="form" onSubmit={handleSubmit(onSubmit)}>
                 {/* Shared common + type-specific fields (media type locked) */}
-                <CommonFields lockMediaType />
+                <CommonFields lockMediaType lockedFields={lockedFieldsByType[mediaItem?.mediaType] ?? []} />
                 <TypeSpecificFields editing />
+                <ManagedBySourceFields mediaItem={mediaItem} lastSyncedAt={lastSyncedAt} />
 
                 {/* Mixlists */}
                 <Box sx={{ border: '1px solid rgba(255, 255, 255, 0.23)', borderRadius: 1, p: 2, mt: 3 }}>

@@ -431,6 +431,29 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         [Fact]
+        public async Task UpdateWebsiteAsync_StatusSentWithBlankRatingAndDate_ClearsThem()
+        {
+            var existing = TestDataFactory.CreateWebsite("Site", "https://site.com", "site.com");
+            existing.Status = Status.Completed;
+            existing.Rating = Rating.SuperLike;
+            existing.DateCompleted = DateTime.UtcNow;
+            Context.Websites.Add(existing);
+            await Context.SaveChangesAsync();
+            Context.ChangeTracker.Clear();
+
+            var dto = TestDataFactory.CreateWebsiteDto("Site", "https://site.com");
+            dto.Status = Status.Uncharted;
+            dto.Rating = null;
+            dto.DateCompleted = null;
+
+            var result = await _websiteService.UpdateWebsiteAsync(existing.Id, dto);
+
+            result.Status.Should().Be(Status.Uncharted);
+            result.Rating.Should().BeNull();
+            result.DateCompleted.Should().BeNull();
+        }
+
+        [Fact]
         public async Task UpdateWebsiteAsync_ReplacesTopicsAndGenres()
         {
             var existing = TestDataFactory.CreateWebsite("Site", "https://site.com", "site.com");

@@ -4,6 +4,7 @@ import PodcastFields from './PodcastFields';
 import MovieFields from './MovieFields';
 import TVShowFields from './TVShowFields';
 import VideoFields from './VideoFields';
+import WebsiteFields from './WebsiteFields';
 
 function TypeSpecificFields({ editing = false }) {
   const { watch } = useFormContext();
@@ -20,6 +21,8 @@ function TypeSpecificFields({ editing = false }) {
       return <TVShowFields />;
     case 'Video':
       return <VideoFields />;
+    case 'Website':
+      return <WebsiteFields />;
     default:
       return null;
   }

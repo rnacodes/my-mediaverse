@@ -145,10 +145,12 @@ namespace MyMediaVerse.Application.Services
             website.Publication = dto.Publication;
             website.LastCheckedDate = DateTime.UtcNow;
 
-            // Null means "leave as is" so callers that never sent these fields keep their values.
-            if (dto.Status.HasValue) website.Status = dto.Status.Value;
-            if (dto.Rating.HasValue) website.Rating = dto.Rating;
-            if (dto.DateCompleted.HasValue) website.DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted);
+            if (dto.Status.HasValue)
+            {
+                website.Status = dto.Status.Value;
+                website.Rating = dto.Rating;
+                website.DateCompleted = DateTimeNormalizer.ToUtc(dto.DateCompleted);
+            }
 
             website.Topics.Clear();
             await HandleTopicsAsync(website, dto.Topics);
