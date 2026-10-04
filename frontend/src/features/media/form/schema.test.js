@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildVideoPayload, buildEpisodePayload, buildSeriesPayload,
-  buildMoviePayload, buildTvShowPayload, buildBookPayload,
+  buildMoviePayload, buildTvShowPayload, buildBookPayload, buildWebsitePayload,
   mapMediaItemToFormValues,
 } from './schema';
 
@@ -213,5 +213,55 @@ describe('mapMediaItemToFormValues', () => {
       externalId: 'abc123',
     });
     expect(values).toMatchObject({ platform: 'Vimeo', lengthInSeconds: '120', externalId: 'abc123' });
+  });
+});
+
+describe('buildWebsitePayload', () => {
+  it('sends the link as url, with the website fields and no ownership status', () => {
+    const payload = buildWebsitePayload({
+      title: 'Example Blog',
+      link: 'https://example.com/blog',
+      status: 'Uncharted',
+      ownershipStatus: 'Own',
+      rssFeedUrl: ' https://example.com/feed.xml ',
+      author: 'Ada',
+      publication: '',
+      topics: ['tech'],
+      genres: [],
+    });
+
+    expect(payload).toMatchObject({
+      url: 'https://example.com/blog',
+      title: 'Example Blog',
+      status: 'Uncharted',
+      rssFeedUrl: 'https://example.com/feed.xml',
+      author: 'Ada',
+      publication: null,
+      topics: ['tech'],
+      genres: [],
+    });
+    expect(payload).not.toHaveProperty('link');
+    expect(payload).not.toHaveProperty('ownershipStatus');
+  });
+});
+
+describe('mapMediaItemToFormValues for a Website', () => {
+  it('prefills the RSS feed, author and publication', () => {
+    const values = mapMediaItemToFormValues({
+      mediaType: 'Website',
+      title: 'Example Blog',
+      link: 'https://example.com/blog',
+      rssFeedUrl: 'https://example.com/feed.xml',
+      author: 'Ada',
+      publication: 'Example',
+    });
+
+    expect(values).toMatchObject({
+      mediaType: 'Website',
+      link: 'https://example.com/blog',
+      rssFeedUrl: 'https://example.com/feed.xml',
+      author: 'Ada',
+      publication: 'Example',
+    });
   });
 });
