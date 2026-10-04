@@ -46,7 +46,10 @@ function PodcastFields({ lockType = false }) {
       </FormControl>
 
       {podcastType === 'Series' && (
-        <ControlledTextField name="publisher" label="Publisher" placeholder="Publisher name..." variant="outlined" fullWidth margin="normal" />
+        <>
+          <ControlledTextField name="publisher" label="Publisher" placeholder="Publisher name..." variant="outlined" fullWidth margin="normal" />
+          <ControlledTextField name="rssFeedUrl" label="RSS Feed URL" placeholder="https://example.com/feed.xml" variant="outlined" fullWidth margin="normal" />
+        </>
       )}
 
       {podcastType === 'Episode' && (

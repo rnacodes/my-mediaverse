@@ -404,8 +404,8 @@ function UploadMediaPage() {
                         <br />• <strong>Rating</strong> (Optional): SuperLike, Like, Neutral, Dislike
                         <br />• <strong>OwnershipStatus</strong> (Optional): Own, Rented, Streamed
                         <br />• <strong>DateCompleted</strong> (Optional): Date format like &quot;2024-01-15&quot;
-                        <br />• <strong>Topics</strong> (Optional): Comma-separated topic names (will be converted to lowercase)
-                        <br />• <strong>Genres</strong> (Optional): Comma-separated genre names (will be converted to lowercase)
+                        <br />• <strong>Topics</strong> (Optional): Semicolon-separated topic names (will be converted to lowercase)
+                        <br />• <strong>Genres</strong> (Optional): Semicolon-separated genre names (will be converted to lowercase)
                     </Typography>
                 </Alert>
 
@@ -419,7 +419,7 @@ function UploadMediaPage() {
                         </Typography>
                         <Typography variant="body2" paragraph>
                             <strong>Book-Specific Columns:</strong> Author, ISBN, ASIN, Format (Digital/Physical), 
-                            PartOfSeries (true/false), SeriesName, PositionInSeries
+                            PartOfSeries (true/false), GoodreadsRating
                         </Typography>
                     </AccordionDetails>
                 </Accordion>
@@ -433,8 +433,9 @@ function UploadMediaPage() {
                             <strong>Required:</strong> MediaType (Movie), Title
                         </Typography>
                         <Typography variant="body2" paragraph>
-                            <strong>Movie-Specific Columns:</strong> Director, ReleaseYear, RuntimeMinutes, 
-                            TmdbId (The Movie Database ID)
+                            <strong>Movie-Specific Columns:</strong> Director, Cast, ReleaseYear, RuntimeMinutes, 
+                            MpaaRating, Tagline, Homepage, OriginalLanguage, OriginalTitle, 
+                            TmdbId (The Movie Database ID), ImdbId, TmdbRating
                         </Typography>
                     </AccordionDetails>
                 </Accordion>
@@ -448,8 +449,9 @@ function UploadMediaPage() {
                             <strong>Required:</strong> MediaType (TVShow), Title
                         </Typography>
                         <Typography variant="body2" paragraph>
-                            <strong>TV Show-Specific Columns:</strong> Creator, FirstAirYear, LastAirYear, 
-                            NumberOfSeasons, NumberOfEpisodes, TmdbId
+                            <strong>TV Show-Specific Columns:</strong> Creator, Cast, FirstAirYear, LastAirYear, 
+                            NumberOfSeasons, NumberOfEpisodes, ContentRating, Tagline, Homepage, 
+                            OriginalLanguage, OriginalName, TmdbId, TmdbRating
                         </Typography>
                     </AccordionDetails>
                 </Accordion>
@@ -463,8 +465,9 @@ function UploadMediaPage() {
                             <strong>Required:</strong> MediaType (Video), Title
                         </Typography>
                         <Typography variant="body2" paragraph>
-                            <strong>Video-Specific Columns:</strong> ChannelName, VideoId (YouTube ID), 
-                            ChannelId (YouTube Channel ID), DurationInSeconds, ViewCount, PublishedAt
+                            <strong>Video-Specific Columns:</strong> Platform (defaults to YouTube), 
+                            VideoId or ExternalId (the video ID on its platform), 
+                            LengthInSeconds or DurationInSeconds
                         </Typography>
                     </AccordionDetails>
                 </Accordion>
@@ -478,9 +481,9 @@ function UploadMediaPage() {
                             <strong>Required:</strong> MediaType (Article), Title
                         </Typography>
                         <Typography variant="body2" paragraph>
-                            <strong>Article-Specific Columns:</strong> Author, Link (required for articles), 
-                            PublicationDate, Domain, IsArchived (true/false), IsStarred (true/false), 
-                            ReadingProgress (0-100), WordCount, ExternalId (Readwise ID)
+                            <strong>Article-Specific Columns:</strong> Author, Link or Url (required for articles), 
+                            Publication, PublicationDate, IsArchived (true/false), IsStarred (true/false), 
+                            ReadingProgress (0-100), WordCount
                         </Typography>
                     </AccordionDetails>
                 </Accordion>
@@ -494,8 +497,8 @@ function UploadMediaPage() {
                             <strong>Required:</strong> MediaType (Website), Title, Link
                         </Typography>
                         <Typography variant="body2" paragraph>
-                            <strong>Website-Specific Columns:</strong> Domain, HasRssFeed (true/false), 
-                            RssFeedUrl, FaviconUrl, Type (Blog/Portfolio/Documentation/Tool/Resource/Other)
+                            <strong>Website-Specific Columns:</strong> Link or Url, RssFeedUrl, Author, Publication. 
+                            The domain is taken from the URL.
                         </Typography>
                     </AccordionDetails>
                 </Accordion>

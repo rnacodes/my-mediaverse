@@ -1,7 +1,5 @@
 import { z } from 'zod';
 
-export const SUPPORTED_TYPES = ['Podcast', 'Book', 'Movie', 'TVShow', 'Video'];
-
 export const defaultValues = {
   title: '',
   mediaType: '',
@@ -35,6 +33,7 @@ export const defaultValues = {
   seasonNumber: '',
   releaseDate: '',
   audioLink: '',
+  rssFeedUrl: '',
   // Movie
   director: '',
   releaseYear: '',
@@ -96,6 +95,7 @@ export const mediaSchema = z
     seasonNumber: z.string().optional(),
     releaseDate: z.string().optional(),
     audioLink: z.string().optional(),
+    rssFeedUrl: z.string().optional(),
     // Movie
     director: z.string().optional(),
     releaseYear: z.string().optional(),
@@ -227,6 +227,7 @@ export function mapMediaItemToFormValues(mediaItem) {
         ...base,
         podcastType: 'Series',
         publisher: m.publisher ?? '',
+        rssFeedUrl: m.rssFeedUrl ?? '',
       };
     }
     default:
@@ -303,6 +304,7 @@ export function buildSeriesPayload(d) {
   return {
     ...typedBase(d, 'Podcast'),
     publisher: d.publisher || null,
+    rssFeedUrl: d.rssFeedUrl?.trim() || null,
   };
 }
 

@@ -1,6 +1,8 @@
 # My MediaVerse
 ## Version 1.5
 
+* Last updated: 10/3/2026 *
+
 **One home for everything you read, watch, and listen to — track it, organize it, and rediscover it.**
 
 <p align="center">

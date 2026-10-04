@@ -9,7 +9,7 @@ import { useCreateMovie } from '@/hooks/useMovie';
 import { useCreateTvShow } from '@/hooks/useTvShow';
 import { useCreateVideo } from '@/hooks/useVideo';
 import {
-  mediaSchema, defaultValues, SUPPORTED_TYPES,
+  mediaSchema, defaultValues,
   buildBookPayload, buildEpisodePayload, buildSeriesPayload,
   buildMoviePayload, buildTvShowPayload, buildVideoPayload,
 } from '@/features/media/form/schema';
@@ -53,11 +53,6 @@ function AddMediaForm() {
   };
 
   const onSubmit = async (data) => {
-    if (!SUPPORTED_TYPES.includes(data.mediaType)) {
-      alert('Currently only Podcast, Book, Movie, TVShow, and Video media types are supported by the backend. Other media types are not yet implemented.');
-      return;
-    }
-
     try {
       const created = await createMediaItem(data);
       const mediaId = created.id || created.Id;

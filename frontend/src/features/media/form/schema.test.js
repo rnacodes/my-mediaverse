@@ -61,6 +61,12 @@ describe('buildSeriesPayload', () => {
     expect(payload).toMatchObject({ mediaType: 'Podcast', publisher: 'NPR' });
     expect(payload).not.toHaveProperty('seriesId');
   });
+
+  it('sends the feed URL, and null when it is blank', () => {
+    expect(buildSeriesPayload({ title: 'S', rssFeedUrl: ' https://example.com/feed.xml ' }).rssFeedUrl)
+      .toBe('https://example.com/feed.xml');
+    expect(buildSeriesPayload({ title: 'S', rssFeedUrl: '  ' }).rssFeedUrl).toBeNull();
+  });
 });
 
 describe('buildMoviePayload', () => {
