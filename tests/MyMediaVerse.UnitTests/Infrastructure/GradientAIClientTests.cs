@@ -122,6 +122,34 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         }
 
         [Fact]
+        public async Task GenerateTextAsync_WhenCutOffAtTokenLimit_ShouldThrow()
+        {
+            // Arrange — the model hit max_tokens mid-sentence
+            var response = new
+            {
+                id = "chatcmpl-123",
+                choices = new[]
+                {
+                    new
+                    {
+                        index = 0,
+                        message = new { role = "assistant", content = "A summary that stops in the" },
+                        finish_reason = "length"
+                    }
+                }
+            };
+
+            SetupGradientResponse(HttpStatusCode.OK, JsonSerializer.Serialize(response, _jsonOptions));
+            var client = CreateClient();
+
+            // Act
+            var act = () => client.GenerateTextAsync("Describe this note", maxTokens: 200);
+
+            // Assert
+            await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*cut off*200-token*");
+        }
+
+        [Fact]
         public async Task GenerateTextAsync_WithSystemPrompt_ShouldSendBothMessages()
         {
             // Arrange
