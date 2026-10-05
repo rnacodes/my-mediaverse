@@ -1,9 +1,19 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { renderWithProviders, screen } from '@/test/test-utils';
 import { server } from '@/test/mocks/server';
 import { API_BASE } from '@/test/mocks/handlers';
+import { useDemoWriteBlocked } from '@/features/demo/useDemoWriteBlocked';
 import WebsiteImportPage from './WebsiteImportPage';
+
+vi.mock('@/features/demo/useDemoWriteBlocked', () => {
+  const useDemoWriteBlocked = vi.fn(() => false);
+  return { useDemoWriteBlocked, default: useDemoWriteBlocked };
+});
+
+afterEach(() => {
+  vi.mocked(useDemoWriteBlocked).mockReturnValue(false);
+});
 
 const URL_FIELD = { name: 'URL' };
 
@@ -78,6 +88,25 @@ describe('WebsiteImportPage', () => {
     expect(await screen.findByText('Handed Off')).toBeInTheDocument();
     expect(screen.getByRole('textbox', URL_FIELD)).toHaveValue('https://example.com/hand-off');
     expect(captured.url).toBe('https://example.com/hand-off');
+  });
+
+  it('fills in a handed-over address for a demo visitor without asking for a preview', async () => {
+    vi.mocked(useDemoWriteBlocked).mockReturnValue(true);
+    const previewRequested = vi.fn();
+    server.use(
+      http.post(`${API_BASE}/website/scrape-preview`, () => {
+        previewRequested();
+        return HttpResponse.json({ title: 'Handed Off', domain: 'example.com' });
+      }),
+    );
+
+    renderWithProviders(<WebsiteImportPage />, { route: '/import-website?url=https%3A%2F%2Fexample.com%2Fhand-off' });
+
+    const field = screen.getByRole('textbox', { ...URL_FIELD, hidden: true });
+    expect(field).toHaveValue('https://example.com/hand-off');
+    expect(field).toBeDisabled();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(previewRequested).not.toHaveBeenCalled();
   });
 
   it('warns when the preview says the page is already in the library', async () => {

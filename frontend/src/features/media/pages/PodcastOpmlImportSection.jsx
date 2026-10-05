@@ -8,6 +8,7 @@ import { Podcasts, FileUpload, CheckCircle, ExpandMore } from '@mui/icons-materi
 import { useImportPodcastOpml } from '@/hooks/useUpload';
 import StatTiles from '@/features/imports/pages/WebsiteImport/StatTiles';
 import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
+import DemoDisabledArea from '@/features/demo/DemoDisabledArea';
 import { DEMO_IMPORT_BLOCKED } from '@/features/demo/demoMessages';
 
 const OUTLINED_BUTTON_SX = {
@@ -127,55 +128,57 @@ function PodcastOpmlImportSection() {
                 </Typography>
             </Box>
 
-            <Box sx={{ mb: 3 }}>
-                <input
-                    ref={fileInputRef}
-                    id="opml-file-input"
-                    type="file"
-                    accept=".opml,.xml"
-                    onChange={handleFileSelect}
-                    style={{ display: 'none' }}
-                />
-                <label htmlFor="opml-file-input">
+            <DemoDisabledArea title={DEMO_IMPORT_BLOCKED}>
+                <Box sx={{ mb: 3 }}>
+                    <input
+                        ref={fileInputRef}
+                        id="opml-file-input"
+                        type="file"
+                        accept=".opml,.xml"
+                        onChange={handleFileSelect}
+                        style={{ display: 'none' }}
+                    />
+                    <label htmlFor="opml-file-input">
+                        <Button
+                            variant="outlined"
+                            component="span"
+                            startIcon={<FileUpload />}
+                            fullWidth
+                            sx={{ mb: 2, ...OUTLINED_BUTTON_SX }}
+                        >
+                            Choose OPML File
+                        </Button>
+                    </label>
+
+                    {file && (
+                        <Alert severity="info" sx={{ mb: 2 }}>
+                            <AlertTitle>File Selected</AlertTitle>
+                            {file.name} ({(file.size / 1024).toFixed(1)} KB)
+                        </Alert>
+                    )}
+                </Box>
+
+                <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
+                    <DemoWriteGuard title={DEMO_IMPORT_BLOCKED}>
+                        <Button
+                            variant="contained"
+                            onClick={handleImport}
+                            disabled={!file || importing}
+                            startIcon={importing ? <CircularProgress size={20} /> : <Podcasts />}
+                        >
+                            {importing ? 'Importing...' : 'Import Podcasts'}
+                        </Button>
+                    </DemoWriteGuard>
                     <Button
                         variant="outlined"
-                        component="span"
-                        startIcon={<FileUpload />}
-                        fullWidth
-                        sx={{ mb: 2, ...OUTLINED_BUTTON_SX }}
+                        onClick={handleReset}
+                        disabled={importing}
+                        sx={OUTLINED_BUTTON_SX}
                     >
-                        Choose OPML File
+                        Reset
                     </Button>
-                </label>
-
-                {file && (
-                    <Alert severity="info" sx={{ mb: 2 }}>
-                        <AlertTitle>File Selected</AlertTitle>
-                        {file.name} ({(file.size / 1024).toFixed(1)} KB)
-                    </Alert>
-                )}
-            </Box>
-
-            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
-                <DemoWriteGuard title={DEMO_IMPORT_BLOCKED}>
-                    <Button
-                        variant="contained"
-                        onClick={handleImport}
-                        disabled={!file || importing}
-                        startIcon={importing ? <CircularProgress size={20} /> : <Podcasts />}
-                    >
-                        {importing ? 'Importing...' : 'Import Podcasts'}
-                    </Button>
-                </DemoWriteGuard>
-                <Button
-                    variant="outlined"
-                    onClick={handleReset}
-                    disabled={importing}
-                    sx={OUTLINED_BUTTON_SX}
-                >
-                    Reset
-                </Button>
-            </Box>
+                </Box>
+            </DemoDisabledArea>
 
             {error && (
                 <Alert severity="error" sx={{ mt: 3 }}>

@@ -1,3 +1,4 @@
+import { PROFILE_WIDTH_SX } from '@/shared/pageLayout';
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Container, Typography, Box, Accordion, AccordionSummary, AccordionDetails, Chip, CircularProgress, Alert, Grid, Card, CardContent, Button, TextField, Dialog, DialogTitle, DialogContent, DialogActions, IconButton, DialogContentText } from '@mui/material';
@@ -205,7 +206,7 @@ function SearchByTopicOrGenre() {
 
     if (loading) {
         return (
-            <Container maxWidth="lg">
+            <Container maxWidth={false} disableGutters sx={PROFILE_WIDTH_SX}>
                 <Box sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
                     <CircularProgress />
                 </Box>
@@ -214,7 +215,7 @@ function SearchByTopicOrGenre() {
     }
 
     return (
-        <Container maxWidth="lg">
+        <Container maxWidth={false} disableGutters sx={PROFILE_WIDTH_SX}>
             <Box sx={{ mt: 4 }}>
                 <Typography variant="h4" component="h1" gutterBottom sx={{ mb: 1 }}>
                     📚 Topics & Genres Directory

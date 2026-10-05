@@ -1,3 +1,4 @@
+import { PROFILE_WIDTH_SX } from '@/shared/pageLayout';
 import React, { useState, useMemo } from 'react';
 import { Box, Container, Typography, Paper, TextField, Button, Checkbox, Chip, CircularProgress, Alert, Snackbar, Dialog, DialogTitle, DialogContent, DialogActions, InputAdornment, Accordion, AccordionSummary, AccordionDetails, Divider } from '@mui/material';
 import { Search as SearchIcon, ExpandMore as ExpandMoreIcon, Link as LinkIcon, MenuBook as BookIcon, Article as ArticleIcon } from '@mui/icons-material';
@@ -230,7 +231,7 @@ export default function HighlightLinkingPage() {
     }
 
     return (
-        <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Container maxWidth={false} disableGutters sx={{ py: 4, ...PROFILE_WIDTH_SX }}>
             {/* Header */}
             <Box sx={{ mb: 4 }}>
                 <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>

@@ -5,7 +5,10 @@ import SingleUrlImport from './WebsiteImport/SingleUrlImport';
 import BookmarkFileImport from './WebsiteImport/BookmarkFileImport';
 import UrlListImport from './WebsiteImport/UrlListImport';
 import BookmarkletCard from './WebsiteImport/BookmarkletCard';
-import { TABS_SX, PROFILE_WIDTH_SX } from './WebsiteImport/importPageStyles';
+import { TABS_SX } from './WebsiteImport/importPageStyles';
+import { PROFILE_WIDTH_SX } from '@/shared/pageLayout';
+import DemoDisabledArea from '@/features/demo/DemoDisabledArea';
+import { DEMO_IMPORT_BLOCKED } from '@/features/demo/demoMessages';
 
 // Tab keys double as the ?tab= value so the Import Media page and the bookmarklet can deep-link.
 const TABS = [
@@ -46,14 +49,16 @@ function WebsiteImportPage() {
         ))}
       </Tabs>
 
-      {activeTab === 'url' && (
-        <>
-          <SingleUrlImport />
-          <BookmarkletCard />
-        </>
-      )}
-      {activeTab === 'file' && <BookmarkFileImport />}
-      {activeTab === 'paste' && <UrlListImport />}
+      <DemoDisabledArea title={DEMO_IMPORT_BLOCKED}>
+        {activeTab === 'url' && (
+          <>
+            <SingleUrlImport />
+            <BookmarkletCard />
+          </>
+        )}
+        {activeTab === 'file' && <BookmarkFileImport />}
+        {activeTab === 'paste' && <UrlListImport />}
+      </DemoDisabledArea>
 
       <Box sx={{ mt: 3 }}>
         <Button

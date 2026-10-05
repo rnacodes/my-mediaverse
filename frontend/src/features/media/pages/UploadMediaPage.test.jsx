@@ -102,13 +102,20 @@ describe('UploadMediaPage', () => {
     expect(within(screen.getByTestId('csv-imported-items')).getByText('Dune')).toBeInTheDocument();
   });
 
-  it('disables the upload, Goodreads and OPML buttons when the demo blocks writes', () => {
+  it('disables every upload control when the demo blocks writes', () => {
     vi.mocked(useDemoWriteBlocked).mockReturnValue(true);
 
-    renderWithProviders(<UploadMediaPage />);
+    const { container } = renderWithProviders(<UploadMediaPage />);
 
     expect(screen.getByRole('button', { name: /upload csv/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /import goodreads library/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /import podcasts/i })).toBeDisabled();
+
+    expect(container.querySelector('#csv-file-input')).toBeDisabled();
+    expect(container.querySelector('#opml-file-input')).toBeDisabled();
+    expect(container.querySelector('#bookmark-file-input')).toBeDisabled();
+    screen.getAllByRole('button', { name: 'Reset', hidden: true }).forEach((button) => expect(button).toBeDisabled());
+
+    expect(screen.getByRole('combobox', { name: /media type/i })).not.toHaveAttribute('aria-disabled', 'true');
   });
 });

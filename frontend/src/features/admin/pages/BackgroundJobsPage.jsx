@@ -1,3 +1,4 @@
+import { PROFILE_WIDTH_SX } from '@/shared/pageLayout';
 import React, { useState } from 'react';
 import { Container, Paper, Typography, Button, Box, Alert, CircularProgress, Card, CardContent, Grid, Chip, Slider, Accordion, AccordionSummary, AccordionDetails, Divider } from '@mui/material';
 import {
@@ -183,7 +184,7 @@ const BackgroundJobsPage = () => {
     );
 
     return (
-        <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Container maxWidth={false} disableGutters sx={{ py: 4, ...PROFILE_WIDTH_SX }}>
             <Typography variant="h3" gutterBottom sx={{ mb: 4, fontWeight: 'bold' }}>
                 Background Jobs
             </Typography>

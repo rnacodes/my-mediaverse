@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
 import { DEMO_IMPORT_BLOCKED } from '@/features/demo/demoMessages';
 import BookmarkFileImport from '@/features/imports/pages/WebsiteImport/BookmarkFileImport';
-import { PROFILE_WIDTH_SX } from '@/features/imports/pages/WebsiteImport/importPageStyles';
+import { PROFILE_WIDTH_SX } from '@/shared/pageLayout';
+import DemoDisabledArea from '@/features/demo/DemoDisabledArea';
 import CsvUploadSection from './CsvUploadSection';
 import PodcastOpmlImportSection from './PodcastOpmlImportSection';
 
@@ -58,7 +59,9 @@ function UploadMediaPage() {
                         manager. Folders and tags can become topics, and a site already in the library is skipped.
                     </Typography>
                 </Box>
-                <BookmarkFileImport compact />
+                <DemoDisabledArea title={DEMO_IMPORT_BLOCKED}>
+                    <BookmarkFileImport compact />
+                </DemoDisabledArea>
             </Paper>
 
             <Box sx={{ textAlign: 'center', mt: 4 }}>

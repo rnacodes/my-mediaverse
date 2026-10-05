@@ -1,3 +1,4 @@
+import { PROFILE_WIDTH_SX } from '@/shared/pageLayout';
 import React from 'react';
 import { Container, Paper, Typography, Button, Box, Alert, CircularProgress, Card, CardContent, Grid, Chip, List, ListItem, ListItemText } from '@mui/material';
 import { Refresh as RefreshIcon, Search as SearchIcon, CheckCircle as CheckCircleIcon, Error as ErrorIcon, Info as InfoIcon } from '@mui/icons-material';
@@ -125,7 +126,7 @@ const TypesenseAdminPage = () => {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth={false} disableGutters sx={{ py: 4, ...PROFILE_WIDTH_SX }}>
       <Typography variant="h3" gutterBottom sx={{ mb: 4, fontWeight: 'bold' }}>
         Typesense Administration
       </Typography>

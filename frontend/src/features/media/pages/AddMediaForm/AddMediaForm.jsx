@@ -18,6 +18,9 @@ import TypeSpecificFields from '@/features/media/form/TypeSpecificFields';
 import MixlistSelector from './MixlistSelector';
 import AddedFromSourcePanel from './AddedFromSourcePanel';
 import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
+import DemoDisabledArea from '@/features/demo/DemoDisabledArea';
+
+const DEMO_ADD_BLOCKED = 'Adding media is not available in the demo';
 
 function AddMediaForm() {
   const navigate = useNavigate();
@@ -124,11 +127,13 @@ function AddMediaForm() {
 
           <AddedFromSourcePanel />
 
-          <CommonFields />
-          <MixlistSelector />
-          <TypeSpecificFields />
+          <DemoDisabledArea title={DEMO_ADD_BLOCKED}>
+            <CommonFields />
+            <MixlistSelector />
+            <TypeSpecificFields />
+          </DemoDisabledArea>
 
-          <DemoWriteGuard title="Adding media is not available in the demo" style={{ width: '100%' }}>
+          <DemoWriteGuard title={DEMO_ADD_BLOCKED} style={{ width: '100%' }}>
             <Button
               type="submit"
               variant="contained"

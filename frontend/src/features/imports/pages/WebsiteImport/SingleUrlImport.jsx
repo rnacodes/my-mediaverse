@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { TextField, Button, Box, Typography, CircularProgress, Alert, Chip, Grid, Paper } from '@mui/material';
 import { Language, Download, Visibility, OpenInNew, RssFeed } from '@mui/icons-material';
 import { useScrapeWebsitePreview, useImportWebsite } from '@/hooks/useWebsite';
+import { useDemoWriteBlocked } from '@/features/demo/useDemoWriteBlocked';
 import TagAutocomplete from './TagAutocomplete';
 import { OUTLINED_BUTTON_SX, PRIMARY_BUTTON_SX, ACCENT_BUTTON_SX, PAPER_SX, extractErrorMessage } from './importPageStyles';
 
@@ -59,16 +60,18 @@ function SingleUrlImport() {
 
   // Bookmarklet hand-off: preview the page the user was on. Runs on arrival and again if the
   // query changes while the tab is already mounted, but never twice for the same address.
+  // A demo visitor cannot preview (the API refuses it), so the address is only filled in.
+  const demoWriteBlocked = useDemoWriteBlocked();
   const handedOff = useRef(null);
   const fromQuery = searchParams.get('url');
   useEffect(() => {
-    if (fromQuery && handedOff.current !== fromQuery) {
+    if (fromQuery && !demoWriteBlocked && handedOff.current !== fromQuery) {
       handedOff.current = fromQuery;
       setUrl(fromQuery);
       runPreview(fromQuery);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fromQuery]);
+  }, [fromQuery, demoWriteBlocked]);
 
   const handlePreview = () => runPreview(url);
 

@@ -179,7 +179,7 @@ function RoutedContent() {
               <ConditionalProtectedRoute><MediaProfilePage /></ConditionalProtectedRoute>
             } />
             <Route path="/import-website" element={
-              <ConditionalProtectedRoute><DemoRestrictedRoute><WebsiteImportPage /></DemoRestrictedRoute></ConditionalProtectedRoute>
+              <ConditionalProtectedRoute><WebsiteImportPage /></ConditionalProtectedRoute>
             } />
             <Route path="/websites" element={
               <ConditionalProtectedRoute><WebsitesPage /></ConditionalProtectedRoute>

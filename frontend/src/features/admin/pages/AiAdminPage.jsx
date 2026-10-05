@@ -1,3 +1,4 @@
+import { PROFILE_WIDTH_SX } from '@/shared/pageLayout';
 import React, { useState } from 'react';
 import {
   Container,
@@ -102,7 +103,7 @@ const AiAdminPage = () => {
   const isAiAvailable = aiStatus?.isAvailable || aiStatus?.available;
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth={false} disableGutters sx={{ py: 4, ...PROFILE_WIDTH_SX }}>
       <Typography variant="h3" gutterBottom sx={{ mb: 4, fontWeight: 'bold' }}>
         AI Administration
       </Typography>

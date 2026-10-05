@@ -1,3 +1,4 @@
+import { PROFILE_WIDTH_SX } from '@/shared/pageLayout';
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -37,7 +38,8 @@ function ImportMediaPage() {
     };
 
     return (
-        <Container maxWidth="lg" sx={{
+        <Container maxWidth={false} disableGutters sx={{
+            ...PROFILE_WIDTH_SX,
             '& .MuiInputLabel-root': {
                 color: 'white'
             },

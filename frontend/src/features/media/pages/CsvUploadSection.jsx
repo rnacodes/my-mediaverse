@@ -7,6 +7,7 @@ import { CloudUpload, FileUpload, Upload } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useUploadCsv } from '@/hooks/useUpload';
 import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
+import DemoDisabledArea from '@/features/demo/DemoDisabledArea';
 import { DEMO_IMPORT_BLOCKED } from '@/features/demo/demoMessages';
 import ImportResultPanel from '@/shared/ImportResultPanel';
 import { CSV_MEDIA_TYPES, SHARED_COLUMNS, TYPE_COLUMNS } from './csvColumns';
@@ -132,55 +133,57 @@ function CsvUploadSection() {
                 ))}
             </TextField>
 
-            <Box sx={{ mb: 3 }}>
-                <input
-                    ref={fileInputRef}
-                    id="csv-file-input"
-                    type="file"
-                    accept=".csv"
-                    onChange={handleFileSelect}
-                    style={{ display: 'none' }}
-                />
-                <label htmlFor="csv-file-input">
+            <DemoDisabledArea title={DEMO_IMPORT_BLOCKED}>
+                <Box sx={{ mb: 3 }}>
+                    <input
+                        ref={fileInputRef}
+                        id="csv-file-input"
+                        type="file"
+                        accept=".csv"
+                        onChange={handleFileSelect}
+                        style={{ display: 'none' }}
+                    />
+                    <label htmlFor="csv-file-input">
+                        <Button
+                            variant="outlined"
+                            component="span"
+                            startIcon={<FileUpload />}
+                            fullWidth
+                            sx={{ mb: 2, ...OUTLINED_BUTTON_SX }}
+                        >
+                            Choose CSV File
+                        </Button>
+                    </label>
+
+                    {file && (
+                        <Alert severity="info" sx={{ mb: 2 }}>
+                            <AlertTitle>File Selected</AlertTitle>
+                            {file.name} ({(file.size / 1024).toFixed(1)} KB)
+                        </Alert>
+                    )}
+                </Box>
+
+                <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mb: 3 }}>
+                    <DemoWriteGuard title={DEMO_IMPORT_BLOCKED}>
+                        <Button
+                            variant="contained"
+                            onClick={handleUpload}
+                            disabled={!file || uploading}
+                            startIcon={uploading ? <CircularProgress size={20} /> : <CloudUpload />}
+                        >
+                            {uploading ? 'Uploading...' : 'Upload CSV'}
+                        </Button>
+                    </DemoWriteGuard>
                     <Button
                         variant="outlined"
-                        component="span"
-                        startIcon={<FileUpload />}
-                        fullWidth
-                        sx={{ mb: 2, ...OUTLINED_BUTTON_SX }}
+                        onClick={resetUpload}
+                        disabled={uploading}
+                        sx={OUTLINED_BUTTON_SX}
                     >
-                        Choose CSV File
+                        Reset
                     </Button>
-                </label>
-
-                {file && (
-                    <Alert severity="info" sx={{ mb: 2 }}>
-                        <AlertTitle>File Selected</AlertTitle>
-                        {file.name} ({(file.size / 1024).toFixed(1)} KB)
-                    </Alert>
-                )}
-            </Box>
-
-            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mb: 3 }}>
-                <DemoWriteGuard title={DEMO_IMPORT_BLOCKED}>
-                    <Button
-                        variant="contained"
-                        onClick={handleUpload}
-                        disabled={!file || uploading}
-                        startIcon={uploading ? <CircularProgress size={20} /> : <CloudUpload />}
-                    >
-                        {uploading ? 'Uploading...' : 'Upload CSV'}
-                    </Button>
-                </DemoWriteGuard>
-                <Button
-                    variant="outlined"
-                    onClick={resetUpload}
-                    disabled={uploading}
-                    sx={OUTLINED_BUTTON_SX}
-                >
-                    Reset
-                </Button>
-            </Box>
+                </Box>
+            </DemoDisabledArea>
 
             {error && (
                 <Alert severity="error" sx={{ mb: 3 }}>

@@ -5,6 +5,7 @@ import { useCreateMixlist } from '@/hooks/useMixlist';
 import { useUploadThumbnail } from '@/hooks/useUpload';
 import { useTopicSearch, useGenreSearch } from '@/hooks/useTopicGenre';
 import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
+import DemoDisabledArea from '@/features/demo/DemoDisabledArea';
 
 function CreateMixlistForm() {
     const [name, setName] = useState('');
@@ -110,252 +111,254 @@ function CreateMixlistForm() {
                     Create New Mixlist
                 </Typography>
                 
-                {/* Mixlist Name */}
-                <Typography variant="h5" sx={{ 
-                    fontSize: '20px', 
-                    fontWeight: 'bold', 
-                    mb: 1,
-                    color: '#ffffff'
-                }}>
-                    Mixlist Name
-                </Typography>
-                <TextField
-                    placeholder="Enter mixlist name..."
-                    variant="outlined"
-                    fullWidth
-                    required
-                    margin="normal"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    sx={{
-                        mb: 3,
-                        '& .MuiInputBase-input': {
-                            fontSize: '16px'
-                        },
-                        '& .MuiInputBase-input::placeholder': {
-                            color: '#ffffff',
-                            opacity: 1
-                        }
-                    }}
-                />
-
-                {/* Description */}
-                <Typography variant="h5" sx={{
-                    fontSize: '20px',
-                    fontWeight: 'bold',
-                    mb: 1,
-                    color: '#ffffff'
-                }}>
-                    Description
-                </Typography>
-                <TextField
-                    placeholder="Enter a description for your mixlist..."
-                    variant="outlined"
-                    fullWidth
-                    multiline
-                    rows={3}
-                    margin="normal"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    sx={{
-                        mb: 3,
-                        '& .MuiInputBase-input': {
-                            fontSize: '16px'
-                        },
-                        '& .MuiInputBase-input::placeholder': {
-                            color: '#ffffff',
-                            opacity: 1
-                        }
-                    }}
-                />
-
-                {/* Thumbnail URL */}
-                <TextField
-                    label="Thumbnail URL"
-                    placeholder="https://example.com/thumbnail.jpg"
-                    variant="outlined"
-                    fullWidth
-                    margin="normal"
-                    value={thumbnail}
-                    onChange={(e) => setThumbnail(e.target.value)}
-                    sx={{
-                        mb: 2,
-                        '& .MuiInputBase-input': {
-                            fontSize: '14px'
-                        },
-                        '& .MuiInputBase-input::placeholder': {
-                            color: '#ffffff',
-                            opacity: 1
-                        },
-                        '& .MuiInputLabel-root': {
-                            color: '#ffffff',
-                            fontSize: '14px'
-                        },
-                        '& .MuiInputLabel-root.Mui-focused': {
-                            color: '#ffffff'
-                        }
-                    }}
-                />
-
-                {/* Thumbnail Upload */}
-                <Box sx={{ mb: 3 }}>
-                    <Typography variant="body1" sx={{ 
-                        mb: 2, 
-                        fontSize: '16px',
-                        fontWeight: 'bold',
+                <DemoDisabledArea title="Creating mixlists is not available in the demo">
+                    {/* Mixlist Name */}
+                    <Typography variant="h5" sx={{ 
+                        fontSize: '20px', 
+                        fontWeight: 'bold', 
+                        mb: 1,
                         color: '#ffffff'
                     }}>
-                        Upload Thumbnail
+                        Mixlist Name
                     </Typography>
-                    <Button
-                        variant="contained"
-                        component="label"
+                    <TextField
+                        placeholder="Enter mixlist name..."
+                        variant="outlined"
+                        fullWidth
+                        required
+                        margin="normal"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
                         sx={{
-                            fontSize: '16px',
-                            fontWeight: 'bold',
-                            textTransform: 'none',
-                            py: 1.5,
-                            backgroundColor: '#9c27b0',
-                            color: 'white',
-                            '&:hover': {
-                                backgroundColor: '#7b1fa2'
+                            mb: 3,
+                            '& .MuiInputBase-input': {
+                                fontSize: '16px'
+                            },
+                            '& .MuiInputBase-input::placeholder': {
+                                color: '#ffffff',
+                                opacity: 1
                             }
                         }}
-                    >
-                        Choose File
-                        <input
-                            type="file"
-                            accept="image/*"
-                            hidden
-                            onChange={handleThumbnailUpload}
-                        />
-                    </Button>
-                    {thumbnailFile && (
-                        <Typography variant="body2" sx={{ 
-                            mt: 1, 
-                            fontSize: '14px',
+                    />
+
+                    {/* Description */}
+                    <Typography variant="h5" sx={{
+                        fontSize: '20px',
+                        fontWeight: 'bold',
+                        mb: 1,
+                        color: '#ffffff'
+                    }}>
+                        Description
+                    </Typography>
+                    <TextField
+                        placeholder="Enter a description for your mixlist..."
+                        variant="outlined"
+                        fullWidth
+                        multiline
+                        rows={3}
+                        margin="normal"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        sx={{
+                            mb: 3,
+                            '& .MuiInputBase-input': {
+                                fontSize: '16px'
+                            },
+                            '& .MuiInputBase-input::placeholder': {
+                                color: '#ffffff',
+                                opacity: 1
+                            }
+                        }}
+                    />
+
+                    {/* Thumbnail URL */}
+                    <TextField
+                        label="Thumbnail URL"
+                        placeholder="https://example.com/thumbnail.jpg"
+                        variant="outlined"
+                        fullWidth
+                        margin="normal"
+                        value={thumbnail}
+                        onChange={(e) => setThumbnail(e.target.value)}
+                        sx={{
+                            mb: 2,
+                            '& .MuiInputBase-input': {
+                                fontSize: '14px'
+                            },
+                            '& .MuiInputBase-input::placeholder': {
+                                color: '#ffffff',
+                                opacity: 1
+                            },
+                            '& .MuiInputLabel-root': {
+                                color: '#ffffff',
+                                fontSize: '14px'
+                            },
+                            '& .MuiInputLabel-root.Mui-focused': {
+                                color: '#ffffff'
+                            }
+                        }}
+                    />
+
+                    {/* Thumbnail Upload */}
+                    <Box sx={{ mb: 3 }}>
+                        <Typography variant="body1" sx={{ 
+                            mb: 2, 
+                            fontSize: '16px',
+                            fontWeight: 'bold',
                             color: '#ffffff'
                         }}>
-                            Selected: {thumbnailFile.name}
+                            Upload Thumbnail
                         </Typography>
-                    )}
-                    {thumbnail && (
-                        <Typography variant="body2" sx={{ 
-                            mt: 1, 
+                        <Button
+                            variant="contained"
+                            component="label"
+                            sx={{
+                                fontSize: '16px',
+                                fontWeight: 'bold',
+                                textTransform: 'none',
+                                py: 1.5,
+                                backgroundColor: '#9c27b0',
+                                color: 'white',
+                                '&:hover': {
+                                    backgroundColor: '#7b1fa2'
+                                }
+                            }}
+                        >
+                            Choose File
+                            <input
+                                type="file"
+                                accept="image/*"
+                                hidden
+                                onChange={handleThumbnailUpload}
+                            />
+                        </Button>
+                        {thumbnailFile && (
+                            <Typography variant="body2" sx={{ 
+                                mt: 1, 
+                                fontSize: '14px',
+                                color: '#ffffff'
+                            }}>
+                                Selected: {thumbnailFile.name}
+                            </Typography>
+                        )}
+                        {thumbnail && (
+                            <Typography variant="body2" sx={{ 
+                                mt: 1, 
+                                fontSize: '14px',
+                                color: '#22c55e'
+                            }}>
+                                ✓ Thumbnail uploaded successfully
+                            </Typography>
+                        )}
+                    </Box>
+
+                    {/* Topics */}
+                    <Typography variant="h5" sx={{
+                        fontSize: '20px',
+                        fontWeight: 'bold',
+                        mb: 1,
+                        color: '#ffffff'
+                    }}>
+                        Topics
+                    </Typography>
+                    <Autocomplete
+                        multiple
+                        freeSolo
+                        options={topicSuggestions.map((option) => option.name || option.Name)}
+                        value={topics}
+                        onChange={(event, newValue) => {
+                            setTopics(newValue.map(t => t.toLowerCase()));
+                        }}
+                        onInputChange={(event, newInputValue) => setTopicInput(newInputValue)}
+                        renderTags={(value, getTagProps) =>
+                            value.map((option, index) => (
+                                <Chip
+                                    key={`topic-${option}`}
+                                    label={option}
+                                    size="small"
+                                    sx={{
+                                        backgroundColor: 'primary.main',
+                                        color: 'white',
+                                        fontSize: '0.75rem'
+                                    }}
+                                    {...getTagProps({ index })}
+                                />
+                            ))
+                        }
+                        renderInput={(params) => (
+                            <TextField
+                                {...params}
+                                placeholder="Type to search or add topics..."
+                                variant="outlined"
+                            />
+                        )}
+                        sx={{ mb: 3 }}
+                    />
+
+                    {/* Genres */}
+                    <Typography variant="h5" sx={{
+                        fontSize: '20px',
+                        fontWeight: 'bold',
+                        mb: 1,
+                        color: '#ffffff'
+                    }}>
+                        Genres
+                    </Typography>
+                    <Autocomplete
+                        multiple
+                        freeSolo
+                        options={genreSuggestions.map((option) => option.name || option.Name)}
+                        value={genres}
+                        onChange={(event, newValue) => {
+                            setGenres(newValue.map(g => g.toLowerCase()));
+                        }}
+                        onInputChange={(event, newInputValue) => setGenreInput(newInputValue)}
+                        renderTags={(value, getTagProps) =>
+                            value.map((option, index) => (
+                                <Chip
+                                    key={`genre-${option}`}
+                                    label={option}
+                                    size="small"
+                                    sx={{
+                                        backgroundColor: '#4b6aa2',
+                                        color: 'white',
+                                        fontSize: '0.75rem'
+                                    }}
+                                    {...getTagProps({ index })}
+                                />
+                            ))
+                        }
+                        renderInput={(params) => (
+                            <TextField
+                                {...params}
+                                placeholder="Type to search or add genres..."
+                                variant="outlined"
+                            />
+                        )}
+                        sx={{ mb: 3 }}
+                    />
+
+                    {/* Info about thumbnail generation */}
+                    <Box sx={{ mb: 3, p: 2, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '8px' }}>
+                        <Typography variant="body2" sx={{
                             fontSize: '14px',
-                            color: '#22c55e'
+                            color: '#ffffff',
+                            opacity: 0.8,
+                            mb: 1
                         }}>
-                            ✓ Thumbnail uploaded successfully
+                            🎨 Upload a custom thumbnail or leave empty for a placeholder image.
                         </Typography>
-                    )}
-                </Box>
+                        <Typography variant="body2" sx={{
+                            fontSize: '14px',
+                            color: '#ffffff',
+                            opacity: 0.8
+                        }}>
+                            📐 Ideal image size: 800x400 pixels. Mixlist images are shown in wide
+                            landscape frames, so a square image gets cropped top and bottom.
+                        </Typography>
+                    </Box>
 
-                {/* Topics */}
-                <Typography variant="h5" sx={{
-                    fontSize: '20px',
-                    fontWeight: 'bold',
-                    mb: 1,
-                    color: '#ffffff'
-                }}>
-                    Topics
-                </Typography>
-                <Autocomplete
-                    multiple
-                    freeSolo
-                    options={topicSuggestions.map((option) => option.name || option.Name)}
-                    value={topics}
-                    onChange={(event, newValue) => {
-                        setTopics(newValue.map(t => t.toLowerCase()));
-                    }}
-                    onInputChange={(event, newInputValue) => setTopicInput(newInputValue)}
-                    renderTags={(value, getTagProps) =>
-                        value.map((option, index) => (
-                            <Chip
-                                key={`topic-${option}`}
-                                label={option}
-                                size="small"
-                                sx={{
-                                    backgroundColor: 'primary.main',
-                                    color: 'white',
-                                    fontSize: '0.75rem'
-                                }}
-                                {...getTagProps({ index })}
-                            />
-                        ))
-                    }
-                    renderInput={(params) => (
-                        <TextField
-                            {...params}
-                            placeholder="Type to search or add topics..."
-                            variant="outlined"
-                        />
-                    )}
-                    sx={{ mb: 3 }}
-                />
-
-                {/* Genres */}
-                <Typography variant="h5" sx={{
-                    fontSize: '20px',
-                    fontWeight: 'bold',
-                    mb: 1,
-                    color: '#ffffff'
-                }}>
-                    Genres
-                </Typography>
-                <Autocomplete
-                    multiple
-                    freeSolo
-                    options={genreSuggestions.map((option) => option.name || option.Name)}
-                    value={genres}
-                    onChange={(event, newValue) => {
-                        setGenres(newValue.map(g => g.toLowerCase()));
-                    }}
-                    onInputChange={(event, newInputValue) => setGenreInput(newInputValue)}
-                    renderTags={(value, getTagProps) =>
-                        value.map((option, index) => (
-                            <Chip
-                                key={`genre-${option}`}
-                                label={option}
-                                size="small"
-                                sx={{
-                                    backgroundColor: '#4b6aa2',
-                                    color: 'white',
-                                    fontSize: '0.75rem'
-                                }}
-                                {...getTagProps({ index })}
-                            />
-                        ))
-                    }
-                    renderInput={(params) => (
-                        <TextField
-                            {...params}
-                            placeholder="Type to search or add genres..."
-                            variant="outlined"
-                        />
-                    )}
-                    sx={{ mb: 3 }}
-                />
-
-                {/* Info about thumbnail generation */}
-                <Box sx={{ mb: 3, p: 2, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '8px' }}>
-                    <Typography variant="body2" sx={{
-                        fontSize: '14px',
-                        color: '#ffffff',
-                        opacity: 0.8,
-                        mb: 1
-                    }}>
-                        🎨 Upload a custom thumbnail or leave empty for a placeholder image.
-                    </Typography>
-                    <Typography variant="body2" sx={{
-                        fontSize: '14px',
-                        color: '#ffffff',
-                        opacity: 0.8
-                    }}>
-                        📐 Ideal image size: 800x400 pixels. Mixlist images are shown in wide
-                        landscape frames, so a square image gets cropped top and bottom.
-                    </Typography>
-                </Box>
-
+                </DemoDisabledArea>
                 <Box sx={{ display: 'flex', gap: 2, mt: 4 }}>
                     <Button
                         type="button"

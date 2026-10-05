@@ -32,8 +32,6 @@ export const TABS_SX = {
   '& .MuiTabs-indicator': { backgroundColor: 'white' },
 };
 
-export const PROFILE_WIDTH_SX = { maxWidth: '932px', px: { xs: 1, sm: 2 } };
-
 export const PAPER_SX ={ mb: 3, p: 3, backgroundColor: 'background.paper' };
 
 // Mirrors the backend defaults, so leaving everything alone imports the way the API would
