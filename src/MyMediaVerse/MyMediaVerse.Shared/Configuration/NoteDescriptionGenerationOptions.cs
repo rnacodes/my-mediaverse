@@ -30,9 +30,9 @@ namespace MyMediaVerse.Shared.Configuration
         public int BatchSize { get; set; } = 20;
 
         /// <summary>
-        /// Maximum tokens for generated descriptions. Default: 200
+        /// Maximum tokens for generated descriptions. Default: 600.
         /// </summary>
-        public int MaxTokensPerDescription { get; set; } = 200;
+        public int MaxTokensPerDescription { get; set; } = 600;
 
         /// <summary>
         /// Delay in milliseconds between AI calls within a batch, to avoid rate limiting. Default: 1000
