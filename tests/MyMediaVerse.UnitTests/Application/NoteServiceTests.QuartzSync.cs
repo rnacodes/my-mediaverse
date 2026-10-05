@@ -51,6 +51,8 @@ namespace MyMediaVerse.UnitTests.Application
             result.Duration.Should().NotBeNull();
             Context.Notes.Should().HaveCount(1);
             Context.Notes.First().VaultName.Should().Be("general");
+            // The vault description is ignored — the displayed description comes from AI enrichment
+            Context.Notes.First().Description.Should().BeNull();
         }
 
         [Fact]
@@ -117,12 +119,12 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         [Fact]
-        public async Task SyncFromQuartzVaultAsync_WhenContentChanged_ShouldResetSyncedDescription()
+        public async Task SyncFromQuartzVaultAsync_WhenContentChanged_ShouldIgnoreVaultDescription()
         {
-            // Arrange — description came from sync (not hand-edited)
+            // Arrange — description came from AI enrichment (not hand-edited)
             var existingNote = CreateTestNote("philosophy/stoicism", "Stoicism", "general");
             existingNote.ContentHash = "old-hash";
-            existingNote.Description = "Old synced description";
+            existingNote.Description = "Earlier AI description";
             existingNote.IsDescriptionManual = false;
             Context.Notes.Add(existingNote);
             await Context.SaveChangesAsync();
@@ -132,7 +134,7 @@ namespace MyMediaVerse.UnitTests.Application
                 ["philosophy/stoicism"] = new QuartzNoteDto
                 {
                     Title = "Stoicism",
-                    Description = "New synced description",
+                    Description = "Vault description",
                     Content = "Rewritten content",
                     Tags = new List<string> { "philosophy" }
                 }
@@ -144,9 +146,9 @@ namespace MyMediaVerse.UnitTests.Application
             // Act
             await _service.SyncFromQuartzVaultAsync("general", "https://vault.example.com");
 
-            // Assert
+            // Assert — the existing text stays until the next enrichment run replaces it
             var updated = Context.Notes.First(n => n.Slug == "philosophy/stoicism");
-            updated.Description.Should().Be("New synced description");
+            updated.Description.Should().Be("Earlier AI description");
         }
 
         [Fact]

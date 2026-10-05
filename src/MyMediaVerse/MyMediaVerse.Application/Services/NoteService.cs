@@ -358,7 +358,9 @@ namespace MyMediaVerse.Application.Services
                             Slug = normalizedSlug,
                             Title = noteDto.Title,
                             Content = noteDto.Content,
-                            Description = noteDto.Description,
+                            // The vault's description is deliberately ignored: Quartz always
+                            // supplies one (an excerpt when frontmatter has none), and the
+                            // displayed description comes from AI enrichment instead.
                             VaultName = vaultName.ToLower(),
                             SourceUrl = $"{vaultUrl.TrimEnd('/')}/{slug}",
                             Tags = NormalizeTags(noteDto.Tags),
@@ -386,15 +388,11 @@ namespace MyMediaVerse.Application.Services
                         existingNote.LastSyncedAt = DateTime.UtcNow;
                         existingNote.ContentHash = contentHash;
 
-                        // Content changed, so any AI summary is now stale. Clear it (and reset the
-                        // synced Description unless the user hand-edited it) so the batch regen,
-                        // which selects notes where AiDescription == null, picks this note up again.
+                        // Content changed, so any AI summary is now stale. Clear it so the batch
+                        // regen, which selects notes where AiDescription == null, picks this note
+                        // up again. Description keeps its current text until that regen replaces it.
                         existingNote.AiDescription = null;
                         existingNote.AiDescriptionGeneratedAt = null;
-                        if (!existingNote.IsDescriptionManual)
-                        {
-                            existingNote.Description = noteDto.Description;
-                        }
 
                         _context.Update(existingNote);
                         await _context.SaveChangesAsync();
