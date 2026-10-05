@@ -150,6 +150,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             created.TraktSlug.Should().Be("brand-new-movie");
             created.TraktPlays.Should().Be(1);
             created.ReleaseYear.Should().Be(2024);
+            created.Thumbnail.Should().BeNull();
         }
 
         [Fact]

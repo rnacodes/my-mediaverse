@@ -50,7 +50,7 @@ namespace MyMediaVerse.IntegrationTests.Api
 
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             var result = await ReadJson(response);
-            result.GetProperty("successCount").GetInt32().Should().Be(1);
+            result.GetProperty("createdCount").GetInt32().Should().Be(1);
 
             var videos = await GetAllVideos();
             videos.Should().ContainSingle();
@@ -67,7 +67,7 @@ namespace MyMediaVerse.IntegrationTests.Api
                 "Video,Without an id,https://vimeo.com/148751763,Vimeo,")));
 
             response.StatusCode.Should().Be(HttpStatusCode.OK);
-            (await ReadJson(response)).GetProperty("successCount").GetInt32().Should().Be(2);
+            (await ReadJson(response)).GetProperty("createdCount").GetInt32().Should().Be(2);
 
             var videos = await GetAllVideos();
             videos.Single(v => v.Title == "With an id").ExternalId.Should().Be("76979871");
@@ -91,7 +91,7 @@ namespace MyMediaVerse.IntegrationTests.Api
 
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             var result = await ReadJson(response);
-            result.GetProperty("successCount").GetInt32().Should().Be(0);
+            result.GetProperty("createdCount").GetInt32().Should().Be(0);
             result.GetProperty("skippedCount").GetInt32().Should().Be(1);
             result.GetProperty("skipped").GetArrayLength().Should().Be(1);
             (await GetAllVideos()).Should().ContainSingle(v => v.Title == "Stored Video");
@@ -109,9 +109,9 @@ namespace MyMediaVerse.IntegrationTests.Api
 
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             var result = await ReadJson(response);
-            result.GetProperty("successCount").GetInt32().Should().Be(2);
+            result.GetProperty("createdCount").GetInt32().Should().Be(2);
             result.GetProperty("skippedCount").GetInt32().Should().Be(1);
-            result.GetProperty("errorCount").GetInt32().Should().Be(0);
+            result.GetProperty("failedCount").GetInt32().Should().Be(0);
 
             var videos = await GetAllVideos();
             videos.Should().HaveCount(2);
@@ -128,7 +128,7 @@ namespace MyMediaVerse.IntegrationTests.Api
             var response = await _client.PostAsync(Endpoint, CsvForm(csv));
 
             var result = await ReadJson(response);
-            result.GetProperty("successCount").GetInt32().Should().Be(1);
+            result.GetProperty("createdCount").GetInt32().Should().Be(1);
             result.GetProperty("skippedCount").GetInt32().Should().Be(1);
             (await GetAllVideos()).Should().ContainSingle(v => v.Title == "First row");
         }
@@ -144,8 +144,8 @@ namespace MyMediaVerse.IntegrationTests.Api
 
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             var result = await ReadJson(response);
-            result.GetProperty("successCount").GetInt32().Should().Be(1);
-            result.GetProperty("errorCount").GetInt32().Should().Be(1);
+            result.GetProperty("createdCount").GetInt32().Should().Be(1);
+            result.GetProperty("failedCount").GetInt32().Should().Be(1);
             result.GetProperty("errors")[0].GetString().Should().Contain("Title and a Link");
             (await GetAllVideos()).Should().ContainSingle(v => v.Title == "A complete row");
         }
@@ -158,7 +158,7 @@ namespace MyMediaVerse.IntegrationTests.Api
 
             var response = await _client.PostAsync(Endpoint, CsvForm(csv));
 
-            (await ReadJson(response)).GetProperty("successCount").GetInt32().Should().Be(1);
+            (await ReadJson(response)).GetProperty("createdCount").GetInt32().Should().Be(1);
             var body = JsonSerializer.Deserialize<JsonElement>(
                 await (await _client.GetAsync("/api/video")).Content.ReadAsStringAsync(), _jsonOptions);
             body[0].TryGetProperty("ownershipStatus", out _).Should().BeFalse();

@@ -52,7 +52,7 @@ namespace MyMediaVerse.IntegrationTests.Api
 
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             var result = await ReadJson(response);
-            result.GetProperty("successCount").GetInt32().Should().Be(1);
+            result.GetProperty("createdCount").GetInt32().Should().Be(1);
 
             var websites = await GetAllWebsites();
             websites.Should().ContainSingle();
@@ -71,7 +71,7 @@ namespace MyMediaVerse.IntegrationTests.Api
 
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             var result = await ReadJson(response);
-            result.GetProperty("successCount").GetInt32().Should().Be(1);
+            result.GetProperty("createdCount").GetInt32().Should().Be(1);
             result.GetProperty("skippedCount").GetInt32().Should().Be(1);
             result.GetProperty("skipped").GetArrayLength().Should().Be(1);
             (await GetAllWebsites()).Should().ContainSingle(w => w.Title == "Example");
@@ -91,7 +91,7 @@ namespace MyMediaVerse.IntegrationTests.Api
                 "Website,Duplicate,https://example.com/article?utm_campaign=x")));
 
             var result = await ReadJson(response);
-            result.GetProperty("successCount").GetInt32().Should().Be(0);
+            result.GetProperty("createdCount").GetInt32().Should().Be(0);
             result.GetProperty("skippedCount").GetInt32().Should().Be(1);
             (await GetAllWebsites()).Should().ContainSingle(w => w.Title == "Already here");
         }
@@ -104,7 +104,7 @@ namespace MyMediaVerse.IntegrationTests.Api
             var response = await _client.PostAsync(Endpoint, CsvForm(csv));
 
             var result = await ReadJson(response);
-            result.GetProperty("successCount").GetInt32().Should().Be(1);
+            result.GetProperty("createdCount").GetInt32().Should().Be(1);
             (await GetAllWebsites()).Should().ContainSingle(w => w.Link == "https://example.com/linked");
         }
 

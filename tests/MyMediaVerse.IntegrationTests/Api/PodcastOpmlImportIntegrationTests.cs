@@ -141,6 +141,28 @@ namespace MyMediaVerse.IntegrationTests.Api
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
+        [Fact]
+        public async Task ImportOpml_ShowNamedInTitle_OrWithoutAType_IsStillImported()
+        {
+            var opml = Opml(
+                "<outline type=\"rss\" title=\"Named In Title\" xmlUrl=\"https://example.com/title-only.xml\"/>",
+                "<outline text=\"No Type\" xmlUrl=\"https://example.com/no-type.xml\"/>");
+
+            var response = await _client.PostAsync("/api/podcast/series/from-opml", OpmlForm(opml));
+
+            var result = JsonSerializer.Deserialize<OpmlImportResultDto>(
+                await response.Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.NotNull(result);
+            Assert.Equal(2, result.CreatedCount);
+            Assert.Equal(0, result.SkippedCount);
+
+            var series = JsonSerializer.Deserialize<List<PodcastSeriesResponseDto>>(
+                await (await _client.GetAsync("/api/podcast/series")).Content.ReadAsStringAsync(), _jsonOptions);
+            Assert.NotNull(series);
+            Assert.Contains(series, s => s.Title == "Named In Title");
+            Assert.Contains(series, s => s.Title == "No Type");
+        }
+
         #region OPML builders
 
         private MultipartFormDataContent OpmlForm(string opml, string fileName = "subscriptions.opml")

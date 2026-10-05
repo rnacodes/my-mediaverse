@@ -8,8 +8,6 @@ export const uploadCsv = (file, mediaType = null) => {
     const formData = new FormData();
     formData.append('file', file);
 
-    // Only append mediaType if it's provided (for single-type CSVs)
-    // If not provided, backend will read MediaType from each row
     if (mediaType) {
         formData.append('mediaType', mediaType);
     }

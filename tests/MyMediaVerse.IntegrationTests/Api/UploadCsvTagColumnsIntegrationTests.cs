@@ -46,7 +46,7 @@ namespace MyMediaVerse.IntegrationTests.Api
 
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             var result = await ReadJson(response);
-            result.GetProperty("successCount").GetInt32().Should().Be(1, $"{mediaType}: {ErrorsOf(result)}");
+            result.GetProperty("createdCount").GetInt32().Should().Be(1, $"{mediaType}: {ErrorsOf(result)}");
             var id = result.GetProperty("importedItems")[0].GetProperty("id").GetGuid();
 
             var item = await ReadJson(await _client.GetAsync($"/api/media/{id}"));
@@ -65,7 +65,7 @@ namespace MyMediaVerse.IntegrationTests.Api
             var response = await _client.PostAsync(Endpoint, CsvForm(csv));
 
             var result = await ReadJson(response);
-            result.GetProperty("successCount").GetInt32().Should().Be(3, ErrorsOf(result));
+            result.GetProperty("createdCount").GetInt32().Should().Be(3, ErrorsOf(result));
             var topics = await ReadJson(await _client.GetAsync("/api/topics"));
             topics.EnumerateArray().Count(t => Name(t) == "shared-topic").Should().Be(1);
             var genres = await ReadJson(await _client.GetAsync("/api/genres"));
@@ -78,7 +78,7 @@ namespace MyMediaVerse.IntegrationTests.Api
             var response = await _client.PostAsync(Endpoint, CsvForm("MediaType,Title,Url\nWebsite,Plain,https://example.com/plain\n"));
 
             var result = await ReadJson(response);
-            result.GetProperty("successCount").GetInt32().Should().Be(1, ErrorsOf(result));
+            result.GetProperty("createdCount").GetInt32().Should().Be(1, ErrorsOf(result));
         }
 
         #region Helpers

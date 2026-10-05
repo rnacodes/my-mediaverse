@@ -45,10 +45,9 @@ namespace MyMediaVerse.Application.Services
                 return result;
             }
 
-            // Podcast feeds are the <outline type="rss"> elements. Use Descendants so the outer
-            // <outline text="feeds"> wrapper (which has no type) is skipped rather than treated as a feed.
             var feeds = document.Descendants("outline")
-                .Where(o => string.Equals((string?)o.Attribute("type"), "rss", StringComparison.OrdinalIgnoreCase))
+                .Where(o => string.Equals((string?)o.Attribute("type"), "rss", StringComparison.OrdinalIgnoreCase)
+                    || !string.IsNullOrWhiteSpace((string?)o.Attribute("xmlUrl")))
                 .ToList();
 
             result.TotalProcessed = feeds.Count;
@@ -66,6 +65,8 @@ namespace MyMediaVerse.Application.Services
             foreach (var feed in feeds)
             {
                 var title = ((string?)feed.Attribute("text"))?.Trim();
+                if (string.IsNullOrWhiteSpace(title))
+                    title = ((string?)feed.Attribute("title"))?.Trim();
                 var rssFeedUrl = ((string?)feed.Attribute("xmlUrl"))?.Trim();
                 var applePodcastsId = ((string?)feed.Attribute("applePodcastsID"))?.Trim();
 

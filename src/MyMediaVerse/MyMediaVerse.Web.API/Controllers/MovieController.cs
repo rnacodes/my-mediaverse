@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using MyMediaVerse.Application.Interfaces;
+using MyMediaVerse.Application.Utilities;
 using MyMediaVerse.Shared.DTOs.TMDB;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Domain.Entities;
@@ -207,29 +208,7 @@ namespace MyMediaVerse.Web.API.Controllers
                 _logger.LogInformation("Mapped movie data for: {Title}", movie.Title);
 
                 // Save to database (keeping TMDB thumbnail URL directly instead of re-uploading)
-                var result = await _movieService.CreateMovieAsync(new CreateMovieDto
-                {
-                    Title = movie.Title,
-                    Description = movie.Description,
-                    Thumbnail = movie.Thumbnail,
-                    Link = $"https://www.themoviedb.org/movie/{movie.TmdbId}",
-                    TmdbId = movie.TmdbId,
-                    TmdbRating = movie.TmdbRating,
-                    TmdbBackdropPath = movie.TmdbBackdropPath,
-                    Tagline = movie.Tagline,
-                    Homepage = movie.Homepage,
-                    OriginalLanguage = movie.OriginalLanguage,
-                    OriginalTitle = movie.OriginalTitle,
-                    ImdbId = movie.ImdbId,
-                    ReleaseYear = movie.ReleaseYear,
-                    RuntimeMinutes = movie.RuntimeMinutes,
-                    Director = movie.Director,
-                    Cast = movie.Cast,
-                    MpaaRating = movie.MpaaRating,
-                    Genres = movie.Genres.Select(g => g.Name).ToArray(),
-                    Status = Status.Uncharted,
-                    MediaType = MediaType.Movie
-                }, fromTmdb: true);
+                var result = await _movieService.CreateMovieAsync(TmdbCreateDtoMapper.ToCreateDto(movie), fromTmdb: true);
 
                 if (result.Created)
                 {
