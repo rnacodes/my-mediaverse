@@ -5,7 +5,7 @@ import SingleUrlImport from './WebsiteImport/SingleUrlImport';
 import BookmarkFileImport from './WebsiteImport/BookmarkFileImport';
 import UrlListImport from './WebsiteImport/UrlListImport';
 import BookmarkletCard from './WebsiteImport/BookmarkletCard';
-import { TABS_SX } from './WebsiteImport/importPageStyles';
+import { TABS_SX, PROFILE_WIDTH_SX } from './WebsiteImport/importPageStyles';
 
 // Tab keys double as the ?tab= value so the Import Media page and the bookmarklet can deep-link.
 const TABS = [
@@ -29,7 +29,7 @@ function WebsiteImportPage() {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+    <Container maxWidth={false} disableGutters sx={{ mt: 4, mb: 4, ...PROFILE_WIDTH_SX }}>
       <Box sx={{ mb: 3 }}>
         <Typography variant="h3" gutterBottom sx={{ color: '#ffffff', fontWeight: 700 }}>
           <Language sx={{ fontSize: 40, verticalAlign: 'middle', mr: 2, color: '#90caf9' }} />

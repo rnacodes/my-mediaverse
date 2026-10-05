@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
 import { DEMO_IMPORT_BLOCKED } from '@/features/demo/demoMessages';
 import BookmarkFileImport from '@/features/imports/pages/WebsiteImport/BookmarkFileImport';
+import { PROFILE_WIDTH_SX } from '@/features/imports/pages/WebsiteImport/importPageStyles';
 import CsvUploadSection from './CsvUploadSection';
 import PodcastOpmlImportSection from './PodcastOpmlImportSection';
 
@@ -11,7 +12,7 @@ function UploadMediaPage() {
     const navigate = useNavigate();
 
     return (
-        <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Container maxWidth={false} disableGutters sx={{ py: 4, ...PROFILE_WIDTH_SX }}>
             <Typography variant="h4" component="h1" gutterBottom>
                 Bulk Upload
             </Typography>
