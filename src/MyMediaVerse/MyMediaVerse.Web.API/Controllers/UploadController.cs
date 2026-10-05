@@ -33,6 +33,11 @@ namespace MyMediaVerse.Web.API.Controllers
         private readonly IGoodreadsImportService _goodreadsImportService;
         private readonly IImportReindexService _importReindexService;
         private readonly IBookRatingEnrichmentService _ratingEnrichmentService;
+        private readonly ITmdbService _tmdbService;
+        private readonly IMovieService _movieService;
+        private readonly IMovieMappingService _movieMappingService;
+        private readonly ITvShowService _tvShowService;
+        private readonly ITvShowMappingService _tvShowMappingService;
 
         public UploadController(
             MediaLibraryDbContext context,
@@ -42,7 +47,12 @@ namespace MyMediaVerse.Web.API.Controllers
             IConfiguration configuration,
             IGoodreadsImportService goodreadsImportService,
             IImportReindexService importReindexService,
-            IBookRatingEnrichmentService ratingEnrichmentService)
+            IBookRatingEnrichmentService ratingEnrichmentService,
+            ITmdbService tmdbService,
+            IMovieService movieService,
+            IMovieMappingService movieMappingService,
+            ITvShowService tvShowService,
+            ITvShowMappingService tvShowMappingService)
         {
             _context = context;
             _logger = logger;
@@ -52,6 +62,11 @@ namespace MyMediaVerse.Web.API.Controllers
             _goodreadsImportService = goodreadsImportService;
             _importReindexService = importReindexService;
             _ratingEnrichmentService = ratingEnrichmentService;
+            _tmdbService = tmdbService;
+            _movieService = movieService;
+            _movieMappingService = movieMappingService;
+            _tvShowService = tvShowService;
+            _tvShowMappingService = tvShowMappingService;
         }
 
         // POST: api/upload/thumbnail-from-url
@@ -230,334 +245,180 @@ namespace MyMediaVerse.Web.API.Controllers
         [HttpPost("csv")]
         public async Task<IActionResult> UploadCsv(IFormFile file, [FromForm] string? mediaType = null)
         {
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest(new { error = "No file uploaded" });
+            }
+
+            if (!file.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest(new { error = "File must be a CSV" });
+            }
+
+            // A media type sent with the file applies to every row; without one, each row names its own.
+            MediaType? fixedMediaType = null;
+            if (!string.IsNullOrEmpty(mediaType))
+            {
+                if (!Enum.TryParse<MediaType>(mediaType, true, out var parsedType))
+                {
+                    return BadRequest(new { error = $"Invalid media type: {mediaType}. Supported types: Book, Movie, TVShow, Article, Video, Website" });
+                }
+                fixedMediaType = parsedType;
+            }
+
+            var result = new CsvUploadResultDto { StartedAt = DateTime.UtcNow };
             try
             {
-                if (file == null || file.Length == 0)
-                {
-                    return BadRequest("No file uploaded");
-                }
-
-                if (!file.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
-                {
-                    return BadRequest("File must be a CSV");
-                }
-
-                var results = new List<object>();
-                var errors = new List<string>();
-                var skipped = new List<string>();
-                var skippedCount = 0;
-                var importedItems = new List<object>();
-                int successCount = 0;
-                int errorCount = 0;
-
                 using var reader = new StreamReader(file.OpenReadStream());
                 using var csv = new CsvReader(reader, CultureInfo.InvariantCulture);
 
-                // Read the header
-                csv.Read();
-                csv.ReadHeader();
-                var headers = csv.HeaderRecord;
-
-                if (headers == null)
+                if (!csv.Read() || !csv.ReadHeader() || csv.HeaderRecord == null)
                 {
-                    return BadRequest("CSV file must have headers");
+                    return BadRequest(new { error = "CSV file must have headers" });
                 }
 
-                // Check if MediaType column exists in the CSV
-                var hasMediaTypeColumn = headers.Any(h => h.Equals("MediaType", StringComparison.OrdinalIgnoreCase));
-                MediaType? fixedMediaType = null;
-
-                if (!hasMediaTypeColumn && string.IsNullOrEmpty(mediaType))
+                var hasMediaTypeColumn = csv.HeaderRecord.Any(h => h.Equals("MediaType", StringComparison.OrdinalIgnoreCase));
+                if (!hasMediaTypeColumn && !fixedMediaType.HasValue)
                 {
-                    return BadRequest("CSV file must include a 'MediaType' column, or you must specify a media type parameter");
+                    return BadRequest(new { error = "CSV file must include a 'MediaType' column, or you must specify a media type parameter" });
                 }
 
-                // If mediaType parameter is provided, use it for all rows (legacy behavior)
-                if (!string.IsNullOrEmpty(mediaType))
-                {
-                    if (!Enum.TryParse<MediaType>(mediaType, true, out var parsedType))
-                    {
-                        return BadRequest($"Invalid media type: {mediaType}. Supported types: Book, Movie, TVShow, Article, Video, Website");
-                    }
-                    fixedMediaType = parsedType;
-                    _logger.LogInformation("Processing CSV upload with fixed media type: {MediaType}", fixedMediaType);
-                }
-                else
-                {
-                    _logger.LogInformation("Processing CSV upload with per-row media types from MediaType column");
-                }
+                _logger.LogInformation("Processing CSV upload, media type: {MediaType}", fixedMediaType?.ToString() ?? "per row");
 
                 var topicResolver = new TopicResolver(_context);
                 var genreResolver = new GenreResolver(_context);
+                var unknownChannelRows = new List<int>();
 
-                // Process rows based on media type (either from column or parameter)
                 while (csv.Read())
                 {
+                    var row = csv.Parser.Row;
                     try
                     {
-                        BaseMediaItem? mediaItem = null;
                         MediaType rowMediaType;
-
-                        // Determine media type for this row
                         if (fixedMediaType.HasValue)
                         {
                             rowMediaType = fixedMediaType.Value;
                         }
                         else
                         {
-                            // Read MediaType from the current row
                             var mediaTypeStr = GetCsvValue(csv, "MediaType");
                             if (string.IsNullOrEmpty(mediaTypeStr))
                             {
-                                errors.Add($"Row {csv.CurrentIndex}: MediaType column is empty");
-                                errorCount++;
-                                continue;
+                                throw new InvalidOperationException("MediaType column is empty");
                             }
 
                             if (!Enum.TryParse<MediaType>(mediaTypeStr, true, out rowMediaType))
                             {
-                                errors.Add($"Row {csv.CurrentIndex}: Invalid media type '{mediaTypeStr}'");
-                                errorCount++;
-                                continue;
+                                throw new InvalidOperationException($"Invalid media type '{mediaTypeStr}'");
                             }
                         }
 
+                        // Each arm returns null for an item that is already in the library.
+                        BaseMediaItem? mediaItem;
+                        string alreadyStored;
                         switch (rowMediaType)
                         {
                             case MediaType.Book:
                                 mediaItem = await ProcessBookRow(csv);
-                                if (mediaItem == null)
-                                {
-                                    skipped.Add($"Row {csv.CurrentIndex}: a book with this ISBN/ASIN or title+author already exists; skipped");
-                                    skippedCount++;
-                                    continue;
-                                }
+                                alreadyStored = "a book with this ISBN/ASIN or title+author already exists";
                                 break;
                             case MediaType.Movie:
                                 mediaItem = await ProcessMovieRow(csv);
+                                alreadyStored = "a movie with this TMDB id or title and year already exists";
                                 break;
                             case MediaType.TVShow:
                                 mediaItem = await ProcessTvShowRow(csv);
+                                alreadyStored = "a TV show with this TMDB id or title and year already exists";
                                 break;
                             case MediaType.Article:
                                 mediaItem = await ProcessArticleRow(csv);
-                                if (mediaItem == null)
-                                {
-                                    skipped.Add($"Row {csv.CurrentIndex}: an article with this URL already exists; skipped");
-                                    skippedCount++;
-                                    continue;
-                                }
+                                alreadyStored = "an article with this URL already exists";
                                 break;
                             case MediaType.Video:
-                                mediaItem = await ProcessVideoRow(csv);
-                                if (mediaItem == null)
-                                {
-                                    skipped.Add($"Row {csv.CurrentIndex}: a video with this ID or link already exists; skipped");
-                                    skippedCount++;
-                                    continue;
-                                }
+                                mediaItem = await ProcessVideoRow(csv, unknownChannelRows);
+                                alreadyStored = "a video with this ID or link already exists";
                                 break;
                             case MediaType.Website:
                                 mediaItem = await ProcessWebsiteRow(csv);
-                                if (mediaItem == null)
-                                {
-                                    skipped.Add($"Row {csv.CurrentIndex}: a website with this URL already exists; skipped");
-                                    skippedCount++;
-                                    continue;
-                                }
+                                alreadyStored = "a website with this URL already exists";
                                 break;
                             case MediaType.Podcast:
-                                // Podcast requires special handling - check if it's a series or episode
-                                var podcastTypeStr = GetCsvValue(csv, "PodcastType");
-                                if (podcastTypeStr?.Equals("Episode", StringComparison.OrdinalIgnoreCase) == true)
-                                {
-                                    errors.Add($"Row {csv.CurrentIndex}: PodcastEpisode import via CSV not yet supported. Please use the Import Media page.");
-                                    errorCount++;
-                                    continue;
-                                }
-                                else
-                                {
-                                    errors.Add($"Row {csv.CurrentIndex}: PodcastSeries import via CSV not yet supported. Please use the Import Media page.");
-                                    errorCount++;
-                                    continue;
-                                }
+                                throw new InvalidOperationException("Podcast import via CSV is not supported. Please use the Import Media page.");
                             default:
-                                errors.Add($"Row {csv.CurrentIndex}: Unsupported media type {rowMediaType}");
-                                errorCount++;
-                                continue;
+                                throw new InvalidOperationException($"Unsupported media type {rowMediaType}");
                         }
 
-                        if (mediaItem != null)
+                        if (mediaItem == null)
+                        {
+                            result.Skipped.Add($"Row {row}: {alreadyStored}; skipped");
+                            result.SkippedCount++;
+                            continue;
+                        }
+
+                        // Movie and TV rows are saved by their own services. Every other row is saved
+                        // here, one at a time, so a repeat later in the same file finds it and is skipped.
+                        if (_context.Entry(mediaItem).State == EntityState.Detached)
                         {
                             await ApplyTagColumnsAsync(mediaItem, csv, topicResolver, genreResolver);
-
-                            // Add to the appropriate DbSet based on the media type
-                            if (mediaItem is Book book)
-                            {
-                                _context.Books.Add(book);
-                                await _context.SaveChangesAsync();
-                                importedItems.Add(new
-                                {
-                                    Id = book.Id,
-                                    Title = book.Title,
-                                    Author = book.Author,
-                                    Thumbnail = book.Thumbnail,
-                                    MediaType = "Book"
-                                });
-                            }
-                            else if (mediaItem is Movie movie)
-                            {
-                                _context.Movies.Add(movie);
-                                importedItems.Add(new
-                                {
-                                    Id = movie.Id,
-                                    Title = movie.Title,
-                                    Director = movie.Director,
-                                    ReleaseYear = movie.ReleaseYear,
-                                    Thumbnail = movie.Thumbnail,
-                                    MediaType = "Movie"
-                                });
-                            }
-                            else if (mediaItem is TvShow tvShow)
-                            {
-                                _context.TvShows.Add(tvShow);
-                                importedItems.Add(new
-                                {
-                                    Id = tvShow.Id,
-                                    Title = tvShow.Title,
-                                    Creator = tvShow.Creator,
-                                    FirstAirYear = tvShow.FirstAirYear,
-                                    Thumbnail = tvShow.Thumbnail,
-                                    MediaType = "TVShow"
-                                });
-                            }
-                            else if (mediaItem is Article article)
-                            {
-                                _context.Articles.Add(article);
-                                importedItems.Add(new
-                                {
-                                    Id = article.Id,
-                                    Title = article.Title,
-                                    Author = article.Author,
-                                    Link = article.Link,
-                                    IsArchived = article.IsArchived,
-                                    IsStarred = article.IsStarred,
-                                    MediaType = "Article"
-                                });
-                            }
-                            else if (mediaItem is Video video)
-                            {
-                                _context.Videos.Add(video);
-                                try
-                                {
-                                    await _context.SaveChangesAsync();
-                                }
-                                catch (DbUpdateException)
-                                {
-                                    // Only this row leaves tracking. Clearing the whole tracker would
-                                    // also drop rows already counted as imported but not yet saved.
-                                    video.Topics.Clear();
-                                    video.Genres.Clear();
-                                    _context.ChangeTracker.DetectChanges();
-                                    _context.Entry(video).State = EntityState.Detached;
-                                    throw;
-                                }
-
-                                importedItems.Add(new
-                                {
-                                    Id = video.Id,
-                                    Title = video.Title,
-                                    Platform = video.Platform,
-                                    Thumbnail = video.Thumbnail,
-                                    MediaType = "Video"
-                                });
-                            }
-                            else if (mediaItem is Website website)
-                            {
-                                // Saved immediately so a later row with the same URL sees it in the
-                                // finder and is skipped, instead of colliding on the unique key index.
-                                _context.Websites.Add(website);
-                                await _context.SaveChangesAsync();
-                                importedItems.Add(new
-                                {
-                                    Id = website.Id,
-                                    Title = website.Title,
-                                    Link = website.Link,
-                                    Thumbnail = website.Thumbnail,
-                                    MediaType = "Website"
-                                });
-                            }
-                            else if (mediaItem is PodcastSeries podcastSeries)
-                            {
-                                _context.PodcastSeries.Add(podcastSeries);
-                                importedItems.Add(new
-                                {
-                                    Id = podcastSeries.Id,
-                                    Title = podcastSeries.Title,
-                                    Thumbnail = podcastSeries.Thumbnail,
-                                    MediaType = "PodcastSeries"
-                                });
-                            }
-                            else if (mediaItem is PodcastEpisode podcastEpisode)
-                            {
-                                _context.PodcastEpisodes.Add(podcastEpisode);
-                                importedItems.Add(new
-                                {
-                                    Id = podcastEpisode.Id,
-                                    Title = podcastEpisode.Title,
-                                    Thumbnail = podcastEpisode.Thumbnail,
-                                    MediaType = "PodcastEpisode"
-                                });
-                            }
-                            else
-                            {
-                                _context.MediaItems.Add(mediaItem);
-                                importedItems.Add(new
-                                {
-                                    Id = mediaItem.Id,
-                                    Title = mediaItem.Title,
-                                    Thumbnail = mediaItem.Thumbnail,
-                                    MediaType = mediaItem.MediaType.ToString()
-                                });
-                            }
-                            successCount++;
+                            _context.Add(mediaItem);
+                            await SaveRowAsync(mediaItem);
                         }
+
+                        result.ImportedItems.Add(new CsvImportedItemDto
+                        {
+                            Id = mediaItem.Id,
+                            Title = mediaItem.Title,
+                            MediaType = mediaItem.MediaType.ToString()
+                        });
+                        result.CreatedCount++;
                     }
                     catch (Exception ex)
                     {
-                        errors.Add($"Row {csv.CurrentIndex}: {ex.Message}");
-                        errorCount++;
-                        _logger.LogWarning(ex, "Error processing row {RowIndex}", csv.CurrentIndex);
+                        result.Errors.Add($"Row {row}: {ex.Message}");
+                        result.FailedCount++;
+                        _logger.LogWarning(ex, "Error processing CSV row {Row}", row);
                     }
                 }
 
-                // Save all changes
-                await _context.SaveChangesAsync();
+                if (unknownChannelRows.Count > 0)
+                {
+                    result.WarningMessage = $"{unknownChannelRows.Count} video row(s) named a channel that is not in the library and were stored without one (rows {string.Join(", ", unknownChannelRows)}).";
+                }
 
                 // Make the imported items searchable immediately (best-effort; never fails the import).
-                await _importReindexService.ReindexAfterImportAsync(successCount, "CSV upload");
+                result.ReindexTriggered = result.CreatedCount > 0;
+                await _importReindexService.ReindexAfterImportAsync(result.CreatedCount, "CSV upload");
 
-                var result = new
-                {
-                    Success = true,
-                    Message = $"Processed {successCount + errorCount + skippedCount} rows. {successCount} successful, {skippedCount} skipped, {errorCount} errors.",
-                    SuccessCount = successCount,
-                    SkippedCount = skippedCount,
-                    ErrorCount = errorCount,
-                    Errors = errors,
-                    Skipped = skipped,
-                    ImportedItems = importedItems
-                };
-
-                _logger.LogInformation("CSV upload completed: {SuccessCount} successful, {ErrorCount} errors", successCount, errorCount);
-                _logger.LogInformation("Response result: {@Result}", result);
+                result.CompletedAt = DateTime.UtcNow;
+                _logger.LogInformation("CSV upload completed: {Created} created, {Skipped} skipped, {Failed} failed",
+                    result.CreatedCount, result.SkippedCount, result.FailedCount);
 
                 return Ok(result);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error processing CSV upload");
-                return StatusCode(500, new { error = "Failed to process CSV upload", details = ex.Message });
+                result.Success = false;
+                result.ErrorMessage = $"Failed to process CSV upload: {ex.Message}";
+                return StatusCode(500, result);
+            }
+        }
+
+        // Saves one row. A row the database rejects leaves tracking on its own, so the rows after it
+        // can still save.
+        private async Task SaveRowAsync(BaseMediaItem item)
+        {
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                item.Topics.Clear();
+                item.Genres.Clear();
+                _context.ChangeTracker.DetectChanges();
+                _context.Entry(item).State = EntityState.Detached;
+                throw;
             }
         }
 
@@ -737,128 +598,129 @@ namespace MyMediaVerse.Web.API.Controllers
                 DateTime.TryParse(dateCompletedStr, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime dateCompleted))
                 book.DateCompleted = DateTime.SpecifyKind(dateCompleted, DateTimeKind.Utc);
 
-            // For now, we'll just create the basic book entity
+            book.Publisher = GetCsvValue(csv, "Publisher");
+            book.YearPublished = ParseInt(GetCsvValue(csv, "YearPublished"));
+            book.DateRead = ParseDate(GetCsvValue(csv, "DateRead"));
+            book.MyReview = GetCsvValue(csv, "MyReview");
 
             return book;
         }
 
-        private Task<Movie?> ProcessMovieRow(CsvReader csv)
+        // Returns null when the movie is already in the library. A row with a TMDB id takes its
+        // details from TMDB; a row without one is stored as typed.
+        private async Task<Movie?> ProcessMovieRow(CsvReader csv)
         {
-            var movie = new Movie
+            CreateMovieDto dto;
+            var fromTmdb = int.TryParse(GetCsvValue(csv, "TmdbId"), out var tmdbId);
+            if (fromTmdb)
             {
-                Title = GetCsvValue(csv, "Title") ?? "Unknown Title",
-                MediaType = MediaType.Movie,
-                DateAdded = DateTime.UtcNow,
-                Status = ParseStatus(GetCsvValue(csv, "Status")) ?? Status.Uncharted
-            };
+                if (await _movieService.GetMovieByTmdbIdAsync(tmdbId.ToString()) != null)
+                    return null;
 
-            // Optional fields
-            movie.Description = GetCsvValue(csv, "Description");
-            movie.Link = GetCsvValue(csv, "Link");
-            movie.Notes = GetCsvValue(csv, "Notes");
-            movie.RelatedNotes = GetCsvValue(csv, "RelatedNotes");
-            movie.Thumbnail = GetCsvValue(csv, "Thumbnail");
-            movie.Director = GetCsvValue(csv, "Director");
-            movie.Cast = GetCsvValue(csv, "Cast");
-            movie.Tagline = GetCsvValue(csv, "Tagline");
-            movie.Homepage = GetCsvValue(csv, "Homepage");
-            movie.OriginalLanguage = GetCsvValue(csv, "OriginalLanguage");
-            movie.OriginalTitle = GetCsvValue(csv, "OriginalTitle");
-            movie.ImdbId = GetCsvValue(csv, "ImdbId");
-            movie.TmdbId = GetCsvValue(csv, "TmdbId");
-            movie.MpaaRating = GetCsvValue(csv, "MpaaRating");
+                var tmdbMovie = await FromTmdbAsync(_tmdbService.GetMovieDetailsAsync(tmdbId), tmdbId);
+                dto = TmdbCreateDtoMapper.ToCreateDto(await _movieMappingService.MapFromTmdbAsync(tmdbMovie));
+            }
+            else
+            {
+                dto = new CreateMovieDto
+                {
+                    Title = GetCsvValue(csv, "Title") ?? "Unknown Title",
+                    Description = GetCsvValue(csv, "Description"),
+                    Link = GetCsvValue(csv, "Link"),
+                    Thumbnail = GetCsvValue(csv, "Thumbnail"),
+                    Director = GetCsvValue(csv, "Director"),
+                    Cast = GetCsvValue(csv, "Cast"),
+                    Tagline = GetCsvValue(csv, "Tagline"),
+                    Homepage = GetCsvValue(csv, "Homepage"),
+                    OriginalLanguage = GetCsvValue(csv, "OriginalLanguage"),
+                    OriginalTitle = GetCsvValue(csv, "OriginalTitle"),
+                    ImdbId = GetCsvValue(csv, "ImdbId"),
+                    TmdbId = GetCsvValue(csv, "TmdbId"),
+                    MpaaRating = GetCsvValue(csv, "MpaaRating"),
+                    ReleaseYear = ParseInt(GetCsvValue(csv, "ReleaseYear")),
+                    RuntimeMinutes = ParseInt(GetCsvValue(csv, "RuntimeMinutes")),
+                    TmdbRating = ParseDouble(GetCsvValue(csv, "TmdbRating"))
+                };
+            }
 
-            // Parse numeric fields
-            var releaseYearStr = GetCsvValue(csv, "ReleaseYear");
-            if (!string.IsNullOrEmpty(releaseYearStr) && int.TryParse(releaseYearStr, out int releaseYear))
-                movie.ReleaseYear = releaseYear;
+            // The owner's own columns apply either way.
+            dto.Status = ParseStatus(GetCsvValue(csv, "Status")) ?? Status.Uncharted;
+            dto.Rating = ParseEnum<Rating>(GetCsvValue(csv, "Rating"));
+            dto.OwnershipStatus = ParseEnum<OwnershipStatus>(GetCsvValue(csv, "OwnershipStatus"));
+            dto.DateCompleted = ParseDate(GetCsvValue(csv, "DateCompleted"));
+            dto.Notes = GetCsvValue(csv, "Notes");
+            dto.RelatedNotes = GetCsvValue(csv, "RelatedNotes");
+            dto.Topics = SplitTagColumn(GetCsvValue(csv, "Topics")).ToArray();
+            dto.Genres = dto.Genres.Concat(SplitTagColumn(GetCsvValue(csv, "Genres"))).Distinct().ToArray();
 
-            var runtimeStr = GetCsvValue(csv, "RuntimeMinutes");
-            if (!string.IsNullOrEmpty(runtimeStr) && int.TryParse(runtimeStr, out int runtime))
-                movie.RuntimeMinutes = runtime;
-
-            var tmdbRatingStr = GetCsvValue(csv, "TmdbRating");
-            if (!string.IsNullOrEmpty(tmdbRatingStr) && double.TryParse(tmdbRatingStr, out double tmdbRating))
-                movie.TmdbRating = tmdbRating;
-
-            // Parse enums
-            var ratingStr = GetCsvValue(csv, "Rating");
-            if (!string.IsNullOrEmpty(ratingStr) && Enum.TryParse<Rating>(ratingStr, true, out Rating rating))
-                movie.Rating = rating;
-
-            var ownershipStr = GetCsvValue(csv, "OwnershipStatus");
-            if (!string.IsNullOrEmpty(ownershipStr) && Enum.TryParse<OwnershipStatus>(ownershipStr, true, out OwnershipStatus ownership))
-                movie.OwnershipStatus = ownership;
-
-            // Parse dates
-            var dateCompletedStr = GetCsvValue(csv, "DateCompleted");
-            if (!string.IsNullOrEmpty(dateCompletedStr) && DateTime.TryParse(dateCompletedStr, out DateTime dateCompleted))
-                movie.DateCompleted = DateTime.SpecifyKind(dateCompleted, DateTimeKind.Utc);
-
-            return Task.FromResult<Movie?>(movie);
+            var result = await _movieService.CreateMovieAsync(dto, fromTmdb);
+            return result.Created ? result.Movie : null;
         }
 
-        private Task<TvShow?> ProcessTvShowRow(CsvReader csv)
+        // Returns null when the show is already in the library. Same two paths as a movie row.
+        private async Task<TvShow?> ProcessTvShowRow(CsvReader csv)
         {
-            var tvShow = new TvShow
+            CreateTvShowDto dto;
+            var fromTmdb = int.TryParse(GetCsvValue(csv, "TmdbId"), out var tmdbId);
+            if (fromTmdb)
             {
-                Title = GetCsvValue(csv, "Title") ?? "Unknown Title",
-                MediaType = MediaType.TVShow,
-                DateAdded = DateTime.UtcNow,
-                Status = ParseStatus(GetCsvValue(csv, "Status")) ?? Status.Uncharted
-            };
+                if (await _tvShowService.GetTvShowByTmdbIdAsync(tmdbId.ToString()) != null)
+                    return null;
 
-            // Optional fields
-            tvShow.Description = GetCsvValue(csv, "Description");
-            tvShow.Link = GetCsvValue(csv, "Link");
-            tvShow.Notes = GetCsvValue(csv, "Notes");
-            tvShow.RelatedNotes = GetCsvValue(csv, "RelatedNotes");
-            tvShow.Thumbnail = GetCsvValue(csv, "Thumbnail");
-            tvShow.Creator = GetCsvValue(csv, "Creator");
-            tvShow.Cast = GetCsvValue(csv, "Cast");
-            tvShow.Tagline = GetCsvValue(csv, "Tagline");
-            tvShow.Homepage = GetCsvValue(csv, "Homepage");
-            tvShow.OriginalLanguage = GetCsvValue(csv, "OriginalLanguage");
-            tvShow.OriginalName = GetCsvValue(csv, "OriginalName");
-            tvShow.TmdbId = GetCsvValue(csv, "TmdbId");
-            tvShow.ContentRating = GetCsvValue(csv, "ContentRating");
+                var tmdbTvShow = await FromTmdbAsync(_tmdbService.GetTvShowDetailsAsync(tmdbId), tmdbId);
+                dto = TmdbCreateDtoMapper.ToCreateDto(await _tvShowMappingService.MapFromTmdbAsync(tmdbTvShow));
+            }
+            else
+            {
+                dto = new CreateTvShowDto
+                {
+                    Title = GetCsvValue(csv, "Title") ?? "Unknown Title",
+                    Description = GetCsvValue(csv, "Description"),
+                    Link = GetCsvValue(csv, "Link"),
+                    Thumbnail = GetCsvValue(csv, "Thumbnail"),
+                    Creator = GetCsvValue(csv, "Creator"),
+                    Cast = GetCsvValue(csv, "Cast"),
+                    Tagline = GetCsvValue(csv, "Tagline"),
+                    Homepage = GetCsvValue(csv, "Homepage"),
+                    OriginalLanguage = GetCsvValue(csv, "OriginalLanguage"),
+                    OriginalName = GetCsvValue(csv, "OriginalName"),
+                    TmdbId = GetCsvValue(csv, "TmdbId"),
+                    ContentRating = GetCsvValue(csv, "ContentRating"),
+                    FirstAirYear = ParseInt(GetCsvValue(csv, "FirstAirYear")),
+                    LastAirYear = ParseInt(GetCsvValue(csv, "LastAirYear")),
+                    NumberOfSeasons = ParseInt(GetCsvValue(csv, "NumberOfSeasons")),
+                    NumberOfEpisodes = ParseInt(GetCsvValue(csv, "NumberOfEpisodes")),
+                    TmdbRating = ParseDouble(GetCsvValue(csv, "TmdbRating"))
+                };
+            }
 
-            // Parse numeric fields
-            var firstAirYearStr = GetCsvValue(csv, "FirstAirYear");
-            if (!string.IsNullOrEmpty(firstAirYearStr) && int.TryParse(firstAirYearStr, out int firstAirYear))
-                tvShow.FirstAirYear = firstAirYear;
+            dto.Status = ParseStatus(GetCsvValue(csv, "Status")) ?? Status.Uncharted;
+            dto.Rating = ParseEnum<Rating>(GetCsvValue(csv, "Rating"));
+            dto.OwnershipStatus = ParseEnum<OwnershipStatus>(GetCsvValue(csv, "OwnershipStatus"));
+            dto.DateCompleted = ParseDate(GetCsvValue(csv, "DateCompleted"));
+            dto.Notes = GetCsvValue(csv, "Notes");
+            dto.RelatedNotes = GetCsvValue(csv, "RelatedNotes");
+            dto.Topics = SplitTagColumn(GetCsvValue(csv, "Topics")).ToArray();
+            dto.Genres = dto.Genres.Concat(SplitTagColumn(GetCsvValue(csv, "Genres"))).Distinct().ToArray();
 
-            var lastAirYearStr = GetCsvValue(csv, "LastAirYear");
-            if (!string.IsNullOrEmpty(lastAirYearStr) && int.TryParse(lastAirYearStr, out int lastAirYear))
-                tvShow.LastAirYear = lastAirYear;
+            var result = await _tvShowService.CreateTvShowAsync(dto, fromTmdb);
+            return result.Created ? result.TvShow : null;
+        }
 
-            var numberOfSeasonsStr = GetCsvValue(csv, "NumberOfSeasons");
-            if (!string.IsNullOrEmpty(numberOfSeasonsStr) && int.TryParse(numberOfSeasonsStr, out int numberOfSeasons))
-                tvShow.NumberOfSeasons = numberOfSeasons;
+        // A TMDB failure fails the row with a message that names the id, not the whole upload.
+        private static async Task<T> FromTmdbAsync<T>(Task<T> lookup, int tmdbId) where T : class
+        {
+            T? found;
+            try
+            {
+                found = await lookup;
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"TMDB lookup for id {tmdbId} failed: {ex.Message}", ex);
+            }
 
-            var numberOfEpisodesStr = GetCsvValue(csv, "NumberOfEpisodes");
-            if (!string.IsNullOrEmpty(numberOfEpisodesStr) && int.TryParse(numberOfEpisodesStr, out int numberOfEpisodes))
-                tvShow.NumberOfEpisodes = numberOfEpisodes;
-
-            var tmdbRatingStr = GetCsvValue(csv, "TmdbRating");
-            if (!string.IsNullOrEmpty(tmdbRatingStr) && double.TryParse(tmdbRatingStr, out double tmdbRating))
-                tvShow.TmdbRating = tmdbRating;
-
-            // Parse enums
-            var ratingStr = GetCsvValue(csv, "Rating");
-            if (!string.IsNullOrEmpty(ratingStr) && Enum.TryParse<Rating>(ratingStr, true, out Rating rating))
-                tvShow.Rating = rating;
-
-            var ownershipStr = GetCsvValue(csv, "OwnershipStatus");
-            if (!string.IsNullOrEmpty(ownershipStr) && Enum.TryParse<OwnershipStatus>(ownershipStr, true, out OwnershipStatus ownership))
-                tvShow.OwnershipStatus = ownership;
-
-            // Parse dates
-            var dateCompletedStr = GetCsvValue(csv, "DateCompleted");
-            if (!string.IsNullOrEmpty(dateCompletedStr) && DateTime.TryParse(dateCompletedStr, out DateTime dateCompleted))
-                tvShow.DateCompleted = DateTime.SpecifyKind(dateCompleted, DateTimeKind.Utc);
-
-            return Task.FromResult<TvShow?>(tvShow);
+            return found ?? throw new InvalidOperationException($"TMDB has nothing with id {tmdbId}");
         }
 
         // Returns null when an article with the row's URL already exists.
@@ -940,7 +802,7 @@ namespace MyMediaVerse.Web.API.Controllers
             return article;
         }
 
-        private async Task<Video?> ProcessVideoRow(CsvReader csv)
+        private async Task<Video?> ProcessVideoRow(CsvReader csv, List<int> unknownChannelRows)
         {
             var title = GetCsvValue(csv, "Title");
             var link = GetCsvValue(csv, "Link");
@@ -993,6 +855,19 @@ namespace MyMediaVerse.Web.API.Controllers
             video.RelatedNotes = GetCsvValue(csv, "RelatedNotes");
             video.Thumbnail = GetCsvValue(csv, "Thumbnail");
             video.ExternalId = externalId;
+
+            // ChannelId is the YouTube channel id. Channels are curated, so an upload links to a
+            // stored one and never creates one.
+            var channelExternalId = GetCsvValue(csv, "ChannelId");
+            if (!string.IsNullOrEmpty(channelExternalId))
+            {
+                var channel = await _context.YouTubeChannels
+                    .FirstOrDefaultAsync(c => c.ChannelExternalId == channelExternalId);
+                if (channel != null)
+                    video.ChannelId = channel.Id;
+                else
+                    unknownChannelRows.Add(csv.Parser.Row);
+            }
 
             // Parse numeric fields
             var lengthStr = GetCsvValue(csv, "LengthInSeconds") ?? GetCsvValue(csv, "DurationInSeconds");
@@ -1107,6 +982,21 @@ namespace MyMediaVerse.Web.API.Controllers
                 return null;
             }
         }
+
+        private static int? ParseInt(string? value) =>
+            int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) ? parsed : null;
+
+        private static double? ParseDouble(string? value) =>
+            double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) ? parsed : null;
+
+        private static TEnum? ParseEnum<TEnum>(string? value) where TEnum : struct, Enum =>
+            !string.IsNullOrEmpty(value) && Enum.TryParse<TEnum>(value, true, out var parsed) ? parsed : null;
+
+        // Invariant culture so a CSV parses the same on any host locale.
+        private static DateTime? ParseDate(string? value) =>
+            DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed)
+                ? DateTime.SpecifyKind(parsed, DateTimeKind.Utc)
+                : null;
 
         private static Status? ParseStatus(string? statusStr)
         {

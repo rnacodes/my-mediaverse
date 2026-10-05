@@ -46,6 +46,8 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             show.TraktId.Should().Be(777);
             show.TraktSlug.Should().Be("new-show");
             show.TraktPlays.Should().Be(2); // Sum of episode plays
+            show.Thumbnail.Should().BeNull();
+            Context.TvShowEpisodes.Where(e => e.ShowId == show.Id).Should().OnlyContain(e => e.Thumbnail == null);
         }
 
         [Fact]

@@ -54,7 +54,7 @@ namespace MyMediaVerse.IntegrationTests.Api
 
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             var result = await ReadJson(response);
-            result.GetProperty("successCount").GetInt32().Should().Be(1);
+            result.GetProperty("createdCount").GetInt32().Should().Be(1);
             result.GetProperty("skippedCount").GetInt32().Should().Be(1);
             result.GetProperty("skipped").GetArrayLength().Should().Be(1);
             (await GetAllBooks()).Should().ContainSingle(b => b.Title == "Dune");
@@ -70,7 +70,7 @@ namespace MyMediaVerse.IntegrationTests.Api
             var response = await _client.PostAsync(Endpoint, CsvForm(Csv("Book,The Great Gatsby (2004 ed.),Fitzgerald,074327356X,")));
 
             var result = await ReadJson(response);
-            result.GetProperty("successCount").GetInt32().Should().Be(0);
+            result.GetProperty("createdCount").GetInt32().Should().Be(0);
             result.GetProperty("skippedCount").GetInt32().Should().Be(1);
             var books = await GetAllBooks();
             books.Should().ContainSingle();

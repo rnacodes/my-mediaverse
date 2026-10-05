@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using MyMediaVerse.Application.Interfaces;
+using MyMediaVerse.Application.Utilities;
 using MyMediaVerse.Shared.DTOs.TMDB;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Domain.Entities;
@@ -210,30 +211,7 @@ namespace MyMediaVerse.Web.API.Controllers
                 _logger.LogInformation("Mapped TV show data for: {Title}", tvShow.Title);
 
                 // Save to database (keeping TMDB thumbnail URL directly instead of re-uploading)
-                var result = await _tvShowService.CreateTvShowAsync(new CreateTvShowDto
-                {
-                    Title = tvShow.Title,
-                    Description = tvShow.Description,
-                    Thumbnail = tvShow.Thumbnail,
-                    Link = $"https://www.themoviedb.org/tv/{tvShow.TmdbId}",
-                    TmdbId = tvShow.TmdbId,
-                    TmdbRating = tvShow.TmdbRating,
-                    TmdbPosterPath = tvShow.TmdbPosterPath,
-                    Tagline = tvShow.Tagline,
-                    Homepage = tvShow.Homepage,
-                    OriginalLanguage = tvShow.OriginalLanguage,
-                    OriginalName = tvShow.OriginalName,
-                    FirstAirYear = tvShow.FirstAirYear,
-                    LastAirYear = tvShow.LastAirYear,
-                    NumberOfSeasons = tvShow.NumberOfSeasons,
-                    NumberOfEpisodes = tvShow.NumberOfEpisodes,
-                    Creator = tvShow.Creator,
-                    Cast = tvShow.Cast,
-                    ContentRating = tvShow.ContentRating,
-                    Genres = tvShow.Genres.Select(g => g.Name).ToArray(),
-                    Status = Status.Uncharted,
-                    MediaType = MediaType.TVShow
-                }, fromTmdb: true);
+                var result = await _tvShowService.CreateTvShowAsync(TmdbCreateDtoMapper.ToCreateDto(tvShow), fromTmdb: true);
 
                 if (result.Created)
                 {
