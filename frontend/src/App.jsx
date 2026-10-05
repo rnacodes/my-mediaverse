@@ -128,7 +128,7 @@ function RoutedContent() {
               <ConditionalProtectedRoute><DemoRestrictedRoute><ImportGenresTopicsPage /></DemoRestrictedRoute></ConditionalProtectedRoute>
             } />
             <Route path="/upload-media" element={
-              <ConditionalProtectedRoute><DemoRestrictedRoute><UploadMediaPage /></DemoRestrictedRoute></ConditionalProtectedRoute>
+              <ConditionalProtectedRoute><UploadMediaPage /></ConditionalProtectedRoute>
             } />
             <Route path="/upload-goodreads" element={
               <ConditionalProtectedRoute><DemoRestrictedRoute><GoodreadsUploadPage /></DemoRestrictedRoute></ConditionalProtectedRoute>

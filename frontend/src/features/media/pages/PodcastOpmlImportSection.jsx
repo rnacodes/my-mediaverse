@@ -7,6 +7,8 @@ import {
 import { Podcasts, FileUpload, CheckCircle, ExpandMore } from '@mui/icons-material';
 import { useImportPodcastOpml } from '@/hooks/useUpload';
 import StatTiles from '@/features/imports/pages/WebsiteImport/StatTiles';
+import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
+import { DEMO_IMPORT_BLOCKED } from '@/features/demo/demoMessages';
 
 const OUTLINED_BUTTON_SX = {
     borderColor: 'rgba(255, 255, 255, 0.7)',
@@ -16,6 +18,10 @@ const OUTLINED_BUTTON_SX = {
         backgroundColor: 'rgba(255, 255, 255, 0.05)',
     },
 };
+
+const OPML_EXAMPLE = `<outline text="feeds">
+  <outline type="rss" text="My Favorite Show" xmlUrl="https://example.com/feed.xml" />
+</outline>`;
 
 function PodcastOpmlImportSection() {
     const fileInputRef = useRef(null);
@@ -96,8 +102,28 @@ function PodcastOpmlImportSection() {
                     Import Podcasts from OPML
                 </Typography>
                 <Typography variant="body2" color="text.secondary" paragraph>
-                    Upload an OPML export from your podcast app to import your subscriptions.
-                    Feeds are added as lightweight entries and enriched automatically later.
+                    An OPML file is a subscription list, and most podcast apps can export one. Each show
+                    is an <code>&lt;outline&gt;</code> entry with the show&apos;s name (<code>text</code>) and
+                    its feed address (<code>xmlUrl</code>). Entries may sit inside a folder outline.
+                </Typography>
+                <Box
+                    component="pre"
+                    data-testid="opml-example"
+                    sx={{
+                        textAlign: 'left',
+                        fontSize: '0.8rem',
+                        p: 2,
+                        mb: 2,
+                        borderRadius: 1,
+                        overflowX: 'auto',
+                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    }}
+                >
+                    {OPML_EXAMPLE}
+                </Box>
+                <Typography variant="body2" color="text.secondary" paragraph>
+                    Shows come in as subscribed entries with just a name and a feed, and fill in on the
+                    next enrichment run. A show that is already in the library is skipped.
                 </Typography>
             </Box>
 
@@ -131,14 +157,16 @@ function PodcastOpmlImportSection() {
             </Box>
 
             <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
-                <Button
-                    variant="contained"
-                    onClick={handleImport}
-                    disabled={!file || importing}
-                    startIcon={importing ? <CircularProgress size={20} /> : <Podcasts />}
-                >
-                    {importing ? 'Importing...' : 'Import Podcasts'}
-                </Button>
+                <DemoWriteGuard title={DEMO_IMPORT_BLOCKED}>
+                    <Button
+                        variant="contained"
+                        onClick={handleImport}
+                        disabled={!file || importing}
+                        startIcon={importing ? <CircularProgress size={20} /> : <Podcasts />}
+                    >
+                        {importing ? 'Importing...' : 'Import Podcasts'}
+                    </Button>
+                </DemoWriteGuard>
                 <Button
                     variant="outlined"
                     onClick={handleReset}
