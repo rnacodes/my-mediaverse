@@ -111,6 +111,47 @@ namespace MyMediaVerse.UnitTests.Application
             updatedNote.AiDescription.Should().Be("Generated description");
         }
 
+        [Fact]
+        public async Task GenerateNoteDescriptionAsync_ReplacesExistingNonManualDescription()
+        {
+            var note = TestDataFactory.CreateNote("Test Note");
+            note.Content = "Important content about technology";
+            note.Description = "Earlier description";
+            note.IsDescriptionManual = false;
+            Context.Notes.Add(note);
+            await Context.SaveChangesAsync();
+
+            _mockGradientClient.GenerateTextAsync(
+                Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .Returns("Generated description");
+
+            await _service.GenerateNoteDescriptionAsync(note.Id);
+
+            var updatedNote = Context.Notes.First(n => n.Id == note.Id);
+            updatedNote.Description.Should().Be("Generated description");
+        }
+
+        [Fact]
+        public async Task GenerateNoteDescriptionAsync_LeavesManualDescriptionAlone()
+        {
+            var note = TestDataFactory.CreateNote("Test Note");
+            note.Content = "Important content about technology";
+            note.Description = "Hand-written description";
+            note.IsDescriptionManual = true;
+            Context.Notes.Add(note);
+            await Context.SaveChangesAsync();
+
+            _mockGradientClient.GenerateTextAsync(
+                Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .Returns("Generated description");
+
+            await _service.GenerateNoteDescriptionAsync(note.Id);
+
+            var updatedNote = Context.Notes.First(n => n.Id == note.Id);
+            updatedNote.Description.Should().Be("Hand-written description");
+            updatedNote.AiDescription.Should().Be("Generated description");
+        }
+
         #endregion
 
         #region GenerateNoteDescriptionsBatchAsync

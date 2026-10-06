@@ -26,8 +26,9 @@ Your descriptions should:
 - Be 2-3 sentences long
 - Capture the main topic and purpose of the note
 - Be written in third person
-- Focus on what the note is about, not how it's written
-- Do not start with phrases like 'This note discusses...' - just describe the content directly";
+- State the subject matter directly, as if summarizing the ideas themselves
+- Never refer to the note itself: do not use 'this note', 'the note', 'the page', 'the document', 'a guide' or similar framing anywhere in the description
+- Example of the desired style: 'Stoicism teaches that obstacles are opportunities to practice virtue. Focusing only on what can be controlled turns setbacks into progress.'";
 
         private const string NoteDescriptionUserPromptTemplate = @"Generate a description for this note:
 
@@ -91,8 +92,8 @@ Content (excerpt):
                 note.AiDescription = description;
                 note.AiDescriptionGeneratedAt = DateTime.UtcNow;
 
-                // If there's no manual description, also update the main Description field
-                if (!note.IsDescriptionManual && string.IsNullOrWhiteSpace(note.Description))
+                // The AI summary is the displayed description unless the user hand-edited it
+                if (!note.IsDescriptionManual)
                 {
                     note.Description = description;
                 }

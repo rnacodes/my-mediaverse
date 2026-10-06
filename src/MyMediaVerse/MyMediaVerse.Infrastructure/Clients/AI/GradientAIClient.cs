@@ -107,6 +107,12 @@ namespace MyMediaVerse.Infrastructure.Clients.AI
                     throw new InvalidOperationException("No response returned from Gradient AI.");
                 }
 
+                if (string.Equals(chatResponse.Choices[0].FinishReason, "length", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException(
+                        $"Gradient AI response was cut off at the {maxTokens}-token limit.");
+                }
+
                 var generatedText = chatResponse.Choices[0].Message?.Content ?? string.Empty;
 
                 _logger.LogDebug("Successfully generated text response ({Length} chars)", generatedText.Length);
