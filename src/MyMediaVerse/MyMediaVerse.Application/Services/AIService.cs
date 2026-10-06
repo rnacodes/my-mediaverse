@@ -117,10 +117,10 @@ Content (excerpt):
 
             try
             {
-                // Get notes that need descriptions
+                // Get notes that need descriptions. Blank notes are left out.
                 var notes = await _context.Notes
                     .Where(n => n.AiDescription == null
-                             && n.Content != null
+                             && !string.IsNullOrWhiteSpace(n.Content)
                              && !n.IsDescriptionManual)
                     .OrderBy(n => n.DateImported)
                     .Take(batchSize)
@@ -190,7 +190,7 @@ Content (excerpt):
         {
             return await _context.Notes
                 .CountAsync(n => n.AiDescription == null
-                              && n.Content != null
+                              && !string.IsNullOrWhiteSpace(n.Content)
                               && !n.IsDescriptionManual);
         }
 
