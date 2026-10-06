@@ -185,6 +185,39 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         [Fact]
+        public async Task GenerateNoteDescriptionsBatchAsync_BlankNotesDoNotCrowdOutRealNotes()
+        {
+            // Arrange — two blank notes imported before the one note that has content
+            var emptyNote = TestDataFactory.CreateNote("Empty");
+            emptyNote.Content = "";
+            emptyNote.DateImported = DateTime.UtcNow.AddDays(-3);
+
+            var whitespaceNote = TestDataFactory.CreateNote("Whitespace");
+            whitespaceNote.Content = "\n\n  ";
+            whitespaceNote.DateImported = DateTime.UtcNow.AddDays(-2);
+
+            var realNote = TestDataFactory.CreateNote("Real");
+            realNote.Content = "Some content";
+            realNote.DateImported = DateTime.UtcNow.AddDays(-1);
+
+            Context.Notes.AddRange(emptyNote, whitespaceNote, realNote);
+            await Context.SaveChangesAsync();
+
+            _mockGradientClient.GenerateTextAsync(
+                Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .Returns("Generated description");
+
+            // Act — a batch too small to reach the real note if blanks were selected
+            var result = await _service.GenerateNoteDescriptionsBatchAsync(batchSize: 1);
+
+            // Assert
+            result.TotalProcessed.Should().Be(1);
+            result.SuccessCount.Should().Be(1);
+            Context.Notes.First(n => n.Id == realNote.Id).AiDescription.Should().Be("Generated description");
+            (await _service.GetNotesNeedingDescriptionCountAsync()).Should().Be(0);
+        }
+
+        [Fact]
         public async Task GenerateNoteDescriptionsBatchAsync_RespectsCancellationToken()
         {
             var note = TestDataFactory.CreateNote("Test");
