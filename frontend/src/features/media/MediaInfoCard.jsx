@@ -143,7 +143,7 @@ function MediaInfoCard({
       </Box>
 
       {/* Media information (chips, description, and rating) */}
-      <Box sx={{ flex: 1, width: '100%', order: { xs: 2, md: 1 } }}>
+      <Box sx={{ flex: 1, minWidth: 0, width: '100%', order: { xs: 2, md: 1 } }}>
         <Box sx={{
           display: 'flex',
           gap: 1,
@@ -232,6 +232,7 @@ function MediaInfoCard({
                 lineHeight: 1.6,
                 fontSize: { xs: '0.95rem', md: '1rem' },
                 whiteSpace: 'pre-wrap',
+                overflowWrap: 'anywhere',
                 '& i': { fontStyle: 'italic' },
                 '& b': { fontWeight: 'bold' }
               }}
