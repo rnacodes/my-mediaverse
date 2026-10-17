@@ -42,32 +42,13 @@ function MediaInfoCard({
     return temp.textContent || temp.innerText || '';
   };
 
-  // Function to count words in HTML content
-  const countWords = (htmlString) => {
-    if (!htmlString) return 0;
-    const text = getTextFromHtml(htmlString);
-    const words = text.trim().split(/\s+/);
-    return words.filter(word => word.length > 0).length;
-  };
-
-  // Function to truncate HTML content by word count
-  const truncateDescription = (htmlString, maxWords) => {
-    if (!htmlString) return '';
-    const text = getTextFromHtml(htmlString);
-    const words = text.trim().split(/\s+/).filter(word => word.length > 0);
-
-    if (words.length <= maxWords) return htmlString;
-
-    // Truncate the plain text version
-    const truncatedText = words.slice(0, maxWords).join(' ');
-    return truncatedText + '...';
-  };
-
-  const wordCount = countWords(description);
-  const DESCRIPTION_WORD_LIMIT = 500;
-  const shouldTruncate = wordCount > DESCRIPTION_WORD_LIMIT;
+  // Long descriptions collapse to a plain-text preview of this many characters
+  // (formatting returns once expanded).
+  const DESCRIPTION_CHAR_LIMIT = 500;
+  const descriptionText = getTextFromHtml(description).trim();
+  const shouldTruncate = descriptionText.length > DESCRIPTION_CHAR_LIMIT;
   const displayDescription = shouldTruncate && !isDescriptionExpanded
-    ? truncateDescription(description, DESCRIPTION_WORD_LIMIT)
+    ? descriptionText.slice(0, DESCRIPTION_CHAR_LIMIT).trimEnd() + '...'
     : description;
 
   return (
