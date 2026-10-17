@@ -1,9 +1,12 @@
 using AwesomeAssertions;
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.DTOs;
+using MyMediaVerse.Shared.Configuration;
 
 namespace MyMediaVerse.UnitTests.Application
 {
@@ -20,7 +23,8 @@ namespace MyMediaVerse.UnitTests.Application
 
         public ReadwiseSyncServiceTests()
         {
-            _service = new ReadwiseSyncService(_reader, _highlights, _syncState, Substitute.For<ILogger<ReadwiseSyncService>>());
+            _service = new ReadwiseSyncService(_reader, _highlights, _syncState,
+                Options.Create(new ReadwiseSyncOptions()), Substitute.For<ILogger<ReadwiseSyncService>>());
 
             // Both per-source cursors already exist, so no seeding from the legacy key happens by default.
             _syncState.GetLastSuccessfulSyncAsync(Arg.Any<string>()).Returns((DateTime?)ReaderSince);
@@ -34,9 +38,9 @@ namespace MyMediaVerse.UnitTests.Application
             _reader.SyncDocumentsAsync(null, Arg.Any<DateTime?>())
                 .Returns(new ReaderSyncResultDto { Success = true, CreatedCount = 1, UpdatedCount = 2 });
 
-            _highlights.SyncHighlightsIncrementalAsync(Arg.Any<DateTime>())
+            _highlights.SyncHighlightsExportAsync(Arg.Is<DateTime?>(d => d != null), Arg.Any<string?>(), Arg.Any<DateTime?>())
                 .Returns(new HighlightSyncResultDto { Success = true, CreatedCount = 3, UpdatedCount = 4, LinkedCount = 5, StubBooksCreatedCount = 6 });
-            _highlights.SyncHighlightsFromReadwiseAsync()
+            _highlights.SyncHighlightsExportAsync(Arg.Is<DateTime?>(d => d == null), Arg.Any<string?>(), Arg.Any<DateTime?>())
                 .Returns(new HighlightSyncResultDto { Success = true, CreatedCount = 30, UpdatedCount = 40, LinkedCount = 50, StubBooksCreatedCount = 60 });
         }
 
@@ -63,8 +67,8 @@ namespace MyMediaVerse.UnitTests.Application
             result.SyncedSince.Should().Be(ReaderSince, "the earliest window is reported at the top level");
             result.SyncWindowSource.Should().Be("cursor");
             await _reader.Received(1).SyncDocumentsAsync(null, ReaderSince);
-            await _highlights.Received(1).SyncHighlightsIncrementalAsync(HighlightsSince);
-            await _highlights.DidNotReceive().SyncHighlightsFromReadwiseAsync();
+            await _highlights.Received(1).SyncHighlightsExportAsync(HighlightsSince, Arg.Is<string?>(c => c == null), Arg.Any<DateTime?>());
+            await _highlights.DidNotReceive().SyncHighlightsExportAsync(Arg.Is<DateTime?>(d => d == null), Arg.Any<string?>(), Arg.Any<DateTime?>());
         }
 
         [Fact]
@@ -120,7 +124,7 @@ namespace MyMediaVerse.UnitTests.Application
             await _syncState.DidNotReceive().GetIncrementalWindowAsync(
                 Arg.Any<string>(), Arg.Any<DateTime>(), Arg.Any<TimeSpan>(), Arg.Any<TimeSpan>());
             await _reader.Received(1).SyncDocumentsAsync(null, null);
-            await _highlights.Received(1).SyncHighlightsFromReadwiseAsync();
+            await _highlights.Received(1).SyncHighlightsExportAsync(Arg.Is<DateTime?>(d => d == null), Arg.Is<string?>(c => c == null), Arg.Any<DateTime?>());
         }
 
         [Fact]
@@ -154,7 +158,7 @@ namespace MyMediaVerse.UnitTests.Application
             result.CursorAdvanced.Should().BeFalse();
             result.ReaderCursorAdvanced.Should().BeFalse();
             result.HighlightsCursorAdvanced.Should().BeTrue();
-            await _highlights.Received(1).SyncHighlightsIncrementalAsync(HighlightsSince);
+            await _highlights.Received(1).SyncHighlightsExportAsync(HighlightsSince, Arg.Is<string?>(c => c == null), Arg.Any<DateTime?>());
             await _syncState.DidNotReceive().MarkSyncSucceededAsync(ISyncStateService.ReadwiseReaderKey, Arg.Any<DateTime>());
             await _syncState.Received(1).MarkSyncSucceededAsync(ISyncStateService.ReadwiseHighlightsKey, result.StartedAt);
         }
@@ -175,7 +179,7 @@ namespace MyMediaVerse.UnitTests.Application
         [Fact]
         public async Task HighlightFailure_AdvancesOnlyTheReaderCursor()
         {
-            _highlights.SyncHighlightsIncrementalAsync(Arg.Any<DateTime>())
+            _highlights.SyncHighlightsExportAsync(Arg.Is<DateTime?>(d => d != null), Arg.Any<string?>(), Arg.Any<DateTime?>())
                 .Returns(new HighlightSyncResultDto { Success = false, ErrorMessage = "export failed" });
 
             var result = await _service.SyncAllAsync(incremental: true);
@@ -195,7 +199,7 @@ namespace MyMediaVerse.UnitTests.Application
         {
             _reader.SyncDocumentsAsync(null, Arg.Any<DateTime?>())
                 .Returns(new ReaderSyncResultDto { Success = false, ErrorMessage = "reader down" });
-            _highlights.SyncHighlightsIncrementalAsync(Arg.Any<DateTime>())
+            _highlights.SyncHighlightsExportAsync(Arg.Is<DateTime?>(d => d != null), Arg.Any<string?>(), Arg.Any<DateTime?>())
                 .Returns(new HighlightSyncResultDto { Success = false, ErrorMessage = "export down" });
 
             var result = await _service.SyncAllAsync(incremental: true);
@@ -230,7 +234,7 @@ namespace MyMediaVerse.UnitTests.Application
         [Fact]
         public async Task TruncatedHighlightRun_SucceedsButHoldsOnlyTheHighlightsCursor()
         {
-            _highlights.SyncHighlightsIncrementalAsync(Arg.Any<DateTime>())
+            _highlights.SyncHighlightsExportAsync(Arg.Is<DateTime?>(d => d != null), Arg.Any<string?>(), Arg.Any<DateTime?>())
                 .Returns(new HighlightSyncResultDto
                 {
                     Success = true,
@@ -248,5 +252,80 @@ namespace MyMediaVerse.UnitTests.Application
             await _syncState.Received(1).MarkSyncSucceededAsync(ISyncStateService.ReadwiseReaderKey, result.StartedAt);
             await _syncState.DidNotReceive().MarkSyncSucceededAsync(ISyncStateService.ReadwiseHighlightsKey, Arg.Any<DateTime>());
         }
+
+        #region Resumable highlights runs
+
+        private void GivenSavedResume(string pageCursor, DateTime? updatedAfter, DateTime runStartedAt, int pagesDone = 3)
+        {
+            var json = JsonSerializer.Serialize(
+                new ReadwiseSyncService.HighlightsResumeState(pageCursor, updatedAfter, runStartedAt, pagesDone));
+            _syncState.GetValueAsync(ISyncStateService.ReadwiseHighlightsResumeKey).Returns(json);
+        }
+
+        [Fact]
+        public async Task BudgetReached_SavesPlace_ReportsMorePending_AndHoldsTheHighlightsCursor()
+        {
+            _highlights.SyncHighlightsExportAsync(Arg.Any<DateTime?>(), Arg.Any<string?>(), Arg.Any<DateTime?>())
+                .Returns(new HighlightSyncResultDto
+                {
+                    Success = true,
+                    MorePending = true,
+                    NextPageCursor = "page-5",
+                    PagesProcessed = 4,
+                    WarningMessage = "Stopped at the time budget; more highlights are pending. Run again."
+                });
+
+            var result = await _service.SyncAllAsync(incremental: false);
+
+            result.Success.Should().BeTrue();
+            result.HighlightsMorePending.Should().BeTrue();
+            result.HighlightsCursorAdvanced.Should().BeFalse();
+            await _highlights.Received(1).SyncHighlightsExportAsync(
+                Arg.Is<DateTime?>(d => d == null), Arg.Is<string?>(c => c == null), Arg.Is<DateTime?>(d => d != null));
+            await _syncState.Received(1).SetValueAsync(ISyncStateService.ReadwiseHighlightsResumeKey,
+                Arg.Is<string?>(json => json!.Contains("page-5") && json.Contains("\"PagesDone\":4")));
+            await _syncState.DidNotReceive().MarkSyncSucceededAsync(ISyncStateService.ReadwiseHighlightsKey, Arg.Any<DateTime>());
+        }
+
+        [Fact]
+        public async Task SavedPlace_ContinuesFromIt_SkipsReader_AndIgnoresTheIncrementalFlag()
+        {
+            var firstCallStart = new DateTime(2026, 10, 17, 1, 0, 0, DateTimeKind.Utc);
+            GivenSavedResume("page-5", updatedAfter: null, firstCallStart);
+            _highlights.SyncHighlightsExportAsync(Arg.Any<DateTime?>(), Arg.Any<string?>(), Arg.Any<DateTime?>())
+                .Returns(new HighlightSyncResultDto { Success = true, MorePending = true, NextPageCursor = "page-9", PagesProcessed = 4, WarningMessage = "more" });
+
+            var result = await _service.SyncAllAsync(incremental: true);
+
+            result.ReaderStepSkipped.Should().BeTrue();
+            result.HighlightsResumed.Should().BeTrue();
+            result.SyncWindowSource.Should().Be("full");
+            result.ReaderCursorAdvanced.Should().BeFalse();
+            await _reader.DidNotReceive().SyncDocumentsAsync(Arg.Any<string?>(), Arg.Any<DateTime?>());
+            await _highlights.Received(1).SyncHighlightsExportAsync(
+                Arg.Is<DateTime?>(d => d == null), "page-5", Arg.Any<DateTime?>());
+            await _syncState.Received(1).SetValueAsync(ISyncStateService.ReadwiseHighlightsResumeKey,
+                Arg.Is<string?>(json => json!.Contains("page-9") && json.Contains("\"PagesDone\":7")));
+            await _syncState.DidNotReceive().MarkSyncSucceededAsync(Arg.Any<string>(), Arg.Any<DateTime>());
+        }
+
+        [Fact]
+        public async Task SavedPlace_FinalCall_ClearsIt_AndAdvancesToTheFirstCallsStart()
+        {
+            var firstCallStart = new DateTime(2026, 10, 17, 1, 0, 0, DateTimeKind.Utc);
+            GivenSavedResume("page-9", HighlightsSince, firstCallStart);
+            _highlights.SyncHighlightsExportAsync(Arg.Any<DateTime?>(), Arg.Any<string?>(), Arg.Any<DateTime?>())
+                .Returns(new HighlightSyncResultDto { Success = true, PagesProcessed = 2 });
+
+            var result = await _service.SyncAllAsync(incremental: true);
+
+            result.HighlightsMorePending.Should().BeFalse();
+            result.HighlightsCursorAdvanced.Should().BeTrue();
+            await _highlights.Received(1).SyncHighlightsExportAsync(HighlightsSince, "page-9", Arg.Any<DateTime?>());
+            await _syncState.Received(1).SetValueAsync(ISyncStateService.ReadwiseHighlightsResumeKey, null);
+            await _syncState.Received(1).MarkSyncSucceededAsync(ISyncStateService.ReadwiseHighlightsKey, firstCallStart);
+        }
+
+        #endregion
     }
 }

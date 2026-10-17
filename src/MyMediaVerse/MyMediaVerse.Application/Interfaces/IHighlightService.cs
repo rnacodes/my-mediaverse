@@ -44,6 +44,13 @@ namespace MyMediaVerse.Application.Interfaces
         Task<HighlightSyncResultDto> SyncHighlightsIncrementalAsync(DateTime lastSyncDate);
 
         /// <summary>
+        /// Syncs from the Readwise export, optionally continuing from a saved page cursor and
+        /// stopping after the first page that ends past <paramref name="deadline"/>.
+        /// A null <paramref name="updatedAfter"/> means a full sync.
+        /// </summary>
+        Task<HighlightSyncResultDto> SyncHighlightsExportAsync(DateTime? updatedAfter, string? startPageCursor, DateTime? deadline);
+
+        /// <summary>
         /// Cleans all existing highlights by removing HTML/CSS from their text.
         /// Returns the number of highlights that were cleaned.
         /// </summary>

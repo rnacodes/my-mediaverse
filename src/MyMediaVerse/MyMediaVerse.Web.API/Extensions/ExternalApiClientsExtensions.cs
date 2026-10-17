@@ -114,6 +114,8 @@ public static class ExternalApiClientsExtensions
     {
         // Episode sync and the feed-episodes browser read their limits from "PodcastSync" (code defaults).
         services.Configure<PodcastSyncOptions>(configuration.GetSection(PodcastSyncOptions.SectionName));
+        // The Readwise highlights step reads its per-call time budget from "ReadwiseSync" (code default).
+        services.Configure<ReadwiseSyncOptions>(configuration.GetSection(ReadwiseSyncOptions.SectionName));
 
         // Podcast feeds are fetched from arbitrary hosts; the reader enforces the size cap and
         // applies this timeout to the whole read, not just the headers.
