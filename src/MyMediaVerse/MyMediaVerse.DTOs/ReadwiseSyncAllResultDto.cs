@@ -25,6 +25,12 @@ namespace MyMediaVerse.DTOs
         public int HighlightsLinked { get; set; }
         public int HighlightsDeleted { get; set; }  // Removed because Readwise reported them deleted/discarded
         public int BooksCreated { get; set; }  // Stub books created for book-category highlights with no local source
+        // True when the highlights step stopped at its time budget; call again until this is false.
+        public bool HighlightsMorePending { get; set; }
+        // True when the highlights step continued a run an earlier call had started.
+        public bool HighlightsResumed { get; set; }
+        // True when Reader was not run because this call continued an unfinished highlights run.
+        public bool ReaderStepSkipped { get; set; }
 
         public string? ErrorMessage { get; set; }
         public string? WarningMessage { get; set; }  // Non-fatal issues surfaced by either sync step

@@ -374,45 +374,65 @@ namespace MyMediaVerse.Application.Services
 
         public async Task<HighlightSyncResultDto> SyncHighlightsFromReadwiseAsync()
         {
-            return await SyncHighlightsUsingExportAsync(null);
+            return await SyncHighlightsExportAsync(null, null, null);
         }
 
         public async Task<HighlightSyncResultDto> SyncHighlightsIncrementalAsync(DateTime lastSyncDate)
         {
-            var updatedAfter = lastSyncDate.ToString("yyyy-MM-ddTHH:mm:ssZ");
-            return await SyncHighlightsUsingExportAsync(updatedAfter);
+            return await SyncHighlightsExportAsync(lastSyncDate, null, null);
         }
 
         /// <summary>
         /// Uses the /export/ endpoint which returns books with nested highlights.
         /// This is more efficient than fetching highlights and books separately.
         /// Also auto-links highlights to articles during import.
+        /// A run can start part-way through the export (<paramref name="startPageCursor"/>) and stop
+        /// after any page once <paramref name="deadline"/> passes; the result then carries the
+        /// cursor of the first page not yet processed so the next call can continue from it.
         /// </summary>
-        private async Task<HighlightSyncResultDto> SyncHighlightsUsingExportAsync(string? updatedAfter)
+        public async Task<HighlightSyncResultDto> SyncHighlightsExportAsync(
+            DateTime? updatedAfter, string? startPageCursor, DateTime? deadline)
         {
             var result = new HighlightSyncResultDto
             {
-                StartedAt = DateTime.UtcNow
+                StartedAt = DateTime.UtcNow,
+                Resumed = startPageCursor != null
             };
+
+            var updatedAfterParam = updatedAfter?.ToString("yyyy-MM-ddTHH:mm:ssZ");
+            string? pageCursor = startPageCursor;
 
             try
             {
-                _logger.LogInformation("Starting highlight sync from Readwise using export endpoint (updatedAfter: {UpdatedAfter})",
-                    updatedAfter ?? "full sync");
+                _logger.LogInformation("Starting highlight sync from Readwise using export endpoint (updatedAfter: {UpdatedAfter}, resuming: {Resuming})",
+                    updatedAfterParam ?? "full sync", result.Resumed);
 
-                string? pageCursor = null;
                 var hasMore = true;
-                var iteration = 0;
+                var stoppedAtBudget = false;
 
                 var stubBooksThisRun = new Dictionary<int, Book>();
 
-                while (hasMore && iteration < MaxExportPages)
+                while (hasMore && result.PagesProcessed < MaxExportPages)
                 {
-                    _logger.LogInformation("Fetching export page {Iteration}", iteration + 1);
+                    _logger.LogInformation("Fetching export page {Iteration}", result.PagesProcessed + 1);
 
-                    var response = await _readwiseClient.GetExportAsync(
-                        updatedAfter: updatedAfter,
-                        pageCursor: pageCursor);
+                    Shared.DTOs.Readwise.ReadwiseExportResponse response;
+                    try
+                    {
+                        response = await _readwiseClient.GetExportAsync(
+                            updatedAfter: updatedAfterParam,
+                            pageCursor: pageCursor);
+                    }
+                    catch (HttpRequestException ex) when (
+                        result.Resumed && result.PagesProcessed == 0 && pageCursor != null &&
+                        ex.StatusCode is System.Net.HttpStatusCode.BadRequest or System.Net.HttpStatusCode.NotFound)
+                    {
+                        // A saved cursor Readwise no longer accepts: start the export over.
+                        // Re-processing pages is safe because existing highlights are matched.
+                        _logger.LogWarning(ex, "Readwise rejected the saved page cursor; restarting the export from the first page");
+                        pageCursor = null;
+                        continue;
+                    }
 
                     if (response.results.Count == 0)
                     {
@@ -428,7 +448,13 @@ namespace MyMediaVerse.Application.Services
 
                     hasMore = !string.IsNullOrEmpty(response.nextPageCursor);
                     pageCursor = response.nextPageCursor;
-                    iteration++;
+                    result.PagesProcessed++;
+
+                    if (hasMore && deadline.HasValue && DateTime.UtcNow >= deadline.Value)
+                    {
+                        stoppedAtBudget = true;
+                        break;
+                    }
 
                     // Pause between pages to respect rate limits; skipped after the last page
                     if (hasMore && ExportPageDelayMs > 0)
@@ -439,9 +465,13 @@ namespace MyMediaVerse.Application.Services
 
                 if (hasMore)
                 {
-                    result.WarningMessage =
-                        $"Sync stopped at the {MaxExportPages}-page safety limit before reaching the end of the Readwise export; some highlights were not synced.";
-                    _logger.LogWarning("Highlight sync hit the {MaxPages}-page safety limit with more export pages remaining", MaxExportPages);
+                    result.MorePending = true;
+                    result.NextPageCursor = pageCursor;
+                    result.WarningMessage = stoppedAtBudget
+                        ? "Stopped at the time budget; more highlights are pending. Run again."
+                        : $"Sync stopped at the {MaxExportPages}-page safety limit before reaching the end of the Readwise export; more highlights are pending. Run again.";
+                    _logger.LogWarning("Highlight sync stopped after {Pages} pages with more export pages remaining (time budget: {Budget})",
+                        result.PagesProcessed, stoppedAtBudget);
                 }
 
                 result.CompletedAt = DateTime.UtcNow;
@@ -456,6 +486,8 @@ namespace MyMediaVerse.Application.Services
                 result.Success = false;
                 result.ErrorMessage = ex.Message;
                 result.CompletedAt = DateTime.UtcNow;
+                // The page that failed has not been processed; a retry continues from it.
+                result.NextPageCursor = pageCursor;
             }
 
             return result;

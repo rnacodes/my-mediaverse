@@ -34,6 +34,9 @@ namespace MyMediaVerse.Application.Interfaces
         /// <summary>Cursor for the Readwise highlights (v2 API) sync step.</summary>
         const string ReadwiseHighlightsKey = "readwise-highlights";
 
+        /// <summary>Saved position of an unfinished, multi-call Readwise highlights run.</summary>
+        const string ReadwiseHighlightsResumeKey = "readwise-highlights-resume";
+
         /// <summary>Returns the last fully-successful run time for the source, or null if none.</summary>
         Task<DateTime?> GetLastSuccessfulSyncAsync(string key);
 
@@ -50,5 +53,11 @@ namespace MyMediaVerse.Application.Interfaces
         /// Never moves the cursor backwards.
         /// </summary>
         Task MarkSyncSucceededAsync(string key, DateTime runStartedAt);
+
+        /// <summary>Returns the source's free-form value, or null if none is stored.</summary>
+        Task<string?> GetValueAsync(string key);
+
+        /// <summary>Stores the source's free-form value; null clears it.</summary>
+        Task SetValueAsync(string key, string? value);
     }
 }

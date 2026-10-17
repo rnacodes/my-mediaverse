@@ -78,5 +78,37 @@ namespace MyMediaVerse.Application.Services
             await _context.SaveChangesAsync();
             _logger.LogInformation("Sync cursor for '{Key}' set to {Cursor:u}", key, runStartedAt);
         }
+
+        public async Task<string?> GetValueAsync(string key)
+        {
+            var state = await _context.SyncStates
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Key == key);
+
+            return state?.Value;
+        }
+
+        public async Task SetValueAsync(string key, string? value)
+        {
+            var state = await _context.SyncStates.FirstOrDefaultAsync(s => s.Key == key);
+
+            if (state == null)
+            {
+                if (value == null)
+                {
+                    return;
+                }
+
+                _context.Add(new SyncState { Key = key, Value = value, UpdatedAt = DateTime.UtcNow });
+            }
+            else
+            {
+                state.Value = value;
+                state.UpdatedAt = DateTime.UtcNow;
+                _context.Update(state);
+            }
+
+            await _context.SaveChangesAsync();
+        }
     }
 }

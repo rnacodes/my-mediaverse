@@ -1282,6 +1282,48 @@ namespace MyMediaVerse.UnitTests.Application
             await _mockReadwiseClient.Received(100).GetExportAsync(Arg.Any<string?>(), Arg.Any<string?>());
         }
 
+        [Fact]
+        public async Task SyncHighlightsExportAsync_DeadlinePassed_StopsAfterAPage_AndReturnsTheNextCursor()
+        {
+            _service.ExportPageDelayMs = 0;
+            _mockReadwiseClient.GetExportAsync(Arg.Any<string?>(), Arg.Any<string?>())
+                .Returns(new ReadwiseExportResponse
+                {
+                    nextPageCursor = "page-2",
+                    results = new List<ReadwiseExportBookDto>
+                    {
+                        new ReadwiseExportBookDto { title = "Book", highlights = new List<ReadwiseExportHighlightDto>() }
+                    }
+                });
+
+            var result = await _service.SyncHighlightsExportAsync(null, null, deadline: DateTime.UtcNow.AddSeconds(-1));
+
+            result.Success.Should().BeTrue();
+            result.MorePending.Should().BeTrue();
+            result.PagesProcessed.Should().Be(1);
+            result.NextPageCursor.Should().Be("page-2");
+            result.WarningMessage.Should().Contain("time budget");
+            await _mockReadwiseClient.Received(1).GetExportAsync(Arg.Any<string?>(), Arg.Any<string?>());
+        }
+
+        [Fact]
+        public async Task SyncHighlightsExportAsync_SavedCursorRejected_RestartsFromTheFirstPage()
+        {
+            _service.ExportPageDelayMs = 0;
+            _mockReadwiseClient.GetExportAsync(Arg.Any<string?>(), "stale")
+                .Returns<ReadwiseExportResponse>(_ => throw new HttpRequestException("bad cursor", null, System.Net.HttpStatusCode.BadRequest));
+            _mockReadwiseClient.GetExportAsync(Arg.Any<string?>(), Arg.Is<string?>(c => c == null))
+                .Returns(new ReadwiseExportResponse { results = new List<ReadwiseExportBookDto>() });
+
+            var result = await _service.SyncHighlightsExportAsync(null, "stale", deadline: null);
+
+            result.Success.Should().BeTrue();
+            result.Resumed.Should().BeTrue();
+            result.MorePending.Should().BeFalse();
+            result.NextPageCursor.Should().BeNull();
+            await _mockReadwiseClient.Received(1).GetExportAsync(Arg.Any<string?>(), Arg.Is<string?>(c => c == null));
+        }
+
         #region Tags → Topics (retro pass)
 
         private ReadwiseExportResponse SinglePageExport(params ReadwiseExportHighlightDto[] highlights) =>

@@ -145,7 +145,8 @@ namespace MyMediaVerse.Infrastructure.Clients.Readwise
                 var errorContent = await response.Content.ReadAsStringAsync();
                 _logger.LogError("Readwise export request failed: {StatusCode} - {Content}",
                     response.StatusCode, errorContent);
-                throw new HttpRequestException($"Readwise export request failed with status {response.StatusCode}.");
+                throw new HttpRequestException(
+                    $"Readwise export request failed with status {response.StatusCode}.", null, response.StatusCode);
             }
 
             var content = await response.Content.ReadAsStringAsync();
