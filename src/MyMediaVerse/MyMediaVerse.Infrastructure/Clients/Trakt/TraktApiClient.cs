@@ -182,41 +182,41 @@ namespace MyMediaVerse.Infrastructure.Clients.Trakt
 
         // --- Sync Endpoints ---
 
+        private const int MaxPageSize = 250;
+        // extended=progress (the only way to get seasons on watched shows) is capped at 100 per page.
+        private const int ProgressPageSize = 100;
+        private const int MaxPages = 500;
+
         // extended=full is required so the nested movie/show objects include their genre slugs.
         public async Task<List<TraktWatchedMovieDto>> GetWatchedMoviesAsync(string accessToken)
         {
-            return await GetAuthenticatedAsync<List<TraktWatchedMovieDto>>("sync/watched/movies?extended=full", accessToken)
-                   ?? new List<TraktWatchedMovieDto>();
+            return await GetAllPagesAsync<TraktWatchedMovieDto>("sync/watched/movies", "full", MaxPageSize, accessToken);
         }
 
+        // Watched shows no longer include seasons by default; extended=progress brings them back.
         public async Task<List<TraktWatchedShowDto>> GetWatchedShowsAsync(string accessToken)
         {
-            return await GetAuthenticatedAsync<List<TraktWatchedShowDto>>("sync/watched/shows?extended=full", accessToken)
-                   ?? new List<TraktWatchedShowDto>();
+            return await GetAllPagesAsync<TraktWatchedShowDto>("sync/watched/shows", "progress", ProgressPageSize, accessToken);
         }
 
         public async Task<List<TraktWatchlistItemDto>> GetWatchlistMoviesAsync(string accessToken)
         {
-            return await GetAuthenticatedAsync<List<TraktWatchlistItemDto>>("sync/watchlist/movies?extended=full", accessToken)
-                   ?? new List<TraktWatchlistItemDto>();
+            return await GetAllPagesAsync<TraktWatchlistItemDto>("sync/watchlist/movies", "full", MaxPageSize, accessToken);
         }
 
         public async Task<List<TraktWatchlistItemDto>> GetWatchlistShowsAsync(string accessToken)
         {
-            return await GetAuthenticatedAsync<List<TraktWatchlistItemDto>>("sync/watchlist/shows?extended=full", accessToken)
-                   ?? new List<TraktWatchlistItemDto>();
+            return await GetAllPagesAsync<TraktWatchlistItemDto>("sync/watchlist/shows", "full", MaxPageSize, accessToken);
         }
 
         public async Task<List<TraktRatingItemDto>> GetRatingsMoviesAsync(string accessToken)
         {
-            return await GetAuthenticatedAsync<List<TraktRatingItemDto>>("sync/ratings/movies?extended=full", accessToken)
-                   ?? new List<TraktRatingItemDto>();
+            return await GetAllPagesAsync<TraktRatingItemDto>("sync/ratings/movies", "full", MaxPageSize, accessToken);
         }
 
         public async Task<List<TraktRatingItemDto>> GetRatingsShowsAsync(string accessToken)
         {
-            return await GetAuthenticatedAsync<List<TraktRatingItemDto>>("sync/ratings/shows?extended=full", accessToken)
-                   ?? new List<TraktRatingItemDto>();
+            return await GetAllPagesAsync<TraktRatingItemDto>("sync/ratings/shows", "full", MaxPageSize, accessToken);
         }
 
         public async Task<TraktLastActivitiesDto> GetLastActivitiesAsync(string accessToken)
@@ -226,6 +226,57 @@ namespace MyMediaVerse.Infrastructure.Clients.Trakt
         }
 
         // --- Private Helpers ---
+
+        private async Task<List<T>> GetAllPagesAsync<T>(string path, string extended, int pageSize, string accessToken)
+        {
+            var items = new List<T>();
+
+            for (var page = 1; page <= MaxPages; page++)
+            {
+                var url = $"{path}?extended={extended}&page={page}&limit={pageSize}";
+                var (pageItems, pageCount) = await GetPageAsync<T>(url, accessToken);
+                items.AddRange(pageItems);
+
+                // Stop on an empty page, on the last page, or when Trakt sends no paging header
+                if (pageItems.Count == 0 || pageCount == null || page >= pageCount)
+                {
+                    return items;
+                }
+            }
+
+            _logger.LogWarning("Stopped paging Trakt {Path} after {MaxPages} pages", path, MaxPages);
+            return items;
+        }
+
+        private async Task<(List<T> Items, int? PageCount)> GetPageAsync<T>(string url, string accessToken)
+        {
+            try
+            {
+                _logger.LogDebug("Calling Trakt API: GET {Url}", url);
+
+                var request = new HttpRequestMessage(HttpMethod.Get, url);
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+                var response = await _httpClient.SendAsync(request);
+                response.EnsureSuccessStatusCode();
+
+                int? pageCount = null;
+                if (response.Headers.TryGetValues("X-Pagination-Page-Count", out var values)
+                    && int.TryParse(values.FirstOrDefault(), out var parsed))
+                {
+                    pageCount = parsed;
+                }
+
+                var json = await response.Content.ReadAsStringAsync();
+                var items = JsonSerializer.Deserialize<List<T>>(json, _jsonOptions) ?? new List<T>();
+                return (items, pageCount);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error calling Trakt API: GET {Url}", url);
+                throw;
+            }
+        }
 
         private async Task<T?> GetAuthenticatedAsync<T>(string url, string accessToken) where T : class
         {
