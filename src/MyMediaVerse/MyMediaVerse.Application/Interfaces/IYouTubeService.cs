@@ -16,6 +16,8 @@ namespace MyMediaVerse.Application.Interfaces
         Task<YouTubeVideoDto?> GetVideoDetailsAsync(string videoId);
         Task<List<YouTubeVideoDto>> GetVideosAsync(List<string> videoIds);
         Task<YouTubePlaylistDto?> GetPlaylistDetailsAsync(string playlistId);
+        /// <summary>The connected account's playlists, each marked with its MMV id when already imported.</summary>
+        Task<List<YouTubeMyPlaylistDto>> GetMyPlaylistsAsync();
         Task<YouTubePlaylistItemListResponseDto> GetPlaylistItemsAsync(string playlistId, int maxResults = 50, string? pageToken = null);
         Task<List<YouTubePlaylistItemDto>> GetAllPlaylistItemsAsync(string playlistId);
         Task<YouTubeChannelDto?> GetChannelDetailsAsync(string channelId);

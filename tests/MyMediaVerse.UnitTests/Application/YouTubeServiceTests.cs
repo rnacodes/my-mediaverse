@@ -60,6 +60,29 @@ namespace MyMediaVerse.UnitTests.Application
         #region SearchAsync Tests
 
         [Fact]
+        public async Task GetMyPlaylistsAsync_MarksPlaylistsAlreadyInTheLibrary()
+        {
+            var importedId = Guid.NewGuid();
+            _mockApiClient.GetMyPlaylistsAsync().Returns(new List<YouTubePlaylistDto>
+            {
+                new() { Id = "PL-new", Snippet = new YouTubePlaylistSnippetDto { Title = "B new" }, Status = new YouTubePlaylistStatusDto { PrivacyStatus = "private" }, ContentDetails = new YouTubePlaylistContentDetailsDto { ItemCount = 4 } },
+                new() { Id = "PL-old", Snippet = new YouTubePlaylistSnippetDto { Title = "A old" }, Status = new YouTubePlaylistStatusDto { PrivacyStatus = "public" } }
+            });
+            _mockPlaylistService.GetAllPlaylistsAsync().Returns(new List<YouTubePlaylist>
+            {
+                new() { Id = importedId, Title = "A old", PlaylistExternalId = "PL-old" }
+            });
+
+            var result = await _service.GetMyPlaylistsAsync();
+
+            result.Select(p => p.PlaylistId).Should().Equal("PL-old", "PL-new");
+            result[0].ImportedId.Should().Be(importedId);
+            result[1].ImportedId.Should().BeNull();
+            result[1].PrivacyStatus.Should().Be("private");
+            result[1].ItemCount.Should().Be(4);
+        }
+
+        [Fact]
         public async Task SearchAsync_WithValidQuery_ShouldReturnSearchResults()
         {
             // Arrange

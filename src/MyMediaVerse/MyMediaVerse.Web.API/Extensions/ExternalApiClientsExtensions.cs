@@ -51,6 +51,12 @@ public static class ExternalApiClientsExtensions
         // "Import latest uploads" reads its default count from "YouTubeSync" (code defaults).
         services.Configure<YouTubeSyncOptions>(configuration.GetSection(YouTubeSyncOptions.SectionName));
 
+        // The connected account (OAuth) lives in one scoped service, so the client and the
+        // controller share its cached token within a request.
+        services.AddHttpClient<YouTubeAuthService>();
+        services.AddScoped<IYouTubeAuthService>(sp => sp.GetRequiredService<YouTubeAuthService>());
+        services.AddScoped<IYouTubeAccessTokenProvider>(sp => sp.GetRequiredService<IYouTubeAuthService>());
+
         services.AddHttpClient<IYouTubeApiClient, YouTubeApiClient>(client =>
         {
             client.BaseAddress = new Uri("https://www.googleapis.com/youtube/v3/");
