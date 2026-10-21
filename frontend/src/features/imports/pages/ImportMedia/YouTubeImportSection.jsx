@@ -18,6 +18,7 @@ import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
 import { DEMO_IMPORT_BLOCKED } from '@/features/demo/demoMessages';
 import { getPlaceholderImage } from '@/utils/mediaImageUtils';
 import SafeImage from './SafeImage';
+import YouTubeAccountCard from './YouTubeAccountCard';
 
 function YouTubeImportSection({ expanded, onAccordionChange, onSnackbar }) {
     const navigate = useNavigate();
@@ -301,6 +302,8 @@ function YouTubeImportSection({ expanded, onAccordionChange, onSnackbar }) {
             </AccordionSummary>
             <AccordionDetails>
                 <Box sx={{ padding: 2 }}>
+                    <YouTubeAccountCard onSnackbar={onSnackbar} />
+
                     <FormControl fullWidth margin="normal">
                         <InputLabel>Import Method</InputLabel>
                         <Select

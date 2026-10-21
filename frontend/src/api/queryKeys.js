@@ -113,6 +113,8 @@ export const youtubeKeys = {
     detail: (videoId) => [...youtubeKeys.videos.all, 'detail', videoId],
   },
   externalSearch: (query, type, channelId) => [...youtubeKeys.all, 'externalSearch', { query, type, channelId }],
+  authStatus: () => [...youtubeKeys.all, 'auth', 'status'],
+  myPlaylists: () => [...youtubeKeys.all, 'my-playlists'],
 };
 
 export const topicKeys = {

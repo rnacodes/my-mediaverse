@@ -232,3 +232,27 @@ export const deleteYouTubePlaylist = async (id) => {
         throw error;
     }
 };
+
+// ============================================
+// Connected YouTube account (OAuth)
+// ============================================
+
+export const getYouTubeAuthStatus = async () => {
+    const response = await apiClient.get('/youtube/auth/status');
+    return response.data;
+};
+
+// Returns the Google consent URL; the browser goes there and comes back through the API callback.
+export const startYouTubeAuth = async () => {
+    const response = await apiClient.post('/youtube/auth/start');
+    return response.data.authUrl;
+};
+
+export const disconnectYouTube = async () => {
+    await apiClient.post('/youtube/auth/disconnect');
+};
+
+export const getMyYouTubePlaylists = async () => {
+    const response = await apiClient.get('/youtube/my-playlists');
+    return response.data;
+};
