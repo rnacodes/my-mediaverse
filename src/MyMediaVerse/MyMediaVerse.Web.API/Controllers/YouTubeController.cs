@@ -20,17 +20,20 @@ namespace MyMediaVerse.Web.API.Controllers
         private readonly IYouTubeService _youTubeService;
         private readonly IYouTubeRefreshService _refreshService;
         private readonly IImportReindexService _importReindexService;
+        private readonly IYouTubeAuthService _authService;
         private readonly ILogger<YouTubeController> _logger;
 
         public YouTubeController(
             IYouTubeService youTubeService,
             IYouTubeRefreshService refreshService,
             IImportReindexService importReindexService,
+            IYouTubeAuthService authService,
             ILogger<YouTubeController> logger)
         {
             _youTubeService = youTubeService;
             _refreshService = refreshService;
             _importReindexService = importReindexService;
+            _authService = authService;
             _logger = logger;
         }
 
@@ -480,6 +483,122 @@ namespace MyMediaVerse.Web.API.Controllers
             }
 
             return Ok(result);
+        }
+
+        /// <summary>
+        /// Whether the owner's YouTube account is connected, and by when to reconnect (Google ends
+        /// the connection seven days after consent while the OAuth app is in Testing).
+        /// </summary>
+        [Authorize]
+        [HttpGet("auth/status")]
+        public async Task<ActionResult<YouTubeAuthStatusDto>> GetAuthStatus()
+        {
+            try
+            {
+                return Ok(await _authService.GetStatusAsync(HttpContext.RequestAborted));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error reading the YouTube connection status");
+                return StatusCode(500, new { error = "Could not read the YouTube connection status" });
+            }
+        }
+
+        /// <summary>
+        /// Starts connecting the owner's YouTube account: returns the Google consent URL the
+        /// browser should go to. The sign-in it starts must finish within ten minutes.
+        /// </summary>
+        [Authorize]
+        [HttpPost("auth/start")]
+        public async Task<ActionResult> StartAuth()
+        {
+            try
+            {
+                var status = await _authService.GetStatusAsync(HttpContext.RequestAborted);
+                if (!status.Configured)
+                {
+                    return BadRequest(new { error = "YouTube account connection is not configured on this server." });
+                }
+
+                var authUrl = await _authService.CreateAuthorizationUrlAsync(HttpContext.RequestAborted);
+                return Ok(new { authUrl });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error starting the YouTube account connection");
+                return StatusCode(500, new { error = "Could not start the YouTube account connection" });
+            }
+        }
+
+        /// <summary>
+        /// Google's redirect after the consent page. Anonymous by necessity (the redirect carries no
+        /// MMV login), so it trusts nothing but its single-use state value, keeps the code exchange
+        /// server-side, and only ever redirects back to the MMV frontend.
+        /// </summary>
+        [AllowAnonymous]
+        [HttpGet("auth/callback")]
+        public async Task<ActionResult> AuthCallback(
+            [FromQuery] string? code = null,
+            [FromQuery] string? state = null,
+            [FromQuery] string? error = null)
+        {
+            YouTubeAuthCallbackOutcome outcome;
+            try
+            {
+                outcome = await _authService.CompleteAuthorizationAsync(code, state, error, HttpContext.RequestAborted);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error completing the YouTube account connection");
+                outcome = YouTubeAuthCallbackOutcome.Error;
+            }
+
+            return Redirect(_authService.BuildFrontendReturnUrl(outcome));
+        }
+
+        /// <summary>Disconnects the owner's YouTube account (revokes the token at Google and forgets it).</summary>
+        [Authorize]
+        [HttpPost("auth/disconnect")]
+        public async Task<ActionResult> DisconnectAuth()
+        {
+            try
+            {
+                await _authService.DisconnectAsync(HttpContext.RequestAborted);
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error disconnecting the YouTube account");
+                return StatusCode(500, new { error = "Could not disconnect the YouTube account" });
+            }
+        }
+
+        /// <summary>
+        /// Every playlist the connected account owns (public, unlisted and private), marked with its
+        /// MMV id when already imported. 409 when no account is connected.
+        /// </summary>
+        [Authorize]
+        [HttpGet("my-playlists")]
+        public async Task<ActionResult<List<YouTubeMyPlaylistDto>>> GetMyPlaylists()
+        {
+            try
+            {
+                return Ok(await _youTubeService.GetMyPlaylistsAsync());
+            }
+            catch (YouTubeNotConnectedException ex)
+            {
+                return Conflict(new { error = ex.Message });
+            }
+            catch (YouTubeQuotaExceededException ex)
+            {
+                _logger.LogWarning(ex, "YouTube quota used up while listing the connected account's playlists");
+                return StatusCode(503, new { error = "YouTube's daily quota is used up. Try again after it resets.", quotaExceeded = true });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error listing the connected account's YouTube playlists");
+                return StatusCode(500, new { error = "Could not list your YouTube playlists" });
+            }
         }
     }
 

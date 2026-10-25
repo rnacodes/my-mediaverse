@@ -8,6 +8,8 @@ namespace MyMediaVerse.Shared.Interfaces
         Task<YouTubeVideoDto?> GetVideoDetailsAsync(string videoId);
         Task<List<YouTubeVideoDto>> GetVideosAsync(List<string> videoIds);
         Task<YouTubePlaylistDto?> GetPlaylistDetailsAsync(string playlistId);
+        /// <summary>Every playlist the connected account owns (private and unlisted included).</summary>
+        Task<List<YouTubePlaylistDto>> GetMyPlaylistsAsync();
         /// <summary>One page of a playlist's items, with the token for the next page.</summary>
         Task<YouTubePlaylistItemListResponseDto> GetPlaylistItemsAsync(string playlistId, int maxResults = 50, string? pageToken = null);
         Task<List<YouTubePlaylistItemDto>> GetAllPlaylistItemsAsync(string playlistId);

@@ -11,6 +11,11 @@ import {
   syncYouTubePlaylist,
   addVideoToYouTubePlaylist,
   deleteYouTubePlaylist,
+  importYouTubePlaylistEntity,
+  getYouTubeAuthStatus,
+  startYouTubeAuth,
+  disconnectYouTube,
+  getMyYouTubePlaylists,
 } from '../api/youtubeService';
 import { youtubeKeys, mediaKeys } from '../api/queryKeys';
 
@@ -127,6 +132,60 @@ export function useDeleteYouTubePlaylist() {
     onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: youtubeKeys.playlists.lists() });
       queryClient.removeQueries({ queryKey: youtubeKeys.playlists.detail(id) });
+    },
+  });
+}
+
+// ============================================
+// Connected YouTube account (OAuth)
+// ============================================
+
+export function useYouTubeAuthStatus(options = {}) {
+  return useQuery({
+    queryKey: youtubeKeys.authStatus(),
+    queryFn: getYouTubeAuthStatus,
+    ...options,
+  });
+}
+
+export function useStartYouTubeAuth() {
+  return useMutation({
+    mutationFn: () => startYouTubeAuth(),
+  });
+}
+
+export function useDisconnectYouTube() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => disconnectYouTube(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: youtubeKeys.authStatus() });
+      queryClient.removeQueries({ queryKey: youtubeKeys.myPlaylists() });
+    },
+  });
+}
+
+export function useMyYouTubePlaylists(options = {}) {
+  return useQuery({
+    queryKey: youtubeKeys.myPlaylists(),
+    queryFn: getMyYouTubePlaylists,
+    ...options,
+  });
+}
+
+// Importing one of your playlists = the existing playlist import, then a sync to bring its videos in.
+export function useImportMyYouTubePlaylist() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (playlistExternalId) => {
+      const playlist = await importYouTubePlaylistEntity(playlistExternalId);
+      const sync = await syncYouTubePlaylist(playlist.id);
+      return { playlist, sync };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: youtubeKeys.myPlaylists() });
+      queryClient.invalidateQueries({ queryKey: youtubeKeys.playlists.all });
+      queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
     },
   });
 }

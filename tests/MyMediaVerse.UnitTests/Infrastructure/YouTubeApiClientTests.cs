@@ -8,6 +8,7 @@ using NSubstitute;
 using MyMediaVerse.Infrastructure.Clients.YouTube;
 using MyMediaVerse.Shared.DTOs.YouTube;
 using MyMediaVerse.Shared.Exceptions;
+using MyMediaVerse.Shared.Interfaces;
 using MyMediaVerse.UnitTests.TestHelpers;
 
 namespace MyMediaVerse.UnitTests.Infrastructure
@@ -21,6 +22,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         private readonly TestHttpMessageHandler _mockHttpMessageHandler;
         private readonly ILogger<YouTubeApiClient> _mockLogger;
         private readonly IConfiguration _mockConfiguration;
+        private readonly IYouTubeAccessTokenProvider _tokenProvider;
         private readonly HttpClient _httpClient;
         private readonly YouTubeApiClient _youtubeApiClient;
         private readonly JsonSerializerOptions _jsonOptions;
@@ -30,6 +32,9 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             _mockHttpMessageHandler = new TestHttpMessageHandler();
             _mockLogger = Substitute.For<ILogger<YouTubeApiClient>>();
             _mockConfiguration = Substitute.For<IConfiguration>();
+            _tokenProvider = Substitute.For<IYouTubeAccessTokenProvider>();
+            // No connected account by default, so playlist calls use the API key.
+            _tokenProvider.GetAccessTokenAsync(Arg.Any<CancellationToken>()).Returns((string?)null);
 
             _httpClient = new HttpClient(_mockHttpMessageHandler)
             {
@@ -39,7 +44,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             // Setup configuration to return test API key
             _mockConfiguration["ApiKeys:YouTube"].Returns("test-api-key");
 
-            _youtubeApiClient = new YouTubeApiClient(_httpClient, _mockLogger, _mockConfiguration);
+            _youtubeApiClient = new YouTubeApiClient(_httpClient, _mockLogger, _mockConfiguration, _tokenProvider);
 
             _jsonOptions = new JsonSerializerOptions
             {
@@ -246,6 +251,71 @@ namespace MyMediaVerse.UnitTests.Infrastructure
 
         #endregion
 
+        #region Connected account (OAuth) Tests
+
+        [Fact]
+        public async Task GetPlaylistDetailsAsync_SendsTheAccountToken_InsteadOfTheApiKey_WhenConnected()
+        {
+            _tokenProvider.GetAccessTokenAsync(Arg.Any<CancellationToken>()).Returns("owner-token");
+            var response = new YouTubePlaylistListResponseDto { Items = new List<YouTubePlaylistDto> { CreatePlaylistDto("private-list", "Private") } };
+            SetupHttpResponse(HttpStatusCode.OK, JsonSerializer.Serialize(response, _jsonOptions));
+
+            var result = await _youtubeApiClient.GetPlaylistDetailsAsync("private-list");
+
+            result!.Id.Should().Be("private-list");
+            var request = _mockHttpMessageHandler.Requests.Single();
+            request.Headers.Authorization!.Scheme.Should().Be("Bearer");
+            request.Headers.Authorization.Parameter.Should().Be("owner-token");
+            request.RequestUri!.Query.Should().NotContain("key=");
+        }
+
+        [Fact]
+        public async Task GetPlaylistItemsAsync_UsesTheApiKey_WhenNoAccountIsConnected()
+        {
+            SetupHttpResponse(HttpStatusCode.OK, JsonSerializer.Serialize(new YouTubePlaylistItemListResponseDto(), _jsonOptions));
+
+            await _youtubeApiClient.GetPlaylistItemsAsync("public-list");
+
+            var request = _mockHttpMessageHandler.Requests.Single();
+            request.Headers.Authorization.Should().BeNull();
+            request.RequestUri!.Query.Should().Contain("key=test-api-key");
+        }
+
+        [Fact]
+        public async Task GetMyPlaylistsAsync_ReadsEveryPage_AsTheConnectedAccount()
+        {
+            _tokenProvider.GetAccessTokenAsync(Arg.Any<CancellationToken>()).Returns("owner-token");
+            var firstPage = new YouTubePlaylistListResponseDto
+            {
+                Items = new List<YouTubePlaylistDto> { CreatePlaylistDto("list-1", "One") },
+                NextPageToken = "page-2"
+            };
+            var secondPage = new YouTubePlaylistListResponseDto
+            {
+                Items = new List<YouTubePlaylistDto> { CreatePlaylistDto("list-2", "Two") }
+            };
+            _mockHttpMessageHandler.RespondInSequence(
+                TestHttpMessageHandler.Json(HttpStatusCode.OK, JsonSerializer.Serialize(firstPage, _jsonOptions)),
+                TestHttpMessageHandler.Json(HttpStatusCode.OK, JsonSerializer.Serialize(secondPage, _jsonOptions)));
+
+            var result = await _youtubeApiClient.GetMyPlaylistsAsync();
+
+            result.Select(p => p.Id).Should().Equal("list-1", "list-2");
+            _mockHttpMessageHandler.Requests.Should().HaveCount(2);
+            _mockHttpMessageHandler.Requests[0].RequestUri!.Query.Should().Contain("mine=true").And.NotContain("key=");
+            _mockHttpMessageHandler.Requests[1].RequestUri!.Query.Should().Contain("pageToken=page-2");
+        }
+
+        [Fact]
+        public async Task GetMyPlaylistsAsync_Throws_WhenNoAccountIsConnected()
+        {
+            await Assert.ThrowsAsync<YouTubeNotConnectedException>(() => _youtubeApiClient.GetMyPlaylistsAsync());
+
+            _mockHttpMessageHandler.Requests.Should().BeEmpty();
+        }
+
+        #endregion
+
         #region GetPlaylistItemsAsync Tests
 
         [Fact]
@@ -383,7 +453,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             {
                 var configuration = Substitute.For<IConfiguration>();
                 configuration["ApiKeys:YouTube"].Returns(configuredKey);
-                var client = new YouTubeApiClient(_httpClient, _mockLogger, configuration);
+                var client = new YouTubeApiClient(_httpClient, _mockLogger, configuration, _tokenProvider);
 
                 var exception = await Assert.ThrowsAsync<YouTubeNotConfiguredException>(
                     () => client.GetVideoDetailsAsync("dQw4w9WgXcQ"));
@@ -407,7 +477,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
                 var configuration = Substitute.For<IConfiguration>();
                 configuration["ApiKeys:YouTube"].Returns((string?)null);
 
-                var act = () => new YouTubeApiClient(_httpClient, _mockLogger, configuration);
+                var act = () => new YouTubeApiClient(_httpClient, _mockLogger, configuration, _tokenProvider);
 
                 act.Should().NotThrow();
             }

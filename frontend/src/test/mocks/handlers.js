@@ -98,6 +98,10 @@ export const handlers = [
   http.post(`${API_BASE}/youtube/import/video/:videoId`, ({ params }) =>
     HttpResponse.json({ id: `imported-${params.videoId}`, title: 'Imported video', mediaType: 'Video' }, { status: 201 }),
   ),
+  // The account connection is off by default (no OAuth config), so the account card stays hidden.
+  http.get(`${API_BASE}/youtube/auth/status`, () =>
+    HttpResponse.json({ configured: false, connected: false }),
+  ),
   http.post(`${API_BASE}/youtubechannel/:id/import-latest`, ({ params }) =>
     HttpResponse.json({
       success: true, operation: 'youtube-channel-import-latest', channelId: params.id,

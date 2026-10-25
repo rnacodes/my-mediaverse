@@ -14,11 +14,17 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
         private readonly ILogger<YouTubeApiClient> _logger;
         private readonly JsonSerializerOptions _jsonOptions;
         private readonly string? _configuredApiKey;
+        private readonly IYouTubeAccessTokenProvider _tokenProvider;
 
-        public YouTubeApiClient(HttpClient httpClient, ILogger<YouTubeApiClient> logger, IConfiguration configuration)
+        public YouTubeApiClient(
+            HttpClient httpClient,
+            ILogger<YouTubeApiClient> logger,
+            IConfiguration configuration,
+            IYouTubeAccessTokenProvider tokenProvider)
         {
             _httpClient = httpClient;
             _logger = logger;
+            _tokenProvider = tokenProvider;
             var apiKey = Environment.GetEnvironmentVariable("YOUTUBE_API_KEY") ??
                          configuration["ApiKeys:YouTube"];
             // The literal variable name is what an unfilled config template carries.
@@ -36,6 +42,16 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
         // Ids, handles, and page tokens arrive from URLs and request parameters, so each is
         // escaped before it goes into a query string.
         private static string Escape(string value) => Uri.EscapeDataString(value);
+
+        /// <summary>
+        /// Playlist reads go out as the connected YouTube account when there is one, so private
+        /// playlists are visible; otherwise they use the API key, which sees public and unlisted only.
+        /// </summary>
+        private async Task<(string Url, string? AccessToken)> AsOwnerWhenConnectedAsync(string url)
+        {
+            var accessToken = await _tokenProvider.GetAccessTokenAsync();
+            return !string.IsNullOrEmpty(accessToken) ? (url, accessToken) : ($"{url}&key={ApiKey}", null);
+        }
 
         /// <summary>
         /// Search for videos, channels, and playlists on YouTube
@@ -124,11 +140,12 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
         {
             try
             {
-                var url = $"playlists?part=snippet,status,contentDetails&id={Escape(playlistId)}&key={ApiKey}";
+                var (url, accessToken) = await AsOwnerWhenConnectedAsync(
+                    $"playlists?part=snippet,status,contentDetails&id={Escape(playlistId)}");
 
                 _logger.LogInformation("Getting YouTube playlist details for ID: {PlaylistId}", playlistId);
 
-                var jsonContent = await GetJsonAsync(url, $"playlist details for {playlistId}");
+                var jsonContent = await GetJsonAsync(url, $"playlist details for {playlistId}", accessToken);
                 var result = JsonSerializer.Deserialize<YouTubePlaylistListResponseDto>(jsonContent, _jsonOptions);
 
                 return result?.Items?.FirstOrDefault();
@@ -147,14 +164,16 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
         /// </summary>
         private async Task<YouTubePlaylistItemListResponseDto> GetPlaylistItemsPageAsync(string playlistId, int maxResults, string? pageToken)
         {
-            var url = $"playlistItems?part=snippet,contentDetails&playlistId={Escape(playlistId)}&maxResults={maxResults}&key={ApiKey}";
+            var url = $"playlistItems?part=snippet,contentDetails&playlistId={Escape(playlistId)}&maxResults={maxResults}";
 
             if (!string.IsNullOrEmpty(pageToken))
                 url += $"&pageToken={Escape(pageToken)}";
 
+            var (requestUrl, accessToken) = await AsOwnerWhenConnectedAsync(url);
+
             _logger.LogInformation("Getting YouTube playlist items for playlist ID: {PlaylistId}", playlistId);
 
-            var jsonContent = await GetJsonAsync(url, $"playlist items for {playlistId}");
+            var jsonContent = await GetJsonAsync(requestUrl, $"playlist items for {playlistId}", accessToken);
             return JsonSerializer.Deserialize<YouTubePlaylistItemListResponseDto>(jsonContent, _jsonOptions)
                    ?? new YouTubePlaylistItemListResponseDto();
         }
@@ -203,6 +222,44 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
             catch (Exception ex) when (ex is not YouTubeQuotaExceededException and not YouTubeNotConfiguredException)
             {
                 _logger.LogError(ex, "Error getting all YouTube playlist items for playlist ID: {PlaylistId}", playlistId);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Every playlist the connected account owns, private and unlisted included (all pages,
+        /// 1 quota unit per page of 50). Needs a connected account; the API key can't list them.
+        /// </summary>
+        public async Task<List<YouTubePlaylistDto>> GetMyPlaylistsAsync()
+        {
+            var accessToken = await _tokenProvider.GetAccessTokenAsync();
+            if (string.IsNullOrEmpty(accessToken))
+                throw new YouTubeNotConnectedException();
+            var playlists = new List<YouTubePlaylistDto>();
+            string? pageToken = null;
+
+            try
+            {
+                do
+                {
+                    var url = "playlists?part=snippet,status,contentDetails&mine=true&maxResults=50";
+                    if (!string.IsNullOrEmpty(pageToken))
+                        url += $"&pageToken={Escape(pageToken)}";
+
+                    var jsonContent = await GetJsonAsync(url, "the connected account's playlists", accessToken);
+                    var page = JsonSerializer.Deserialize<YouTubePlaylistListResponseDto>(jsonContent, _jsonOptions);
+                    if (page?.Items != null)
+                        playlists.AddRange(page.Items);
+
+                    pageToken = page?.NextPageToken;
+                } while (!string.IsNullOrEmpty(pageToken));
+
+                _logger.LogInformation("Listed {Count} playlists for the connected YouTube account", playlists.Count);
+                return playlists;
+            }
+            catch (Exception ex) when (ex is not YouTubeQuotaExceededException and not YouTubeNotConfiguredException)
+            {
+                _logger.LogError(ex, "Error listing the connected account's YouTube playlists");
                 throw;
             }
         }
@@ -312,9 +369,15 @@ namespace MyMediaVerse.Infrastructure.Clients.YouTube
         /// inspecting the response body, and surfacing it as a typed exception so a bulk
         /// import can stop cleanly and resume after the quota resets.
         /// </summary>
-        private async Task<string> GetJsonAsync(string url, string operationDescription)
+        private async Task<string> GetJsonAsync(string url, string operationDescription, string? accessToken = null)
         {
-            var response = await _httpClient.GetAsync(url);
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            if (accessToken != null)
+            {
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+            }
+
+            using var response = await _httpClient.SendAsync(request);
 
             if (response.StatusCode == HttpStatusCode.Forbidden)
             {

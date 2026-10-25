@@ -54,6 +54,28 @@ namespace MyMediaVerse.Application.Services
             return await _youTubeApiClient.GetPlaylistDetailsAsync(playlistId);
         }
 
+        public async Task<List<YouTubeMyPlaylistDto>> GetMyPlaylistsAsync()
+        {
+            var playlists = await _youTubeApiClient.GetMyPlaylistsAsync();
+            var importedByExternalId = (await _playlistService.GetAllPlaylistsAsync())
+                .GroupBy(p => p.PlaylistExternalId, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.First().Id, StringComparer.Ordinal);
+
+            return playlists
+                .Where(p => !string.IsNullOrEmpty(p.Id))
+                .Select(p => new YouTubeMyPlaylistDto
+                {
+                    PlaylistId = p.Id!,
+                    Title = p.Snippet?.Title,
+                    PrivacyStatus = p.Status?.PrivacyStatus,
+                    ItemCount = p.ContentDetails?.ItemCount,
+                    ThumbnailUrl = p.Snippet?.Thumbnails?.Medium?.Url ?? p.Snippet?.Thumbnails?.Default?.Url,
+                    ImportedId = importedByExternalId.TryGetValue(p.Id!, out var id) ? id : null
+                })
+                .OrderBy(p => p.Title, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
         public async Task<YouTubePlaylistItemListResponseDto> GetPlaylistItemsAsync(string playlistId, int maxResults = 50, string? pageToken = null)
         {
             return await _youTubeApiClient.GetPlaylistItemsAsync(playlistId, maxResults, pageToken);
