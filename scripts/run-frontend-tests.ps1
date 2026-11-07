@@ -159,23 +159,14 @@ if ($unitTestResult -ne 0) {
     exit 1
 }
 
-# Run Tests with Coverage
-$coverageResult = Invoke-NpmTest -Command "run test:coverage" -TestType "Tests with Coverage"
-
-if ($coverageResult -ne 0) {
-    Write-TestResult "`nCoverage tests failed!" "Red"
-    Write-TestResult "Check the log file for details: $logFile" "Yellow"
-    Set-Location ".."
-    exit 1
-}
+# Coverage is a separate, slower run: npm run test:coverage (from frontend/)
 
 # Final Summary
 Write-TestResult "`n=========================================" "Green"
 Write-TestResult "Frontend Test Run Completed at $(Get-Date)" "Green"
 
-if ($unitTestResult -eq 0 -and $coverageResult -eq 0) {
+if ($unitTestResult -eq 0) {
     Write-TestResult "All frontend tests completed successfully!" "Green"
-    Write-TestResult "Coverage report generated in coverage/ directory" "Cyan"
 } else {
     Write-TestResult "Some tests failed!" "Red"
 }

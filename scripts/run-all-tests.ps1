@@ -100,7 +100,6 @@ if ($overallSuccess) {
     Write-MasterResult "   - Backend log: test-results-backend-*.log" "Yellow"
     Write-MasterResult "   - Frontend log: test-results-frontend-*.log" "Yellow"
     Write-MasterResult "   - Test result files (.trx) in tests/ directory" "Yellow"
-    Write-MasterResult "   - Frontend coverage report in frontend/coverage/" "Yellow"
 }
 
 Write-MasterResult "`nMaster test run completed at: $(Get-Date)" "Green"

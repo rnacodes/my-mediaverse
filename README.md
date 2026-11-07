@@ -106,7 +106,7 @@ Dedicated sync pages make bulk imports painless:
 
 Imported items don't stay bare. Enrichment services fill in and refresh details from each source, run from the admin area or as optional background jobs:
 
-- **Books** — missing descriptions from Google Books, refreshed author details, and Goodreads ratings converted to MMV ratings
+- **Books** — missing descriptions from Google Books and Goodreads ratings converted to MMV ratings
 - **Movies & TV** — details from TMDB, with stale records refreshed
 - **Podcasts** — series details filled from each show's own RSS feed
 - **Websites** — page metadata, thumbnails, and broken-link checks
@@ -216,6 +216,9 @@ The v1.5 refactor was as much about engineering discipline as features:
 - **Slimmed a "god" `Program.cs`** by extracting service registration into composable extension methods and simplifying connection-string resolution
 - **Rebuilt the frontend** around a feature-based folder structure with ~25 custom **TanStack Query** hooks for all data access, replacing ad-hoc fetching
 - **Moved Typesense to a bulk/scheduled indexing model**, removing per-item realtime indexing that would have wasted processing during large imports
+- **Replaced the pgvector pipeline with Typesense auto-embedding.** Before, a background job called OpenAI for each item, stored the vectors in pgvector columns in PostgreSQL (managed with raw SQL outside the EF model), and similarity queries ran as raw SQL. Now Typesense generates and stores the embeddings as documents are indexed, so keyword and semantic search share one index, and the pgvector columns and extension were dropped (see [Search & Embeddings](#search--embeddings))
+- **Simplified authorization into one default-deny model.** Before, access control was opt-in per controller (only 11 of 33 controllers used `[Authorize]` anywhere), demo protection was an MVC filter with an admin-key header bypass, and a developer controller exposed 25 seed and cleanup endpoints. Now one fallback policy governs every endpoint, a single middleware enforces the demo's read-only mode, demo writes unlock with an authenticator code, the developer controller is gone, and a test pins every endpoint's access level (see [Access Control](#access-control))
+- **Standardized CRUD operations and response shapes across media types:** each media type has its own controller with create, read, update, and delete endpoints that return a typed response DTO; all JSON is camelCase with null fields omitted; unhandled errors share one error body; and syncs and bulk imports are being converged on a standard result shape (success flag, counts, warnings and errors, and timings)
 - **Rebuilt both test suites** on open-source tooling (see [Testing](#testing))
 
 ### Key Architectural Patterns
@@ -224,6 +227,31 @@ The v1.5 refactor was as much about engineering discipline as features:
 - **SOLID principles:** single responsibility, dependency injection throughout
 - **Service layer:** business logic separated from controllers
 - **Shared interfaces:** cross-layer contracts live in the Shared layer to preserve dependency inversion
+
+### Search & Embeddings
+
+Typesense handles both keyword and semantic search:
+
+- **Four collections** — media items, mixlists, Obsidian notes, and highlights — each searched through its own endpoint
+- **Embeddings generated inside Typesense:** every document carries an `embedding_source` field, a short text built from the item (for media items: title, media type, description, topics, and genres). When a document is written, Typesense sends that text to OpenAI (`text-embedding-3-large`) and stores the resulting vector itself. Topics and genres are sorted, so an unchanged item produces identical text and Typesense can skip re-embedding it
+- **Hybrid search:** every query combines keyword matching with vector similarity, with a distance cutoff (0.65 by default) so a nonsense query doesn't return the whole library
+- **Similar items** run as vector queries against the same embeddings
+- **Keyword-only fallback:** without an OpenAI key, collections are created without the embedding field and search stays keyword-only
+- **Bulk indexing:** documents are upserted in batches, and a reindex also removes documents whose database rows were deleted
+
+### Access Control
+
+The host decides what exists and whether writes are possible; the caller's identity decides everything else. The frontend's route guards are for user experience only — the API enforces access.
+
+- **One codebase, four hosts:** Production (private, login required), Demo (public, read-only by default), Development, and Testing, selected by `ASPNETCORE_ENVIRONMENT`
+- **Default-deny:** one fallback authorization policy covers every endpoint. On production, everything requires a signed-in user, reads included; on the demo, anonymous GET requests are allowed and everything else requires authentication
+- **A short anonymous allowlist:** only login, token refresh, the demo unlock/lock/status endpoints, the health check, and the YouTube account-connection callback are open without credentials
+- **Operator-only endpoints:** exports, reindexing, AI, enrichment, uploads, and similar admin actions require sign-in even on the demo
+- **Environment-gated routes:** password login and the Trakt and Readwise sync endpoints are removed from the demo's route table at startup, so they don't exist there at all
+- **Sign-in:** a short-lived access token kept in memory (never in localStorage), plus an HttpOnly refresh cookie that restores the session after a reload
+- **Demo unlock:** the demo has no password login. A 6-digit authenticator (TOTP) code opens a 20-minute write window and issues a 20-minute token with no refresh; the unlock endpoint is rate-limited against guessing
+- **Demo write gate:** middleware that runs before authentication blocks demo writes outside that window with a clear `403` (`demo_read_only`), which the frontend turns into a friendly message
+- **Guarded by tests:** an integration test pins the access level of every endpoint, so a new or changed endpoint fails the build until it's deliberately classified
 
 ---
 
