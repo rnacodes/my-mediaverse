@@ -734,3 +734,6 @@ new 181.md
 deploy/mmv-stack/.env.example
 .cursorignore
 .tmp.driveupload/
+
+# Local test run output
+test-output.txt

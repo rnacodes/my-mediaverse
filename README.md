@@ -190,20 +190,22 @@ An admin area for operating the library:
 My MediaVerse follows **Clean Architecture** principles with a layered structure that promotes separation of concerns and testability.
 
 ```
-  ┌──── Web.API ─── Infrastructure ────┐   outer ring — frameworks & drivers
-  │    ┌───── Application ──────┐       │   use cases / business logic
-  │    │     ┌── Domain ──┐     │       │   entities & domain models
-  │    │     │   Shared   │     │       │   shared kernel (core)
-  │    │     └────────────┘     │       │
-  │    └────────────────────────┘       │
-  └──────── dependencies point inward ──┘
+  ┌───────── Web.API · Infrastructure ─────────┐   outer ring — frameworks & drivers
+  │   ┌─────────── Application ────────────┐   │   use cases / business logic
+  │   │   ┌─────────── DTOs ───────────┐   │   │   request & response shapes
+  │   │   │   ┌────── Domain ──────┐   │   │   │   entities & domain models
+  │   │   │   │       Shared       │   │   │   │   shared kernel (core)
+  │   │   │   └────────────────────┘   │   │   │
+  │   │   └────────────────────────────┘   │   │
+  │   └────────────────────────────────────┘   │
+  └──────── dependencies point inward ─────────┘
 
-  Web.API        Controllers, middleware, filters
-  Infrastructure EF Core, external API clients, background services
-  Application    Services, business logic, interfaces (uses DTOs)
-  DTOs           Data transfer objects (depend on Domain)
-  Domain         Entities, domain models
-  Shared         Cross-cutting contracts & utilities — the leaf every layer builds on
+  Web.API        Controllers, middleware, auth, startup extensions (DI, rate limiting)
+  Infrastructure EF Core + migrations, API clients, Typesense, storage, sync & enrichment jobs
+  Application    Services, business logic, and the interfaces they expose
+  DTOs           API request/response objects (depend on Domain)
+  Domain         Entities, enums, domain constants
+  Shared         Interfaces, config options, external-API DTOs — the leaf every layer builds on
 ```
 
 ### What "The Great Refactor" changed (v1.5)
@@ -484,7 +486,7 @@ Version 2 expands the feature set on top of the v1.5 foundation:
 - Bulk/scheduled Typesense indexing model
 - AI embeddings, similar-items discovery, and AI note summaries
 - Read-only demo site with sample data
-- Demo access control: the demo stays read-only, and writes unlock for a short window with an authenticator code
+- Demo access control simplified: the demo stays read-only, and writes unlock for a short window with an authenticator code
 - Rate limiting on third-party API proxies, AI-backed searches, and the demo unlock
 - Error monitoring with Sentry across the API and frontend
 

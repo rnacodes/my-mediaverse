@@ -1,7 +1,9 @@
 # PowerShell script to run all tests (backend and frontend) with comprehensive logging
 $ErrorActionPreference = "Continue"
 $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-$rootPath = Get-Location
+# Run from the repo root no matter where the script was started
+$rootPath = Split-Path $PSScriptRoot -Parent
+Set-Location $rootPath
 $masterLogFile = "$rootPath\logs\test-results-master-$timestamp.log"
 
 # Create logs directory if it doesn't exist
@@ -38,7 +40,7 @@ Write-MasterResult "`n=== Running Backend Tests ===" "Yellow"
 $backendStartTime = Get-Date
 
 try {
-    & .\run-backend-tests.ps1
+    & "$PSScriptRoot\run-backend-tests.ps1"
     if ($LASTEXITCODE -ne 0) {
         $backendSuccess = $false
         $overallSuccess = $false
@@ -60,7 +62,7 @@ Write-MasterResult "`n=== Running Frontend Tests ===" "Yellow"
 $frontendStartTime = Get-Date
 
 try {
-    & .\run-frontend-tests.ps1
+    & "$PSScriptRoot\run-frontend-tests.ps1"
     if ($LASTEXITCODE -ne 0) {
         $frontendSuccess = $false
         $overallSuccess = $false
@@ -98,7 +100,7 @@ if ($overallSuccess) {
     Write-MasterResult "   - Backend log: test-results-backend-*.log" "Yellow"
     Write-MasterResult "   - Frontend log: test-results-frontend-*.log" "Yellow"
     Write-MasterResult "   - Test result files (.trx) in tests/ directory" "Yellow"
-    Write-MasterResult "   - Coverage reports in tests/TestResults/ and frontend/coverage/" "Yellow"
+    Write-MasterResult "   - Frontend coverage report in frontend/coverage/" "Yellow"
 }
 
 Write-MasterResult "`nMaster test run completed at: $(Get-Date)" "Green"

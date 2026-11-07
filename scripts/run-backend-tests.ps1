@@ -1,7 +1,9 @@
 # PowerShell script to run all backend tests with detailed logging
 $ErrorActionPreference = "Continue"
 $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-$rootPath = Get-Location
+# Run from the repo root no matter where the script was started
+$rootPath = Split-Path $PSScriptRoot -Parent
+Set-Location $rootPath
 $logFile = "$rootPath\logs\test-results-backend-$timestamp.log"
 
 # Create logs directory if it doesn't exist
@@ -50,12 +52,14 @@ function Invoke-TestRun {
     Write-TestResult "Command: dotnet $($testArgs -join ' ')" "Gray"
     
     # Add timeout handling
-    $timeoutSeconds = 300  # 5 minutes timeout
+    $timeoutSeconds = 600  # 10 minutes timeout
+    $workingDir = (Get-Location).Path
     $job = Start-Job -ScriptBlock {
-        param($args)
-        & dotnet @args 2>&1
+        Set-Location $using:workingDir
+        $dotnetArgs = $using:testArgs
+        & dotnet @dotnetArgs 2>&1
         return $LASTEXITCODE
-    } -ArgumentList $testArgs
+    }
     
     try {
         $result = Wait-Job -Job $job -Timeout $timeoutSeconds
@@ -66,7 +70,6 @@ function Invoke-TestRun {
         } else {
             Write-TestResult "Test timed out after $timeoutSeconds seconds!" "Red"
             Stop-Job -Job $job
-            Remove-Job -Job $job
             return 1
         }
     } finally {
@@ -77,10 +80,15 @@ function Invoke-TestRun {
     $output | ForEach-Object { Add-Content -Path $logFile -Value $_ }
     
     # Parse and display test results
-    $passedTests = ($output | Select-String "Passed!").Count
-    $failedTests = ($output | Select-String "Failed!").Count
-    $skippedTests = ($output | Select-String "Skipped!").Count
-    $totalTests = $passedTests + $failedTests + $skippedTests
+    # Read the counts from dotnet's summary line: "Passed!  - Failed: 0, Passed: 2015, Skipped: 0, Total: 2015"
+    $passedTests = 0; $failedTests = 0; $skippedTests = 0; $totalTests = 0
+    $summary = $output | Select-String "Failed:\s*(\d+), Passed:\s*(\d+), Skipped:\s*(\d+), Total:\s*(\d+)" | Select-Object -Last 1
+    if ($summary) {
+        $failedTests = [int]$summary.Matches[0].Groups[1].Value
+        $passedTests = [int]$summary.Matches[0].Groups[2].Value
+        $skippedTests = [int]$summary.Matches[0].Groups[3].Value
+        $totalTests = [int]$summary.Matches[0].Groups[4].Value
+    }
     
     Write-TestResult "`n--- $TestType Results ---" "Cyan"
     Write-TestResult "Total Tests: $totalTests" "White"
@@ -153,9 +161,7 @@ if ($integrationTestResult -ne 0) {
     exit 1
 }
 
-# Run All Tests with Coverage
-Write-TestResult "`n=== Running All Tests with Coverage ===" "Yellow"
-$coverageResult = Invoke-TestRun -TestProject "." -TestType "All Tests" -WithCoverage $true
+# Coverage has its own scripts: run-backend-coverage.ps1 / run-backend-coverage.sh
 
 # Final Summary
 Write-TestResult "`n=========================================" "Green"
@@ -163,7 +169,6 @@ Write-TestResult "Backend Test Run Completed at $(Get-Date)" "Green"
 
 if ($unitTestResult -eq 0 -and $integrationTestResult -eq 0) {
     Write-TestResult "All backend tests completed successfully!" "Green"
-    Write-TestResult "Coverage report generated in ./TestResults/" "Cyan"
 } else {
     Write-TestResult "Some tests failed!" "Red"
 }

@@ -5,7 +5,9 @@ param(
 
 $ErrorActionPreference = "Continue"
 $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-$rootPath = Get-Location
+# Run from the repo root no matter where the script was started
+$rootPath = Split-Path $PSScriptRoot -Parent
+Set-Location $rootPath
 $logFile = "$rootPath\$LogDirectory\test-results-frontend-$timestamp.log"
 
 Write-Host "Running MyMediaVerse Frontend Tests..." -ForegroundColor Green
@@ -37,9 +39,10 @@ function Invoke-NpmTest {
     Write-TestResult "Command: npm $Command" "Gray"
     
     # Execute npm command with timeout
-    $timeoutSeconds = 180  # 3 minutes timeout
+    $timeoutSeconds = 600  # 10 minutes timeout
     $job = Start-Job -ScriptBlock {
-        param($cmd)
+        param($cmd, $WorkingDir)
+        Set-Location $WorkingDir
         if ($cmd -eq "run test:run") {
             & npm run test:run 2>&1
         } elseif ($cmd -eq "run test:coverage") {
@@ -48,7 +51,7 @@ function Invoke-NpmTest {
             & npm $cmd 2>&1
         }
         return $LASTEXITCODE
-    } -ArgumentList $Command
+    } -ArgumentList $Command, (Get-Location).Path
     
     try {
         $result = Wait-Job -Job $job -Timeout $timeoutSeconds
@@ -59,7 +62,6 @@ function Invoke-NpmTest {
         } else {
             Write-TestResult "Test timed out after $timeoutSeconds seconds!" "Red"
             Stop-Job -Job $job
-            Remove-Job -Job $job
             return 1
         }
     } finally {
@@ -75,7 +77,7 @@ function Invoke-NpmTest {
     $skippedTests = ($output | Select-String "SKIP|skipped").Count
     
     # Try to extract more detailed results
-    $testSummary = $output | Select-String -Pattern "Tests.*\d+.*passed.*\d+.*failed" -AllMatches
+    $testSummary = $output | Select-String -Pattern "^\s*(Test Files|Tests)\s+\d+"
     if ($testSummary) {
         Write-TestResult "`n--- $TestType Results ---" "Cyan"
         foreach ($match in $testSummary) {
