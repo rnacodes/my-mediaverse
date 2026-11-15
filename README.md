@@ -1,7 +1,7 @@
 # My MediaVerse
 ## Version 1.5
 
-* Last updated: 10/3/2026 *
+*Last updated: 11/7/2026*
 
 **One home for everything you read, watch, and listen to — track it, organize it, and rediscover it.**
 
@@ -27,7 +27,6 @@
 - [Testing](#testing)
 - [Roadmap (v2)](#roadmap-v2)
 - [Project Status](#project-status)
-- [Documentation](#documentation)
 - [Contributing](#contributing)
 - [License](#license)
 - [Acknowledgments](#acknowledgments)
@@ -56,10 +55,10 @@ I'm a fiction writer, and I often compare programming to writing. If the **v1** 
 ### Media Library Management
 
 - **8 media types supported:** Books, Podcasts (series & episodes), Movies, TV Shows, YouTube (videos, channels, and playlists), Articles, Websites, and Notes
-- **Status tracking:** Uncharted, In Progress, Consumed, or Did Not Finish
+- **Status tracking:** Uncharted, Actively Exploring, Completed, or Abandoned
 - **Rating system:** SuperLike, Like, Neutral, or Dislike
 - **Classification:** Organize with genres and topics for easy discovery
-- **Ownership tracking:** Track whether you own, want to buy, or have borrowed an item
+- **Ownership tracking:** Track whether you own, rented, or streamed an item
 - **Personal notes & links** on any item, with the ability to link to external documentation
 
 ### Mixlists — Cross-Type Collections
@@ -74,7 +73,7 @@ Create themed playlists called **Mixlists** that can hold *any combination* of m
 | **Podcast RSS feeds**    | Each show's own feed is the source of its metadata                   |
 | **Podcast Index**        | Fallback podcast directory, including lookup by feed URL              |
 | **TMDB**                 | Movie and TV show metadata enrichment                                |
-| **Trakt**                | Import your TV watch history, watchlist, and ratings                 |
+| **Trakt**                | Import your movie and TV watch history, watchlist, and ratings       |
 | **YouTube Data API**     | Import videos, channels, and playlists                               |
 | **Readwise / Reader**    | Sync highlights and saved articles, auto-linked to their sources     |
 | **Google Books**         | Book search and metadata retrieval                                   |
@@ -85,8 +84,11 @@ Create themed playlists called **Mixlists** that can hold *any combination* of m
 
 Dedicated sync pages make bulk imports painless:
 
-- **Trakt sync** — pull in your entire TV watch history, watchlist, and ratings via device authorization
+- **Trakt sync** — pull in your entire movie and TV watch history, watchlist, and ratings via device authorization
 - **Readwise sync** — import highlights and articles in one pass, with highlights automatically linked back to their source books and articles
+- **YouTube account connection** — connect your YouTube account to import your own playlists, including private ones
+- **Goodreads import** — upload your Goodreads library export; large files are sent in chunks so nothing times out
+- **Podcast OPML import** — bring your subscriptions over from another podcast app in one file
 
 ### Search & Discovery
 
@@ -99,7 +101,16 @@ Dedicated sync pages make bulk imports painless:
 - Import highlights from Readwise, automatically linked to their source articles and books
 - Bulk-linking tools to associate orphaned highlights with sources
 - Sync notes from your Obsidian vaults and link them to related media items
-- Notes are searchable alongside every other media type
+
+### Metadata Enrichment
+
+Imported items don't stay bare. Enrichment services fill in and refresh details from each source, run from the admin area or as optional background jobs:
+
+- **Books** — missing descriptions from Google Books and Goodreads ratings converted to MMV ratings
+- **Movies & TV** — details from TMDB, with stale records refreshed
+- **Podcasts** — series details filled from each show's own RSS feed
+- **Websites** — page metadata, thumbnails, and broken-link checks
+- **YouTube** — video data refreshed every 30 days, in line with YouTube's terms
 
 ### AI-Powered Discovery
 
@@ -120,7 +131,6 @@ An admin area for operating the library:
 - **Search reindexing** — trigger bulk Typesense reindexing per collection
 - **Background-job monitoring** — observe the scheduled enrichment services
 - **AI admin** — monitor AI availability and run note-summary generation
-- **Script execution** — run maintenance scripts from the UI
 - **Demo read-only mode** — a guarded mode that blocks writes for the public demo
 
 ---
@@ -161,6 +171,9 @@ An admin area for operating the library:
 | Umami (self-hosted)         | Privacy-friendly analytics             |
 | Render.com                  | Application hosting                    |
 | Cloudflare                  | DNS, SSL, DDoS protection              |
+| Sentry                      | Error monitoring for the API and frontend |
+| ASP.NET Core rate limiting  | Per-visitor limits on third-party API proxies, AI-backed searches, and the demo unlock |
+| Demo write gate             | Keeps the demo read-only; writes unlock for a short window with an authenticator code |
 
 ### AI Services
 
@@ -177,20 +190,22 @@ An admin area for operating the library:
 My MediaVerse follows **Clean Architecture** principles with a layered structure that promotes separation of concerns and testability.
 
 ```
-  ┌──── Web.API ─── Infrastructure ────┐   outer ring — frameworks & drivers
-  │    ┌───── Application ──────┐       │   use cases / business logic
-  │    │     ┌── Domain ──┐     │       │   entities & domain models
-  │    │     │   Shared   │     │       │   shared kernel (core)
-  │    │     └────────────┘     │       │
-  │    └────────────────────────┘       │
-  └──────── dependencies point inward ──┘
+  ┌───────── Web.API · Infrastructure ─────────┐   outer ring — frameworks & drivers
+  │   ┌─────────── Application ────────────┐   │   use cases / business logic
+  │   │   ┌─────────── DTOs ───────────┐   │   │   request & response shapes
+  │   │   │   ┌────── Domain ──────┐   │   │   │   entities & domain models
+  │   │   │   │       Shared       │   │   │   │   shared kernel (core)
+  │   │   │   └────────────────────┘   │   │   │
+  │   │   └────────────────────────────┘   │   │
+  │   └────────────────────────────────────┘   │
+  └──────── dependencies point inward ─────────┘
 
-  Web.API        Controllers, middleware, filters
-  Infrastructure EF Core, external API clients, background services
-  Application    Services, business logic, interfaces (uses DTOs)
-  DTOs           Data transfer objects (depend on Domain)
-  Domain         Entities, domain models
-  Shared         Cross-cutting contracts & utilities — the leaf every layer builds on
+  Web.API        Controllers, middleware, auth, startup extensions (DI, rate limiting)
+  Infrastructure EF Core + migrations, API clients, Typesense, storage, sync & enrichment jobs
+  Application    Services, business logic, and the interfaces they expose
+  DTOs           API request/response objects (depend on Domain)
+  Domain         Entities, enums, domain constants
+  Shared         Interfaces, config options, external-API DTOs — the leaf every layer builds on
 ```
 
 ### What "The Great Refactor" changed (v1.5)
@@ -201,6 +216,9 @@ The v1.5 refactor was as much about engineering discipline as features:
 - **Slimmed a "god" `Program.cs`** by extracting service registration into composable extension methods and simplifying connection-string resolution
 - **Rebuilt the frontend** around a feature-based folder structure with ~25 custom **TanStack Query** hooks for all data access, replacing ad-hoc fetching
 - **Moved Typesense to a bulk/scheduled indexing model**, removing per-item realtime indexing that would have wasted processing during large imports
+- **Replaced the pgvector pipeline with Typesense auto-embedding.** Before, a background job called OpenAI for each item, stored the vectors in pgvector columns in PostgreSQL (managed with raw SQL outside the EF model), and similarity queries ran as raw SQL. Now Typesense generates and stores the embeddings as documents are indexed, so keyword and semantic search share one index, and the pgvector columns and extension were dropped (see [Search & Embeddings](#search--embeddings))
+- **Simplified authorization into one default-deny model.** Before, access control was opt-in per controller (only 11 of 33 controllers used `[Authorize]` anywhere), demo protection was an MVC filter with an admin-key header bypass, and a developer controller exposed 25 seed and cleanup endpoints. Now one fallback policy governs every endpoint, a single middleware enforces the demo's read-only mode, demo writes unlock with an authenticator code, the developer controller is gone, and a test pins every endpoint's access level (see [Access Control](#access-control))
+- **Standardized CRUD operations and response shapes across media types:** each media type has its own controller with create, read, update, and delete endpoints that return a typed response DTO; all JSON is camelCase with null fields omitted; unhandled errors share one error body; and syncs and bulk imports are being converged on a standard result shape (success flag, counts, warnings and errors, and timings)
 - **Rebuilt both test suites** on open-source tooling (see [Testing](#testing))
 
 ### Key Architectural Patterns
@@ -210,6 +228,31 @@ The v1.5 refactor was as much about engineering discipline as features:
 - **Service layer:** business logic separated from controllers
 - **Shared interfaces:** cross-layer contracts live in the Shared layer to preserve dependency inversion
 
+### Search & Embeddings
+
+Typesense handles both keyword and semantic search:
+
+- **Four collections** — media items, mixlists, Obsidian notes, and highlights — each searched through its own endpoint
+- **Embeddings generated inside Typesense:** every document carries an `embedding_source` field, a short text built from the item (for media items: title, media type, description, topics, and genres). When a document is written, Typesense sends that text to OpenAI (`text-embedding-3-large`) and stores the resulting vector itself. Topics and genres are sorted, so an unchanged item produces identical text and Typesense can skip re-embedding it
+- **Hybrid search:** every query combines keyword matching with vector similarity, with a distance cutoff (0.65 by default) so a nonsense query doesn't return the whole library
+- **Similar items** run as vector queries against the same embeddings
+- **Keyword-only fallback:** without an OpenAI key, collections are created without the embedding field and search stays keyword-only
+- **Bulk indexing:** documents are upserted in batches, and a reindex also removes documents whose database rows were deleted
+
+### Access Control
+
+The host decides what exists and whether writes are possible; the caller's identity decides everything else. The frontend's route guards are for user experience only — the API enforces access.
+
+- **One codebase, four hosts:** Production (private, login required), Demo (public, read-only by default), Development, and Testing, selected by `ASPNETCORE_ENVIRONMENT`
+- **Default-deny:** one fallback authorization policy covers every endpoint. On production, everything requires a signed-in user, reads included; on the demo, anonymous GET requests are allowed and everything else requires authentication
+- **A short anonymous allowlist:** only login, token refresh, the demo unlock/lock/status endpoints, the health check, and the YouTube account-connection callback are open without credentials
+- **Operator-only endpoints:** exports, reindexing, AI, enrichment, uploads, and similar admin actions require sign-in even on the demo
+- **Environment-gated routes:** password login and the Trakt and Readwise sync endpoints are removed from the demo's route table at startup, so they don't exist there at all
+- **Sign-in:** a short-lived access token kept in memory (never in localStorage), plus an HttpOnly refresh cookie that restores the session after a reload
+- **Demo unlock:** the demo has no password login. A 6-digit authenticator (TOTP) code opens a 20-minute write window and issues a 20-minute token with no refresh; the unlock endpoint is rate-limited against guessing
+- **Demo write gate:** middleware that runs before authentication blocks demo writes outside that window with a clear `403` (`demo_read_only`), which the frontend turns into a friendly message
+- **Guarded by tests:** an integration test pins the access level of every endpoint, so a new or changed endpoint fails the build until it's deliberately classified
+
 ---
 
 ## Getting Started
@@ -218,8 +261,8 @@ The v1.5 refactor was as much about engineering discipline as features:
 
 - Node.js 18+
 - .NET 10 SDK
-- PostgreSQL 15+
-- Typesense server (optional for local development)
+- PostgreSQL 16+ (production and the demo run PostgreSQL 18)
+- Typesense server
 
 ### Frontend Setup
 
@@ -259,7 +302,13 @@ The API starts at `http://localhost:5033`.
 | ------------------------------- | ------------------------ |
 | `TMDB_API_KEY`                  | TMDB movie/TV API        |
 | `YOUTUBE_API_KEY`               | YouTube Data API         |
-| `READWISE_API_KEY`              | Readwise / Reader API    |
+| `READWISE_API_KEY`              | Readwise / Reader API (`READWISE_API_TOKEN` also works) |
+| `TRAKT_CLIENT_ID`               | Trakt sync               |
+| `TRAKT_CLIENT_SECRET`           | Trakt sync               |
+| `GOOGLE_BOOKS_API_KEY`          | Google Books search (required in practice — the keyless quota is zero) |
+| `YOUTUBE_OAUTH_CLIENT_ID`       | YouTube account connection |
+| `YOUTUBE_OAUTH_CLIENT_SECRET`   | YouTube account connection |
+| `YOUTUBE_OAUTH_REDIRECT_URI`    | YouTube account connection callback URL |
 | `TYPESENSE_ADMIN_API_KEY`       | Typesense search         |
 | `TYPESENSE_HOST`                | Typesense server URL     |
 | `PODCASTINDEX_API_KEY`          | Podcast Index directory  |
@@ -268,6 +317,35 @@ The API starts at `http://localhost:5033`.
 | `DIGITALOCEANSPACES__SECRETKEY` | DO Spaces secret         |
 | `OPENAI_API_KEY`                | OpenAI embeddings        |
 | `GRADIENT_API_KEY`              | DigitalOcean Gradient AI |
+| `OBSIDIAN_GENERAL_VAULT_URL`, `OBSIDIAN_GENERAL_VAULT_AUTH_TOKEN` | Obsidian (Quartz) note sync — general vault |
+| `OBSIDIAN_SYNC_ENABLED`, `OBSIDIAN_SYNC_INTERVAL_HOURS` | Scheduled Obsidian note sync |
+| `PAPERLESS_API_URL`, `PAPERLESS_API_TOKEN` | Paperless-ngx document sync |
+| `SENTRY_DSN`                    | Sentry error monitoring (API) |
+| `N8N_API_KEY`                   | Lets N8N workflows call the API with an API key |
+| `DEMO_TOTP_SECRET`              | Authenticator secret for unlocking demo writes |
+| `ADDITIONAL_CORS_ORIGINS`       | Extra allowed CORS origins |
+| `REQUIRE_HTTPS`                 | Override whether the auth cookie is HTTPS-only |
+
+#### Optional (tuning)
+
+| Variable                              | Description                                  |
+| ------------------------------------- | -------------------------------------------- |
+| `TYPESENSE_PORT`, `TYPESENSE_PROTOCOL` | Typesense connection details (with a bare `TYPESENSE_HOST`) |
+| `TYPESENSE_COLLECTION_PREFIX`         | Prefix for Typesense collection names         |
+| `TYPESENSE_EMBEDDING_DIMENSIONS`      | Embedding size for Typesense auto-embedding   |
+| `TYPESENSE_HYBRID_DISTANCE_THRESHOLD` | Cutoff for semantic matches in hybrid search  |
+| `OPENAI_EMBEDDING_MODEL`              | OpenAI embedding model                        |
+| `GRADIENT_GENERATION_MODEL`           | Gradient text-generation model                |
+
+#### Frontend (`frontend/.env`)
+
+| Variable                | Description                                        |
+| ----------------------- | -------------------------------------------------- |
+| `VITE_API_URL`          | API base URL — must include the `/api` suffix      |
+| `VITE_DEMO_MODE`        | `true` for the read-only demo build                |
+| `VITE_ENVIRONMENT`      | Environment name reported to Sentry                |
+| `VITE_SENTRY_DSN`       | Sentry error monitoring (frontend)                 |
+| `VITE_UMAMI_WEBSITE_ID` | Umami analytics site ID                            |
 
 Podcast episode sync is tuned through the optional `PodcastSync` configuration section (the defaults apply when it is absent):
 
@@ -299,14 +377,18 @@ The API is RESTful with a base URL of `/api`. Controllers are organized by respo
 
 | Controller | Endpoint         | Description                          |
 | ---------- | ---------------- | ----------------------------------- |
-| Media      | `/api/media`     | Unified CRUD across all media types |
+| Media      | `/api/media`     | Shared read, update, delete, and export across all media types (each type is created through its own controller) |
 | Book       | `/api/book`      | Book-specific operations            |
 | Movie      | `/api/movie`     | Movie operations (TMDB)             |
 | TVShow     | `/api/tvshow`    | TV show operations                  |
 | Podcast    | `/api/podcast`   | Podcast series & episodes, feed import, episode sync, directory search |
-| YouTube    | `/api/youtube`   | Videos, channels, playlists         |
+| YouTube    | `/api/youtube`   | YouTube lookups, imports, account connection, and data refresh |
+| Video      | `/api/video`     | Stored online videos                |
+| YouTubeChannel | `/api/youtubechannel` | Stored channels and latest-upload imports |
+| YouTubePlaylist | `/api/youtubeplaylist` | Stored playlists, mirrored from YouTube on sync |
 | Article    | `/api/article`   | Article operations                  |
 | Website    | `/api/website`   | Website operations                  |
+| Document   | `/api/document`  | Documents and Paperless-ngx sync    |
 | Note       | `/api/note`      | Notes management                    |
 
 ### Collections, Classification & Discovery
@@ -328,6 +410,11 @@ The API is RESTful with a base URL of `/api`. Controllers are organized by respo
 | Readwise    | `/api/readwise`   | Readwise + Reader sync               |
 | Trakt       | `/api/trakt`      | Trakt TV watch-history sync          |
 | TMDB        | `/api/tmdb`       | Movie / TV search proxy              |
+| Upload      | `/api/upload`     | Thumbnail uploads, CSV and Goodreads imports |
+| BookEnrichment | `/api/bookenrichment` | Book descriptions, authors, and ratings |
+| MovieTvEnrichment | `/api/movietvenrichment` | TMDB enrichment and stale refresh |
+| PodcastEnrichment | `/api/podcastenrichment` | Podcast series enrichment from feeds |
+| WebsiteEnrichment | `/api/website/enrichment` | Website metadata, thumbnails, and link checks |
 
 ### AI, Admin & Ops
 
@@ -335,7 +422,7 @@ The API is RESTful with a base URL of `/api`. Controllers are organized by respo
 | ---------- | --------------- | ----------------------------------- |
 | AI         | `/api/ai`       | Note summary generation & AI status |
 | Auth       | `/api/auth`     | Authentication                      |
-| Dev / Demo | `/api/dev`, `/api/demo` | Maintenance & demo controls |
+| Demo       | `/api/demo`     | Demo write-access unlock and status |
 | Health     | `/api/health`   | Service health checks               |
 
 ---
@@ -346,19 +433,21 @@ The API is RESTful with a base URL of `/api`. Controllers are organized by respo
 
 The demo site runs in **read-only mode** by default, so you can explore the interface and features without modifying data. Sample data is included to demonstrate all media types and functionality.
 
+A public **Terms & Privacy** page (`/privacy`) explains how the app uses YouTube and other third-party data.
+
 ---
 
 ## Testing
 
 Both test suites were rebuilt from scratch during v1.5 on actively maintained, open-source tooling.
 
-- **Backend:** xUnit, **NSubstitute** (mocking), **AwesomeAssertions**, and **Testcontainers** for real PostgreSQL + pgvector integration tests
+- **Backend:** xUnit, **NSubstitute** (mocking), **AwesomeAssertions**, and **Testcontainers** for real PostgreSQL integration tests
 - **Frontend:** **Vitest**, React Testing Library, and **MSW** (Mock Service Worker) with shared data factories and a `renderWithProviders` helper
 
 ### Run All Tests
 
 ```powershell
-.\run-all-tests.ps1
+.\scripts\run-all-tests.ps1   # run from anywhere; logs go to logs/ at the repo root
 ```
 
 ### Backend Tests
@@ -396,16 +485,17 @@ Test results are saved to the `logs/` directory with timestamps.
 
 Version 2 expands the feature set on top of the v1.5 foundation:
 
-- **New media types:** Video Games, Music, Reddit, and *Panorama* — a catch-all type for anything that doesn't fit neatly elsewhere
-- **Document management:** full **Paperless-ngx** integration (the service is provisioned; wiring it into the app is a v2 task)
-- **Web bookmarking & archival:** webpage hierarchy, **ArchiveBox** archival, Wayback Machine fallback, link de-duplication, and broken-link monitoring
-- **Automation:** scheduled **N8N** workflows for ongoing metadata enrichment and daily syncs
+- **New media types:** Video Games, Music, Courses, and *Panorama* — a catch-all type for anything that doesn't fit neatly elsewhere
+- **Web bookmarking & archival:** webpage hierarchy, **ArchiveBox** archival, link de-duplication, and scheduled broken-link monitoring
 - **Transcription import** for podcasts and videos
 
 ### In flight
 
 - **Search Refactor** — queued/batched Typesense indexing, delete propagation, and a cleaner frontend search flow, hardening search for a full-size library
-- **Initial Data Sync** — building the remaining import features (Goodreads chunked upload, genre mapping) and running the first full data population
+- **Initial Data Sync** — running the first full data population
+- **N8N automation** — workflows for enrichment and syncs are in progress
+- **Document management** — **Paperless-ngx** sync and a Documents page are built; complete functionality is in progress
+- **Wayback Machine** — snapshot lookups as a fallback when enriching websites; testing is in progress
 
 ---
 
@@ -418,24 +508,19 @@ Version 2 expands the feature set on top of the v1.5 foundation:
 - Backend re-architecture (controller split, slimmed `Program.cs`, clean dependency flow)
 - Frontend re-architecture (feature folders, TanStack Query data layer, shared components)
 - Both test suites rebuilt on open-source tooling
-- New integrations: Trakt sync, Obsidian/Quartz note sync
+- New integrations: Trakt sync, Obsidian/Quartz note sync, YouTube account connection
+- New imports: Goodreads (chunked uploads) and podcast OPML
+- Metadata enrichment services for books, movies & TV, podcasts, websites, and YouTube
 - Bulk/scheduled Typesense indexing model
 - AI embeddings, similar-items discovery, and AI note summaries
 - Read-only demo site with sample data
+- Demo access control simplified: the demo stays read-only, and writes unlock for a short window with an authenticator code
+- Rate limiting on third-party API proxies, AI-backed searches, and the demo unlock
+- Error monitoring with Sentry across the API and frontend
 
 ### Next
 
 Populate the library via the **Initial Data Sync**, complete the **Search Refactor**, then begin **v2** feature expansion.
-
----
-
-## Contributing
-
-This is a personal project, but feedback and suggestions are welcome. Please open an issue on GitHub to:
-
-- Report bugs
-- Suggest features
-- Ask questions
 
 ---
 
@@ -445,9 +530,9 @@ This is a personal project, but feedback and suggestions are welcome. Please ope
 
 Please do not copy or redistribute this code without permission.
 
-This project is source-available for portfolio and reference purposes — it is not open source. Viewing the code is welcome, but reuse, redistribution, or deployment requires explicit written permission.
+This project is source-available for portfolio and reference purposes — it is not open source. Viewing the code is welcome, but reuse or redistribution requires explicit written permission.
 
-See [LICENSE](./LICENSE.txt) for full terms, or reach out to discuss a use case.
+See [LICENSE](./LICENSE.txt) for full terms.
 
 ---
 

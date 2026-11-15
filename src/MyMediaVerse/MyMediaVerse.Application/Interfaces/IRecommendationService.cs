@@ -2,13 +2,13 @@ namespace MyMediaVerse.Application.Interfaces
 {
     /// <summary>
     /// Service interface for generating media recommendations using vector similarity.
-    /// Uses PostgreSQL with pgvector extension for similarity searches.
+    /// Similarity searches run in Typesense using its auto-generated embeddings.
     /// </summary>
     public interface IRecommendationService
     {
         /// <summary>
         /// Gets media items similar to the specified item using vector similarity.
-        /// Uses the item's embedding stored in PostgreSQL.
+        /// Uses the item's embedding stored in Typesense.
         /// </summary>
         /// <param name="mediaItemId">The ID of the source media item</param>
         /// <param name="count">Maximum number of recommendations to return</param>
@@ -79,7 +79,7 @@ namespace MyMediaVerse.Application.Interfaces
 
         /// <summary>
         /// Checks if recommendation features are available.
-        /// Requires AI service for embedding generation and pgvector extension in database.
+        /// Requires Typesense auto-embedding (an OpenAI key) to be configured.
         /// </summary>
         /// <returns>True if recommendation features are available</returns>
         Task<bool> IsAvailableAsync();

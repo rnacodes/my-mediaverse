@@ -5,7 +5,7 @@ import { apiClient } from './apiClient';
 // ============================================
 
 /**
- * Gets the recommendation service status (checks AI and pgvector availability)
+ * Gets the recommendation service status (checks whether Typesense embeddings are available)
  */
 export const getRecommendationStatus = async () => {
     try {
