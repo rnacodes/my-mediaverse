@@ -14,13 +14,16 @@ namespace MyMediaVerse.Application.Interfaces
     /// to the library, <paramref name="VideosLinked"/> videos already in the library that joined
     /// the playlist, <paramref name="VideosUnlinked"/> videos that left it (their rows stay), and
     /// <paramref name="PositionsUpdated"/> videos whose place in the playlist moved.
+    /// <paramref name="CreatedVideoIds"/> holds the ids of the videos new to the library, the
+    /// rows a search reindex needs to pick up.
     /// </summary>
     public record YouTubePlaylistSyncResult(
         YouTubePlaylist Playlist,
         int VideosCreated,
         int VideosLinked,
         int VideosUnlinked,
-        int PositionsUpdated);
+        int PositionsUpdated,
+        IReadOnlyList<Guid> CreatedVideoIds);
 
     public interface IYouTubePlaylistService
     {

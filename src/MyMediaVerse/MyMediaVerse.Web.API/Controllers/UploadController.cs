@@ -486,8 +486,8 @@ namespace MyMediaVerse.Web.API.Controllers
                 }
 
                 // Make the imported books searchable immediately (best-effort; never fails the import).
-                // Fires per chunk that actually imported books — the bulk reindex skips unchanged items,
-                // so earlier chunks' books aren't re-embedded.
+                // Fires per chunk that actually imported books — Typesense skips the re-embed for
+                // documents whose text is unchanged, so earlier chunks' books aren't re-embedded.
                 result.ReindexTriggered = result.SuccessCount > 0;
                 await _importReindexService.ReindexAfterImportAsync(result.SuccessCount, "Goodreads CSV");
 

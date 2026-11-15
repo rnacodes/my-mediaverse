@@ -311,8 +311,9 @@ namespace MyMediaVerse.IntegrationTests.Api
         public async Task ImportLatestUploads_WhenVideosWereAdded_ShouldReturnTheResult_AndReindexLast()
         {
             var id = Guid.NewGuid();
+            var changedIds = new[] { Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid() };
             var (client, service, reindex) = _factory.CreateClientWithSubstitutes<IYouTubeChannelService, IImportReindexService>(svc =>
-                svc.ImportLatestUploadsAsync(id, Arg.Any<int>()).Returns(call => new YouTubeChannelImportResultDto
+                svc.ImportLatestUploadsAsync(id, Arg.Any<int>()).Returns(call => new YouTubeChannelImportResult(new YouTubeChannelImportResultDto
                 {
                     ChannelId = id,
                     ChannelTitle = "Contract Channel",
@@ -322,7 +323,7 @@ namespace MyMediaVerse.IntegrationTests.Api
                     SkippedCount = 3,
                     StartedAt = DateTime.UtcNow,
                     CompletedAt = DateTime.UtcNow
-                }));
+                }, changedIds)));
 
             var response = await client.PostAsync($"/api/youtubechannel/{id}/import-latest?count=10", null);
 
@@ -336,8 +337,11 @@ namespace MyMediaVerse.IntegrationTests.Api
             body.GetProperty("linkedCount").GetInt32().Should().Be(1);
             body.GetProperty("totalProcessed").GetInt32().Should().Be(6);
             body.GetProperty("reindexTriggered").GetBoolean().Should().BeTrue();
+            body.TryGetProperty("changedVideoIds", out _).Should().BeFalse("the ids are server-side only");
             await service.Received(1).ImportLatestUploadsAsync(id, 10);
-            await reindex.Received(1).ReindexAfterImportAsync(3, Arg.Any<string>());
+            await reindex.Received(1).ReindexItemsAfterImportAsync(
+                Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.SequenceEqual(changedIds)), Arg.Any<string>());
+            await reindex.DidNotReceive().ReindexAfterImportAsync(Arg.Any<int>(), Arg.Any<string>());
         }
 
         #endregion

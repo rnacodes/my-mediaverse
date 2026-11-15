@@ -11,6 +11,15 @@ namespace MyMediaVerse.Application.Interfaces
     public record YouTubeChannelCreationResult(YouTubeChannel Channel, bool Created);
 
     /// <summary>
+    /// The outcome of importing a channel's newest uploads: the <paramref name="Report"/> returned
+    /// to the caller, and <paramref name="ChangedVideoIds"/>, the ids of the created and newly
+    /// linked videos, the rows a search reindex needs to pick up.
+    /// </summary>
+    public record YouTubeChannelImportResult(
+        YouTubeChannelImportResultDto Report,
+        IReadOnlyList<Guid> ChangedVideoIds);
+
+    /// <summary>
     /// Service interface for YouTube Channel operations
     /// </summary>
     public interface IYouTubeChannelService
@@ -67,7 +76,7 @@ namespace MyMediaVerse.Application.Interfaces
         /// have none, the rest are created under it. <paramref name="count"/> is clamped to one
         /// YouTube page. Nothing is saved when YouTube's quota runs out mid-run.
         /// </summary>
-        Task<YouTubeChannelImportResultDto> ImportLatestUploadsAsync(Guid channelId, int count);
+        Task<YouTubeChannelImportResult> ImportLatestUploadsAsync(Guid channelId, int count);
     }
 }
 

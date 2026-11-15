@@ -344,8 +344,9 @@ namespace MyMediaVerse.Application.Services
             }
         }
 
-        public async Task<YouTubeChannelImportResultDto> ImportLatestUploadsAsync(Guid channelId, int count)
+        public async Task<YouTubeChannelImportResult> ImportLatestUploadsAsync(Guid channelId, int count)
         {
+            var changedVideoIds = new List<Guid>();
             var result = new YouTubeChannelImportResultDto
             {
                 ChannelId = channelId,
@@ -397,6 +398,7 @@ namespace MyMediaVerse.Application.Services
                     {
                         video.ChannelId = channel.Id;
                         result.LinkedCount++;
+                        changedVideoIds.Add(video.Id);
                     }
                     else
                     {
@@ -426,6 +428,7 @@ namespace MyMediaVerse.Application.Services
 
                         _context.Add(video);
                         result.CreatedCount++;
+                        changedVideoIds.Add(video.Id);
                     }
 
                     foreach (var missingId in newIds.Where(id => !builtIds.Contains(id)))
@@ -442,7 +445,7 @@ namespace MyMediaVerse.Application.Services
                 _logger.LogInformation(
                     "Imported latest uploads for channel {Title}: {Created} created, {Linked} linked, {Skipped} already stored, {Failed} without details",
                     channel.Title, result.CreatedCount, result.LinkedCount, result.SkippedCount, result.FailedCount);
-                return result;
+                return new YouTubeChannelImportResult(result, changedVideoIds);
             }
             catch (Exception ex) when (ex is not ArgumentException and not YouTubeQuotaExceededException and not YouTubeNotConfiguredException)
             {

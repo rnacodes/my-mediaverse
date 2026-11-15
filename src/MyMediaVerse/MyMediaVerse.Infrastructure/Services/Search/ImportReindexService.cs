@@ -7,8 +7,9 @@ namespace MyMediaVerse.Infrastructure.Services.Search
     /// Best-effort media reindex fired at the end of interactive imports and enrichments. Mirrors the
     /// swallow-and-log pattern of <see cref="SearchIndexSyncHostedService"/>: a Typesense/OpenAI hiccup
     /// logs an error and returns, leaving the rows in PostgreSQL to be indexed by the next scheduled (or
-    /// N8N-driven) reindex. The bulk reindex upserts in place and skips unchanged items, so it only
-    /// re-embeds the newly imported text.
+    /// N8N-driven) reindex. The bulk reindex upserts every document in place; Typesense only re-embeds
+    /// the ones whose embedding text changed. When the caller knows which rows changed, the targeted
+    /// methods send just those documents.
     /// </summary>
     public class ImportReindexService : IImportReindexService
     {
@@ -68,6 +69,30 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 _logger.LogError(ex,
                     "Post-import reindex after {ImportLabel} failed for media item {MediaItemId}; the row remains in the database and will be indexed by the next scheduled reindex",
                     importLabel, mediaItemId);
+            }
+        }
+
+        public async Task ReindexItemsAfterImportAsync(IReadOnlyCollection<Guid> mediaItemIds, string importLabel)
+        {
+            if (mediaItemIds.Count == 0)
+            {
+                _logger.LogInformation(
+                    "Skipping post-import reindex for {ImportLabel}: no items changed", importLabel);
+                return;
+            }
+
+            try
+            {
+                var count = await _typesense.ReindexMediaItemsByIdsAsync(mediaItemIds);
+                _logger.LogInformation(
+                    "Post-import reindex after {ImportLabel} completed: indexed {Count} media items",
+                    importLabel, count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Post-import reindex after {ImportLabel} failed for {Requested} media items; the rows remain in the database and will be indexed by the next scheduled reindex",
+                    importLabel, mediaItemIds.Count);
             }
         }
     }

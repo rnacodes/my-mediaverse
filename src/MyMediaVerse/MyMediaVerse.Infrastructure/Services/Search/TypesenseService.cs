@@ -643,31 +643,14 @@ namespace MyMediaVerse.Infrastructure.Services.Search
 
                 foreach (var item in mediaItems)
                 {
-                    var additionalFields = await BuildAdditionalFieldsAsync(item);
-
-                    var document = new MediaItemDocument
-                    {
-                        Id = item.Id.ToString(),
-                        Title = item.Title,
-                        MediaType = item.MediaType.ToString(),
-                        Description = item.Description,
-                        Topics = item.Topics.Select(t => t.Name).ToList(),
-                        Genres = item.Genres.Select(g => g.Name).ToList(),
-                        DateAdded = ((DateTimeOffset)item.DateAdded).ToUnixTimeSeconds(),
-                        Status = item.Status.ToString(),
-                        Rating = item.Rating?.ToString(),
-                        Thumbnail = item.Thumbnail
-                    };
-
-                    ApplyAdditionalFields(document, additionalFields);
-
-                    documents.Add(document);
+                    documents.Add(await BuildMediaItemDocumentAsync(item));
                 }
 
                 // Ensure the collection exists without dropping it. Upsert-in-place keeps the live
-                // index searchable throughout and lets Typesense skip re-embedding unchanged docs
-                // (the embedding_source text is stable). Rows deleted in Postgres are reconciled
-                // away below; use the explicit reset endpoint for a destructive full rebuild.
+                // index searchable throughout. Every document is sent again; Typesense itself avoids
+                // re-embedding a document whose embedding_source text is unchanged. Rows deleted in
+                // Postgres are reconciled away below; use the explicit reset endpoint for a
+                // destructive full rebuild.
                 await EnsureCollectionExistsAsync();
 
                 var successCount = 0;
@@ -677,7 +660,8 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 }
                 else
                 {
-                    // Upsert so existing docs are updated in place; unchanged docs avoid a needless re-embed.
+                    // Upsert so existing docs are updated in place; Typesense skips the re-embed
+                    // for docs whose embedding_source is unchanged.
                     var importResults = await _typesenseClient.ImportDocuments<MediaItemDocument>(
                         _mediaCollectionName,
                         documents,
@@ -711,6 +695,102 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                 _logger.LogError(ex, "Error during bulk re-index of media items.");
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Re-indexes just the given media items. Builds the same documents as the bulk reindex but
+        /// skips its reconcile step: these callers only create or change rows, never delete them.
+        /// </summary>
+        public async Task<int> ReindexMediaItemsByIdsAsync(IReadOnlyCollection<Guid> ids)
+        {
+            var distinctIds = ids.Distinct().ToList();
+            if (distinctIds.Count == 0)
+            {
+                return 0;
+            }
+
+            try
+            {
+                var mediaItems = await _context.MediaItems
+                    .Include(m => m.Topics)
+                    .Include(m => m.Genres)
+                    .AsNoTracking()
+                    .Where(m => distinctIds.Contains(m.Id))
+                    .ToListAsync();
+
+                if (mediaItems.Count < distinctIds.Count)
+                {
+                    _logger.LogInformation(
+                        "ReindexMediaItemsByIdsAsync: {Missing} of {Requested} media items not found.",
+                        distinctIds.Count - mediaItems.Count, distinctIds.Count);
+                }
+
+                if (mediaItems.Count == 0)
+                {
+                    return 0;
+                }
+
+                var documents = new List<MediaItemDocument>();
+                foreach (var item in mediaItems)
+                {
+                    documents.Add(await BuildMediaItemDocumentAsync(item));
+                }
+
+                var importResults = await _typesenseClient.ImportDocuments<MediaItemDocument>(
+                    _mediaCollectionName,
+                    documents,
+                    40, // Batch size
+                    ImportType.Upsert
+                );
+
+                var successCount = importResults.Count(r => r.Success);
+                var failureCount = importResults.Count(r => !r.Success);
+
+                _logger.LogInformation(
+                    "Targeted re-index complete. Success: {SuccessCount}, Failures: {FailureCount}",
+                    successCount,
+                    failureCount
+                );
+
+                if (failureCount > 0)
+                {
+                    _logger.LogWarning("Some documents failed to index. Check Typesense logs for details.");
+                }
+
+                return successCount;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during targeted re-index of {Count} media items.", distinctIds.Count);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Builds the search document for one media item (loaded with its topics and genres). Shared
+        /// by the bulk and the by-ids reindex so both send identical documents.
+        /// </summary>
+        private async Task<MediaItemDocument> BuildMediaItemDocumentAsync(BaseMediaItem item)
+        {
+            var additionalFields = await BuildAdditionalFieldsAsync(item);
+
+            var document = new MediaItemDocument
+            {
+                Id = item.Id.ToString(),
+                Title = item.Title,
+                MediaType = item.MediaType.ToString(),
+                Description = item.Description,
+                Topics = item.Topics.Select(t => t.Name).ToList(),
+                Genres = item.Genres.Select(g => g.Name).ToList(),
+                DateAdded = ((DateTimeOffset)item.DateAdded).ToUnixTimeSeconds(),
+                Status = item.Status.ToString(),
+                Rating = item.Rating?.ToString(),
+                Thumbnail = item.Thumbnail
+            };
+
+            ApplyAdditionalFields(document, additionalFields);
+
+            return document;
         }
 
         /// <summary>

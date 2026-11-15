@@ -582,6 +582,22 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         [Fact]
+        public async Task SyncPlaylistVideosAsync_ReportsTheIdsOfOnlyTheVideosNewToTheLibrary()
+        {
+            var playlist = await SeedMirrorPlaylistAsync();
+            var stored = await SeedVideoAsync("stored00001");
+            YouTubePlaylistHas(Item("stored00001", 0), Item("newvideo001", 1));
+            YouTubeReturnsVideoDetails();
+
+            var result = await _service.SyncPlaylistVideosAsync(playlist.Id);
+
+            var createdId = Assert.Single(result.CreatedVideoIds);
+            Assert.NotEqual(stored.Id, createdId);
+            Assert.Equal("newvideo001", Context.Videos.Single(v => v.Id == createdId).ExternalId);
+            Assert.Equal(1, result.VideosLinked);
+        }
+
+        [Fact]
         public async Task SyncPlaylistVideosAsync_ReusesARowSavedBeforeIdsWereStored_AndGivesItItsId()
         {
             var playlist = await SeedMirrorPlaylistAsync();

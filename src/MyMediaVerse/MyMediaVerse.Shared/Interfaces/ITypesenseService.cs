@@ -83,6 +83,14 @@ namespace MyMediaVerse.Shared.Interfaces
         Task<bool> ReindexMediaItemByIdAsync(Guid id);
 
         /// <summary>
+        /// Re-indexes just the given media items, building the same documents as the bulk reindex.
+        /// For imports and syncs that touch a handful of rows, where a full-library pass would be
+        /// wasteful. Ids with no stored media item are skipped; nothing is removed from the index.
+        /// Returns the number of documents indexed (0 for an empty list, without calling Typesense).
+        /// </summary>
+        Task<int> ReindexMediaItemsByIdsAsync(IReadOnlyCollection<Guid> ids);
+
+        /// <summary>
         /// Ensures the mixlists collection exists in Typesense.
         /// Creates the collection if it doesn't exist, or skips if it does.
         /// Should be called during application startup.
