@@ -321,13 +321,13 @@ namespace MyMediaVerse.Web.API.Controllers
         {
             try
             {
-                var result = await _channelService.ImportLatestUploadsAsync(id, count ?? _syncOptions.LatestUploadsCount);
+                var (result, changedVideoIds) = await _channelService.ImportLatestUploadsAsync(id, count ?? _syncOptions.LatestUploadsCount);
 
-                // Search reindex comes last. New and newly linked videos both change documents.
-                var changed = result.CreatedCount + result.LinkedCount;
-                if (changed > 0)
+                // Search reindex comes last, and covers only the new and newly linked videos:
+                // they are the only documents this import changes.
+                if (changedVideoIds.Count > 0)
                 {
-                    await _importReindexService.ReindexAfterImportAsync(changed, "YouTube channel import-latest");
+                    await _importReindexService.ReindexItemsAfterImportAsync(changedVideoIds, "YouTube channel import-latest");
                     result.ReindexTriggered = true;
                 }
 

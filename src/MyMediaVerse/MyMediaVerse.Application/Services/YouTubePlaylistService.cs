@@ -198,7 +198,7 @@ namespace MyMediaVerse.Application.Services
             var reusedIds = videosByYouTubeId.Keys.ToHashSet(StringComparer.Ordinal);
 
             var newIds = idsToAdd.Where(id => !videosByYouTubeId.ContainsKey(id)).ToList();
-            var createdCount = 0;
+            var createdVideoIds = new List<Guid>();
             if (newIds.Count > 0)
             {
                 var newVideos = await _videoResolver.BuildNewVideosAsync(newIds, itemsByVideoId);
@@ -206,9 +206,10 @@ namespace MyMediaVerse.Application.Services
                 {
                     _context.Add(video);
                     videosByYouTubeId[video.ExternalId!] = video;
-                    createdCount++;
+                    createdVideoIds.Add(video.Id);
                 }
             }
+            var createdCount = createdVideoIds.Count;
 
             var linkedCount = 0;
             foreach (var videoId in idsToAdd)
@@ -258,7 +259,7 @@ namespace MyMediaVerse.Application.Services
                 playlist.Title, createdCount, linkedCount, unlinkedCount, positionsUpdated, itemsByVideoId.Count);
 
             var synced = await GetPlaylistByIdAsync(playlistId, includeVideos: true) ?? playlist;
-            return new YouTubePlaylistSyncResult(synced, createdCount, linkedCount, unlinkedCount, positionsUpdated);
+            return new YouTubePlaylistSyncResult(synced, createdCount, linkedCount, unlinkedCount, positionsUpdated, createdVideoIds);
         }
 
         public async Task<bool> AddVideoToPlaylistAsync(Guid playlistId, Guid videoId, int? position = null)

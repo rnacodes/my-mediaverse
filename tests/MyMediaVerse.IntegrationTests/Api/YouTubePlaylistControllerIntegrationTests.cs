@@ -163,6 +163,46 @@ namespace MyMediaVerse.IntegrationTests.Api
 
         #endregion
 
+        #region Search reindex after sync
+
+        [Fact]
+        public async Task SyncPlaylist_ReindexesOnlyTheNewVideosAndThePlaylist_NotTheWholeLibrary()
+        {
+            var playlist = new YouTubePlaylist { Id = Guid.NewGuid(), Title = "Synced", PlaylistExternalId = "PLsynced", MediaType = MediaType.Playlist, VideoCount = 3 };
+            var createdIds = new[] { Guid.NewGuid(), Guid.NewGuid() };
+            var (client, _, reindex) = _factory.CreateClientWithSubstitutes<IYouTubePlaylistService, IImportReindexService>(svc =>
+                svc.SyncPlaylistVideosAsync(playlist.Id).Returns(new YouTubePlaylistSyncResult(playlist, 2, 1, 0, 0, createdIds)));
+
+            var response = await client.PostAsync($"/api/youtubeplaylist/{playlist.Id}/sync", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+            body.GetProperty("createdCount").GetInt32().Should().Be(2);
+            body.GetProperty("reindexTriggered").GetBoolean().Should().BeTrue();
+            await reindex.Received(1).ReindexItemsAfterImportAsync(
+                Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.OrderBy(id => id).SequenceEqual(createdIds.Append(playlist.Id).OrderBy(id => id))),
+                Arg.Any<string>());
+            await reindex.DidNotReceive().ReindexAfterImportAsync(Arg.Any<int>(), Arg.Any<string>());
+        }
+
+        [Fact]
+        public async Task SyncPlaylist_WithNoNewVideos_StillReindexesThePlaylist()
+        {
+            var playlist = new YouTubePlaylist { Id = Guid.NewGuid(), Title = "Unchanged", PlaylistExternalId = "PLsame", MediaType = MediaType.Playlist };
+            var (client, _, reindex) = _factory.CreateClientWithSubstitutes<IYouTubePlaylistService, IImportReindexService>(svc =>
+                svc.SyncPlaylistVideosAsync(playlist.Id).Returns(new YouTubePlaylistSyncResult(playlist, 0, 0, 0, 0, Array.Empty<Guid>())));
+
+            var response = await client.PostAsync($"/api/youtubeplaylist/{playlist.Id}/sync", null);
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            await reindex.Received(1).ReindexItemsAfterImportAsync(
+                Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.Single() == playlist.Id),
+                Arg.Any<string>());
+            await reindex.DidNotReceive().ReindexAfterImportAsync(Arg.Any<int>(), Arg.Any<string>());
+        }
+
+        #endregion
+
         #region Shared delete
 
         [Fact]

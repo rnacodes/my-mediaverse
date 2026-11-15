@@ -195,16 +195,10 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 var result = await _playlistService.SyncPlaylistVideosAsync(id);
 
-                // Search reindex comes last. Videos new to the library need the full pass;
-                // otherwise only the playlist's own document can have changed.
-                if (result.VideosCreated > 0)
-                {
-                    await _importReindexService.ReindexAfterImportAsync(result.VideosCreated, "YouTube playlist sync");
-                }
-                else
-                {
-                    await _importReindexService.ReindexItemAfterImportAsync(result.Playlist.Id, "YouTube playlist sync");
-                }
+                // Search reindex comes last, and covers only the documents the sync can change:
+                // the videos new to the library and the playlist itself (its video count).
+                var changedIds = result.CreatedVideoIds.Append(result.Playlist.Id).ToList();
+                await _importReindexService.ReindexItemsAfterImportAsync(changedIds, "YouTube playlist sync");
 
                 return Ok(new YouTubePlaylistSyncResultDto
                 {

@@ -423,7 +423,7 @@ namespace MyMediaVerse.UnitTests.Application
                 .Returns(new YouTubePlaylistItemListResponseDto { Items = new List<YouTubePlaylistItemDto> { Upload("vidC", 0), Upload("vidA", 1), Upload("vidB", 2) } });
             YouTubeReturnsVideoDetails();
 
-            var result = await _service.ImportLatestUploadsAsync(channel.Id, count: 200);
+            var result = (await _service.ImportLatestUploadsAsync(channel.Id, count: 200)).Report;
 
             result.Success.Should().BeTrue();
             result.RequestedCount.Should().Be(50, "a run never asks YouTube for more than one page");
@@ -447,6 +447,26 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         [Fact]
+        public async Task ImportLatestUploadsAsync_ReportsTheCreatedAndNewlyLinkedVideoIds_ForTheSearchReindex()
+        {
+            var channel = CreateTestChannel("Imported Channel", "UCimp");
+            var unlinked = new Video { Title = "Stored, no channel", Platform = "YouTube", ExternalId = "vidA", Link = "https://www.youtube.com/watch?v=vidA" };
+            var linked = new Video { Title = "Stored, linked", Platform = "YouTube", ExternalId = "vidB", Link = "https://www.youtube.com/watch?v=vidB", Channel = channel };
+            Context.AddRange(channel, unlinked, linked);
+            await Context.SaveChangesAsync();
+            _mockYouTubeApiClient.GetChannelUploadsAsync("UCimp", Arg.Any<int>(), null)
+                .Returns(new YouTubePlaylistItemListResponseDto { Items = new List<YouTubePlaylistItemDto> { Upload("vidC", 0), Upload("vidA", 1), Upload("vidB", 2) } });
+            YouTubeReturnsVideoDetails();
+
+            var result = await _service.ImportLatestUploadsAsync(channel.Id, count: 25);
+
+            Context.ChangeTracker.Clear();
+            var createdId = Context.Videos.Single(v => v.ExternalId == "vidC").Id;
+            result.ChangedVideoIds.Should().BeEquivalentTo(new[] { createdId, unlinked.Id },
+                "the already-linked upload is untouched, so it needs no reindex");
+        }
+
+        [Fact]
         public async Task ImportLatestUploadsAsync_WhenYouTubeHasNoDetailsForAnUpload_ReportsIt_AndSavesTheOthers()
         {
             var channel = CreateTestChannel("Imported Channel", "UCimp");
@@ -456,7 +476,7 @@ namespace MyMediaVerse.UnitTests.Application
                 .Returns(new YouTubePlaylistItemListResponseDto { Items = new List<YouTubePlaylistItemDto> { Upload("vidX", 0), Upload("vidY", 1) } });
             YouTubeReturnsVideoDetails(unavailable: "vidY");
 
-            var result = await _service.ImportLatestUploadsAsync(channel.Id, count: 25);
+            var result = (await _service.ImportLatestUploadsAsync(channel.Id, count: 25)).Report;
 
             result.Success.Should().BeTrue();
             result.CreatedCount.Should().Be(1);

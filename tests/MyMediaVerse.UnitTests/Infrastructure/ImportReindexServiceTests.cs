@@ -107,5 +107,46 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             await act.Should().NotThrowAsync();
             await typesense.Received(1).ReindexMediaItemByIdAsync(id);
         }
+
+        [Fact]
+        public async Task ReindexItems_NoIds_DoesNotReindex()
+        {
+            var typesense = Substitute.For<ITypesenseService>();
+            var service = BuildService(typesense);
+
+            await service.ReindexItemsAfterImportAsync(Array.Empty<Guid>(), "YouTube playlist sync");
+
+            await typesense.DidNotReceive().ReindexMediaItemsByIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>());
+            await typesense.DidNotReceive().BulkReindexAllMediaItemsAsync();
+        }
+
+        [Fact]
+        public async Task ReindexItems_ReindexesJustThoseItems_NotTheWholeLibrary()
+        {
+            var typesense = Substitute.For<ITypesenseService>();
+            var ids = new[] { Guid.NewGuid(), Guid.NewGuid() };
+            typesense.ReindexMediaItemsByIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>()).Returns(Task.FromResult(2));
+            var service = BuildService(typesense);
+
+            await service.ReindexItemsAfterImportAsync(ids, "YouTube playlist sync");
+
+            await typesense.Received(1).ReindexMediaItemsByIdsAsync(
+                Arg.Is<IReadOnlyCollection<Guid>>(sent => sent.SequenceEqual(ids)));
+            await typesense.DidNotReceive().BulkReindexAllMediaItemsAsync();
+        }
+
+        [Fact]
+        public async Task ReindexItems_Throws_IsSwallowed_DoesNotBubbleUp()
+        {
+            var typesense = Substitute.For<ITypesenseService>();
+            typesense.ReindexMediaItemsByIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>())
+                .Returns<Task<int>>(_ => throw new InvalidOperationException("Typesense down"));
+            var service = BuildService(typesense);
+
+            var act = async () => await service.ReindexItemsAfterImportAsync(new[] { Guid.NewGuid() }, "YouTube channel import-latest");
+
+            await act.Should().NotThrowAsync();
+            await typesense.Received(1).ReindexMediaItemsByIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>());
+        }
     }
 }
