@@ -107,7 +107,6 @@ namespace MyMediaVerse.IntegrationTests.Api
             var createdIds = websites.Select(w => w.Id).ToList();
             await reindex.Received(1).ReindexItemsAfterImportAsync(
                 Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.Count == 3 && createdIds.All(ids.Contains)), "bookmark import");
-            await reindex.DidNotReceive().ReindexAfterImportAsync(Arg.Any<int>(), Arg.Any<string>());
             var dev = websites.Single(w => w.Link == "https://example.com/dev");
             dev.Title.Should().Be("Dev & Tools");
             dev.Domain.Should().Be("example.com");

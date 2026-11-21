@@ -84,7 +84,10 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             Snippet = new YouTubePlaylistSnippetDto { Title = title }
         };
 
-        private Task<YouTubeRefreshResultDto> RunAsync(int limit = 200, int olderThanDays = 30)
+        private async Task<YouTubeRefreshResultDto> RunAsync(int limit = 200, int olderThanDays = 30)
+            => (await RunWithIdsAsync(limit, olderThanDays)).Report;
+
+        private Task<ChangedItemsResult<YouTubeRefreshResultDto>> RunWithIdsAsync(int limit = 200, int olderThanDays = 30)
             => _service.RefreshStaleAsync(limit, olderThanDays);
 
         private Video Stored(Video video)
@@ -326,6 +329,34 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         }
 
         [Fact]
+        public async Task RefreshStaleAsync_ChangedIds_ShouldIncludeChangedItems_AndTheVideosOfARenamedChannel()
+        {
+            // A video's search entry shows its channel's title, so renaming the channel changes its videos too.
+            var renamed = await AddChannelAsync("Old name", "UCrenamed", Stale);
+            var sameName = await AddChannelAsync("Same name", "UCsame", Stale);
+            var renamedChannelVideo = await AddVideoAsync("On the renamed channel", "renamed0001", Fresh, v => v.ChannelId = renamed.Id);
+            var otherChannelVideo = await AddVideoAsync("On the other channel", "same0000002", Fresh, v => v.ChannelId = sameName.Id);
+            var unchangedVideo = await AddVideoAsync("Same title", "same0000001", Stale);
+            var changedVideo = await AddVideoAsync("Old title", "changed0001", Stale);
+            _mockYouTubeApiClient.GetChannelDetailsAsync("UCrenamed").Returns(ChannelDto("UCrenamed", "New name"));
+            _mockYouTubeApiClient.GetChannelDetailsAsync("UCsame").Returns(ChannelDto("UCsame", "Same name"));
+            _mockYouTubeApiClient.GetVideosAsync(Arg.Any<List<string>>())
+                .Returns(new List<YouTubeVideoDto>
+                {
+                    VideoDto("same0000001", "Same title"),
+                    VideoDto("changed0001", "New title")
+                });
+
+            var (result, changedIds) = await RunWithIdsAsync();
+
+            result.Success.Should().BeTrue();
+            changedIds.Should().Contain(new[] { renamed.Id, renamedChannelVideo.Id, changedVideo.Id });
+            // The other channel kept its title, so its videos' search entries are unchanged.
+            changedIds.Should().NotContain(new[] { otherChannelVideo.Id, unchangedVideo.Id });
+            changedIds.Should().OnlyHaveUniqueItems();
+        }
+
+        [Fact]
         public async Task RefreshStaleAsync_WhenYouTubeHasNothingNew_ShouldCountUnchanged_ButStillStamp()
         {
             var video = await AddVideoAsync("Same title", "same0000001", Stale);
@@ -559,7 +590,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
                 return ChannelDto("UCfirst", "First, renamed");
             });
 
-            var result = await _service.RefreshStaleAsync(200, 30, cancellation.Token);
+            var result = (await _service.RefreshStaleAsync(200, 30, cancellation.Token)).Report;
 
             result.Success.Should().BeTrue();
             result.UpdatedCount.Should().Be(1);

@@ -370,7 +370,7 @@ namespace MyMediaVerse.Web.API.Controllers
                 _logger.LogInformation("Starting Reader document sync (location: {Location}, limit: {Limit})",
                     location ?? "all", limit?.ToString() ?? "none");
 
-                var result = limit.HasValue
+                var (result, changedIds) = limit.HasValue
                     ? await _readerService.SyncDocumentsByLocationAsync(location!, limit.Value)
                     : await _readerService.SyncDocumentsAsync(location);
 
@@ -379,8 +379,9 @@ namespace MyMediaVerse.Web.API.Controllers
                     return StatusCode(500, result);
                 }
 
-                await _importReindexService.ReindexAfterImportAsync(result.TotalProcessed, "Reader sync");
-                result.ReindexTriggered = result.TotalProcessed > 0;
+                // Only new articles and ones whose searchable fields changed; Reader resends unchanged documents.
+                await _importReindexService.ReindexItemsAfterImportAsync(changedIds, "Reader sync");
+                result.ReindexTriggered = changedIds.Count > 0;
 
                 return Ok(result);
             }

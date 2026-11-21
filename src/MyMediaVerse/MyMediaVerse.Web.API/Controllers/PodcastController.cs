@@ -412,16 +412,16 @@ namespace MyMediaVerse.Web.API.Controllers
         {
             try
             {
-                var result = await _episodeSyncService.SyncSubscribedAsync(HttpContext.RequestAborted);
+                var (result, createdIds) = await _episodeSyncService.SyncSubscribedAsync(HttpContext.RequestAborted);
                 if (!result.Success)
                 {
                     return StatusCode(500, result);
                 }
 
-                var changed = result.CreatedCount + result.UpdatedCount;
-                if (changed > 0)
+                // Only the new episodes are searchable changes ("updated" only fills RssGuid, which is not indexed).
+                if (createdIds.Count > 0)
                 {
-                    await _importReindexService.ReindexAfterImportAsync(changed, "podcast sync-all");
+                    await _importReindexService.ReindexItemsAfterImportAsync(createdIds, "podcast sync-all");
                     result.ReindexTriggered = true;
                 }
 

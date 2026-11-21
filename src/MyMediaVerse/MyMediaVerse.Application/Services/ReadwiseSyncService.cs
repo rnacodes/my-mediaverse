@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MyMediaVerse.Application.Interfaces;
+using MyMediaVerse.Shared.Interfaces;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Shared.Configuration;
 
@@ -44,12 +45,14 @@ namespace MyMediaVerse.Application.Services
             _logger = logger;
         }
 
-        public async Task<ReadwiseSyncAllResultDto> SyncAllAsync(bool incremental)
+        public async Task<ChangedItemsResult<ReadwiseSyncAllResultDto>> SyncAllAsync(bool incremental)
         {
             var result = new ReadwiseSyncAllResultDto
             {
                 StartedAt = DateTime.UtcNow
             };
+            // Articles the Reader step created or really changed, plus stub books the highlights step created.
+            var changedIds = new List<Guid>();
 
             _logger.LogInformation("Starting unified Readwise sync (incremental: {Incremental})", incremental);
 
@@ -95,7 +98,9 @@ namespace MyMediaVerse.Application.Services
                 _logger.LogInformation("Step 1: Syncing Reader documents...");
                 try
                 {
-                    readerResult = await _readerService.SyncDocumentsAsync(updatedAfter: readerWindow?.Since);
+                    var (readerReport, readerChangedIds) = await _readerService.SyncDocumentsAsync(updatedAfter: readerWindow?.Since);
+                    readerResult = readerReport;
+                    changedIds.AddRange(readerChangedIds);
                 }
                 catch (Exception ex)
                 {
@@ -128,8 +133,10 @@ namespace MyMediaVerse.Application.Services
             HighlightSyncResultDto highlightResult;
             try
             {
-                highlightResult = await _highlightService.SyncHighlightsExportAsync(
+                var (highlightReport, stubBookIds) = await _highlightService.SyncHighlightsExportAsync(
                     highlightsUpdatedAfter, resume?.PageCursor, deadline);
+                highlightResult = highlightReport;
+                changedIds.AddRange(stubBookIds);
             }
             catch (Exception ex)
             {
@@ -186,7 +193,7 @@ namespace MyMediaVerse.Application.Services
                 result.SyncWindowSource, result.SyncedSince?.ToString("u") ?? "n/a",
                 result.ReaderCursorAdvanced, result.HighlightsCursorAdvanced);
 
-            return result;
+            return new ChangedItemsResult<ReadwiseSyncAllResultDto>(result, changedIds);
         }
 
         private async Task<HighlightsResumeState?> LoadResumeStateAsync()

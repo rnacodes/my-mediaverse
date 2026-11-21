@@ -1,4 +1,5 @@
 using MyMediaVerse.DTOs;
+using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.Application.Interfaces
 {
@@ -9,7 +10,8 @@ namespace MyMediaVerse.Application.Interfaces
         /// </summary>
         /// <param name="location">Filter by location (archive, new, later, feed)</param>
         /// <param name="updatedAfter">Only sync documents updated after this date (for incremental sync)</param>
-        Task<ReaderSyncResultDto> SyncDocumentsAsync(string? location = null, DateTime? updatedAfter = null);
+        /// <returns>The run's report, plus the ids of the articles created or changed in a searchable field.</returns>
+        Task<ChangedItemsResult<ReaderSyncResultDto>> SyncDocumentsAsync(string? location = null, DateTime? updatedAfter = null);
 
         /// <summary>
         /// Fetches and stores full HTML content for an article
@@ -61,6 +63,7 @@ namespace MyMediaVerse.Application.Interfaces
         /// </summary>
         /// <param name="location">Filter by location: "new", "later", "archive", "feed"</param>
         /// <param name="limit">Maximum number of documents to sync</param>
-        Task<ReaderSyncResultDto> SyncDocumentsByLocationAsync(string location, int limit = 50);
+        /// <returns>The run's report, plus the ids of the articles created or changed in a searchable field.</returns>
+        Task<ChangedItemsResult<ReaderSyncResultDto>> SyncDocumentsByLocationAsync(string location, int limit = 50);
     }
 }

@@ -374,12 +374,12 @@ namespace MyMediaVerse.Application.Services
 
         public async Task<HighlightSyncResultDto> SyncHighlightsFromReadwiseAsync()
         {
-            return await SyncHighlightsExportAsync(null, null, null);
+            return (await SyncHighlightsExportAsync(null, null, null)).Report;
         }
 
         public async Task<HighlightSyncResultDto> SyncHighlightsIncrementalAsync(DateTime lastSyncDate)
         {
-            return await SyncHighlightsExportAsync(lastSyncDate, null, null);
+            return (await SyncHighlightsExportAsync(lastSyncDate, null, null)).Report;
         }
 
         /// <summary>
@@ -390,9 +390,12 @@ namespace MyMediaVerse.Application.Services
         /// after any page once <paramref name="deadline"/> passes; the result then carries the
         /// cursor of the first page not yet processed so the next call can continue from it.
         /// </summary>
-        public async Task<HighlightSyncResultDto> SyncHighlightsExportAsync(
+        public async Task<ChangedItemsResult<HighlightSyncResultDto>> SyncHighlightsExportAsync(
             DateTime? updatedAfter, string? startPageCursor, DateTime? deadline)
         {
+            // Stub books are media items, so they need a search entry; highlights have their own index.
+            var stubBooksThisRun = new Dictionary<int, Book>();
+
             var result = new HighlightSyncResultDto
             {
                 StartedAt = DateTime.UtcNow,
@@ -409,8 +412,6 @@ namespace MyMediaVerse.Application.Services
 
                 var hasMore = true;
                 var stoppedAtBudget = false;
-
-                var stubBooksThisRun = new Dictionary<int, Book>();
 
                 while (hasMore && result.PagesProcessed < MaxExportPages)
                 {
@@ -490,7 +491,7 @@ namespace MyMediaVerse.Application.Services
                 result.NextPageCursor = pageCursor;
             }
 
-            return result;
+            return new ChangedItemsResult<HighlightSyncResultDto>(result, stubBooksThisRun.Values.Select(b => b.Id).ToList());
         }
 
         /// <summary>

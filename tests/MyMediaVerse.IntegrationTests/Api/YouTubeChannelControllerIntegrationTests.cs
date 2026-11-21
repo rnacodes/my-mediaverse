@@ -341,7 +341,6 @@ namespace MyMediaVerse.IntegrationTests.Api
             await service.Received(1).ImportLatestUploadsAsync(id, 10);
             await reindex.Received(1).ReindexItemsAfterImportAsync(
                 Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.SequenceEqual(changedIds)), Arg.Any<string>());
-            await reindex.DidNotReceive().ReindexAfterImportAsync(Arg.Any<int>(), Arg.Any<string>());
         }
 
         #endregion

@@ -115,7 +115,6 @@ namespace MyMediaVerse.IntegrationTests.Api
 
             await reindex.Received(1).ReindexItemsAfterImportAsync(
                 Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.SequenceEqual(new[] { stub.Id })), "website enrichment");
-            await reindex.DidNotReceive().ReindexAfterImportAsync(Arg.Any<int>(), Arg.Any<string>());
             await scraper.Received(1).ScrapeWebsiteAsync(Arg.Any<string>());
         }
 
@@ -188,7 +187,6 @@ namespace MyMediaVerse.IntegrationTests.Api
             secondBody.GetProperty("pendingCount").GetInt32().Should().Be(0);
             await reindex.Received(1).ReindexItemsAfterImportAsync(
                 Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.SequenceEqual(new[] { secondStub.Id })), "website enrichment");
-            await reindex.DidNotReceive().ReindexAfterImportAsync(Arg.Any<int>(), Arg.Any<string>());
         }
 
         [Fact]
@@ -243,7 +241,8 @@ namespace MyMediaVerse.IntegrationTests.Api
             var website = await client.GetFromJsonAsync<WebsiteResponseDto>($"/api/website/{stub.Id}");
             website!.LastHttpStatus.Should().Be(404);
             await checker.Received(1).CheckAsync("https://example.com/dead", Arg.Any<CancellationToken>());
-            await reindex.Received(1).ReindexAfterImportAsync(1, "website link check");
+            await reindex.Received(1).ReindexItemsAfterImportAsync(
+                Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.SequenceEqual(new[] { stub.Id })), "website link check");
         }
 
         #endregion

@@ -43,7 +43,8 @@ namespace MyMediaVerse.Shared.Interfaces
         /// <param name="limit">Maximum items to refresh in this run (default: 50)</param>
         /// <param name="olderThanDays">Age at which stored TMDB data counts as stale (default: 180)</param>
         /// <param name="delayBetweenCallsMs">Delay between API calls in milliseconds (default: 250)</param>
-        Task<MovieTvRefreshResultDto> RefreshStaleAsync(
+        /// <returns>The run's report, plus the ids of the movies and shows whose stored data changed.</returns>
+        Task<ChangedItemsResult<MovieTvRefreshResultDto>> RefreshStaleAsync(
             int limit = 50,
             int olderThanDays = 180,
             int delayBetweenCallsMs = 250,

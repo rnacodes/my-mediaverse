@@ -444,9 +444,10 @@ namespace MyMediaVerse.Web.API.Controllers
             }
 
             YouTubeRefreshResultDto result;
+            IReadOnlyList<Guid> changedIds = Array.Empty<Guid>();
             try
             {
-                result = await _refreshService.RefreshStaleAsync(
+                (result, changedIds) = await _refreshService.RefreshStaleAsync(
                     limit: limit,
                     olderThanDays: olderThanDays,
                     cancellationToken: HttpContext.RequestAborted);
@@ -468,11 +469,11 @@ namespace MyMediaVerse.Web.API.Controllers
             }
 
             // Search reindex comes last, and only when stored data actually changed.
-            if (result.UpdatedCount > 0)
+            if (changedIds.Count > 0)
             {
                 try
                 {
-                    await _importReindexService.ReindexAfterImportAsync(result.UpdatedCount, "YouTube refresh");
+                    await _importReindexService.ReindexItemsAfterImportAsync(changedIds, "YouTube refresh");
                     result.ReindexTriggered = true;
                 }
                 catch (Exception ex)

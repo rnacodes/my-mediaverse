@@ -330,7 +330,7 @@ namespace MyMediaVerse.UnitTests.Application
             await SeedSeriesAsync(title: "No feed", feedUrl: null);
             FeedReturns(Feed(2));
 
-            var result = await _service.SyncSubscribedAsync();
+            var result = (await _service.SyncSubscribedAsync()).Report;
 
             result.Success.Should().BeTrue();
             result.Operation.Should().Be(PodcastSyncAllResultDto.SyncAllOperation);
@@ -352,7 +352,7 @@ namespace MyMediaVerse.UnitTests.Application
                 .ThrowsAsync(new PodcastFeedException(PodcastFeedFailureReason.Unreachable, "The feed's server could not be reached."));
             FeedReturns(Feed(2));
 
-            var result = await _service.SyncSubscribedAsync();
+            var result = (await _service.SyncSubscribedAsync()).Report;
 
             result.Success.Should().BeTrue();
             result.SeriesChecked.Should().Be(2);
@@ -371,7 +371,7 @@ namespace MyMediaVerse.UnitTests.Application
             _reader.ReadAsync(FeedUrl, Arg.Any<int>(), Arg.Any<CancellationToken>())
                 .ThrowsAsync(new InvalidCastException("internal detail"));
 
-            var result = await _service.SyncSubscribedAsync();
+            var result = (await _service.SyncSubscribedAsync()).Report;
 
             result.Success.Should().BeTrue();
             result.SeriesFailed.Should().Be(1);
@@ -386,7 +386,7 @@ namespace MyMediaVerse.UnitTests.Application
             _reader.ReadAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
                 .ThrowsAsync(new PodcastFeedException(PodcastFeedFailureReason.Timeout, "The feed took too long to respond."));
 
-            var result = await _service.SyncSubscribedAsync();
+            var result = (await _service.SyncSubscribedAsync()).Report;
 
             result.SeriesFailed.Should().Be(PodcastSyncAllResultDto.MaxErrors + 5);
             result.Errors.Should().HaveCount(PodcastSyncAllResultDto.MaxErrors);
@@ -402,7 +402,7 @@ namespace MyMediaVerse.UnitTests.Application
             _reader.ReadAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
                 .Returns((CallInfo _) => { cancellation.Cancel(); return Task.FromException<PodcastFeed>(new OperationCanceledException(cancellation.Token)); });
 
-            var result = await _service.SyncSubscribedAsync(cancellation.Token);
+            var result = (await _service.SyncSubscribedAsync(cancellation.Token)).Report;
 
             result.WasCancelled.Should().BeTrue();
             result.PendingSeriesCount.Should().Be(3);
@@ -419,7 +419,7 @@ namespace MyMediaVerse.UnitTests.Application
             _reader.ReadAsync("https://slow.example.com/feed", Arg.Any<int>(), Arg.Any<CancellationToken>())
                 .Returns(async (CallInfo _) => { await Task.Delay(1100); return Feed(1); });
 
-            var result = await _service.SyncSubscribedAsync();
+            var result = (await _service.SyncSubscribedAsync()).Report;
 
             result.TimeBudgetReached.Should().BeTrue();
             result.SeriesChecked.Should().Be(1);

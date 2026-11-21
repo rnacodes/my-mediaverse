@@ -182,7 +182,6 @@ namespace MyMediaVerse.IntegrationTests.Api
             await reindex.Received(1).ReindexItemsAfterImportAsync(
                 Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.OrderBy(id => id).SequenceEqual(createdIds.Append(playlist.Id).OrderBy(id => id))),
                 Arg.Any<string>());
-            await reindex.DidNotReceive().ReindexAfterImportAsync(Arg.Any<int>(), Arg.Any<string>());
         }
 
         [Fact]
@@ -198,7 +197,6 @@ namespace MyMediaVerse.IntegrationTests.Api
             await reindex.Received(1).ReindexItemsAfterImportAsync(
                 Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.Single() == playlist.Id),
                 Arg.Any<string>());
-            await reindex.DidNotReceive().ReindexAfterImportAsync(Arg.Any<int>(), Arg.Any<string>());
         }
 
         #endregion

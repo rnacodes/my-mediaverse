@@ -60,7 +60,10 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             _mockTmdbClient.GetTvShowDetailsAsync(id, Arg.Any<string>()).Returns(details);
         }
 
-        private Task<MovieTvRefreshResultDto> RunAsync(int limit = 50, int olderThanDays = 180)
+        private async Task<MovieTvRefreshResultDto> RunAsync(int limit = 50, int olderThanDays = 180)
+            => (await RunWithIdsAsync(limit, olderThanDays)).Report;
+
+        private Task<ChangedItemsResult<MovieTvRefreshResultDto>> RunWithIdsAsync(int limit = 50, int olderThanDays = 180)
             => _service.RefreshStaleAsync(limit, olderThanDays, delayBetweenCallsMs: 0);
 
         #region Selection

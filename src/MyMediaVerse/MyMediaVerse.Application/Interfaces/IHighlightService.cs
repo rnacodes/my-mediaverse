@@ -1,5 +1,6 @@
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
+using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.Application.Interfaces
 {
@@ -46,9 +47,10 @@ namespace MyMediaVerse.Application.Interfaces
         /// <summary>
         /// Syncs from the Readwise export, optionally continuing from a saved page cursor and
         /// stopping after the first page that ends past <paramref name="deadline"/>.
-        /// A null <paramref name="updatedAfter"/> means a full sync.
+        /// A null <paramref name="updatedAfter"/> means a full sync. The changed ids are the stub books
+        /// created for book-category sources with no local match (highlights have their own index).
         /// </summary>
-        Task<HighlightSyncResultDto> SyncHighlightsExportAsync(DateTime? updatedAfter, string? startPageCursor, DateTime? deadline);
+        Task<ChangedItemsResult<HighlightSyncResultDto>> SyncHighlightsExportAsync(DateTime? updatedAfter, string? startPageCursor, DateTime? deadline);
 
         /// <summary>
         /// Cleans all existing highlights by removing HTML/CSS from their text.

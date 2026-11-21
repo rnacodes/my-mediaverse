@@ -118,7 +118,7 @@ namespace MyMediaVerse.Web.API.Controllers
 
             try
             {
-                var result = await _enrichmentService.CheckLinksAsync(pageSize, days, HttpContext.RequestAborted);
+                var (result, changedIds) = await _enrichmentService.CheckLinksAsync(pageSize, days, HttpContext.RequestAborted);
 
                 if (!result.Success)
                 {
@@ -126,7 +126,7 @@ namespace MyMediaVerse.Web.API.Controllers
                 }
 
                 // Only rows whose status actually moved need to reach the index.
-                await _importReindexService.ReindexAfterImportAsync(result.ChangedCount, "website link check");
+                await _importReindexService.ReindexItemsAfterImportAsync(changedIds, "website link check");
                 return Ok(result);
             }
             catch (Exception ex)
@@ -154,7 +154,7 @@ namespace MyMediaVerse.Web.API.Controllers
 
             try
             {
-                var result = await _enrichmentService.RepairThumbnailsAsync(pageSize, HttpContext.RequestAborted);
+                var (result, changedIds) = await _enrichmentService.RepairThumbnailsAsync(pageSize, HttpContext.RequestAborted);
 
                 if (!result.Success)
                 {
@@ -162,7 +162,7 @@ namespace MyMediaVerse.Web.API.Controllers
                 }
 
                 // Re-rendered and cleared thumbnails both change what search results display.
-                await _importReindexService.ReindexAfterImportAsync(result.EnrichedCount + result.SkippedCount, "website thumbnail repair");
+                await _importReindexService.ReindexItemsAfterImportAsync(changedIds, "website thumbnail repair");
                 return Ok(result);
             }
             catch (Exception ex)

@@ -7,6 +7,7 @@ using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Services;
 using MyMediaVerse.DTOs;
 using MyMediaVerse.Shared.Configuration;
+using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.UnitTests.Application
 {
@@ -36,19 +37,25 @@ namespace MyMediaVerse.UnitTests.Application
                 .Returns(new IncrementalSyncWindow(HighlightsSince, SyncWindowSource.Cursor));
 
             _reader.SyncDocumentsAsync(null, Arg.Any<DateTime?>())
-                .Returns(new ReaderSyncResultDto { Success = true, CreatedCount = 1, UpdatedCount = 2 });
+                .Returns(Reader(new ReaderSyncResultDto { Success = true, CreatedCount = 1, UpdatedCount = 2 }));
 
             _highlights.SyncHighlightsExportAsync(Arg.Is<DateTime?>(d => d != null), Arg.Any<string?>(), Arg.Any<DateTime?>())
-                .Returns(new HighlightSyncResultDto { Success = true, CreatedCount = 3, UpdatedCount = 4, LinkedCount = 5, StubBooksCreatedCount = 6 });
+                .Returns(Highlights(new HighlightSyncResultDto { Success = true, CreatedCount = 3, UpdatedCount = 4, LinkedCount = 5, StubBooksCreatedCount = 6 }));
             _highlights.SyncHighlightsExportAsync(Arg.Is<DateTime?>(d => d == null), Arg.Any<string?>(), Arg.Any<DateTime?>())
-                .Returns(new HighlightSyncResultDto { Success = true, CreatedCount = 30, UpdatedCount = 40, LinkedCount = 50, StubBooksCreatedCount = 60 });
+                .Returns(Highlights(new HighlightSyncResultDto { Success = true, CreatedCount = 30, UpdatedCount = 40, LinkedCount = 50, StubBooksCreatedCount = 60 }));
         }
+
+        private static ChangedItemsResult<ReaderSyncResultDto> Reader(ReaderSyncResultDto report, params Guid[] changedIds)
+            => new(report, changedIds);
+
+        private static ChangedItemsResult<HighlightSyncResultDto> Highlights(HighlightSyncResultDto report, params Guid[] stubBookIds)
+            => new(report, stubBookIds);
 
         [Fact]
         public async Task SyncAll_ReportsStubBooksCreated_AndCountsThemAsMediaItems()
         {
-            var incremental = await _service.SyncAllAsync(incremental: true);
-            var full = await _service.SyncAllAsync(incremental: false);
+            var incremental = (await _service.SyncAllAsync(incremental: true)).Report;
+            var full = (await _service.SyncAllAsync(incremental: false)).Report;
 
             incremental.BooksCreated.Should().Be(6);
             full.BooksCreated.Should().Be(60);
@@ -57,9 +64,24 @@ namespace MyMediaVerse.UnitTests.Application
         }
 
         [Fact]
+        public async Task SyncAll_ChangedIds_AreTheReaderArticles_PlusTheStubBooks()
+        {
+            var articleId = Guid.NewGuid();
+            var stubBookId = Guid.NewGuid();
+            _reader.SyncDocumentsAsync(null, Arg.Any<DateTime?>())
+                .Returns(Reader(new ReaderSyncResultDto { Success = true, CreatedCount = 1 }, articleId));
+            _highlights.SyncHighlightsExportAsync(Arg.Any<DateTime?>(), Arg.Any<string?>(), Arg.Any<DateTime?>())
+                .Returns(Highlights(new HighlightSyncResultDto { Success = true, StubBooksCreatedCount = 1 }, stubBookId));
+
+            var (_, changedIds) = await _service.SyncAllAsync(incremental: true);
+
+            changedIds.Should().Equal(articleId, stubBookId);
+        }
+
+        [Fact]
         public async Task Incremental_UsesEachStepsOwnWindow_AndReportsBoth()
         {
-            var result = await _service.SyncAllAsync(incremental: true);
+            var result = (await _service.SyncAllAsync(incremental: true)).Report;
 
             result.Success.Should().BeTrue();
             result.ReaderSyncedSince.Should().Be(ReaderSince);
@@ -79,7 +101,7 @@ namespace MyMediaVerse.UnitTests.Application
                     ISyncStateService.ReadwiseHighlightsKey, Arg.Any<DateTime>(), Arg.Any<TimeSpan>(), Arg.Any<TimeSpan>())
                 .Returns(new IncrementalSyncWindow(fallback, SyncWindowSource.Default));
 
-            var result = await _service.SyncAllAsync(incremental: true);
+            var result = (await _service.SyncAllAsync(incremental: true)).Report;
 
             result.SyncWindowSource.Should().Be("default");
             result.HighlightsSyncedSince.Should().Be(fallback);
@@ -104,7 +126,7 @@ namespace MyMediaVerse.UnitTests.Application
         {
             _syncState.GetLastSuccessfulSyncAsync(Arg.Any<string>()).Returns((DateTime?)null);
 
-            var result = await _service.SyncAllAsync(incremental: true);
+            var result = (await _service.SyncAllAsync(incremental: true)).Report;
 
             // Only the end-of-run advance is recorded for each key.
             await _syncState.Received(1).MarkSyncSucceededAsync(ISyncStateService.ReadwiseReaderKey, result.StartedAt);
@@ -115,7 +137,7 @@ namespace MyMediaVerse.UnitTests.Application
         [Fact]
         public async Task Full_SkipsWindowLookup_AndRunsFullHighlightSync()
         {
-            var result = await _service.SyncAllAsync(incremental: false);
+            var result = (await _service.SyncAllAsync(incremental: false)).Report;
 
             result.Success.Should().BeTrue();
             result.SyncedSince.Should().BeNull();
@@ -130,7 +152,7 @@ namespace MyMediaVerse.UnitTests.Application
         [Fact]
         public async Task CleanRun_AdvancesBothCursorsToRunStart()
         {
-            var result = await _service.SyncAllAsync(incremental: true);
+            var result = (await _service.SyncAllAsync(incremental: true)).Report;
 
             result.CursorAdvanced.Should().BeTrue();
             result.ReaderCursorAdvanced.Should().BeTrue();
@@ -146,9 +168,9 @@ namespace MyMediaVerse.UnitTests.Application
         public async Task ReaderFailure_StillRunsHighlights_AndAdvancesOnlyTheHighlightsCursor()
         {
             _reader.SyncDocumentsAsync(null, Arg.Any<DateTime?>())
-                .Returns(new ReaderSyncResultDto { Success = false, ErrorMessage = "boom" });
+                .Returns(Reader(new ReaderSyncResultDto { Success = false, ErrorMessage = "boom" }));
 
-            var result = await _service.SyncAllAsync(incremental: true);
+            var result = (await _service.SyncAllAsync(incremental: true)).Report;
 
             result.Success.Should().BeFalse();
             result.ErrorMessage.Should().Contain("boom");
@@ -167,9 +189,9 @@ namespace MyMediaVerse.UnitTests.Application
         public async Task ReaderThrows_IsReportedAsStepFailure_NotPropagated()
         {
             _reader.SyncDocumentsAsync(null, Arg.Any<DateTime?>())
-                .Returns<ReaderSyncResultDto>(_ => throw new InvalidOperationException("token missing"));
+                .Returns<ChangedItemsResult<ReaderSyncResultDto>>(_ => throw new InvalidOperationException("token missing"));
 
-            var result = await _service.SyncAllAsync(incremental: true);
+            var result = (await _service.SyncAllAsync(incremental: true)).Report;
 
             result.Success.Should().BeFalse();
             result.ErrorMessage.Should().Contain("token missing");
@@ -180,9 +202,9 @@ namespace MyMediaVerse.UnitTests.Application
         public async Task HighlightFailure_AdvancesOnlyTheReaderCursor()
         {
             _highlights.SyncHighlightsExportAsync(Arg.Is<DateTime?>(d => d != null), Arg.Any<string?>(), Arg.Any<DateTime?>())
-                .Returns(new HighlightSyncResultDto { Success = false, ErrorMessage = "export failed" });
+                .Returns(Highlights(new HighlightSyncResultDto { Success = false, ErrorMessage = "export failed" }));
 
-            var result = await _service.SyncAllAsync(incremental: true);
+            var result = (await _service.SyncAllAsync(incremental: true)).Report;
 
             result.Success.Should().BeFalse();
             result.ErrorMessage.Should().Contain("export failed");
@@ -198,11 +220,11 @@ namespace MyMediaVerse.UnitTests.Application
         public async Task BothStepsFail_ReportsBothErrors()
         {
             _reader.SyncDocumentsAsync(null, Arg.Any<DateTime?>())
-                .Returns(new ReaderSyncResultDto { Success = false, ErrorMessage = "reader down" });
+                .Returns(Reader(new ReaderSyncResultDto { Success = false, ErrorMessage = "reader down" }));
             _highlights.SyncHighlightsExportAsync(Arg.Is<DateTime?>(d => d != null), Arg.Any<string?>(), Arg.Any<DateTime?>())
-                .Returns(new HighlightSyncResultDto { Success = false, ErrorMessage = "export down" });
+                .Returns(Highlights(new HighlightSyncResultDto { Success = false, ErrorMessage = "export down" }));
 
-            var result = await _service.SyncAllAsync(incremental: true);
+            var result = (await _service.SyncAllAsync(incremental: true)).Report;
 
             result.Success.Should().BeFalse();
             result.ErrorMessage.Should().Contain("reader down").And.Contain("export down");
@@ -213,14 +235,14 @@ namespace MyMediaVerse.UnitTests.Application
         public async Task TruncatedReaderRun_SucceedsButHoldsOnlyTheReaderCursor()
         {
             _reader.SyncDocumentsAsync(null, Arg.Any<DateTime?>())
-                .Returns(new ReaderSyncResultDto
+                .Returns(Reader(new ReaderSyncResultDto
                 {
                     Success = true,
                     CreatedCount = 1,
                     WarningMessage = "Reader sync stopped at the 100-page safety limit"
-                });
+                }));
 
-            var result = await _service.SyncAllAsync(incremental: true);
+            var result = (await _service.SyncAllAsync(incremental: true)).Report;
 
             result.Success.Should().BeTrue();
             result.WarningMessage.Should().Contain("100-page");
@@ -235,14 +257,14 @@ namespace MyMediaVerse.UnitTests.Application
         public async Task TruncatedHighlightRun_SucceedsButHoldsOnlyTheHighlightsCursor()
         {
             _highlights.SyncHighlightsExportAsync(Arg.Is<DateTime?>(d => d != null), Arg.Any<string?>(), Arg.Any<DateTime?>())
-                .Returns(new HighlightSyncResultDto
+                .Returns(Highlights(new HighlightSyncResultDto
                 {
                     Success = true,
                     CreatedCount = 1,
                     WarningMessage = "Stopped after 100 pages"
-                });
+                }));
 
-            var result = await _service.SyncAllAsync(incremental: true);
+            var result = (await _service.SyncAllAsync(incremental: true)).Report;
 
             result.Success.Should().BeTrue();
             result.WarningMessage.Should().Contain("100 pages");
@@ -266,16 +288,16 @@ namespace MyMediaVerse.UnitTests.Application
         public async Task BudgetReached_SavesPlace_ReportsMorePending_AndHoldsTheHighlightsCursor()
         {
             _highlights.SyncHighlightsExportAsync(Arg.Any<DateTime?>(), Arg.Any<string?>(), Arg.Any<DateTime?>())
-                .Returns(new HighlightSyncResultDto
+                .Returns(Highlights(new HighlightSyncResultDto
                 {
                     Success = true,
                     MorePending = true,
                     NextPageCursor = "page-5",
                     PagesProcessed = 4,
                     WarningMessage = "Stopped at the time budget; more highlights are pending. Run again."
-                });
+                }));
 
-            var result = await _service.SyncAllAsync(incremental: false);
+            var result = (await _service.SyncAllAsync(incremental: false)).Report;
 
             result.Success.Should().BeTrue();
             result.HighlightsMorePending.Should().BeTrue();
@@ -293,9 +315,9 @@ namespace MyMediaVerse.UnitTests.Application
             var firstCallStart = new DateTime(2026, 10, 17, 1, 0, 0, DateTimeKind.Utc);
             GivenSavedResume("page-5", updatedAfter: null, firstCallStart);
             _highlights.SyncHighlightsExportAsync(Arg.Any<DateTime?>(), Arg.Any<string?>(), Arg.Any<DateTime?>())
-                .Returns(new HighlightSyncResultDto { Success = true, MorePending = true, NextPageCursor = "page-9", PagesProcessed = 4, WarningMessage = "more" });
+                .Returns(Highlights(new HighlightSyncResultDto { Success = true, MorePending = true, NextPageCursor = "page-9", PagesProcessed = 4, WarningMessage = "more" }));
 
-            var result = await _service.SyncAllAsync(incremental: true);
+            var result = (await _service.SyncAllAsync(incremental: true)).Report;
 
             result.ReaderStepSkipped.Should().BeTrue();
             result.HighlightsResumed.Should().BeTrue();
@@ -315,9 +337,9 @@ namespace MyMediaVerse.UnitTests.Application
             var firstCallStart = new DateTime(2026, 10, 17, 1, 0, 0, DateTimeKind.Utc);
             GivenSavedResume("page-9", HighlightsSince, firstCallStart);
             _highlights.SyncHighlightsExportAsync(Arg.Any<DateTime?>(), Arg.Any<string?>(), Arg.Any<DateTime?>())
-                .Returns(new HighlightSyncResultDto { Success = true, PagesProcessed = 2 });
+                .Returns(Highlights(new HighlightSyncResultDto { Success = true, PagesProcessed = 2 }));
 
-            var result = await _service.SyncAllAsync(incremental: true);
+            var result = (await _service.SyncAllAsync(incremental: true)).Report;
 
             result.HighlightsMorePending.Should().BeFalse();
             result.HighlightsCursorAdvanced.Should().BeTrue();

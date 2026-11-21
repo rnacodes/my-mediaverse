@@ -517,9 +517,10 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
 
         #region Link check
 
-        public async Task<WebsiteLinkCheckResult> CheckLinksAsync(int limit, int olderThanDays, CancellationToken cancellationToken = default)
+        public async Task<ChangedItemsResult<WebsiteLinkCheckResult>> CheckLinksAsync(int limit, int olderThanDays, CancellationToken cancellationToken = default)
         {
             var result = new WebsiteLinkCheckResult { StartedAt = DateTime.UtcNow };
+            var changedIds = new List<Guid>();
             limit = ClampLimit(limit);
             var cutoff = DateTime.UtcNow.AddDays(-Math.Max(0, olderThanDays));
 
@@ -558,7 +559,11 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                         var isBroken = IsBroken(status);
 
                         if (isBroken) result.BrokenCount++;
-                        if (previous != status) result.ChangedCount++;
+                        if (previous != status)
+                        {
+                            result.ChangedCount++;
+                            changedIds.Add(website.Id);
+                        }
 
                         if (isBroken && !wasBroken)
                         {
@@ -619,7 +624,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                 _logger.LogError(ex, "Website link check run failed");
             }
 
-            return result;
+            return new ChangedItemsResult<WebsiteLinkCheckResult>(result, changedIds);
         }
 
         private static bool IsBroken(int status) => status == 0 || status >= 400;
@@ -628,8 +633,9 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
 
         #region Thumbnail repair
 
-        public async Task<WebsiteEnrichmentResult> RepairThumbnailsAsync(int limit, CancellationToken cancellationToken = default)
+        public async Task<ChangedItemsResult<WebsiteEnrichmentResult>> RepairThumbnailsAsync(int limit, CancellationToken cancellationToken = default)
         {
+            var changedIds = new List<Guid>();
             var result = new WebsiteEnrichmentResult
             {
                 StartedAt = DateTime.UtcNow,
@@ -686,6 +692,8 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                         }
 
                         await _context.SaveChangesAsync(cancellationToken);
+                        // Re-rendered and cleared thumbnails both change what search results display.
+                        changedIds.Add(website.Id);
                         // Storage ignores URLs outside our bucket, so a provider URL is simply dropped.
                         await _thumbnailStorage.DeleteAsync(previous);
                     }
@@ -730,7 +738,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                 _logger.LogError(ex, "Website thumbnail repair run failed");
             }
 
-            return result;
+            return new ChangedItemsResult<WebsiteEnrichmentResult>(result, changedIds);
         }
 
         #endregion

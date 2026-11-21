@@ -664,7 +664,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             _linkChecker.CheckAsync(recovered.Link!, Arg.Any<CancellationToken>()).Returns(200);
             _linkChecker.CheckAsync(neverChecked.Link!, Arg.Any<CancellationToken>()).Returns(0);
 
-            var result = await _service.CheckLinksAsync(10, olderThanDays: 30);
+            var result = (await _service.CheckLinksAsync(10, olderThanDays: 30)).Report;
 
             result.Success.Should().BeTrue();
             result.Operation.Should().Be("website-link-check");
@@ -690,7 +690,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             var never = await SeedStub("https://example.com/never", configure: w => w.LastCheckedDate = DateTime.UtcNow);
             _linkChecker.CheckAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(200);
 
-            var result = await _service.CheckLinksAsync(10, olderThanDays: 30);
+            var result = (await _service.CheckLinksAsync(10, olderThanDays: 30)).Report;
 
             result.TotalProcessed.Should().Be(2);
             await _linkChecker.Received(1).CheckAsync(stale.Link!, Arg.Any<CancellationToken>());
@@ -706,7 +706,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             _linkChecker.CheckAsync(bad.Link!, Arg.Any<CancellationToken>()).Throws(new InvalidOperationException("boom"));
             _linkChecker.CheckAsync(good.Link!, Arg.Any<CancellationToken>()).Returns(200);
 
-            var result = await _service.CheckLinksAsync(10, olderThanDays: 0);
+            var result = (await _service.CheckLinksAsync(10, olderThanDays: 0)).Report;
 
             result.Success.Should().BeTrue();
             result.FailedCount.Should().Be(1);
@@ -728,7 +728,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             _screenshots.CaptureScreenshotAsync(providerUrl.Link!, Arg.Any<CancellationToken>()).Returns("https://bucket.example/screenshots/new-a.png");
             _screenshots.CaptureScreenshotAsync(storedGif.Link!, Arg.Any<CancellationToken>()).Returns("https://bucket.example/screenshots/new-b.png");
 
-            var result = await _service.RepairThumbnailsAsync(10);
+            var result = (await _service.RepairThumbnailsAsync(10)).Report;
 
             result.Success.Should().BeTrue();
             result.Operation.Should().Be("website-thumbnail-repair");
@@ -748,7 +748,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         {
             var bad = await SeedStub(configure: w => w.Thumbnail = "https://image.thum.io/get/https://example.com/page");
 
-            var result = await _service.RepairThumbnailsAsync(10);
+            var result = (await _service.RepairThumbnailsAsync(10)).Report;
 
             result.SkippedCount.Should().Be(1);
             result.EnrichedCount.Should().Be(0);
@@ -764,7 +764,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             _quota.RemainingAsync(Arg.Any<CancellationToken>()).Returns(1, 0);
             _screenshots.CaptureScreenshotAsync(first.Link!, Arg.Any<CancellationToken>()).Returns("https://bucket.example/screenshots/1.png");
 
-            var result = await _service.RepairThumbnailsAsync(10);
+            var result = (await _service.RepairThumbnailsAsync(10)).Report;
 
             result.QuotaReached.Should().BeTrue();
             result.EnrichedCount.Should().Be(1);
