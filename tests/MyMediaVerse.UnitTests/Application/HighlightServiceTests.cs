@@ -1296,7 +1296,7 @@ namespace MyMediaVerse.UnitTests.Application
                     }
                 });
 
-            var result = await _service.SyncHighlightsExportAsync(null, null, deadline: DateTime.UtcNow.AddSeconds(-1));
+            var result = (await _service.SyncHighlightsExportAsync(null, null, deadline: DateTime.UtcNow.AddSeconds(-1))).Report;
 
             result.Success.Should().BeTrue();
             result.MorePending.Should().BeTrue();
@@ -1315,7 +1315,7 @@ namespace MyMediaVerse.UnitTests.Application
             _mockReadwiseClient.GetExportAsync(Arg.Any<string?>(), Arg.Is<string?>(c => c == null))
                 .Returns(new ReadwiseExportResponse { results = new List<ReadwiseExportBookDto>() });
 
-            var result = await _service.SyncHighlightsExportAsync(null, "stale", deadline: null);
+            var result = (await _service.SyncHighlightsExportAsync(null, "stale", deadline: null)).Report;
 
             result.Success.Should().BeTrue();
             result.Resumed.Should().BeTrue();

@@ -305,9 +305,10 @@ namespace MyMediaVerse.Web.API.Controllers
             }
 
             MovieTvRefreshResultDto result;
+            IReadOnlyList<Guid> updatedIds = Array.Empty<Guid>();
             try
             {
-                result = await _enrichmentService.RefreshStaleAsync(
+                (result, updatedIds) = await _enrichmentService.RefreshStaleAsync(
                     limit: limit,
                     olderThanDays: olderThanDays,
                     cancellationToken: HttpContext.RequestAborted);
@@ -329,11 +330,11 @@ namespace MyMediaVerse.Web.API.Controllers
             }
 
             // Search reindex comes last, and only when stored data actually changed.
-            if (result.UpdatedCount > 0)
+            if (updatedIds.Count > 0)
             {
                 try
                 {
-                    await _importReindexService.ReindexAfterImportAsync(result.UpdatedCount, "TMDB refresh");
+                    await _importReindexService.ReindexItemsAfterImportAsync(updatedIds, "TMDB refresh");
                     result.ReindexTriggered = true;
                 }
                 catch (Exception ex)

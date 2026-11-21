@@ -68,7 +68,7 @@ namespace MyMediaVerse.UnitTests.Application
         {
             ClientReturnsSinglePage();
 
-            var result = await _service.SyncDocumentsAsync();
+            var result = (await _service.SyncDocumentsAsync()).Report;
 
             result.Success.Should().BeTrue();
             result.TotalProcessed.Should().Be(0);
@@ -80,7 +80,7 @@ namespace MyMediaVerse.UnitTests.Application
         {
             ClientReturnsSinglePage(Doc("reader_doc_1", "https://www.Example.com/article/?utm_source=x"));
 
-            var result = await _service.SyncDocumentsAsync();
+            var result = (await _service.SyncDocumentsAsync()).Report;
 
             result.Success.Should().BeTrue();
             result.CreatedCount.Should().Be(1);
@@ -117,11 +117,41 @@ namespace MyMediaVerse.UnitTests.Application
 
             ClientReturnsSinglePage(Doc("reader_doc_1", "https://example.com/new-url"));
 
-            var result = await _service.SyncDocumentsAsync();
+            var result = (await _service.SyncDocumentsAsync()).Report;
 
             result.CreatedCount.Should().Be(0);
             result.UpdatedCount.Should().Be(1);
             (await Context.Articles.CountAsync()).Should().Be(1);
+        }
+
+        [Fact]
+        public async Task SyncDocumentsAsync_ChangedIds_IncludeNewArticles_ButNotOnesReaderResentUnchanged()
+        {
+            ClientReturnsSinglePage(Doc("reader_doc_1", "https://example.com/a"));
+            var (firstReport, firstIds) = await _service.SyncDocumentsAsync();
+            var created = await Context.Articles.SingleAsync();
+
+            // Reader sends the same document again with nothing new in it.
+            var (secondReport, secondIds) = await _service.SyncDocumentsAsync();
+
+            firstReport.CreatedCount.Should().Be(1);
+            firstIds.Should().Equal(created.Id);
+            secondReport.UpdatedCount.Should().Be(1);
+            secondIds.Should().BeEmpty();
+        }
+
+        [Fact]
+        public async Task SyncDocumentsAsync_ChangedIds_IncludeAnArticleWhoseSearchableFieldChanged()
+        {
+            ClientReturnsSinglePage(Doc("reader_doc_1", "https://example.com/a", location: "archive"));
+            await _service.SyncDocumentsAsync();
+            var article = await Context.Articles.SingleAsync();
+
+            // Moving it out of the archive changes its status, which its search entry shows.
+            ClientReturnsSinglePage(Doc("reader_doc_1", "https://example.com/a", location: "later"));
+            var (_, changedIds) = await _service.SyncDocumentsAsync();
+
+            changedIds.Should().Equal(article.Id);
         }
 
         [Fact]
@@ -135,7 +165,7 @@ namespace MyMediaVerse.UnitTests.Application
 
             ClientReturnsSinglePage(Doc("reader_doc_1", "https://example.com/article"));
 
-            var result = await _service.SyncDocumentsAsync();
+            var result = (await _service.SyncDocumentsAsync()).Report;
 
             result.CreatedCount.Should().Be(0);
             result.UpdatedCount.Should().Be(1);
@@ -215,7 +245,7 @@ namespace MyMediaVerse.UnitTests.Application
         {
             ClientReturnsSinglePage(Doc("reader_doc_1", "https://example.com/a", publishedDate: "not-a-date"));
 
-            var result = await _service.SyncDocumentsAsync();
+            var result = (await _service.SyncDocumentsAsync()).Report;
 
             result.Success.Should().BeTrue();
             result.CreatedCount.Should().Be(1);
@@ -241,7 +271,7 @@ namespace MyMediaVerse.UnitTests.Application
                 Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>())
                 .Returns<ReaderDocumentsResponse>(_ => throw new HttpRequestException("Reader API unreachable"));
 
-            var result = await _service.SyncDocumentsAsync();
+            var result = (await _service.SyncDocumentsAsync()).Report;
 
             result.Success.Should().BeFalse();
             result.ErrorMessage.Should().Contain("unreachable");
@@ -260,7 +290,7 @@ namespace MyMediaVerse.UnitTests.Application
                     NextPageCursor = "more"
                 });
 
-            var result = await _service.SyncDocumentsAsync();
+            var result = (await _service.SyncDocumentsAsync()).Report;
 
             result.Success.Should().BeTrue();
             result.WarningMessage.Should().Contain("safety limit");
@@ -288,7 +318,7 @@ namespace MyMediaVerse.UnitTests.Application
                 Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>())
                 .Returns(_ => pages.Dequeue());
 
-            var result = await _service.SyncDocumentsAsync();
+            var result = (await _service.SyncDocumentsAsync()).Report;
 
             result.Success.Should().BeTrue();
             result.WarningMessage.Should().BeNull();

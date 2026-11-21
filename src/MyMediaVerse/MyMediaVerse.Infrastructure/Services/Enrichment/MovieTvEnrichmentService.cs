@@ -291,13 +291,14 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
         /// Maps TMDB movie details to the Movie entity, only updating fields that are null/empty.
         /// </summary>
         /// <inheritdoc />
-        public async Task<MovieTvRefreshResultDto> RefreshStaleAsync(
+        public async Task<ChangedItemsResult<MovieTvRefreshResultDto>> RefreshStaleAsync(
             int limit = 50,
             int olderThanDays = 180,
             int delayBetweenCallsMs = 250,
             CancellationToken cancellationToken = default)
         {
             var result = new MovieTvRefreshResultDto { StartedAt = DateTime.UtcNow };
+            var updatedIds = new List<Guid>();
 
             try
             {
@@ -364,8 +365,15 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                             show.TmdbRefreshedAt = DateTime.UtcNow;
                         }
 
-                        if (changed) result.UpdatedCount++;
-                        else result.UnchangedCount++;
+                        if (changed)
+                        {
+                            result.UpdatedCount++;
+                            updatedIds.Add(item.Id);
+                        }
+                        else
+                        {
+                            result.UnchangedCount++;
+                        }
                     }
                     catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
                     {
@@ -412,7 +420,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                 _logger.LogError(ex, "TMDB refresh run failed");
             }
 
-            return result;
+            return new ChangedItemsResult<MovieTvRefreshResultDto>(result, updatedIds);
         }
 
         private IQueryable<Movie> StaleMovies(DateTime cutoff) => _context.Movies

@@ -38,6 +38,38 @@ namespace MyMediaVerse.IntegrationTests.Api
             return JsonDocument.Parse(content).RootElement.Clone();
         }
 
+        private static ChangedItemsResult<T> Changed<T>(T report, params Guid[] changedIds) => new(report, changedIds);
+
+        #region Book enrichment run-all
+
+        [Fact]
+        public async Task BookEnrichmentRunAll_ShouldReindexTheBooksEveryBatchChanged_InOneTargetedCall()
+        {
+            var firstBatchId = Guid.NewGuid();
+            var secondBatchId = Guid.NewGuid();
+            var (client, _, reindex) = _factory.CreateClientWithSubstitutes<IBookDescriptionEnrichmentService, IImportReindexService>(svc =>
+            {
+                svc.GetBooksNeedingEnrichmentCountAsync().Returns(2, 1, 0);
+                svc.EnrichBooksWithoutDescriptionsAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+                    .Returns(
+                        Changed(new BookDescriptionEnrichmentResult { TotalProcessed = 1, EnrichedCount = 1 }, firstBatchId),
+                        Changed(new BookDescriptionEnrichmentResult { TotalProcessed = 1, EnrichedCount = 1 }, secondBatchId));
+            });
+            var request = new StringContent(
+                "{\"batchSize\":1,\"maxBooks\":10,\"pauseBetweenBatchesSeconds\":0}", System.Text.Encoding.UTF8, "application/json");
+
+            var response = await client.PostAsync("/api/bookenrichment/run-all", request);
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            var body = await ReadBodyAsync(response);
+            body.GetProperty("batchesRun").GetInt32().Should().Be(2);
+            body.GetProperty("totalEnriched").GetInt32().Should().Be(2);
+            await reindex.Received(1).ReindexItemsAfterImportAsync(
+                Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.SequenceEqual(new[] { firstBatchId, secondBatchId })), "book enrichment");
+        }
+
+        #endregion
+
         #region Note sync (single vault)
 
         [Fact]
@@ -156,12 +188,12 @@ namespace MyMediaVerse.IntegrationTests.Api
         {
             var (client, _) = _factory.CreateClientWithSubstitute<IReadwiseSyncService>(svc =>
                 svc.SyncAllAsync(Arg.Any<bool>())
-                    .Returns(new ReadwiseSyncAllResultDto
+                    .Returns(Changed(new ReadwiseSyncAllResultDto
                     {
                         Success = true,
                         StartedAt = DateTime.UtcNow,
                         CompletedAt = DateTime.UtcNow
-                    }));
+                    })));
 
             var response = await client.PostAsync("/api/readwise/sync", null);
 
@@ -176,12 +208,12 @@ namespace MyMediaVerse.IntegrationTests.Api
         {
             var (client, _) = _factory.CreateClientWithSubstitute<IReadwiseSyncService>(svc =>
                 svc.SyncAllAsync(Arg.Any<bool>())
-                    .Returns(new ReadwiseSyncAllResultDto
+                    .Returns(Changed(new ReadwiseSyncAllResultDto
                     {
                         Success = false,
                         ErrorMessage = "Readwise API returned 401",
                         StartedAt = DateTime.UtcNow
-                    }));
+                    })));
 
             var response = await client.PostAsync("/api/readwise/sync", null);
 
@@ -200,12 +232,12 @@ namespace MyMediaVerse.IntegrationTests.Api
         {
             var (client, _) = _factory.CreateClientWithSubstitute<IReaderService>(svc =>
                 svc.SyncDocumentsAsync(Arg.Any<string?>(), Arg.Any<DateTime?>())
-                    .Returns(new ReaderSyncResultDto
+                    .Returns(Changed(new ReaderSyncResultDto
                     {
                         Success = false,
                         ErrorMessage = "Reader API unreachable",
                         StartedAt = DateTime.UtcNow
-                    }));
+                    })));
 
             var response = await client.PostAsync("/api/article/sync-reader", null);
 
@@ -220,13 +252,13 @@ namespace MyMediaVerse.IntegrationTests.Api
         {
             var (client, _) = _factory.CreateClientWithSubstitute<IReaderService>(svc =>
                 svc.SyncDocumentsAsync(Arg.Any<string?>(), Arg.Any<DateTime?>())
-                    .Returns(new ReaderSyncResultDto
+                    .Returns(Changed(new ReaderSyncResultDto
                     {
                         Success = true,
                         CreatedCount = 3,
                         StartedAt = DateTime.UtcNow,
                         CompletedAt = DateTime.UtcNow
-                    }));
+                    })));
 
             var response = await client.PostAsync("/api/article/sync-reader", null);
 
@@ -246,13 +278,13 @@ namespace MyMediaVerse.IntegrationTests.Api
         {
             var (client, _) = _factory.CreateClientWithSubstitute<IMovieTvEnrichmentService>(svc =>
                 svc.RefreshStaleAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
-                    .Returns(new MovieTvRefreshResultDto
+                    .Returns(Changed(new MovieTvRefreshResultDto
                     {
                         FailedCount = 1,
                         Errors = { "TMDB no longer has id 1 for 'Removed Upstream'" },
                         StartedAt = DateTime.UtcNow,
                         CompletedAt = DateTime.UtcNow
-                    }));
+                    })));
 
             var response = await client.PostAsync("/api/movietvenrichment/refresh-stale", null);
 
@@ -269,12 +301,12 @@ namespace MyMediaVerse.IntegrationTests.Api
         {
             var (client, _) = _factory.CreateClientWithSubstitute<IMovieTvEnrichmentService>(svc =>
                 svc.RefreshStaleAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
-                    .Returns(new MovieTvRefreshResultDto
+                    .Returns(Changed(new MovieTvRefreshResultDto
                     {
                         Success = false,
                         ErrorMessage = "TMDB refresh run failed: database unavailable",
                         StartedAt = DateTime.UtcNow
-                    }));
+                    })));
 
             var response = await client.PostAsync("/api/movietvenrichment/refresh-stale", null);
 
@@ -294,7 +326,7 @@ namespace MyMediaVerse.IntegrationTests.Api
         {
             var (client, _) = _factory.CreateClientWithSubstitute<IYouTubeRefreshService>(svc =>
                 svc.RefreshStaleAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
-                    .Returns(new YouTubeRefreshResultDto
+                    .Returns(Changed(new YouTubeRefreshResultDto
                     {
                         FailedCount = 1,
                         SkippedCount = 1,
@@ -303,7 +335,7 @@ namespace MyMediaVerse.IntegrationTests.Api
                         Warnings = { "YouTube no longer returns the video 'Removed Upstream'" },
                         StartedAt = DateTime.UtcNow,
                         CompletedAt = DateTime.UtcNow
-                    }));
+                    })));
 
             var response = await client.PostAsync("/api/youtube/refresh-stale", null);
 
@@ -324,7 +356,7 @@ namespace MyMediaVerse.IntegrationTests.Api
         {
             var (client, _) = _factory.CreateClientWithSubstitute<IYouTubeRefreshService>(svc =>
                 svc.RefreshStaleAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
-                    .Returns(new YouTubeRefreshResultDto
+                    .Returns(Changed(new YouTubeRefreshResultDto
                     {
                         UnchangedCount = 3,
                         QuotaExceeded = true,
@@ -332,7 +364,7 @@ namespace MyMediaVerse.IntegrationTests.Api
                         Warnings = { "YouTube's daily quota ran out before every stale item was refreshed." },
                         StartedAt = DateTime.UtcNow,
                         CompletedAt = DateTime.UtcNow
-                    }));
+                    })));
 
             var response = await client.PostAsync("/api/youtube/refresh-stale", null);
 
@@ -349,12 +381,12 @@ namespace MyMediaVerse.IntegrationTests.Api
         {
             var (client, _) = _factory.CreateClientWithSubstitute<IYouTubeRefreshService>(svc =>
                 svc.RefreshStaleAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
-                    .Returns(new YouTubeRefreshResultDto
+                    .Returns(Changed(new YouTubeRefreshResultDto
                     {
                         Success = false,
                         ErrorMessage = "YouTube refresh run failed: database unavailable",
                         StartedAt = DateTime.UtcNow
-                    }));
+                    })));
 
             var response = await client.PostAsync("/api/youtube/refresh-stale", null);
 
@@ -370,7 +402,7 @@ namespace MyMediaVerse.IntegrationTests.Api
         {
             var (client, service) = _factory.CreateClientWithSubstitute<IYouTubeRefreshService>(svc =>
                 svc.RefreshStaleAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
-                    .Returns(new YouTubeRefreshResultDto { StartedAt = DateTime.UtcNow, CompletedAt = DateTime.UtcNow }));
+                    .Returns(Changed(new YouTubeRefreshResultDto { StartedAt = DateTime.UtcNow, CompletedAt = DateTime.UtcNow })));
 
             var response = await client.PostAsync("/api/youtube/refresh-stale?limit=25&olderThanDays=7", null);
 
@@ -438,7 +470,6 @@ namespace MyMediaVerse.IntegrationTests.Api
             body.GetProperty("reindexTriggered").GetBoolean().Should().BeTrue();
             await reindex.Received(1).ReindexItemsAfterImportAsync(
                 Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.SequenceEqual(changedIds)), Arg.Any<string>());
-            await reindex.DidNotReceive().ReindexAfterImportAsync(Arg.Any<int>(), Arg.Any<string>());
         }
 
         [Fact]
@@ -521,7 +552,6 @@ namespace MyMediaVerse.IntegrationTests.Api
             body.GetProperty("skippedCount").GetInt32().Should().Be(10);
             body.GetProperty("reindexTriggered").GetBoolean().Should().BeFalse();
             await reindex.DidNotReceive().ReindexItemsAfterImportAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<string>());
-            await reindex.DidNotReceive().ReindexAfterImportAsync(Arg.Any<int>(), Arg.Any<string>());
         }
 
         [Fact]

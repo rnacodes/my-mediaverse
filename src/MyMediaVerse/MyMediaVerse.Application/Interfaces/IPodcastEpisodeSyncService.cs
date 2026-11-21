@@ -20,8 +20,8 @@ namespace MyMediaVerse.Application.Interfaces
 
         /// <summary>
         /// Syncs every subscribed series that has a feed, least recently synced first. One series failing
-        /// does not stop the run.
+        /// does not stop the run. The changed ids are the episodes created across all series.
         /// </summary>
-        Task<PodcastSyncAllResultDto> SyncSubscribedAsync(CancellationToken cancellationToken = default);
+        Task<ChangedItemsResult<PodcastSyncAllResultDto>> SyncSubscribedAsync(CancellationToken cancellationToken = default);
     }
 }

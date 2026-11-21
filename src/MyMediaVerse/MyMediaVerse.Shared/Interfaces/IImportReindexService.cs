@@ -1,21 +1,15 @@
 namespace MyMediaVerse.Shared.Interfaces
 {
     /// <summary>
-    /// Fires a best-effort search reindex after an interactive (user-triggered) import or enrichment.
+    /// Fires a best-effort search reindex after an import, sync or enrichment, covering only the items
+    /// it changed. The full-library reindex is deliberately not here: it lives on
+    /// <see cref="ITypesenseService.BulkReindexAllMediaItemsAsync"/> (the Admin page and the scheduled sweep).
     /// </summary>
     public interface IImportReindexService
     {
         /// <summary>
-        /// Reindexes the media collection when <paramref name="importedCount"/> is greater than zero,
-        /// and skips (no-op) when the import changed nothing. Never throws.
-        /// </summary>
-        /// <param name="importedCount">Number of items the import created or updated.</param>
-        /// <param name="importLabel">Short label used in log messages (e.g. "Goodreads CSV").</param>
-        Task ReindexAfterImportAsync(int importedCount, string importLabel);
-
-        /// <summary>
         /// Reindexes one media item by id — the single-item counterpart for imports and enrichments
-        /// that touch exactly one row, where a full-library reindex would be wasteful. Never throws.
+        /// that touch exactly one row, where a batch call would be overkill. Never throws.
         /// </summary>
         /// <param name="mediaItemId">The media item that was created or changed.</param>
         /// <param name="importLabel">Short label used in log messages (e.g. "Open Library import").</param>

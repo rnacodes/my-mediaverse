@@ -1,4 +1,5 @@
 using MyMediaVerse.DTOs;
+using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.Application.Interfaces
 {
@@ -13,6 +14,8 @@ namespace MyMediaVerse.Application.Interfaces
         /// (falling back to a default look-back window until one is recorded).
         /// When false, everything is synced.
         /// </param>
-        Task<ReadwiseSyncAllResultDto> SyncAllAsync(bool incremental);
+        /// <returns>The run's report, plus the ids of the articles the Reader step created or changed in a
+        /// searchable field and the stub books the highlights step created.</returns>
+        Task<ChangedItemsResult<ReadwiseSyncAllResultDto>> SyncAllAsync(bool incremental);
     }
 }

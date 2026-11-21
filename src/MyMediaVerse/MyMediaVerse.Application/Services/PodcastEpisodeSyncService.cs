@@ -223,7 +223,14 @@ namespace MyMediaVerse.Application.Services
                 series.FeedGuid = guid;
         }
 
-        public async Task<PodcastSyncAllResultDto> SyncSubscribedAsync(CancellationToken cancellationToken = default)
+        public async Task<ChangedItemsResult<PodcastSyncAllResultDto>> SyncSubscribedAsync(CancellationToken cancellationToken = default)
+        {
+            var createdIds = new List<Guid>();
+            var report = await SyncSubscribedCoreAsync(createdIds, cancellationToken);
+            return new ChangedItemsResult<PodcastSyncAllResultDto>(report, createdIds);
+        }
+
+        private async Task<PodcastSyncAllResultDto> SyncSubscribedCoreAsync(List<Guid> createdIds, CancellationToken cancellationToken)
         {
             var result = new PodcastSyncAllResultDto { StartedAt = DateTime.UtcNow };
 
@@ -284,7 +291,8 @@ namespace MyMediaVerse.Application.Services
                 {
                     await WaitForHostAsync(host, lastReadByHost, cancellationToken);
 
-                    var seriesResult = (await SyncSeriesAsync(id, cancellationToken)).Report;
+                    var (seriesResult, seriesCreatedIds) = await SyncSeriesAsync(id, cancellationToken);
+                    createdIds.AddRange(seriesCreatedIds);
                     result.SeriesChecked++;
                     result.Series.Add(new PodcastSeriesSyncSummaryDto
                     {

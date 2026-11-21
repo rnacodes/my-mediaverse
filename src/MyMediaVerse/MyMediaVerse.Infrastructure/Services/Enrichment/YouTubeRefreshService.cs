@@ -35,12 +35,15 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
         }
 
         /// <inheritdoc />
-        public async Task<YouTubeRefreshResultDto> RefreshStaleAsync(
+        public async Task<ChangedItemsResult<YouTubeRefreshResultDto>> RefreshStaleAsync(
             int limit = 200,
             int olderThanDays = 30,
             CancellationToken cancellationToken = default)
         {
             var result = new YouTubeRefreshResultDto { StartedAt = DateTime.UtcNow };
+            var changedIds = new List<Guid>();
+            // A video's search document shows its channel's title, so a renamed channel's videos change too.
+            var renamedChannelIds = new List<Guid>();
 
             try
             {
@@ -68,15 +71,23 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                     "Starting YouTube refresh for {Channels} channels, {Playlists} playlists and {Videos} videos older than {Days} days",
                     channels.Count, playlists.Count, videos.Count, olderThanDays);
 
-                var keepGoing = await RefreshChannelsAsync(channels, result, cancellationToken);
-                keepGoing = keepGoing && await RefreshPlaylistsAsync(playlists, result, cancellationToken);
+                var keepGoing = await RefreshChannelsAsync(channels, result, changedIds, renamedChannelIds, cancellationToken);
+                keepGoing = keepGoing && await RefreshPlaylistsAsync(playlists, result, changedIds, cancellationToken);
                 if (keepGoing)
                 {
-                    await RefreshVideosAsync(videos, result, cancellationToken);
+                    await RefreshVideosAsync(videos, result, changedIds, cancellationToken);
                 }
 
                 // Whatever was refreshed before a stop is still saved.
                 await _context.SaveChangesAsync(CancellationToken.None);
+
+                if (renamedChannelIds.Count > 0)
+                {
+                    changedIds.AddRange(await _context.Videos
+                        .Where(v => v.ChannelId != null && renamedChannelIds.Contains(v.ChannelId.Value))
+                        .Select(v => v.Id)
+                        .ToListAsync(CancellationToken.None));
+                }
 
                 result.RemainingCount =
                     await StaleChannels(cutoff).CountAsync(CancellationToken.None)
@@ -96,7 +107,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                 _logger.LogError(ex, "YouTube refresh run failed");
             }
 
-            return result;
+            return new ChangedItemsResult<YouTubeRefreshResultDto>(result, changedIds.Distinct().ToList());
         }
 
         private IQueryable<YouTubeChannel> StaleChannels(DateTime cutoff) => _context.YouTubeChannels
@@ -116,7 +127,8 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
         // daily quota is used up), so the kinds after it are not started.
 
         private async Task<bool> RefreshChannelsAsync(
-            List<YouTubeChannel> channels, YouTubeRefreshResultDto result, CancellationToken cancellationToken)
+            List<YouTubeChannel> channels, YouTubeRefreshResultDto result, List<Guid> changedIds,
+            List<Guid> renamedChannelIds, CancellationToken cancellationToken)
         {
             foreach (var channel in channels)
             {
@@ -131,7 +143,13 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                     }
                     else
                     {
-                        Count(result, YouTubeMetadataApplier.Apply(channel, youTube));
+                        var oldTitle = channel.Title;
+                        if (Count(result, YouTubeMetadataApplier.Apply(channel, youTube)))
+                        {
+                            changedIds.Add(channel.Id);
+                            if (!string.Equals(oldTitle, channel.Title, StringComparison.Ordinal))
+                                renamedChannelIds.Add(channel.Id);
+                        }
                     }
 
                     channel.LastSyncedAt = DateTime.UtcNow;
@@ -153,7 +171,8 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
         }
 
         private async Task<bool> RefreshPlaylistsAsync(
-            List<YouTubePlaylist> playlists, YouTubeRefreshResultDto result, CancellationToken cancellationToken)
+            List<YouTubePlaylist> playlists, YouTubeRefreshResultDto result, List<Guid> changedIds,
+            CancellationToken cancellationToken)
         {
             foreach (var playlist in playlists)
             {
@@ -168,7 +187,8 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                     }
                     else
                     {
-                        Count(result, YouTubeMetadataApplier.Apply(playlist, youTube));
+                        if (Count(result, YouTubeMetadataApplier.Apply(playlist, youTube)))
+                            changedIds.Add(playlist.Id);
                     }
 
                     playlist.LastSyncedAt = DateTime.UtcNow;
@@ -190,7 +210,8 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
         }
 
         private async Task<bool> RefreshVideosAsync(
-            List<Video> videos, YouTubeRefreshResultDto result, CancellationToken cancellationToken)
+            List<Video> videos, YouTubeRefreshResultDto result, List<Guid> changedIds,
+            CancellationToken cancellationToken)
         {
             if (videos.Count == 0) return true;
 
@@ -241,7 +262,8 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                                 ? channelId
                                 : null;
 
-                        Count(result, YouTubeMetadataApplier.Apply(video, youTube, storedChannelId));
+                        if (Count(result, YouTubeMetadataApplier.Apply(video, youTube, storedChannelId)))
+                            changedIds.Add(video.Id);
                     }
                     else
                     {
@@ -272,10 +294,11 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
             return byExternalId;
         }
 
-        private static void Count(YouTubeRefreshResultDto result, bool changed)
+        private static bool Count(YouTubeRefreshResultDto result, bool changed)
         {
             if (changed) result.UpdatedCount++;
             else result.UnchangedCount++;
+            return changed;
         }
 
         // The item is kept and still stamped by the caller: left unstamped it would stay at the

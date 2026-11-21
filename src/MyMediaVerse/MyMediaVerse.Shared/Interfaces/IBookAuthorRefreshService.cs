@@ -12,7 +12,8 @@ namespace MyMediaVerse.Shared.Interfaces
         /// <param name="delayBetweenCallsMs">Pause between books, to stay well inside API rate limits.</param>
         /// <param name="maxBooks">Upper bound on books checked in this run.</param>
         /// <param name="cancellationToken">Stops the run; changes made so far are kept.</param>
-        Task<BookAuthorRefreshResult> RefreshAuthorsAsync(
+        /// <returns>The run's report, plus the ids of the books whose author was replaced.</returns>
+        Task<ChangedItemsResult<BookAuthorRefreshResult>> RefreshAuthorsAsync(
             int delayBetweenCallsMs = 500,
             int maxBooks = 5000,
             CancellationToken cancellationToken = default);

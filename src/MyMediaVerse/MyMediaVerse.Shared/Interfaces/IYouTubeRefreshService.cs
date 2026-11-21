@@ -16,7 +16,9 @@ namespace MyMediaVerse.Shared.Interfaces
         /// </summary>
         /// <param name="limit">Maximum items to refresh in this run, across all three kinds (default: 200)</param>
         /// <param name="olderThanDays">Age at which stored YouTube data counts as stale (default: 30)</param>
-        Task<YouTubeRefreshResultDto> RefreshStaleAsync(
+        /// <returns>The run's report, plus the ids of the channels, playlists and videos whose stored
+        /// data changed, and the videos of any channel that was renamed (their search entry shows the channel title).</returns>
+        Task<ChangedItemsResult<YouTubeRefreshResultDto>> RefreshStaleAsync(
             int limit = 200,
             int olderThanDays = 30,
             CancellationToken cancellationToken = default);

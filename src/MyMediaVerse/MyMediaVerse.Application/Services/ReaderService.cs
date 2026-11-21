@@ -34,12 +34,13 @@ namespace MyMediaVerse.Application.Services
             _logger = logger;
         }
 
-        public async Task<ReaderSyncResultDto> SyncDocumentsAsync(string? location = null, DateTime? updatedAfter = null)
+        public async Task<ChangedItemsResult<ReaderSyncResultDto>> SyncDocumentsAsync(string? location = null, DateTime? updatedAfter = null)
         {
             var result = new ReaderSyncResultDto
             {
                 StartedAt = DateTime.UtcNow
             };
+            var changedIds = new List<Guid>();
 
             try
             {
@@ -72,7 +73,7 @@ namespace MyMediaVerse.Application.Services
 
                     foreach (var docDto in response.Results)
                     {
-                        await ProcessReaderDocument(docDto, result);
+                        await ProcessReaderDocument(docDto, result, changedIds);
                     }
 
                     hasMore = !string.IsNullOrEmpty(response.NextPageCursor);
@@ -105,7 +106,7 @@ namespace MyMediaVerse.Application.Services
                 result.CompletedAt = DateTime.UtcNow;
             }
 
-            return result;
+            return new ChangedItemsResult<ReaderSyncResultDto>(result, changedIds);
         }
 
         public async Task<bool> FetchAndStoreArticleContentAsync(Guid articleId)
@@ -223,7 +224,14 @@ namespace MyMediaVerse.Application.Services
             return result;
         }
 
-        private async Task ProcessReaderDocument(ReaderDocumentDto dto, ReaderSyncResultDto result)
+        /// <summary>
+        /// Creates or updates the article for one Reader document. Adds the article's id to
+        /// <paramref name="changedIds"/> when it was created, or when a field its search entry shows
+        /// (title, description, author, thumbnail, status, topics) changed. Reader resends documents
+        /// whose only changes are fields that aren't indexed, and a full-location sync resends
+        /// everything, so those are not reindexed.
+        /// </summary>
+        private async Task ProcessReaderDocument(ReaderDocumentDto dto, ReaderSyncResultDto result, List<Guid> changedIds)
         {
             // Use source_url (original article URL) if available, fall back to url (Reader URL)
             var originalUrl = dto.SourceUrl ?? dto.Url;
@@ -245,6 +253,8 @@ namespace MyMediaVerse.Application.Services
 
             if (existing != null)
             {
+                var indexedBefore = IndexedFields(existing);
+
                 // Update existing article with Reader data
                 existing.ReadwiseDocumentId = dto.Id;
                 existing.ReaderLocation = dto.Location.ToLowerInvariant();
@@ -294,6 +304,10 @@ namespace MyMediaVerse.Application.Services
                 await AddReaderTagsAsTopicsAsync(existing, dto.Tags);
 
                 result.UpdatedCount++;
+                if (IndexedFields(existing) != indexedBefore)
+                {
+                    changedIds.Add(existing.Id);
+                }
 
                 _logger.LogDebug("Updated article {ArticleId} from Reader document {DocumentId}",
                     existing.Id, dto.Id);
@@ -330,6 +344,7 @@ namespace MyMediaVerse.Application.Services
 
                 _context.Add(article);
                 result.CreatedCount++;
+                changedIds.Add(article.Id);
 
                 _logger.LogDebug("Created article {ArticleId} from Reader document {DocumentId}",
                     article.Id, dto.Id);
@@ -337,6 +352,16 @@ namespace MyMediaVerse.Application.Services
 
             await _context.SaveChangesAsync();
         }
+
+        /// <summary>The article fields its search entry is built from, for spotting a real change.</summary>
+        private static (string? Title, string? Description, string? Author, string? Thumbnail, Status Status, string Topics)
+            IndexedFields(Article article) => (
+                article.Title,
+                article.Description,
+                article.Author,
+                article.Thumbnail,
+                article.Status,
+                string.Join("\u001f", article.Topics.Select(t => t.Name).OrderBy(n => n, StringComparer.Ordinal)));
 
         /// <summary>
         /// Adds each Reader tag as a topic on the article (find-or-create, lowercased).
@@ -616,12 +641,13 @@ namespace MyMediaVerse.Application.Services
             }
         }
 
-        public async Task<ReaderSyncResultDto> SyncDocumentsByLocationAsync(string location, int limit = 50)
+        public async Task<ChangedItemsResult<ReaderSyncResultDto>> SyncDocumentsByLocationAsync(string location, int limit = 50)
         {
             var result = new ReaderSyncResultDto
             {
                 StartedAt = DateTime.UtcNow
             };
+            var changedIds = new List<Guid>();
 
             try
             {
@@ -645,7 +671,7 @@ namespace MyMediaVerse.Application.Services
                         if (processedCount >= limit)
                             break;
 
-                        await ProcessReaderDocument(docDto, result);
+                        await ProcessReaderDocument(docDto, result, changedIds);
                         processedCount++;
                     }
 
@@ -672,7 +698,7 @@ namespace MyMediaVerse.Application.Services
                 result.CompletedAt = DateTime.UtcNow;
             }
 
-            return result;
+            return new ChangedItemsResult<ReaderSyncResultDto>(result, changedIds);
         }
 
     }

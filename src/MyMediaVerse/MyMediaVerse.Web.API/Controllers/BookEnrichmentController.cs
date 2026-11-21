@@ -176,6 +176,7 @@ namespace MyMediaVerse.Web.API.Controllers
 
             var cancellationToken = HttpContext.RequestAborted;
             var summary = new BookEnrichmentRunAllResult { StartedAt = DateTime.UtcNow };
+            var enrichedIds = new List<Guid>();
 
             try
             {
@@ -187,10 +188,11 @@ namespace MyMediaVerse.Web.API.Controllers
 
                 while (pendingCount > 0 && summary.TotalProcessed < maxBooks && !cancellationToken.IsCancellationRequested)
                 {
-                    var result = (await _enrichmentService.EnrichBooksWithoutDescriptionsAsync(
+                    var (result, batchEnrichedIds) = await _enrichmentService.EnrichBooksWithoutDescriptionsAsync(
                         batchSize: Math.Min(batchSize, maxBooks - summary.TotalProcessed),
                         delayBetweenCallsMs: delayMs,
-                        cancellationToken: cancellationToken)).Report;
+                        cancellationToken: cancellationToken);
+                    enrichedIds.AddRange(batchEnrichedIds);
 
                     summary.TotalEnriched += result.EnrichedCount;
                     summary.TotalNotFound += result.NotFoundCount;
@@ -246,7 +248,8 @@ namespace MyMediaVerse.Web.API.Controllers
 
                 summary.CompletedAt = DateTime.UtcNow;
 
-                await _importReindexService.ReindexAfterImportAsync(summary.TotalEnriched, "book enrichment");
+                // One reindex for the whole run, covering only the books its batches changed.
+                await _importReindexService.ReindexItemsAfterImportAsync(enrichedIds.Distinct().ToList(), "book enrichment");
 
                 return Ok(summary);
             }
@@ -293,14 +296,14 @@ namespace MyMediaVerse.Web.API.Controllers
                 return BadRequest(new { error = "MaxBooks must be between 1 and 10000" });
             }
 
-            var result = await _authorRefreshService.RefreshAuthorsAsync(delayMs, maxBooks, HttpContext.RequestAborted);
+            var (result, updatedIds) = await _authorRefreshService.RefreshAuthorsAsync(delayMs, maxBooks, HttpContext.RequestAborted);
 
             if (!result.Success)
             {
                 return StatusCode(500, result);
             }
 
-            await _importReindexService.ReindexAfterImportAsync(result.UpdatedCount, "book author refresh");
+            await _importReindexService.ReindexItemsAfterImportAsync(updatedIds, "book author refresh");
 
             return Ok(result);
         }
@@ -318,7 +321,7 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 _logger.LogInformation("Starting Goodreads rating conversion run");
 
-                var result = (await _ratingEnrichmentService.ConvertGoodreadsRatingsAsync(HttpContext.RequestAborted)).Report;
+                var (result, convertedIds) = await _ratingEnrichmentService.ConvertGoodreadsRatingsAsync(HttpContext.RequestAborted);
 
                 _logger.LogInformation(
                     "Goodreads rating conversion completed. Success: {Success}, Candidates: {Candidates}, Converted: {Converted}",
@@ -329,7 +332,7 @@ namespace MyMediaVerse.Web.API.Controllers
                     return StatusCode(500, result);
                 }
 
-                await _importReindexService.ReindexAfterImportAsync(result.Converted, "Goodreads rating conversion");
+                await _importReindexService.ReindexItemsAfterImportAsync(convertedIds, "Goodreads rating conversion");
 
                 return Ok(result);
             }

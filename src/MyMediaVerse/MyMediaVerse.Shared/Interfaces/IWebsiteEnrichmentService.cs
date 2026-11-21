@@ -28,14 +28,16 @@ namespace MyMediaVerse.Shared.Interfaces
         /// <summary>
         /// Re-checks up to <paramref name="limit"/> links that have never been checked or whose last
         /// check is older than <paramref name="olderThanDays"/>, recording the status on each row.
+        /// The changed ids are the websites whose link status changed.
         /// </summary>
-        Task<WebsiteLinkCheckResult> CheckLinksAsync(int limit, int olderThanDays, CancellationToken cancellationToken = default);
+        Task<ChangedItemsResult<WebsiteLinkCheckResult>> CheckLinksAsync(int limit, int olderThanDays, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Re-renders thumbnails that point at the screenshot provider directly or at an animated
-        /// placeholder, replacing them with a stored still image or clearing them.
+        /// placeholder, replacing them with a stored still image or clearing them. The changed ids are
+        /// the websites whose thumbnail was re-rendered or cleared.
         /// </summary>
-        Task<WebsiteEnrichmentResult> RepairThumbnailsAsync(int limit, CancellationToken cancellationToken = default);
+        Task<ChangedItemsResult<WebsiteEnrichmentResult>> RepairThumbnailsAsync(int limit, CancellationToken cancellationToken = default);
     }
 
     /// <summary>

@@ -33,12 +33,13 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
         }
 
         /// <inheritdoc />
-        public async Task<BookAuthorRefreshResult> RefreshAuthorsAsync(
+        public async Task<ChangedItemsResult<BookAuthorRefreshResult>> RefreshAuthorsAsync(
             int delayBetweenCallsMs = 500,
             int maxBooks = 5000,
             CancellationToken cancellationToken = default)
         {
             var result = new BookAuthorRefreshResult { StartedAt = DateTime.UtcNow };
+            var updatedIds = new List<Guid>();
 
             try
             {
@@ -81,6 +82,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                                     }
                                     book.Author = refreshed!;
                                     result.UpdatedCount++;
+                                    updatedIds.Add(book.Id);
                                     pendingSaves++;
                                     break;
                                 case RefreshOutcome.Unchanged:
@@ -151,7 +153,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
             }
 
             result.CompletedAt = DateTime.UtcNow;
-            return result;
+            return new ChangedItemsResult<BookAuthorRefreshResult>(result, updatedIds);
         }
 
         /// <summary>
