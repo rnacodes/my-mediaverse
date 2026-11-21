@@ -102,7 +102,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
                 Options.Create(new WebsiteEnrichmentOptions { WaybackDelayMs = 0, MaxLimit = 200, RunTimeBudgetSeconds = 1 }),
                 Substitute.For<ILogger<WebsiteEnrichmentService>>());
 
-            var result = await service.EnrichPendingAsync(50);
+            var result = (await service.EnrichPendingAsync(50)).Report;
 
             result.Success.Should().BeTrue();
             result.TimeBudgetReached.Should().BeTrue();
@@ -123,7 +123,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
                 Options.Create(new WebsiteEnrichmentOptions { WaybackDelayMs = 0, MaxLimit = 200, RunTimeBudgetSeconds = 0 }),
                 Substitute.For<ILogger<WebsiteEnrichmentService>>());
 
-            var result = await service.EnrichPendingAsync(50);
+            var result = (await service.EnrichPendingAsync(50)).Report;
 
             result.TimeBudgetReached.Should().BeFalse();
             result.TotalProcessed.Should().Be(2);
@@ -156,7 +156,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
                 return (string?)null;
             });
 
-            var result = await CreateServiceWithWaybackBreaker(pauseAfter: 2).EnrichPendingAsync(10);
+            var result = (await CreateServiceWithWaybackBreaker(pauseAfter: 2).EnrichPendingAsync(10)).Report;
 
             result.Success.Should().BeTrue();
             result.WaybackPaused.Should().BeTrue();
@@ -182,7 +182,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
                 return (string?)null;
             });
 
-            var result = await CreateServiceWithWaybackBreaker(pauseAfter: 2).EnrichPendingAsync(10);
+            var result = (await CreateServiceWithWaybackBreaker(pauseAfter: 2).EnrichPendingAsync(10)).Report;
 
             result.WaybackPaused.Should().BeFalse();
             result.WarningMessage.Should().BeNull();
@@ -201,7 +201,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
                 return (string?)null;
             });
 
-            var result = await CreateServiceWithWaybackBreaker(pauseAfter: 0).EnrichPendingAsync(10);
+            var result = (await CreateServiceWithWaybackBreaker(pauseAfter: 0).EnrichPendingAsync(10)).Report;
 
             result.WaybackPaused.Should().BeFalse();
             await _wayback.Received(3).FindLatestSnapshotAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
@@ -232,7 +232,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             _wayback.FindLatestSnapshotAsync(stub.Link!, Arg.Any<CancellationToken>())
                 .Returns("https://web.archive.org/web/20240101000000/https://example.com/page");
 
-            var result = await _service.EnrichPendingAsync(10);
+            var result = (await _service.EnrichPendingAsync(10)).Report;
 
             result.Success.Should().BeTrue();
             result.Operation.Should().Be("website-enrichment");
@@ -268,7 +268,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
                 w.WaybackUrl = "https://web.archive.org/web/1/https://example.com/page";
             });
 
-            var result = await _service.EnrichPendingAsync(10);
+            var result = (await _service.EnrichPendingAsync(10)).Report;
 
             var saved = await Reload(stub.Id);
             saved.Title.Should().Be("My Own Title");
@@ -310,7 +310,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
                 w.UrlKey = "example.com/page";
             });
 
-            var result = await _service.EnrichPendingAsync(10);
+            var result = (await _service.EnrichPendingAsync(10)).Report;
 
             result.EnrichedCount.Should().Be(0);
             result.UnchangedCount.Should().Be(1);
@@ -324,7 +324,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             var middle = await SeedStub("https://example.com/mid", dateAdded: DateTime.UtcNow.AddDays(-2));
             var newest = await SeedStub("https://example.com/new", dateAdded: DateTime.UtcNow.AddDays(-1));
 
-            var result = await _service.EnrichPendingAsync(2);
+            var result = (await _service.EnrichPendingAsync(2)).Report;
 
             result.TotalProcessed.Should().Be(2);
             result.PendingCount.Should().Be(1);
@@ -338,7 +338,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         {
             await SeedStub(configure: w => w.EnrichedAt = DateTime.UtcNow.AddDays(-1));
 
-            var result = await _service.EnrichPendingAsync(10);
+            var result = (await _service.EnrichPendingAsync(10)).Report;
 
             result.TotalProcessed.Should().Be(0);
             await _scraper.DidNotReceiveWithAnyArgs().ScrapeWebsiteAsync(default!);
@@ -353,7 +353,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             _screenshots.CaptureScreenshotAsync(noImage.Link!, Arg.Any<CancellationToken>())
                 .Returns("https://bucket.example/screenshots/plain.png");
 
-            var result = await _service.EnrichPendingAsync(10);
+            var result = (await _service.EnrichPendingAsync(10)).Report;
 
             result.ScreenshotsRendered.Should().Be(1);
             (await Reload(noImage.Id)).Thumbnail.Should().Be("https://bucket.example/screenshots/plain.png");
@@ -371,7 +371,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             _quota.RemainingAsync(Arg.Any<CancellationToken>()).Returns(1, 0);
             _screenshots.CaptureScreenshotAsync(first.Link!, Arg.Any<CancellationToken>()).Returns("https://bucket.example/screenshots/1.png");
 
-            var result = await _service.EnrichPendingAsync(10);
+            var result = (await _service.EnrichPendingAsync(10)).Report;
 
             result.QuotaReached.Should().BeTrue();
             result.ScreenshotsRendered.Should().Be(1);
@@ -392,7 +392,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             _scraper.ScrapeWebsiteAsync(gone.Link!)
                 .Throws(new HttpRequestException("not found", null, System.Net.HttpStatusCode.NotFound));
 
-            var result = await _service.EnrichPendingAsync(10);
+            var result = (await _service.EnrichPendingAsync(10)).Report;
 
             result.Success.Should().BeTrue();
             result.SkippedCount.Should().Be(1);
@@ -409,6 +409,33 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         }
 
         [Fact]
+        public async Task EnrichPendingAsync_ReportsTheEnrichedAndUnreachableWebsites_ForTheSearchReindex()
+        {
+            var filled = await SeedStub("https://example.com/page");
+            var gone = await SeedStub("https://example.com/gone");
+            var full = await SeedStub("https://example.com/full", title: "Full", configure: w =>
+            {
+                w.Description = "d";
+                w.Thumbnail = "t";
+                w.RssFeedUrl = "https://example.com/feed";
+                w.Author = "a";
+                w.Publication = "p";
+                w.WaybackUrl = "w";
+                w.UrlKey = "example.com/full";
+            });
+            _scraper.ScrapeWebsiteAsync(gone.Link!)
+                .Throws(new HttpRequestException("not found", null, System.Net.HttpStatusCode.NotFound));
+
+            var (result, changedIds) = await _service.EnrichPendingAsync(10);
+
+            result.EnrichedCount.Should().Be(1);
+            result.SkippedCount.Should().Be(1);
+            result.UnchangedCount.Should().Be(1);
+            changedIds.Should().BeEquivalentTo(new[] { filled.Id, gone.Id },
+                "an unreachable page's link status changed, while an unchanged row needs no reindex");
+        }
+
+        [Fact]
         public async Task EnrichPendingAsync_LinksAnArchivedCopy_ForAPageThatIsGone()
         {
             var gone = await SeedStub("https://example.com/gone");
@@ -417,7 +444,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             _wayback.FindLatestSnapshotAsync(gone.Link!, Arg.Any<CancellationToken>())
                 .Returns("https://web.archive.org/web/20240101000000/https://example.com/gone");
 
-            var result = await _service.EnrichPendingAsync(10);
+            var result = (await _service.EnrichPendingAsync(10)).Report;
 
             result.SkippedCount.Should().Be(1, "a dead page is still counted as unreachable");
             var saved = await Reload(gone.Id);
@@ -433,7 +460,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             _scraper.ScrapeWebsiteAsync(hanging.Link!)
                 .Throws(new TaskCanceledException("The request was canceled due to the configured HttpClient.Timeout of 15 seconds elapsing."));
 
-            var result = await _service.EnrichPendingAsync(10);
+            var result = (await _service.EnrichPendingAsync(10)).Report;
 
             await _linkChecker.DidNotReceiveWithAnyArgs().CheckAsync(default!, default);
 
@@ -474,7 +501,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             _scraper.ScrapeWebsiteAsync(dropped.Link!).Throws(new HttpRequestException("Failed to fetch URL"));
             _linkChecker.CheckAsync(dropped.Link!, Arg.Any<CancellationToken>()).Returns(404);
 
-            var result = await _service.EnrichPendingAsync(10);
+            var result = (await _service.EnrichPendingAsync(10)).Report;
 
             result.SkippedCount.Should().Be(2);
             (await Reload(wrapped.Id)).LastHttpStatus.Should().Be(410);
@@ -492,7 +519,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
                 new HttpRequestException("moved", null, System.Net.HttpStatusCode.MovedPermanently)));
             _linkChecker.CheckAsync(redirected.Link!, Arg.Any<CancellationToken>()).Returns(200);
 
-            var result = await _service.EnrichPendingAsync(10);
+            var result = (await _service.EnrichPendingAsync(10)).Report;
 
             result.SkippedCount.Should().Be(1);
             (await Reload(redirected.Id)).LastHttpStatus.Should().Be(200);
@@ -505,7 +532,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             var fine = await SeedStub("https://example.com/fine", dateAdded: DateTime.UtcNow.AddDays(-1));
             _scraper.ScrapeWebsiteAsync(broken.Link!).Throws(new InvalidOperationException("parser exploded"));
 
-            var result = await _service.EnrichPendingAsync(10);
+            var result = (await _service.EnrichPendingAsync(10)).Report;
 
             result.Success.Should().BeTrue();
             result.FailedCount.Should().Be(1);
@@ -525,7 +552,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             _wayback.FindLatestSnapshotAsync(first.Link!, Arg.Any<CancellationToken>())
                 .Returns(_ => { cts.Cancel(); return (string?)null; });
 
-            var result = await _service.EnrichPendingAsync(10, cts.Token);
+            var result = (await _service.EnrichPendingAsync(10, cts.Token)).Report;
 
             result.WasCancelled.Should().BeTrue();
             result.Success.Should().BeTrue();
@@ -541,7 +568,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             context.Websites.Returns(_ => throw new InvalidOperationException("database unavailable"));
             var service = CreateService(context);
 
-            var result = await service.EnrichPendingAsync(10);
+            var result = (await service.EnrichPendingAsync(10)).Report;
 
             result.Success.Should().BeFalse();
             result.ErrorMessage.Should().Contain("database unavailable");

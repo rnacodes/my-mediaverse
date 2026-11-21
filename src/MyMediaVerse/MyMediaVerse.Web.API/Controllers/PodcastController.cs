@@ -362,16 +362,17 @@ namespace MyMediaVerse.Web.API.Controllers
         {
             try
             {
-                var result = await _episodeSyncService.SyncSeriesAsync(seriesId, HttpContext.RequestAborted);
+                var (result, createdEpisodeIds) = await _episodeSyncService.SyncSeriesAsync(seriesId, HttpContext.RequestAborted);
                 if (!result.Success)
                 {
                     return StatusCode(500, result);
                 }
 
-                var changed = result.CreatedCount + result.UpdatedCount;
-                if (changed > 0)
+                // Only the new episodes are reindexed: "updated" episodes just adopt a feed guid,
+                // which search does not hold.
+                if (createdEpisodeIds.Count > 0)
                 {
-                    await _importReindexService.ReindexAfterImportAsync(changed, "podcast episode sync");
+                    await _importReindexService.ReindexItemsAfterImportAsync(createdEpisodeIds, "podcast episode sync");
                     result.ReindexTriggered = true;
                 }
 
@@ -605,16 +606,16 @@ namespace MyMediaVerse.Web.API.Controllers
                 _logger.LogInformation("Processing podcast OPML import: {FileName}", file.FileName);
 
                 using var stream = file.OpenReadStream();
-                var result = await _opmlImportService.ImportFromOpmlAsync(stream);
+                var (result, createdSeriesIds) = await _opmlImportService.ImportFromOpmlAsync(stream);
 
                 if (!result.Success)
                 {
                     return StatusCode(500, result);
                 }
 
-                if (result.CreatedCount > 0)
+                if (createdSeriesIds.Count > 0)
                 {
-                    await _importReindexService.ReindexAfterImportAsync(result.CreatedCount, "podcast OPML");
+                    await _importReindexService.ReindexItemsAfterImportAsync(createdSeriesIds, "podcast OPML");
                     result.ReindexTriggered = true;
                 }
 

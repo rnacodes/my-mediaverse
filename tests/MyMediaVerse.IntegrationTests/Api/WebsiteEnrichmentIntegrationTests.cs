@@ -86,7 +86,7 @@ namespace MyMediaVerse.IntegrationTests.Api
         #region Run
 
         [Fact]
-        public async Task RunEnrichment_FillsStubs_StampsThem_AndReindexesTheEnrichedCount()
+        public async Task RunEnrichment_FillsStubs_StampsThem_AndReindexesJustTheEnrichedWebsites()
         {
             var (client, scraper, reindex) = _factory.CreateClientWithSubstitutes<IWebsiteScraperService, IImportReindexService>(
                 s => s.ScrapeWebsiteAsync(Arg.Any<string>()).Returns(call => Scraped(call.Arg<string>())));
@@ -113,12 +113,14 @@ namespace MyMediaVerse.IntegrationTests.Api
             enriched.EnrichedAt.Should().NotBeNull();
             enriched.LastHttpStatus.Should().Be(200);
 
-            await reindex.Received(1).ReindexAfterImportAsync(1, "website enrichment");
+            await reindex.Received(1).ReindexItemsAfterImportAsync(
+                Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.SequenceEqual(new[] { stub.Id })), "website enrichment");
+            await reindex.DidNotReceive().ReindexAfterImportAsync(Arg.Any<int>(), Arg.Any<string>());
             await scraper.Received(1).ScrapeWebsiteAsync(Arg.Any<string>());
         }
 
         [Fact]
-        public async Task RunEnrichment_RecordsAnUnreachablePage_AsSkipped()
+        public async Task RunEnrichment_RecordsAnUnreachablePage_AsSkipped_AndReindexesIt()
         {
             var (client, _, reindex) = _factory.CreateClientWithSubstitutes<IWebsiteScraperService, IImportReindexService>(
                 s => s.ScrapeWebsiteAsync(Arg.Any<string>())
@@ -136,11 +138,13 @@ namespace MyMediaVerse.IntegrationTests.Api
             var website = await client.GetFromJsonAsync<WebsiteResponseDto>($"/api/website/{stub.Id}");
             website!.LastHttpStatus.Should().Be(404);
             website.EnrichedAt.Should().NotBeNull();
-            await reindex.Received(1).ReindexAfterImportAsync(0, "website enrichment");
+            // The page was not enriched, but its recorded link status is searchable, so it is reindexed.
+            await reindex.Received(1).ReindexItemsAfterImportAsync(
+                Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.SequenceEqual(new[] { stub.Id })), "website enrichment");
         }
 
         [Fact]
-        public async Task RunEnrichment_DefersTheReindex_WhileATimeBudgetedPageLeavesWorkPending()
+        public async Task RunEnrichment_ReindexesEachTimeBudgetedPage_JustTheWebsitesItChanged()
         {
             var scraper = Substitute.For<IWebsiteScraperService>();
             scraper.ScrapeWebsiteAsync(Arg.Any<string>()).Returns(async call =>
@@ -164,8 +168,8 @@ namespace MyMediaVerse.IntegrationTests.Api
                 });
             });
             var client = factory.CreateClient();
-            await CreateStub(client, "https://example.com/first", "example.com");
-            await CreateStub(client, "https://example.com/second", "example.com");
+            var firstStub = await CreateStub(client, "https://example.com/first", "example.com");
+            var secondStub = await CreateStub(client, "https://example.com/second", "example.com");
 
             var first = await client.PostAsync("/api/website/enrichment/run?limit=10", null);
 
@@ -174,14 +178,17 @@ namespace MyMediaVerse.IntegrationTests.Api
             firstBody.GetProperty("timeBudgetReached").GetBoolean().Should().BeTrue();
             firstBody.GetProperty("totalProcessed").GetInt32().Should().Be(1);
             firstBody.GetProperty("pendingCount").GetInt32().Should().Be(1);
-            await reindex.DidNotReceive().ReindexAfterImportAsync(Arg.Any<int>(), "website enrichment");
+            await reindex.Received(1).ReindexItemsAfterImportAsync(
+                Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.SequenceEqual(new[] { firstStub.Id })), "website enrichment");
 
             var second = await client.PostAsync("/api/website/enrichment/run?limit=10", null);
 
             second.StatusCode.Should().Be(HttpStatusCode.OK);
             var secondBody = await ReadJson(second);
             secondBody.GetProperty("pendingCount").GetInt32().Should().Be(0);
-            await reindex.Received(1).ReindexAfterImportAsync(1, "website enrichment");
+            await reindex.Received(1).ReindexItemsAfterImportAsync(
+                Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.SequenceEqual(new[] { secondStub.Id })), "website enrichment");
+            await reindex.DidNotReceive().ReindexAfterImportAsync(Arg.Any<int>(), Arg.Any<string>());
         }
 
         [Fact]
@@ -198,7 +205,9 @@ namespace MyMediaVerse.IntegrationTests.Api
         {
             var (client, _) = _factory.CreateClientWithSubstitute<IWebsiteEnrichmentService>(
                 s => s.EnrichPendingAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
-                    .Returns(new WebsiteEnrichmentResult { Success = false, ErrorMessage = "Enrichment run failed: database unavailable" }));
+                    .Returns(new ChangedItemsResult<WebsiteEnrichmentResult>(
+                        new WebsiteEnrichmentResult { Success = false, ErrorMessage = "Enrichment run failed: database unavailable" },
+                        Array.Empty<Guid>())));
 
             var response = await client.PostAsync("/api/website/enrichment/run", null);
 

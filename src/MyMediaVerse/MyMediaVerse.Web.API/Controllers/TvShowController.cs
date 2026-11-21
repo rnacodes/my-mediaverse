@@ -249,9 +249,10 @@ namespace MyMediaVerse.Web.API.Controllers
             }
 
             TvEpisodeImportResultDto result;
+            IReadOnlyList<Guid> changedEpisodeIds = Array.Empty<Guid>();
             try
             {
-                result = await _episodeImportService.ImportFromTmdbAsync(id, seasonNumbers, cancellationToken: HttpContext.RequestAborted);
+                (result, changedEpisodeIds) = await _episodeImportService.ImportFromTmdbAsync(id, seasonNumbers, cancellationToken: HttpContext.RequestAborted);
             }
             catch (Exception ex)
             {
@@ -270,13 +271,12 @@ namespace MyMediaVerse.Web.API.Controllers
                 return StatusCode(500, result);
             }
 
-            // Search reindex comes last, and only when stored data actually changed.
-            var changedCount = result.CreatedCount + result.UpdatedCount;
-            if (changedCount > 0)
+            // Search reindex comes last, and covers only the episodes this run created or filled in.
+            if (changedEpisodeIds.Count > 0)
             {
                 try
                 {
-                    await _importReindexService.ReindexAfterImportAsync(changedCount, "TMDB episode import");
+                    await _importReindexService.ReindexItemsAfterImportAsync(changedEpisodeIds, "TMDB episode import");
                     result.ReindexTriggered = true;
                 }
                 catch (Exception ex)

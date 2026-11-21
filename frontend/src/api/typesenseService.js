@@ -27,13 +27,17 @@ const tvShowFilterTerm = (tvType) => {
 // Typesense Admin API calls
 // ============================================
 
+// A full reindex of a large library can take longer than the client's default 30s,
+// so the Admin page's full-reindex calls get more room.
+const FULL_REINDEX_TIMEOUT_MS = 120000;
+
 /**
  * Trigger a bulk reindex of all media items in Typesense
  * @returns {Promise<Object>} Reindex result with statistics
  */
 export const typesenseReindex = async () => {
     try {
-        const response = await apiClient.post('/search/reindex');
+        const response = await apiClient.post('/search/reindex', null, { timeout: FULL_REINDEX_TIMEOUT_MS });
         return response.data;
     } catch (error) {
         console.error('Error reindexing Typesense:', error);
@@ -412,7 +416,7 @@ export const typesenseAdvancedSearchMixlists = async (options) => {
  */
 export const reindexMixlists = async () => {
     try {
-        const response = await apiClient.post('/search/reindex-mixlists');
+        const response = await apiClient.post('/search/reindex-mixlists', null, { timeout: FULL_REINDEX_TIMEOUT_MS });
         return response.data;
     } catch (error) {
         console.error('Error reindexing mixlists:', error);
@@ -430,7 +434,7 @@ export const reindexMixlists = async () => {
  */
 export const reindexNotes = async () => {
     try {
-        const response = await apiClient.post('/search/reindex-notes');
+        const response = await apiClient.post('/search/reindex-notes', null, { timeout: FULL_REINDEX_TIMEOUT_MS });
         return response.data;
     } catch (error) {
         console.error('Error reindexing notes:', error);
@@ -549,7 +553,7 @@ export const searchHighlightsAdvanced = async (options) => {
  */
 export const reindexHighlights = async () => {
     try {
-        const response = await apiClient.post('/search/reindex-highlights');
+        const response = await apiClient.post('/search/reindex-highlights', null, { timeout: FULL_REINDEX_TIMEOUT_MS });
         return response.data;
     } catch (error) {
         console.error('Error reindexing highlights:', error);

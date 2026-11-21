@@ -79,10 +79,10 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
 
                 while (movieCount > 0 && !stoppingToken.IsCancellationRequested)
                 {
-                    var result = await enrichmentService.EnrichMoviesWithoutTmdbDataAsync(
+                    var result = (await enrichmentService.EnrichMoviesWithoutTmdbDataAsync(
                         batchSize: _options.BatchSize,
                         delayBetweenCallsMs: _options.DelayBetweenCallsMs,
-                        cancellationToken: stoppingToken);
+                        cancellationToken: stoppingToken)).Report;
 
                     totalMoviesEnriched += result.EnrichedCount;
                     totalMoviesFailed += result.FailedCount + result.NotFoundCount;
@@ -115,10 +115,10 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
 
                 while (tvShowCount > 0 && !stoppingToken.IsCancellationRequested)
                 {
-                    var result = await enrichmentService.EnrichTvShowsWithoutTmdbDataAsync(
+                    var result = (await enrichmentService.EnrichTvShowsWithoutTmdbDataAsync(
                         batchSize: _options.BatchSize,
                         delayBetweenCallsMs: _options.DelayBetweenCallsMs,
-                        cancellationToken: stoppingToken);
+                        cancellationToken: stoppingToken)).Report;
 
                     totalTvShowsEnriched += result.EnrichedCount;
                     totalTvShowsFailed += result.FailedCount + result.NotFoundCount;

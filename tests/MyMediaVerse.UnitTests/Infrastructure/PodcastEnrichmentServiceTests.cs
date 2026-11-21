@@ -143,7 +143,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         [Fact]
         public async Task EnrichPendingPodcastsAsync_NothingPending_ReportsTheContractBody()
         {
-            var result = await _service.EnrichPendingPodcastsAsync();
+            var result = (await _service.EnrichPendingPodcastsAsync()).Report;
 
             result.Success.Should().BeTrue();
             result.Operation.Should().Be(PodcastEnrichmentResult.EnrichmentOperation);
@@ -159,7 +159,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         {
             await Seed(Series("Done", feedUrl: FeedUrl, enrichedAt: DateTime.UtcNow));
 
-            var result = await _service.EnrichPendingPodcastsAsync(batchSize: 10, delayBetweenCallsMs: 0);
+            var result = (await _service.EnrichPendingPodcastsAsync(batchSize: 10, delayBetweenCallsMs: 0)).Report;
 
             result.TotalProcessed.Should().Be(0);
             _feedReader.ReceivedCalls().Should().BeEmpty();
@@ -172,7 +172,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             var fresh = await Seed(Series("Never tried", feedUrl: "https://feeds.example.com/fresh.xml"));
             ReaderReturns(Feed());
 
-            var result = await _service.EnrichPendingPodcastsAsync(batchSize: 1, delayBetweenCallsMs: 0);
+            var result = (await _service.EnrichPendingPodcastsAsync(batchSize: 1, delayBetweenCallsMs: 0)).Report;
 
             result.TotalProcessed.Should().Be(1);
             (await Reload(fresh.Id)).EnrichedAt.Should().NotBeNull();
@@ -188,7 +188,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             var series = await Seed(Series("Podcast at feeds.example.com", feedUrl: FeedUrl));
             ReaderReturns(Feed());
 
-            var result = await _service.EnrichPendingPodcastsAsync(delayBetweenCallsMs: 0);
+            var result = (await _service.EnrichPendingPodcastsAsync(delayBetweenCallsMs: 0)).Report;
 
             result.EnrichedCount.Should().Be(1);
             result.UnchangedCount.Should().Be(0);
@@ -264,7 +264,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             await Seed(series);
             ReaderReturns(Feed(categories: Array.Empty<string>()));
 
-            var result = await _service.EnrichPendingPodcastsAsync(delayBetweenCallsMs: 0);
+            var result = (await _service.EnrichPendingPodcastsAsync(delayBetweenCallsMs: 0)).Report;
 
             result.UnchangedCount.Should().Be(1);
             result.EnrichedCount.Should().Be(0);
@@ -283,7 +283,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             _directory.LookupByAppleIdAsync("1200361736", Arg.Any<CancellationToken>()).Returns(Hit());
             ReaderReturns(Feed());
 
-            var result = await _service.EnrichPendingPodcastsAsync(delayBetweenCallsMs: 0);
+            var result = (await _service.EnrichPendingPodcastsAsync(delayBetweenCallsMs: 0)).Report;
 
             result.EnrichedCount.Should().Be(1);
             var stored = await Reload(series.Id);
@@ -300,7 +300,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
                 .Returns(new[] { Hit() });
             ReaderReturns(Feed());
 
-            var result = await _service.EnrichPendingPodcastsAsync(delayBetweenCallsMs: 0);
+            var result = (await _service.EnrichPendingPodcastsAsync(delayBetweenCallsMs: 0)).Report;
 
             result.EnrichedCount.Should().Be(1);
             var stored = await Reload(series.Id);
@@ -315,7 +315,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             _directory.SearchAsync("The Daily", Arg.Any<int>(), Arg.Any<CancellationToken>())
                 .Returns(new[] { Hit(applePodcastsId: "1"), Hit(applePodcastsId: "2", publisher: "Someone Else") });
 
-            var result = await _service.EnrichPendingPodcastsAsync(delayBetweenCallsMs: 0);
+            var result = (await _service.EnrichPendingPodcastsAsync(delayBetweenCallsMs: 0)).Report;
 
             // Attaching the wrong feed is worse than leaving the series unfilled.
             result.NotFoundCount.Should().Be(1);
@@ -335,7 +335,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
                 .Returns(new[] { Hit(applePodcastsId: "2", publisher: "Someone Else", feedUrl: "https://other.example.com/f.xml"), Hit() });
             ReaderReturns(Feed());
 
-            var result = await _service.EnrichPendingPodcastsAsync(delayBetweenCallsMs: 0);
+            var result = (await _service.EnrichPendingPodcastsAsync(delayBetweenCallsMs: 0)).Report;
 
             result.EnrichedCount.Should().Be(1);
             (await Reload(series.Id)).RssFeedUrl.Should().Be(FeedUrl);
@@ -347,7 +347,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             var series = await Seed(Series("Unknown Show", applePodcastsId: "999"));
             _directory.LookupByAppleIdAsync("999", Arg.Any<CancellationToken>()).Returns((DirectoryPodcast?)null);
 
-            var result = await _service.EnrichPendingPodcastsAsync(delayBetweenCallsMs: 0);
+            var result = (await _service.EnrichPendingPodcastsAsync(delayBetweenCallsMs: 0)).Report;
 
             result.NotFoundCount.Should().Be(1);
             result.WarningMessage.Should().Contain("no feed URL");
@@ -363,7 +363,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             _directory.LookupByAppleIdAsync("1200361736", Arg.Any<CancellationToken>())
                 .ThrowsAsync(new HttpRequestException("Apple is down"));
 
-            var result = await _service.EnrichPendingPodcastsAsync(delayBetweenCallsMs: 0);
+            var result = (await _service.EnrichPendingPodcastsAsync(delayBetweenCallsMs: 0)).Report;
 
             result.FailedCount.Should().Be(1);
             result.Errors.Should().ContainSingle().Which.Should().NotContain("Apple is down");
@@ -380,7 +380,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             var series = await Seed(Series(feedUrl: FeedUrl));
             ReaderThrows();
 
-            var result = await _service.EnrichPendingPodcastsAsync(delayBetweenCallsMs: 0);
+            var result = (await _service.EnrichPendingPodcastsAsync(delayBetweenCallsMs: 0)).Report;
 
             result.FailedCount.Should().Be(1);
             result.EnrichedCount.Should().Be(0);
@@ -404,7 +404,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             _feedReader.ReadAsync("https://feeds.example.com/good.xml", Arg.Any<int>(), Arg.Any<CancellationToken>())
                 .Returns(Feed(title: "Good Show"));
 
-            var result = await _service.EnrichPendingPodcastsAsync(delayBetweenCallsMs: 0);
+            var result = (await _service.EnrichPendingPodcastsAsync(delayBetweenCallsMs: 0)).Report;
 
             result.TotalProcessed.Should().Be(2);
             result.FailedCount.Should().Be(1);
@@ -420,8 +420,8 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             using var cts = new CancellationTokenSource();
             await cts.CancelAsync();
 
-            var result = await _service.EnrichPendingPodcastsAsync(
-                delayBetweenCallsMs: 0, cancellationToken: cts.Token);
+            var result = (await _service.EnrichPendingPodcastsAsync(
+                delayBetweenCallsMs: 0, cancellationToken: cts.Token)).Report;
 
             result.WasCancelled.Should().BeTrue();
             result.WarningMessage.Should().Contain("cancelled");

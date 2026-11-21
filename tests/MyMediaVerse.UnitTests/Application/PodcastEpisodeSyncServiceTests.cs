@@ -104,7 +104,7 @@ namespace MyMediaVerse.UnitTests.Application
             var series = await SeedSeriesAsync();
             FeedReturns(Feed(60));
 
-            var result = await _service.SyncSeriesAsync(series.Id);
+            var result = (await _service.SyncSeriesAsync(series.Id)).Report;
 
             result.Success.Should().BeTrue();
             result.Operation.Should().Be(PodcastEpisodeSyncResultDto.SyncOperation);
@@ -135,7 +135,7 @@ namespace MyMediaVerse.UnitTests.Application
             var series = await SeedSeriesAsync();
             FeedReturns(Feed(5));
 
-            var result = await _service.SyncSeriesAsync(series.Id);
+            var result = (await _service.SyncSeriesAsync(series.Id)).Report;
 
             result.CreatedCount.Should().Be(2);
             result.BacklogCount.Should().Be(3);
@@ -152,7 +152,7 @@ namespace MyMediaVerse.UnitTests.Application
             await SeedEpisodeAsync(series.Id, "g8", "https://cdn.example.com/8.mp3", Newest.AddDays(-8));
             FeedReturns(Feed(10));
 
-            var result = await _service.SyncSeriesAsync(series.Id);
+            var result = (await _service.SyncSeriesAsync(series.Id)).Report;
 
             result.CreatedCount.Should().Be(3);
             result.SkippedCount.Should().Be(1);
@@ -168,7 +168,7 @@ namespace MyMediaVerse.UnitTests.Application
             await SeedEpisodeAsync(series.Id, "g1", "https://cdn.example.com/1.mp3", Newest.AddDays(-1));
             FeedReturns(Feed(10));
 
-            var result = await _service.SyncSeriesAsync(series.Id);
+            var result = (await _service.SyncSeriesAsync(series.Id)).Report;
 
             result.CreatedCount.Should().Be(2);
             (await Context.PodcastEpisodes.Select(e => e.RssGuid).ToListAsync()).Should().BeEquivalentTo("g0", "g1", "g2");
@@ -182,7 +182,7 @@ namespace MyMediaVerse.UnitTests.Application
             await _service.SyncSeriesAsync(series.Id);
             Context.ChangeTracker.Clear();
 
-            var result = await _service.SyncSeriesAsync(series.Id);
+            var result = (await _service.SyncSeriesAsync(series.Id)).Report;
 
             result.CreatedCount.Should().Be(0);
             result.SkippedCount.Should().Be(25);
@@ -198,7 +198,7 @@ namespace MyMediaVerse.UnitTests.Application
             // g0 is newer than the stored g1; g2..g4 are older back catalog.
             FeedReturns(Feed(5));
 
-            var result = await _service.SyncSeriesAsync(series.Id);
+            var result = (await _service.SyncSeriesAsync(series.Id)).Report;
 
             result.CreatedCount.Should().Be(1);
             result.SkippedCount.Should().Be(1);
@@ -214,7 +214,7 @@ namespace MyMediaVerse.UnitTests.Application
             await SeedEpisodeAsync(series.Id, "old", "https://cdn.example.com/old.mp3", Newest.AddDays(-30));
             FeedReturns(Feed(5));
 
-            var result = await _service.SyncSeriesAsync(series.Id);
+            var result = (await _service.SyncSeriesAsync(series.Id)).Report;
 
             result.Success.Should().BeTrue();
             result.CreatedCount.Should().Be(3);
@@ -230,7 +230,7 @@ namespace MyMediaVerse.UnitTests.Application
             await SeedEpisodeAsync(series.Id, null, "http://www.cdn.example.com/0.mp3", Newest);
             FeedReturns(Feed(1));
 
-            var result = await _service.SyncSeriesAsync(series.Id);
+            var result = (await _service.SyncSeriesAsync(series.Id)).Report;
 
             result.CreatedCount.Should().Be(0);
             result.SkippedCount.Should().Be(1);
@@ -245,7 +245,7 @@ namespace MyMediaVerse.UnitTests.Application
             var feed = Feed(2, tweak: (_, item) => item with { Guid = "same", EnclosureUrl = "https://cdn.example.com/same.mp3" });
             FeedReturns(feed);
 
-            var result = await _service.SyncSeriesAsync(series.Id);
+            var result = (await _service.SyncSeriesAsync(series.Id)).Report;
 
             result.CreatedCount.Should().Be(1);
             result.SkippedCount.Should().Be(1);
@@ -258,7 +258,7 @@ namespace MyMediaVerse.UnitTests.Application
             var series = await SeedSeriesAsync();
             FeedReturns(Feed(3, tweak: (i, item) => i == 1 ? item with { EnclosureUrl = null } : item));
 
-            var result = await _service.SyncSeriesAsync(series.Id);
+            var result = (await _service.SyncSeriesAsync(series.Id)).Report;
 
             result.CreatedCount.Should().Be(2);
             result.IgnoredCount.Should().Be(1);
@@ -273,7 +273,7 @@ namespace MyMediaVerse.UnitTests.Application
                 FeedReturns(RssPodcastFeedReader.Parse(stream));
             }
 
-            var result = await _service.SyncSeriesAsync(series.Id);
+            var result = (await _service.SyncSeriesAsync(series.Id)).Report;
 
             result.CreatedCount.Should().Be(5);
             var latest = await Context.PodcastEpisodes.SingleAsync(e => e.RssGuid == "prx_7057_82aaba05-80c9-4d2e-8069-3c20f2b7dbc8");
@@ -291,7 +291,7 @@ namespace MyMediaVerse.UnitTests.Application
             _reader.ReadAsync(FeedUrl, Arg.Any<int>(), Arg.Any<CancellationToken>())
                 .ThrowsAsync(new PodcastFeedException(PodcastFeedFailureReason.HttpError, "The feed returned HTTP 404."));
 
-            var result = await _service.SyncSeriesAsync(series.Id);
+            var result = (await _service.SyncSeriesAsync(series.Id)).Report;
 
             result.Success.Should().BeFalse();
             result.ErrorMessage.Should().Be("The feed returned HTTP 404.");

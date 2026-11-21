@@ -76,11 +76,23 @@ namespace MyMediaVerse.Application.Services
             return preview;
         }
 
-        public async Task<WebsiteBulkImportResultDto> ImportAsync(
+        public async Task<ChangedItemsResult<WebsiteBulkImportResultDto>> ImportAsync(
             BookmarkParseResult parsed,
             BookmarkImportOptionsDto options,
             string operation,
             CancellationToken cancellationToken = default)
+        {
+            var changedWebsites = new List<Website>();
+            var report = await ImportCoreAsync(parsed, options, operation, changedWebsites, cancellationToken);
+            return new ChangedItemsResult<WebsiteBulkImportResultDto>(report, changedWebsites.Select(w => w.Id).Distinct().ToList());
+        }
+
+        private async Task<WebsiteBulkImportResultDto> ImportCoreAsync(
+            BookmarkParseResult parsed,
+            BookmarkImportOptionsDto options,
+            string operation,
+            List<Website> changedWebsites,
+            CancellationToken cancellationToken)
         {
             var result = new WebsiteBulkImportResultDto
             {
@@ -135,7 +147,11 @@ namespace MyMediaVerse.Application.Services
                             var changed = WebsiteDuplicateFinder.FillIdentity(website);
                             changed |= await AddTagsAsync(website, topicNames, extraGenres, topics, genres);
 
-                            if (changed) result.UpdatedCount++;
+                            if (changed)
+                            {
+                                result.UpdatedCount++;
+                                changedWebsites.Add(website);
+                            }
                             else result.SkippedCount++;
                         }
                         else
@@ -158,6 +174,7 @@ namespace MyMediaVerse.Application.Services
                             _context.Add(website);
                             existing[candidate.Key] = website;
                             result.CreatedCount++;
+                            changedWebsites.Add(website);
                         }
 
                         if (++pendingSaves >= SaveBatchSize)

@@ -14,8 +14,8 @@ namespace MyMediaVerse.Shared.Interfaces
         /// 1-5 <c>GoodreadsRating</c> whose derived value differs from the current Rating.
         /// </summary>
         /// <param name="cancellationToken">Cancellation token for stopping the operation.</param>
-        /// <returns>Counts of candidates considered and ratings converted.</returns>
-        Task<BookRatingConversionResult> ConvertGoodreadsRatingsAsync(CancellationToken cancellationToken = default);
+        /// <returns>Counts of candidates considered and ratings converted, plus the ids of the converted books.</returns>
+        Task<ChangedItemsResult<BookRatingConversionResult>> ConvertGoodreadsRatingsAsync(CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Gets the count of books that still need their Goodreads rating converted (have a real 1-5

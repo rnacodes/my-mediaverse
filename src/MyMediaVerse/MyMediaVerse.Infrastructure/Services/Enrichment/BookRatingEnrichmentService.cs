@@ -39,9 +39,10 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
         }
 
         /// <inheritdoc />
-        public async Task<BookRatingConversionResult> ConvertGoodreadsRatingsAsync(CancellationToken cancellationToken = default)
+        public async Task<ChangedItemsResult<BookRatingConversionResult>> ConvertGoodreadsRatingsAsync(CancellationToken cancellationToken = default)
         {
             var result = new BookRatingConversionResult { StartedAt = DateTime.UtcNow };
+            var convertedIds = new List<Guid>();
 
             try
             {
@@ -61,6 +62,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                     }
 
                     var convertedInPage = 0;
+                    var convertedPageIds = new List<Guid>();
                     foreach (var book in page)
                     {
                         var derived = RatingConverter.ConvertGoodreadsRatingToPLBRating(book.GoodreadsRating);
@@ -72,6 +74,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
 
                         book.Rating = derived;
                         convertedInPage++;
+                        convertedPageIds.Add(book.Id);
                     }
 
                     result.TotalCandidates += page.Count;
@@ -80,6 +83,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                     if (convertedInPage > 0)
                     {
                         await _context.SaveChangesAsync(cancellationToken);
+                        convertedIds.AddRange(convertedPageIds);
                     }
 
                     offset += page.Count;
@@ -98,7 +102,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                 _logger.LogError(ex, "Goodreads rating conversion run failed");
             }
 
-            return result;
+            return new ChangedItemsResult<BookRatingConversionResult>(result, convertedIds);
         }
     }
 }

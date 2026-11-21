@@ -8,9 +8,10 @@ namespace MyMediaVerse.Shared.Interfaces
     {
         /// <summary>
         /// Fills a batch of series that have never been filled, oldest attempt first. Pass null for
-        /// either argument to use the configured default.
+        /// either argument to use the configured default. The changed ids are the series the batch
+        /// filled, plus those it updated from the directory while no feed was found.
         /// </summary>
-        Task<PodcastEnrichmentResult> EnrichPendingPodcastsAsync(
+        Task<ChangedItemsResult<PodcastEnrichmentResult>> EnrichPendingPodcastsAsync(
             int? batchSize = null,
             int? delayBetweenCallsMs = null,
             CancellationToken cancellationToken = default);

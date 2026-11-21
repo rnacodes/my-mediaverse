@@ -40,7 +40,10 @@ namespace MyMediaVerse.UnitTests.Application
         private static BookmarkParseResult Parsed(int nonWebLinks, params ParsedBookmark[] bookmarks) =>
             new(bookmarks, nonWebLinks, Array.Empty<string>());
 
-        private Task<WebsiteBulkImportResultDto> Import(BookmarkParseResult parsed, BookmarkImportOptionsDto? options = null) =>
+        private async Task<WebsiteBulkImportResultDto> Import(BookmarkParseResult parsed, BookmarkImportOptionsDto? options = null) =>
+            (await ImportWithIds(parsed, options)).Report;
+
+        private Task<ChangedItemsResult<WebsiteBulkImportResultDto>> ImportWithIds(BookmarkParseResult parsed, BookmarkImportOptionsDto? options = null) =>
             _service.ImportAsync(parsed, options ?? new BookmarkImportOptionsDto(), WebsiteBulkImportResultDto.BookmarkImportOperation);
 
         private async Task<Website> SeedWebsite(string url, string title = "Existing", bool legacy = false, params string[] topics)
@@ -309,9 +312,9 @@ namespace MyMediaVerse.UnitTests.Application
             using var cts = new CancellationTokenSource();
             cts.Cancel();
 
-            var result = await _service.ImportAsync(
+            var result = (await _service.ImportAsync(
                 Parsed(Bookmark("https://example.com/a")), new BookmarkImportOptionsDto(),
-                WebsiteBulkImportResultDto.UrlListImportOperation, cts.Token);
+                WebsiteBulkImportResultDto.UrlListImportOperation, cts.Token)).Report;
 
             result.WasCancelled.Should().BeTrue();
             result.Success.Should().BeTrue();
@@ -326,7 +329,7 @@ namespace MyMediaVerse.UnitTests.Application
             context.Websites.Returns(_ => throw new InvalidOperationException("database unavailable"));
             var service = new WebsiteBulkImportService(context, Substitute.For<ILogger<WebsiteBulkImportService>>());
 
-            var result = await service.ImportAsync(Parsed(Bookmark("https://example.com/a")), new BookmarkImportOptionsDto(), "bookmark-import");
+            var result = (await service.ImportAsync(Parsed(Bookmark("https://example.com/a")), new BookmarkImportOptionsDto(), "bookmark-import")).Report;
 
             result.Success.Should().BeFalse();
             result.ErrorMessage.Should().Contain("database unavailable");

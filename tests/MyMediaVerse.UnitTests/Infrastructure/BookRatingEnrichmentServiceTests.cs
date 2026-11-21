@@ -35,7 +35,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         {
             var book = await SeedBook("Dune", goodreadsRating: 5m, rating: null);
 
-            var result = await _service.ConvertGoodreadsRatingsAsync();
+            var result = (await _service.ConvertGoodreadsRatingsAsync()).Report;
 
             book.Rating.Should().Be(Rating.SuperLike);
             result.TotalCandidates.Should().Be(1);
@@ -48,7 +48,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             // Goodreads-primary: a book whose raw rating maps to a different value is overwritten.
             var book = await SeedBook("Neuromancer", goodreadsRating: 3m, rating: Rating.SuperLike);
 
-            var result = await _service.ConvertGoodreadsRatingsAsync();
+            var result = (await _service.ConvertGoodreadsRatingsAsync()).Report;
 
             book.Rating.Should().Be(Rating.Neutral);
             result.Converted.Should().Be(1);
@@ -59,7 +59,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         {
             var book = await SeedBook("Snow Crash", goodreadsRating: 4m, rating: Rating.Like);
 
-            var result = await _service.ConvertGoodreadsRatingsAsync();
+            var result = (await _service.ConvertGoodreadsRatingsAsync()).Report;
 
             book.Rating.Should().Be(Rating.Like);
             result.Converted.Should().Be(0);
@@ -73,7 +73,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             var unrated = await SeedBook("Unrated", goodreadsRating: null, rating: Rating.Like);
             var zero = await SeedBook("Zero", goodreadsRating: 0m, rating: Rating.Dislike);
 
-            var result = await _service.ConvertGoodreadsRatingsAsync();
+            var result = (await _service.ConvertGoodreadsRatingsAsync()).Report;
 
             unrated.Rating.Should().Be(Rating.Like);
             zero.Rating.Should().Be(Rating.Dislike);
@@ -108,7 +108,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             }
             await Context.SaveChangesAsync();
 
-            var result = await _service.ConvertGoodreadsRatingsAsync();
+            var result = (await _service.ConvertGoodreadsRatingsAsync()).Report;
 
             result.TotalCandidates.Should().Be(total);
             result.Converted.Should().Be(total);
@@ -120,7 +120,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         {
             await SeedBook("Dune", goodreadsRating: 5m, rating: null);
 
-            var result = await _service.ConvertGoodreadsRatingsAsync();
+            var result = (await _service.ConvertGoodreadsRatingsAsync()).Report;
 
             result.Success.Should().BeTrue();
             result.Operation.Should().Be("goodreads-rating-conversion");

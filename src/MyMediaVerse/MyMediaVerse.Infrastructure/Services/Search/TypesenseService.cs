@@ -701,6 +701,9 @@ namespace MyMediaVerse.Infrastructure.Services.Search
         /// Re-indexes just the given media items. Builds the same documents as the bulk reindex but
         /// skips its reconcile step: these callers only create or change rows, never delete them.
         /// </summary>
+        /// <summary>How many ids the by-ids reindex loads per database query.</summary>
+        internal const int ReindexByIdsChunkSize = 500;
+
         public async Task<int> ReindexMediaItemsByIdsAsync(IReadOnlyCollection<Guid> ids)
         {
             var distinctIds = ids.Distinct().ToList();
@@ -711,12 +714,17 @@ namespace MyMediaVerse.Infrastructure.Services.Search
 
             try
             {
-                var mediaItems = await _context.MediaItems
-                    .Include(m => m.Topics)
-                    .Include(m => m.Genres)
-                    .AsNoTracking()
-                    .Where(m => distinctIds.Contains(m.Id))
-                    .ToListAsync();
+                var mediaItems = new List<BaseMediaItem>(distinctIds.Count);
+                foreach (var chunk in distinctIds.Chunk(ReindexByIdsChunkSize))
+                {
+                    var chunkIds = chunk.ToList();
+                    mediaItems.AddRange(await _context.MediaItems
+                        .Include(m => m.Topics)
+                        .Include(m => m.Genres)
+                        .AsNoTracking()
+                        .Where(m => chunkIds.Contains(m.Id))
+                        .ToListAsync());
+                }
 
                 if (mediaItems.Count < distinctIds.Count)
                 {

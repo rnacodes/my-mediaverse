@@ -138,6 +138,10 @@ export const deleteWebsite = async (id) => {
 // replaces the value with the boundary-carrying one, the same way uploadService.js posts.
 const MULTIPART = { headers: { 'Content-Type': 'multipart/form-data' } };
 
+// A large bookmark export or URL list can take longer than the client's default 30s to save,
+// so the two import calls get more room.
+const BULK_IMPORT_TIMEOUT_MS = 120000;
+
 const bookmarkFileForm = (file, options = {}) => {
     const form = new FormData();
     form.append('file', file);
@@ -170,7 +174,10 @@ export const previewBookmarkFile = async (file) => {
  */
 export const importBookmarkFile = async (file, options = {}) => {
     try {
-        const response = await apiClient.post('/website/from-bookmark-file', bookmarkFileForm(file, options), MULTIPART);
+        const response = await apiClient.post('/website/from-bookmark-file', bookmarkFileForm(file, options), {
+            ...MULTIPART,
+            timeout: BULK_IMPORT_TIMEOUT_MS,
+        });
         return response.data;
     } catch (error) {
         console.error('Error importing bookmark file:', error);
@@ -199,7 +206,9 @@ export const previewUrlList = async (urls) => {
  */
 export const importUrlList = async (urls, options = {}) => {
     try {
-        const response = await apiClient.post('/website/from-url-list', { urls, options });
+        const response = await apiClient.post('/website/from-url-list', { urls, options }, {
+            timeout: BULK_IMPORT_TIMEOUT_MS,
+        });
         return response.data;
     } catch (error) {
         console.error('Error importing URL list:', error);

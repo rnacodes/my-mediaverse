@@ -23,7 +23,8 @@ namespace MyMediaVerse.Shared.Interfaces
         /// </param>
         /// <param name="delayBetweenCallsMs">Delay between TMDB requests in milliseconds (default: 250)</param>
         /// <param name="cancellationToken">Stops the run between seasons; episodes already walked are still saved.</param>
-        Task<TvEpisodeImportResultDto> ImportFromTmdbAsync(
+        /// <returns>The run's report, plus the ids of the episodes it created or filled in.</returns>
+        Task<ChangedItemsResult<TvEpisodeImportResultDto>> ImportFromTmdbAsync(
             Guid showId,
             IReadOnlyCollection<int>? seasonNumbers = null,
             int delayBetweenCallsMs = 250,

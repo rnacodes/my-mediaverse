@@ -83,10 +83,10 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
 
             while (pendingCount > 0 && !stoppingToken.IsCancellationRequested)
             {
-                var result = await enrichmentService.EnrichBooksWithoutDescriptionsAsync(
+                var result = (await enrichmentService.EnrichBooksWithoutDescriptionsAsync(
                     batchSize: _options.BatchSize,
                     delayBetweenCallsMs: _options.DelayBetweenCallsMs,
-                    cancellationToken: stoppingToken);
+                    cancellationToken: stoppingToken)).Report;
 
                 totalEnriched += result.EnrichedCount;
                 totalFailed += result.FailedCount;

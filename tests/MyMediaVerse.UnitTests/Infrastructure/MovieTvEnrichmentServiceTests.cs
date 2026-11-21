@@ -87,7 +87,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         [Fact]
         public async Task EnrichMoviesWithoutTmdbDataAsync_NoMoviesNeeding_ReturnsZeroProcessed()
         {
-            var result = await _service.EnrichMoviesWithoutTmdbDataAsync();
+            var result = (await _service.EnrichMoviesWithoutTmdbDataAsync()).Report;
 
             result.TotalProcessed.Should().Be(0);
         }
@@ -133,7 +133,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
                     PosterPath = "/poster.jpg"
                 });
 
-            var result = await _service.EnrichMoviesWithoutTmdbDataAsync(batchSize: 10, delayBetweenCallsMs: 0);
+            var result = (await _service.EnrichMoviesWithoutTmdbDataAsync(batchSize: 10, delayBetweenCallsMs: 0)).Report;
 
             result.TotalProcessed.Should().Be(1);
             result.EnrichedCount.Should().Be(1);
@@ -159,7 +159,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
                     TotalResults = 0
                 });
 
-            var result = await _service.EnrichMoviesWithoutTmdbDataAsync(batchSize: 10, delayBetweenCallsMs: 0);
+            var result = (await _service.EnrichMoviesWithoutTmdbDataAsync(batchSize: 10, delayBetweenCallsMs: 0)).Report;
 
             result.NotFoundCount.Should().Be(1);
             result.EnrichedCount.Should().Be(0);
@@ -176,7 +176,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             var cts = new CancellationTokenSource();
             cts.Cancel();
 
-            var result = await _service.EnrichMoviesWithoutTmdbDataAsync(cancellationToken: cts.Token);
+            var result = (await _service.EnrichMoviesWithoutTmdbDataAsync(cancellationToken: cts.Token)).Report;
 
             result.WasCancelled.Should().BeTrue();
         }
@@ -188,7 +188,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         [Fact]
         public async Task EnrichTvShowsWithoutTmdbDataAsync_NoTvShowsNeeding_ReturnsZeroProcessed()
         {
-            var result = await _service.EnrichTvShowsWithoutTmdbDataAsync();
+            var result = (await _service.EnrichTvShowsWithoutTmdbDataAsync()).Report;
 
             result.TotalProcessed.Should().Be(0);
         }
@@ -236,7 +236,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
                     PosterPath = "/poster.jpg"
                 });
 
-            var result = await _service.EnrichTvShowsWithoutTmdbDataAsync(batchSize: 10, delayBetweenCallsMs: 0);
+            var result = (await _service.EnrichTvShowsWithoutTmdbDataAsync(batchSize: 10, delayBetweenCallsMs: 0)).Report;
 
             result.TotalProcessed.Should().Be(1);
             result.EnrichedCount.Should().Be(1);
@@ -392,7 +392,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
                 }
             });
 
-            var result = await _service.EnrichMoviesWithoutTmdbDataAsync(batchSize: 10, delayBetweenCallsMs: 0);
+            var result = (await _service.EnrichMoviesWithoutTmdbDataAsync(batchSize: 10, delayBetweenCallsMs: 0)).Report;
 
             result.EnrichedCount.Should().Be(1);
             result.Errors.Should().BeEmpty();
@@ -438,7 +438,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             SetupMovieMatch("Heat", 949, new TmdbMovieDto { Id = 949, Title = "Heat", Genres = new List<TmdbGenreDto> { new() { Id = 80, Name = "Crime" } } });
             SetupMovieMatch("Collateral", 1538, new TmdbMovieDto { Id = 1538, Title = "Collateral", Genres = new List<TmdbGenreDto> { new() { Id = 80, Name = "Crime" } } });
 
-            var result = await _service.EnrichMoviesWithoutTmdbDataAsync(batchSize: 10, delayBetweenCallsMs: 0);
+            var result = (await _service.EnrichMoviesWithoutTmdbDataAsync(batchSize: 10, delayBetweenCallsMs: 0)).Report;
 
             result.EnrichedCount.Should().Be(2);
             result.Errors.Should().BeEmpty();
@@ -464,7 +464,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
                 CreatedBy = new List<TmdbCreatedByDto> { new() { Name = "David Benioff" } }
             });
 
-            var result = await _service.EnrichTvShowsWithoutTmdbDataAsync(batchSize: 10, delayBetweenCallsMs: 0);
+            var result = (await _service.EnrichTvShowsWithoutTmdbDataAsync(batchSize: 10, delayBetweenCallsMs: 0)).Report;
 
             result.EnrichedCount.Should().Be(1);
             result.Errors.Should().BeEmpty();

@@ -386,8 +386,10 @@ namespace MyMediaVerse.Web.API.Controllers
                 }
 
                 // Make the imported items searchable immediately (best-effort; never fails the import).
-                result.ReindexTriggered = result.CreatedCount > 0;
-                await _importReindexService.ReindexAfterImportAsync(result.CreatedCount, "CSV upload");
+                // Only the rows this upload created are reindexed, not the whole library.
+                var importedIds = result.ImportedItems.Select(i => i.Id).ToList();
+                result.ReindexTriggered = importedIds.Count > 0;
+                await _importReindexService.ReindexItemsAfterImportAsync(importedIds, "CSV upload");
 
                 result.CompletedAt = DateTime.UtcNow;
                 _logger.LogInformation("CSV upload completed: {Created} created, {Skipped} skipped, {Failed} failed",
@@ -473,11 +475,15 @@ namespace MyMediaVerse.Web.API.Controllers
                 // something.
                 var isChunked = chunkIndex.HasValue && totalChunks.HasValue;
                 var isFinalChunk = isChunked && chunkIndex!.Value == totalChunks!.Value - 1;
+                var changedIds = result.ImportedBooks.Select(b => b.Id).ToList();
                 if (isFinalChunk || (!isChunked && result.SuccessCount > 0))
                 {
                     try
                     {
-                        await _ratingEnrichmentService.ConvertGoodreadsRatingsAsync();
+                        // The conversion can change books from any chunk (or from earlier uploads),
+                        // so the books it rewrote join this chunk's reindex.
+                        var conversion = await _ratingEnrichmentService.ConvertGoodreadsRatingsAsync();
+                        changedIds.AddRange(conversion.ChangedIds);
                     }
                     catch (Exception ex)
                     {
@@ -486,10 +492,11 @@ namespace MyMediaVerse.Web.API.Controllers
                 }
 
                 // Make the imported books searchable immediately (best-effort; never fails the import).
-                // Fires per chunk that actually imported books — Typesense skips the re-embed for
-                // documents whose text is unchanged, so earlier chunks' books aren't re-embedded.
-                result.ReindexTriggered = result.SuccessCount > 0;
-                await _importReindexService.ReindexAfterImportAsync(result.SuccessCount, "Goodreads CSV");
+                // Each chunk reindexes only the books it created or updated, plus any books the
+                // final rating conversion changed.
+                var reindexIds = changedIds.Distinct().ToList();
+                result.ReindexTriggered = reindexIds.Count > 0;
+                await _importReindexService.ReindexItemsAfterImportAsync(reindexIds, "Goodreads CSV");
 
                 // Include chunk info in response for frontend progress tracking
                 if (chunkIndex.HasValue && totalChunks.HasValue)
