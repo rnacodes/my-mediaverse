@@ -104,7 +104,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             GivenSeason(1399, 0, Episode(0, 1, "Inside Game of Thrones"));
             GivenSeason(1399, 1, Episode(1, 1, "Winter Is Coming"), Episode(1, 2, "The Kingsroad"));
 
-            var result = await _service.ImportFromTmdbAsync(show.Id, delayBetweenCallsMs: 0);
+            var result = (await _service.ImportFromTmdbAsync(show.Id, delayBetweenCallsMs: 0)).Report;
 
             result.Success.Should().BeTrue();
             result.Operation.Should().Be("tv-episodes-from-tmdb");
@@ -154,7 +154,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             GivenDetails(1399, (1, 3));
             GivenSeason(1399, 1, Episode(1, 3, "Lord Snow"));
 
-            var result = await _service.ImportFromTmdbAsync(show.Id, delayBetweenCallsMs: 0);
+            var result = (await _service.ImportFromTmdbAsync(show.Id, delayBetweenCallsMs: 0)).Report;
 
             result.CreatedCount.Should().Be(0);
             result.UpdatedCount.Should().Be(1);
@@ -192,7 +192,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             GivenDetails(1399, (1, 1));
             GivenSeason(1399, 1, Episode(1, 1, "Winter Is Coming"));
 
-            var result = await _service.ImportFromTmdbAsync(show.Id, delayBetweenCallsMs: 0);
+            var result = (await _service.ImportFromTmdbAsync(show.Id, delayBetweenCallsMs: 0)).Report;
 
             result.UpdatedCount.Should().Be(1, "air date, runtime, still, and TMDB id were empty");
 
@@ -214,7 +214,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             GivenSeason(1399, 1, Episode(1, 1, "Winter Is Coming"), Episode(1, 2, "The Kingsroad"));
             await _service.ImportFromTmdbAsync(show.Id, delayBetweenCallsMs: 0);
 
-            var second = await _service.ImportFromTmdbAsync(show.Id, delayBetweenCallsMs: 0);
+            var second = (await _service.ImportFromTmdbAsync(show.Id, delayBetweenCallsMs: 0)).Report;
 
             second.CreatedCount.Should().Be(0);
             second.UpdatedCount.Should().Be(0);
@@ -230,7 +230,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             GivenDetails(1399, (0, 1), (1, 2), (2, 1));
             GivenSeason(1399, 1, Episode(1, 1, "Winter Is Coming"), Episode(1, 2, "The Kingsroad"));
 
-            var result = await _service.ImportFromTmdbAsync(show.Id, seasonNumbers: new[] { 1 }, delayBetweenCallsMs: 0);
+            var result = (await _service.ImportFromTmdbAsync(show.Id, seasonNumbers: new[] { 1 }, delayBetweenCallsMs: 0)).Report;
 
             result.Success.Should().BeTrue();
             result.CreatedCount.Should().Be(2);
@@ -264,7 +264,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             GivenDetails(1399, (1, 1));
             GivenSeason(1399, 1, Episode(1, 1, "Winter Is Coming"));
 
-            var result = await _service.ImportFromTmdbAsync(show.Id, seasonNumbers: new[] { 1, 9 }, delayBetweenCallsMs: 0);
+            var result = (await _service.ImportFromTmdbAsync(show.Id, seasonNumbers: new[] { 1, 9 }, delayBetweenCallsMs: 0)).Report;
 
             result.Success.Should().BeTrue();
             result.CreatedCount.Should().Be(1);
@@ -281,7 +281,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             GivenSeason(1399, 1, Episode(1, 1, "Winter Is Coming"));
             GivenSeason(1399, 2, Episode(2, 1, "The North Remembers"));
 
-            var result = await _service.ImportFromTmdbAsync(show.Id, seasonNumbers: Array.Empty<int>(), delayBetweenCallsMs: 0);
+            var result = (await _service.ImportFromTmdbAsync(show.Id, seasonNumbers: Array.Empty<int>(), delayBetweenCallsMs: 0)).Report;
 
             result.CreatedCount.Should().Be(2);
             result.SeasonsProcessed.Should().Be(2);
@@ -297,7 +297,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
                 .ThrowsAsync(new HttpRequestException("not found", null, HttpStatusCode.NotFound));
             GivenSeason(1399, 3, Episode(3, 1, "Valar Dohaeris"));
 
-            var result = await _service.ImportFromTmdbAsync(show.Id, delayBetweenCallsMs: 0);
+            var result = (await _service.ImportFromTmdbAsync(show.Id, delayBetweenCallsMs: 0)).Report;
 
             result.Success.Should().BeTrue("a season failure completes the run, it does not abort it");
             result.CreatedCount.Should().Be(2);
@@ -316,7 +316,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             GivenDetails(1399, (1, 1));
             _tmdbClient.GetTvSeasonAsync(1399, 1).ThrowsAsync(new InvalidOperationException("malformed payload"));
 
-            var result = await _service.ImportFromTmdbAsync(show.Id, delayBetweenCallsMs: 0);
+            var result = (await _service.ImportFromTmdbAsync(show.Id, delayBetweenCallsMs: 0)).Report;
 
             result.Success.Should().BeTrue();
             result.FailedCount.Should().Be(1);
@@ -328,7 +328,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         {
             var show = await SeedShow(tmdbId: null);
 
-            var result = await _service.ImportFromTmdbAsync(show.Id, delayBetweenCallsMs: 0);
+            var result = (await _service.ImportFromTmdbAsync(show.Id, delayBetweenCallsMs: 0)).Report;
 
             result.Success.Should().BeFalse();
             result.ShowTitle.Should().Be("Game of Thrones");
@@ -340,7 +340,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         [Fact]
         public async Task ImportFromTmdb_AbortsWithAClearMessage_WhenTheShowIsUnknown()
         {
-            var result = await _service.ImportFromTmdbAsync(Guid.NewGuid(), delayBetweenCallsMs: 0);
+            var result = (await _service.ImportFromTmdbAsync(Guid.NewGuid(), delayBetweenCallsMs: 0)).Report;
 
             result.Success.Should().BeFalse();
             result.ErrorMessage.Should().Contain("not found");
@@ -354,7 +354,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             _tmdbClient.GetTvShowDetailsAsync(1399)
                 .ThrowsAsync(new HttpRequestException("not found", null, HttpStatusCode.NotFound));
 
-            var result = await _service.ImportFromTmdbAsync(show.Id, delayBetweenCallsMs: 0);
+            var result = (await _service.ImportFromTmdbAsync(show.Id, delayBetweenCallsMs: 0)).Report;
 
             result.Success.Should().BeFalse();
             result.ErrorMessage.Should().Contain("TMDB no longer has id 1399");
@@ -388,7 +388,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             var show = await SeedShow();
             GivenDetails(1399);
 
-            var result = await _service.ImportFromTmdbAsync(show.Id, delayBetweenCallsMs: 0);
+            var result = (await _service.ImportFromTmdbAsync(show.Id, delayBetweenCallsMs: 0)).Report;
 
             result.Success.Should().BeTrue();
             result.SeasonsProcessed.Should().Be(0);
@@ -421,7 +421,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             });
             GivenSeason(1399, 2, Episode(2, 1, "The North Remembers"));
 
-            var result = await _service.ImportFromTmdbAsync(show.Id, delayBetweenCallsMs: 0, cancellationToken: cts.Token);
+            var result = (await _service.ImportFromTmdbAsync(show.Id, delayBetweenCallsMs: 0, cancellationToken: cts.Token)).Report;
 
             result.Success.Should().BeTrue();
             result.CreatedCount.Should().Be(1);

@@ -50,10 +50,21 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
         }
 
         /// <inheritdoc />
-        public async Task<MovieTvEnrichmentResult> EnrichMoviesWithoutTmdbDataAsync(
+        public async Task<ChangedItemsResult<MovieTvEnrichmentResult>> EnrichMoviesWithoutTmdbDataAsync(
             int batchSize = 50,
             int delayBetweenCallsMs = 500,
             CancellationToken cancellationToken = default)
+        {
+            var enrichedIds = new List<Guid>();
+            var report = await EnrichMoviesBatchAsync(batchSize, delayBetweenCallsMs, enrichedIds, cancellationToken);
+            return new ChangedItemsResult<MovieTvEnrichmentResult>(report, enrichedIds);
+        }
+
+        private async Task<MovieTvEnrichmentResult> EnrichMoviesBatchAsync(
+            int batchSize,
+            int delayBetweenCallsMs,
+            List<Guid> enrichedIds,
+            CancellationToken cancellationToken)
         {
             var result = new MovieTvEnrichmentResult();
 
@@ -117,6 +128,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                         movie.TmdbRefreshedAt = movie.EnrichedAt;
                         _context.Update(movie);
                         result.EnrichedCount++;
+                        enrichedIds.Add(movie.Id);
 
                         _logger.LogDebug("Successfully enriched movie: {Title} (TMDB ID: {TmdbId})",
                             movie.Title, movie.TmdbId);
@@ -157,10 +169,21 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
         }
 
         /// <inheritdoc />
-        public async Task<MovieTvEnrichmentResult> EnrichTvShowsWithoutTmdbDataAsync(
+        public async Task<ChangedItemsResult<MovieTvEnrichmentResult>> EnrichTvShowsWithoutTmdbDataAsync(
             int batchSize = 50,
             int delayBetweenCallsMs = 500,
             CancellationToken cancellationToken = default)
+        {
+            var enrichedIds = new List<Guid>();
+            var report = await EnrichTvShowsBatchAsync(batchSize, delayBetweenCallsMs, enrichedIds, cancellationToken);
+            return new ChangedItemsResult<MovieTvEnrichmentResult>(report, enrichedIds);
+        }
+
+        private async Task<MovieTvEnrichmentResult> EnrichTvShowsBatchAsync(
+            int batchSize,
+            int delayBetweenCallsMs,
+            List<Guid> enrichedIds,
+            CancellationToken cancellationToken)
         {
             var result = new MovieTvEnrichmentResult();
 
@@ -224,6 +247,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                         tvShow.TmdbRefreshedAt = tvShow.EnrichedAt;
                         _context.Update(tvShow);
                         result.EnrichedCount++;
+                        enrichedIds.Add(tvShow.Id);
 
                         _logger.LogDebug("Successfully enriched TV show: {Title} (TMDB ID: {TmdbId})",
                             tvShow.Title, tvShow.TmdbId);

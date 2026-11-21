@@ -74,7 +74,7 @@ namespace MyMediaVerse.Web.API.Controllers
                     "Starting on-demand podcast enrichment. BatchSize: {BatchSize}, Delay: {Delay}ms",
                     batchSize, delayMs);
 
-                var result = await _enrichmentService.EnrichPendingPodcastsAsync(
+                var (result, changedIds) = await _enrichmentService.EnrichPendingPodcastsAsync(
                     batchSize: batchSize,
                     delayBetweenCallsMs: delayMs,
                     cancellationToken: HttpContext.RequestAborted);
@@ -84,7 +84,11 @@ namespace MyMediaVerse.Web.API.Controllers
                     return StatusCode(500, result);
                 }
 
-                await ReindexAsync(result);
+                if (changedIds.Count > 0)
+                {
+                    await _importReindexService.ReindexItemsAfterImportAsync(changedIds, "podcast enrichment");
+                    result.ReindexTriggered = true;
+                }
 
                 _logger.LogInformation(
                     "On-demand podcast enrichment completed. Filled: {Enriched}, unchanged: {Unchanged}, no feed: {NotFound}, failed: {Failed}",
@@ -140,16 +144,18 @@ namespace MyMediaVerse.Web.API.Controllers
                 var totalFailed = 0;
                 var totalProcessed = 0;
                 var allErrors = new List<string>();
+                var changedSeriesIds = new List<Guid>();
                 var batchesRun = 0;
 
                 var pendingCount = await _enrichmentService.GetPodcastsNeedingEnrichmentCountAsync();
 
                 while (pendingCount > 0 && totalProcessed < maxPodcasts)
                 {
-                    var result = await _enrichmentService.EnrichPendingPodcastsAsync(
+                    var (result, batchChangedIds) = await _enrichmentService.EnrichPendingPodcastsAsync(
                         batchSize: Math.Min(batchSize, maxPodcasts - totalProcessed),
                         delayBetweenCallsMs: delayMs,
                         cancellationToken: HttpContext.RequestAborted);
+                    changedSeriesIds.AddRange(batchChangedIds);
 
                     totalEnriched += result.EnrichedCount;
                     totalUnchanged += result.UnchangedCount;
@@ -180,11 +186,11 @@ namespace MyMediaVerse.Web.API.Controllers
                     }
                 }
 
-                // One reindex for the whole run rather than one per batch.
+                // One reindex for the whole run rather than one per batch, covering only the series it changed.
                 var reindexTriggered = false;
-                if (totalEnriched > 0)
+                if (changedSeriesIds.Count > 0)
                 {
-                    await _importReindexService.ReindexAfterImportAsync(totalEnriched, "podcast enrichment");
+                    await _importReindexService.ReindexItemsAfterImportAsync(changedSeriesIds, "podcast enrichment");
                     reindexTriggered = true;
                 }
 
@@ -216,16 +222,6 @@ namespace MyMediaVerse.Web.API.Controllers
             }
         }
 
-        private async Task ReindexAsync(PodcastEnrichmentResult result)
-        {
-            if (result.EnrichedCount <= 0)
-            {
-                return;
-            }
-
-            await _importReindexService.ReindexAfterImportAsync(result.EnrichedCount, "podcast enrichment");
-            result.ReindexTriggered = true;
-        }
     }
 
     public class PodcastEnrichmentStatusDto

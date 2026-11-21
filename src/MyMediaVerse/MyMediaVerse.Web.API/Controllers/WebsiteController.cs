@@ -505,17 +505,18 @@ namespace MyMediaVerse.Web.API.Controllers
             return UrlListParser.Parse(text);
         }
 
-        private async Task<ActionResult<WebsiteBulkImportResultDto>> FinishBulkImportAsync(WebsiteBulkImportResultDto result, string label)
+        private async Task<ActionResult<WebsiteBulkImportResultDto>> FinishBulkImportAsync(ChangedItemsResult<WebsiteBulkImportResultDto> outcome, string label)
         {
+            var (result, changedIds) = outcome;
             if (!result.Success)
             {
                 return StatusCode(500, result);
             }
 
-            var changed = result.CreatedCount + result.UpdatedCount;
-            if (changed > 0)
+            // Only the websites this import created or updated are reindexed.
+            if (changedIds.Count > 0)
             {
-                await _importReindexService.ReindexAfterImportAsync(changed, label);
+                await _importReindexService.ReindexItemsAfterImportAsync(changedIds, label);
                 result.ReindexTriggered = true;
             }
 

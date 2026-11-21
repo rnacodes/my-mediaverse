@@ -16,8 +16,8 @@ namespace MyMediaVerse.Shared.Interfaces
         /// <param name="batchSize">Number of books to process in this run (default: 50)</param>
         /// <param name="delayBetweenCallsMs">Delay between API calls in milliseconds (default: 1000)</param>
         /// <param name="cancellationToken">Cancellation token for stopping the operation</param>
-        /// <returns>Result containing counts of processed, enriched, not-found, and failed books</returns>
-        Task<BookDescriptionEnrichmentResult> EnrichBooksWithoutDescriptionsAsync(
+        /// <returns>Result containing counts of processed, enriched, not-found, and failed books, plus the ids of the enriched books</returns>
+        Task<ChangedItemsResult<BookDescriptionEnrichmentResult>> EnrichBooksWithoutDescriptionsAsync(
             int batchSize = 50,
             int delayBetweenCallsMs = 1000,
             CancellationToken cancellationToken = default);

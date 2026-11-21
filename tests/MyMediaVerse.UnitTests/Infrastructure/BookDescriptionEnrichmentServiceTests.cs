@@ -308,7 +308,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         [Fact]
         public async Task EnrichBooksWithoutDescriptionsAsync_NoBooksNeeding_ReturnsZeroProcessed()
         {
-            var result = await _service.EnrichBooksWithoutDescriptionsAsync();
+            var result = (await _service.EnrichBooksWithoutDescriptionsAsync()).Report;
 
             result.TotalProcessed.Should().Be(0);
             result.EnrichedCount.Should().Be(0);
@@ -322,7 +322,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             await SeedBook(isbn: "9780123456789");
             _mockGoogleBooksClient.SearchBooksByISBNAsync(Arg.Any<string>()).Returns(Results(Volume()));
 
-            var result = await _service.EnrichBooksWithoutDescriptionsAsync(batchSize: 10, delayBetweenCallsMs: 0);
+            var result = (await _service.EnrichBooksWithoutDescriptionsAsync(batchSize: 10, delayBetweenCallsMs: 0)).Report;
 
             result.Success.Should().BeTrue();
             result.Operation.Should().Be("book-description-enrichment");
@@ -343,7 +343,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             var stub = await SeedBook("Dune", "Frank Herbert", isbn: null);
             TitleAuthorLookupReturns("Dune", "Frank Herbert", Volume(id: "vol-dune", authors: new[] { "Frank Herbert" }, isbn13: "9780441013593"));
 
-            var result = await _service.EnrichBooksWithoutDescriptionsAsync(batchSize: 10, delayBetweenCallsMs: 0);
+            var result = (await _service.EnrichBooksWithoutDescriptionsAsync(batchSize: 10, delayBetweenCallsMs: 0)).Report;
 
             result.EnrichedCount.Should().Be(1);
             var updated = Context.Books.First(b => b.Id == stub.Id);
@@ -360,7 +360,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             _mockGoogleBooksClient.SearchBooksByISBNAsync("9780000000001").Throws(new Exception("API error"));
             IsbnLookupReturns("9780000000002", Volume());
 
-            var result = await _service.EnrichBooksWithoutDescriptionsAsync(batchSize: 10, delayBetweenCallsMs: 0);
+            var result = (await _service.EnrichBooksWithoutDescriptionsAsync(batchSize: 10, delayBetweenCallsMs: 0)).Report;
 
             result.Success.Should().BeTrue("per-item failures never flip the fatal flag");
             result.TotalProcessed.Should().Be(2);
@@ -376,11 +376,26 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             await SeedBook(isbn: "9780123456789");
             IsbnLookupReturns("9780123456789");
 
-            var result = await _service.EnrichBooksWithoutDescriptionsAsync(batchSize: 10, delayBetweenCallsMs: 0);
+            var result = (await _service.EnrichBooksWithoutDescriptionsAsync(batchSize: 10, delayBetweenCallsMs: 0)).Report;
 
             result.NotFoundCount.Should().Be(1);
             result.FailedCount.Should().Be(0);
             result.WarningMessage.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task EnrichBooksWithoutDescriptionsAsync_MatchWithoutDescription_IsStillReported_ForTheSearchReindex()
+        {
+            var partial = await SeedBook(title: "Partial", isbn: "9780123456789");
+            var missing = await SeedBook(title: "Missing", isbn: "9780000000001");
+            IsbnLookupReturns("9780123456789", Volume(id: "vol-nodesc", description: null, publisher: "Pub"));
+            IsbnLookupReturns("9780000000001");
+
+            var (result, changedIds) = await _service.EnrichBooksWithoutDescriptionsAsync(batchSize: 10, delayBetweenCallsMs: 0);
+
+            result.NotFoundCount.Should().Be(2);
+            changedIds.Should().BeEquivalentTo(new[] { partial.Id },
+                "the partial match gained a publisher, which search shows; the miss changed nothing");
         }
 
         [Fact]
@@ -392,7 +407,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             }
             _mockGoogleBooksClient.SearchBooksByISBNAsync(Arg.Any<string>()).Returns(Results(Volume()));
 
-            var result = await _service.EnrichBooksWithoutDescriptionsAsync(batchSize: 2, delayBetweenCallsMs: 0);
+            var result = (await _service.EnrichBooksWithoutDescriptionsAsync(batchSize: 2, delayBetweenCallsMs: 0)).Report;
 
             result.TotalProcessed.Should().Be(2);
         }
@@ -404,7 +419,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             var cts = new CancellationTokenSource();
             cts.Cancel();
 
-            var result = await _service.EnrichBooksWithoutDescriptionsAsync(cancellationToken: cts.Token);
+            var result = (await _service.EnrichBooksWithoutDescriptionsAsync(cancellationToken: cts.Token)).Report;
 
             result.WasCancelled.Should().BeTrue();
             result.Success.Should().BeTrue();
@@ -429,7 +444,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
             throwingContext.Books.Returns(_ => throw new InvalidOperationException("database unreachable"));
             var service = new BookDescriptionEnrichmentService(throwingContext, _mockGoogleBooksClient, _mockLogger);
 
-            var result = await service.EnrichBooksWithoutDescriptionsAsync(batchSize: 10, delayBetweenCallsMs: 0);
+            var result = (await service.EnrichBooksWithoutDescriptionsAsync(batchSize: 10, delayBetweenCallsMs: 0)).Report;
 
             result.Success.Should().BeFalse();
             result.ErrorMessage.Should().Contain("database unreachable");
@@ -475,7 +490,7 @@ namespace MyMediaVerse.UnitTests.Infrastructure
 
             // The book now has a description, so it's no longer a candidate — a second run must leave
             // both the description and the original EnrichedAt stamp untouched (fill-gaps-only).
-            var secondResult = await _service.EnrichBooksWithoutDescriptionsAsync(batchSize: 10, delayBetweenCallsMs: 0);
+            var secondResult = (await _service.EnrichBooksWithoutDescriptionsAsync(batchSize: 10, delayBetweenCallsMs: 0)).Report;
 
             secondResult.TotalProcessed.Should().Be(0);
             Context.Books.First(b => b.Id == book.Id).EnrichedAt.Should().Be(firstStamp);

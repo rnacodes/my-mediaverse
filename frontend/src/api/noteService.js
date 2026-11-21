@@ -276,12 +276,15 @@ export const searchNotesByVault = async (vault, query, page = 1, perPage = 20) =
     }
 };
 
+// A full notes reindex can take longer than the client's default 30s, so it gets more room.
+const FULL_REINDEX_TIMEOUT_MS = 120000;
+
 /**
  * Reindexes all notes in Typesense
  */
 export const reindexNotes = async () => {
     try {
-        const response = await apiClient.post('/search/reindex-notes');
+        const response = await apiClient.post('/search/reindex-notes', null, { timeout: FULL_REINDEX_TIMEOUT_MS });
         return response.data;
     } catch (error) {
         console.error('Error reindexing notes:', error);

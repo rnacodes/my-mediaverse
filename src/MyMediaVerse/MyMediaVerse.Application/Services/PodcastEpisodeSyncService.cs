@@ -33,7 +33,14 @@ namespace MyMediaVerse.Application.Services
             _logger = logger;
         }
 
-        public async Task<PodcastEpisodeSyncResultDto> SyncSeriesAsync(Guid seriesId, CancellationToken cancellationToken = default)
+        public async Task<ChangedItemsResult<PodcastEpisodeSyncResultDto>> SyncSeriesAsync(Guid seriesId, CancellationToken cancellationToken = default)
+        {
+            var createdIds = new List<Guid>();
+            var report = await SyncSeriesCoreAsync(seriesId, createdIds, cancellationToken);
+            return new ChangedItemsResult<PodcastEpisodeSyncResultDto>(report, createdIds);
+        }
+
+        private async Task<PodcastEpisodeSyncResultDto> SyncSeriesCoreAsync(Guid seriesId, List<Guid> createdIds, CancellationToken cancellationToken)
         {
             var result = new PodcastEpisodeSyncResultDto { SeriesId = seriesId, StartedAt = DateTime.UtcNow };
 
@@ -106,9 +113,11 @@ namespace MyMediaVerse.Application.Services
 
             var toCreate = SelectEpisodesToCreate(feedItems, candidates, isFirstSync, newestStored, result);
 
+            var createdEpisodes = new List<Domain.Entities.PodcastEpisode>(toCreate.Count);
             foreach (var dto in toCreate)
             {
                 var episode = PodcastEpisodeFactory.Create(dto);
+                createdEpisodes.Add(episode);
                 foreach (var topic in series.Topics)
                     episode.Topics.Add(topic);
                 foreach (var genre in series.Genres)
@@ -147,6 +156,7 @@ namespace MyMediaVerse.Application.Services
             }
 
             result.CreatedCount = toCreate.Count;
+            createdIds.AddRange(createdEpisodes.Select(e => e.Id));
             result.LastSyncDate = now;
             result.CompletedAt = DateTime.UtcNow;
 
@@ -274,7 +284,7 @@ namespace MyMediaVerse.Application.Services
                 {
                     await WaitForHostAsync(host, lastReadByHost, cancellationToken);
 
-                    var seriesResult = await SyncSeriesAsync(id, cancellationToken);
+                    var seriesResult = (await SyncSeriesAsync(id, cancellationToken)).Report;
                     result.SeriesChecked++;
                     result.Series.Add(new PodcastSeriesSyncSummaryDto
                     {

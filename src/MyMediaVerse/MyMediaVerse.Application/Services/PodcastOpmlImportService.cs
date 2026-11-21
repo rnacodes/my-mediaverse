@@ -4,6 +4,7 @@ using MyMediaVerse.Application.Interfaces;
 using MyMediaVerse.Application.Utilities;
 using MyMediaVerse.Domain.Entities;
 using MyMediaVerse.DTOs;
+using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.Application.Services
 {
@@ -26,7 +27,14 @@ namespace MyMediaVerse.Application.Services
             _logger = logger;
         }
 
-        public async Task<OpmlImportResultDto> ImportFromOpmlAsync(Stream opmlStream)
+        public async Task<ChangedItemsResult<OpmlImportResultDto>> ImportFromOpmlAsync(Stream opmlStream)
+        {
+            var createdIds = new List<Guid>();
+            var report = await ImportCoreAsync(opmlStream, createdIds);
+            return new ChangedItemsResult<OpmlImportResultDto>(report, createdIds);
+        }
+
+        private async Task<OpmlImportResultDto> ImportCoreAsync(Stream opmlStream, List<Guid> createdIds)
         {
             var result = new OpmlImportResultDto { StartedAt = DateTime.UtcNow };
 
@@ -103,6 +111,7 @@ namespace MyMediaVerse.Application.Services
                     if (creation.Created)
                     {
                         result.CreatedCount++;
+                        createdIds.Add(creation.Series.Id);
                     }
                     else
                     {

@@ -164,12 +164,40 @@ namespace MyMediaVerse.IntegrationTests.Api
 
             var first = await client.PostAsync(Endpoint, CsvForm(csv));
             first.StatusCode.Should().Be(HttpStatusCode.OK);
-            await typesense.Received(1).BulkReindexAllMediaItemsAsync();
+            var bookId = (await ReadResult(first)).ImportedBooks.Single().Id;
+            await typesense.Received(1).ReindexMediaItemsByIdsAsync(
+                Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.SequenceEqual(new[] { bookId })));
+            await typesense.DidNotReceive().BulkReindexAllMediaItemsAsync();
 
             // updateExisting=false makes the re-upload a pure skip → no reindex (still 1 total).
             var second = await client.PostAsync($"{Endpoint}?updateExisting=false", CsvForm(csv));
             second.StatusCode.Should().Be(HttpStatusCode.OK);
-            await typesense.Received(1).BulkReindexAllMediaItemsAsync();
+            await typesense.Received(1).ReindexMediaItemsByIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>());
+        }
+
+        [Fact]
+        public async Task Upload_FinalChunk_ReindexesTheBooksTheRatingConversionChanged_FromEarlierChunks()
+        {
+            // The rating conversion runs only on the final chunk and can rewrite books imported by
+            // earlier chunks, so the final chunk's reindex must cover those books too.
+            var (client, typesense) = _factory.CreateClientWithSubstitute<ITypesenseService>();
+            var firstChunk = Csv(Row(bookId: "9990011", title: "Early Rated Book", author: "Smoke Author", myRating: 5));
+            var finalChunk = Csv(Row(bookId: "9990012", title: "Late Rated Book", author: "Smoke Author", myRating: 2));
+
+            var first = await client.PostAsync($"{Endpoint}?chunkIndex=0&totalChunks=2", CsvForm(firstChunk));
+            first.StatusCode.Should().Be(HttpStatusCode.OK);
+            var final = await client.PostAsync($"{Endpoint}?chunkIndex=1&totalChunks=2", CsvForm(finalChunk));
+            final.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            var books = await GetAllBooksVia(client);
+            var early = books.Single(b => b.Title == "Early Rated Book");
+            var late = books.Single(b => b.Title == "Late Rated Book");
+            early.Rating.Should().NotBeNull("the final chunk's conversion rated the earlier chunk's book");
+            await typesense.Received(1).ReindexMediaItemsByIdsAsync(
+                Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.SequenceEqual(new[] { early.Id })));
+            await typesense.Received(1).ReindexMediaItemsByIdsAsync(
+                Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.Count == 2 && ids.Contains(early.Id) && ids.Contains(late.Id)));
+            await typesense.DidNotReceive().BulkReindexAllMediaItemsAsync();
         }
 
         [Fact]
@@ -226,9 +254,11 @@ namespace MyMediaVerse.IntegrationTests.Api
             return book!;
         }
 
-        private async Task<List<BookResponseDto>> GetAllBooks()
+        private Task<List<BookResponseDto>> GetAllBooks() => GetAllBooksVia(_client);
+
+        private async Task<List<BookResponseDto>> GetAllBooksVia(HttpClient client)
         {
-            var response = await _client.GetAsync("/api/book");
+            var response = await client.GetAsync("/api/book");
             var books = JsonSerializer.Deserialize<List<BookResponseDto>>(await response.Content.ReadAsStringAsync(), _jsonOptions);
             return books ?? new List<BookResponseDto>();
         }

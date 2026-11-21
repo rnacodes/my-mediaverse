@@ -64,7 +64,14 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
 
         #region Enrichment run
 
-        public async Task<WebsiteEnrichmentResult> EnrichPendingAsync(int limit, CancellationToken cancellationToken = default)
+        public async Task<ChangedItemsResult<WebsiteEnrichmentResult>> EnrichPendingAsync(int limit, CancellationToken cancellationToken = default)
+        {
+            var changedIds = new List<Guid>();
+            var report = await EnrichPendingCoreAsync(limit, changedIds, cancellationToken);
+            return new ChangedItemsResult<WebsiteEnrichmentResult>(report, changedIds);
+        }
+
+        private async Task<WebsiteEnrichmentResult> EnrichPendingCoreAsync(int limit, List<Guid> changedIds, CancellationToken cancellationToken)
         {
             var result = new WebsiteEnrichmentResult { StartedAt = DateTime.UtcNow };
             limit = ClampLimit(limit);
@@ -124,8 +131,17 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                         if (outcome.ScreenshotRendered) result.ScreenshotsRendered++;
                         if (outcome.WantedScreenshot && !outcome.ScreenshotRendered) leftWithoutThumbnail++;
 
-                        if (outcome.Unreachable) result.SkippedCount++;
-                        else if (outcome.FilledFields.Count > 0) result.EnrichedCount++;
+                        // An unreachable page still changes the row: its link status is recorded.
+                        if (outcome.Unreachable)
+                        {
+                            result.SkippedCount++;
+                            changedIds.Add(website.Id);
+                        }
+                        else if (outcome.FilledFields.Count > 0)
+                        {
+                            result.EnrichedCount++;
+                            changedIds.Add(website.Id);
+                        }
                         else result.UnchangedCount++;
                     }
                     catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

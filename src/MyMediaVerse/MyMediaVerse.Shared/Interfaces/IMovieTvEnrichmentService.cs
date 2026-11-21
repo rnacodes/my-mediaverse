@@ -15,8 +15,8 @@ namespace MyMediaVerse.Shared.Interfaces
         /// <param name="batchSize">Number of movies to process in this run (default: 50)</param>
         /// <param name="delayBetweenCallsMs">Delay between API calls in milliseconds (default: 500)</param>
         /// <param name="cancellationToken">Cancellation token for stopping the operation</param>
-        /// <returns>Result containing counts of processed, enriched, and failed movies</returns>
-        Task<MovieTvEnrichmentResult> EnrichMoviesWithoutTmdbDataAsync(
+        /// <returns>Result containing counts of processed, enriched, and failed movies, plus the ids of the enriched movies</returns>
+        Task<ChangedItemsResult<MovieTvEnrichmentResult>> EnrichMoviesWithoutTmdbDataAsync(
             int batchSize = 50,
             int delayBetweenCallsMs = 500,
             CancellationToken cancellationToken = default);
@@ -28,8 +28,8 @@ namespace MyMediaVerse.Shared.Interfaces
         /// <param name="batchSize">Number of TV shows to process in this run (default: 50)</param>
         /// <param name="delayBetweenCallsMs">Delay between API calls in milliseconds (default: 500)</param>
         /// <param name="cancellationToken">Cancellation token for stopping the operation</param>
-        /// <returns>Result containing counts of processed, enriched, and failed TV shows</returns>
-        Task<MovieTvEnrichmentResult> EnrichTvShowsWithoutTmdbDataAsync(
+        /// <returns>Result containing counts of processed, enriched, and failed TV shows, plus the ids of the enriched shows</returns>
+        Task<ChangedItemsResult<MovieTvEnrichmentResult>> EnrichTvShowsWithoutTmdbDataAsync(
             int batchSize = 50,
             int delayBetweenCallsMs = 500,
             CancellationToken cancellationToken = default);

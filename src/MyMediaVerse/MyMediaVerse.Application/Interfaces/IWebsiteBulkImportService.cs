@@ -16,9 +16,10 @@ namespace MyMediaVerse.Application.Interfaces
         /// <summary>
         /// Imports the bookmarks. <paramref name="operation"/> names the source for the result
         /// (<see cref="WebsiteBulkImportResultDto.BookmarkImportOperation"/> or
-        /// <see cref="WebsiteBulkImportResultDto.UrlListImportOperation"/>).
+        /// <see cref="WebsiteBulkImportResultDto.UrlListImportOperation"/>). The changed ids are the
+        /// websites the import created or updated.
         /// </summary>
-        Task<WebsiteBulkImportResultDto> ImportAsync(
+        Task<ChangedItemsResult<WebsiteBulkImportResultDto>> ImportAsync(
             BookmarkParseResult parsed,
             BookmarkImportOptionsDto options,
             string operation,

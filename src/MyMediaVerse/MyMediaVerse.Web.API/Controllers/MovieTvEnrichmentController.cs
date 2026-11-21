@@ -76,7 +76,7 @@ namespace MyMediaVerse.Web.API.Controllers
                     "Starting on-demand movie TMDB enrichment. BatchSize: {BatchSize}, Delay: {Delay}ms",
                     batchSize, delayMs);
 
-                var result = await _enrichmentService.EnrichMoviesWithoutTmdbDataAsync(
+                var (result, enrichedIds) = await _enrichmentService.EnrichMoviesWithoutTmdbDataAsync(
                     batchSize: batchSize,
                     delayBetweenCallsMs: delayMs);
 
@@ -84,7 +84,7 @@ namespace MyMediaVerse.Web.API.Controllers
                     "On-demand movie enrichment completed. Enriched: {Enriched}, NotFound: {NotFound}, Failed: {Failed}",
                     result.EnrichedCount, result.NotFoundCount, result.FailedCount);
 
-                await ReindexAsync(result.EnrichedCount, "movie enrichment");
+                await ReindexAsync(enrichedIds, "movie enrichment");
 
                 return Ok(result);
             }
@@ -123,7 +123,7 @@ namespace MyMediaVerse.Web.API.Controllers
                     "Starting on-demand TV show TMDB enrichment. BatchSize: {BatchSize}, Delay: {Delay}ms",
                     batchSize, delayMs);
 
-                var result = await _enrichmentService.EnrichTvShowsWithoutTmdbDataAsync(
+                var (result, enrichedIds) = await _enrichmentService.EnrichTvShowsWithoutTmdbDataAsync(
                     batchSize: batchSize,
                     delayBetweenCallsMs: delayMs);
 
@@ -131,7 +131,7 @@ namespace MyMediaVerse.Web.API.Controllers
                     "On-demand TV show enrichment completed. Enriched: {Enriched}, NotFound: {NotFound}, Failed: {Failed}",
                     result.EnrichedCount, result.NotFoundCount, result.FailedCount);
 
-                await ReindexAsync(result.EnrichedCount, "TV show enrichment");
+                await ReindexAsync(enrichedIds, "TV show enrichment");
 
                 return Ok(result);
             }
@@ -188,6 +188,7 @@ namespace MyMediaVerse.Web.API.Controllers
                 var totalTvShowsFailed = 0;
                 var totalTvShowsProcessed = 0;
                 var allErrors = new List<string>();
+                var enrichedIds = new List<Guid>();
 
                 // Process movies
                 if (maxMovies > 0)
@@ -196,9 +197,10 @@ namespace MyMediaVerse.Web.API.Controllers
 
                     while (moviesPending > 0 && totalMoviesProcessed < maxMovies)
                     {
-                        var result = await _enrichmentService.EnrichMoviesWithoutTmdbDataAsync(
+                        var (result, batchIds) = await _enrichmentService.EnrichMoviesWithoutTmdbDataAsync(
                             batchSize: Math.Min(batchSize, maxMovies - totalMoviesProcessed),
                             delayBetweenCallsMs: delayMs);
+                        enrichedIds.AddRange(batchIds);
 
                         totalMoviesEnriched += result.EnrichedCount;
                         totalMoviesNotFound += result.NotFoundCount;
@@ -225,9 +227,10 @@ namespace MyMediaVerse.Web.API.Controllers
 
                     while (tvShowsPending > 0 && totalTvShowsProcessed < maxTvShows)
                     {
-                        var result = await _enrichmentService.EnrichTvShowsWithoutTmdbDataAsync(
+                        var (result, batchIds) = await _enrichmentService.EnrichTvShowsWithoutTmdbDataAsync(
                             batchSize: Math.Min(batchSize, maxTvShows - totalTvShowsProcessed),
                             delayBetweenCallsMs: delayMs);
+                        enrichedIds.AddRange(batchIds);
 
                         totalTvShowsEnriched += result.EnrichedCount;
                         totalTvShowsNotFound += result.NotFoundCount;
@@ -255,7 +258,7 @@ namespace MyMediaVerse.Web.API.Controllers
                     totalMoviesEnriched, totalMoviesProcessed, totalTvShowsEnriched, totalTvShowsProcessed);
 
                 // One reindex for the whole run rather than one per batch.
-                await ReindexAsync(totalMoviesEnriched + totalTvShowsEnriched, "movie and TV show enrichment");
+                await ReindexAsync(enrichedIds, "movie and TV show enrichment");
 
                 return Ok(new MovieTvEnrichmentRunAllResult
                 {
@@ -343,16 +346,16 @@ namespace MyMediaVerse.Web.API.Controllers
             return Ok(result);
         }
 
-        private async Task ReindexAsync(int changedCount, string label)
+        private async Task ReindexAsync(IReadOnlyCollection<Guid> changedIds, string label)
         {
-            if (changedCount <= 0)
+            if (changedIds.Count == 0)
             {
                 return;
             }
 
             try
             {
-                await _importReindexService.ReindexAfterImportAsync(changedCount, label);
+                await _importReindexService.ReindexItemsAfterImportAsync(changedIds, label);
             }
             catch (Exception ex)
             {

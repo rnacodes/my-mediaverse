@@ -55,10 +55,21 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
         public async Task<int> GetPodcastsNeedingEnrichmentCountAsync() =>
             await Eligible(_context.PodcastSeries, RetryCutoff(DateTime.UtcNow)).CountAsync();
 
-        public async Task<PodcastEnrichmentResult> EnrichPendingPodcastsAsync(
+        public async Task<ChangedItemsResult<PodcastEnrichmentResult>> EnrichPendingPodcastsAsync(
             int? batchSize = null,
             int? delayBetweenCallsMs = null,
             CancellationToken cancellationToken = default)
+        {
+            var changedIds = new List<Guid>();
+            var report = await EnrichBatchAsync(batchSize, delayBetweenCallsMs, changedIds, cancellationToken);
+            return new ChangedItemsResult<PodcastEnrichmentResult>(report, changedIds);
+        }
+
+        private async Task<PodcastEnrichmentResult> EnrichBatchAsync(
+            int? batchSize,
+            int? delayBetweenCallsMs,
+            List<Guid> changedIds,
+            CancellationToken cancellationToken)
         {
             var result = new PodcastEnrichmentResult { StartedAt = DateTime.UtcNow };
             var size = Math.Max(1, batchSize ?? _options.BatchSize);
@@ -93,7 +104,13 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                         break;
                     }
 
+                    var filledBefore = result.EnrichedCount + result.NotFoundCount;
                     await FillByIdAsync(due[i], force: false, result, cancellationToken);
+                    if (result.EnrichedCount + result.NotFoundCount > filledBefore)
+                    {
+                        // Filled from the feed, or updated from the directory while no feed was found.
+                        changedIds.Add(due[i]);
+                    }
 
                     if (delayMs > 0 && i < due.Count - 1)
                     {

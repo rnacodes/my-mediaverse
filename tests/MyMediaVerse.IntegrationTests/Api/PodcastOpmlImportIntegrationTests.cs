@@ -107,15 +107,16 @@ namespace MyMediaVerse.IntegrationTests.Api
 
             var opml = Opml(Feed("Reply All", "https://feeds.megaphone.fm/replyall", "941907967"));
 
-            // First import creates a new series → exactly one media reindex fires.
+            // First import creates a new series → exactly one reindex fires, for that series only.
             var first = await client.PostAsync("/api/podcast/series/from-opml", OpmlForm(opml));
             Assert.Equal(HttpStatusCode.OK, first.StatusCode);
-            await typesense.Received(1).BulkReindexAllMediaItemsAsync();
+            await typesense.Received(1).ReindexMediaItemsByIdsAsync(Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.Count == 1));
+            await typesense.DidNotReceive().BulkReindexAllMediaItemsAsync();
 
             // Re-importing the same feed imports nothing new → the reindex is skipped (still 1 total).
             var second = await client.PostAsync("/api/podcast/series/from-opml", OpmlForm(opml));
             Assert.Equal(HttpStatusCode.OK, second.StatusCode);
-            await typesense.Received(1).BulkReindexAllMediaItemsAsync();
+            await typesense.Received(1).ReindexMediaItemsByIdsAsync(Arg.Any<IReadOnlyCollection<Guid>>());
         }
 
         [Fact]

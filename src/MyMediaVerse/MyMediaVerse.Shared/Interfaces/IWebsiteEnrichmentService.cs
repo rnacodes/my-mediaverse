@@ -14,9 +14,10 @@ namespace MyMediaVerse.Shared.Interfaces
 
         /// <summary>
         /// Enriches up to <paramref name="limit"/> pending websites, oldest first. Each website is
-        /// saved as soon as it is done, so an interrupted run keeps its progress.
+        /// saved as soon as it is done, so an interrupted run keeps its progress. The changed ids are
+        /// the websites that gained a value or were found unreachable (their link status changed).
         /// </summary>
-        Task<WebsiteEnrichmentResult> EnrichPendingAsync(int limit, CancellationToken cancellationToken = default);
+        Task<ChangedItemsResult<WebsiteEnrichmentResult>> EnrichPendingAsync(int limit, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Enriches one website. An already-enriched website is left alone unless

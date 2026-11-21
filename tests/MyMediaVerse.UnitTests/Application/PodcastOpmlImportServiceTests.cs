@@ -57,7 +57,7 @@ namespace MyMediaVerse.UnitTests.Application
         {
             var opml = Opml(Feed("The Talk Show", "https://daringfireball.net/thetalkshow/rss", "528458508"));
 
-            var result = await _service.ImportFromOpmlAsync(Stream(opml));
+            var result = (await _service.ImportFromOpmlAsync(Stream(opml))).Report;
 
             result.Success.Should().BeTrue();
             result.Operation.Should().Be(OpmlImportResultDto.OpmlImportOperation);
@@ -84,7 +84,7 @@ namespace MyMediaVerse.UnitTests.Application
         {
             var opml = Opml(Feed("No Apple Id", "https://feeds.example.com/x", appleId: null));
 
-            var result = await _service.ImportFromOpmlAsync(Stream(opml));
+            var result = (await _service.ImportFromOpmlAsync(Stream(opml))).Report;
 
             result.CreatedCount.Should().Be(1);
             _created.Single().ApplePodcastsId.Should().BeNull();
@@ -97,7 +97,7 @@ namespace MyMediaVerse.UnitTests.Application
             // Overcast exports escape apostrophes as &apos; — the XML parser must decode them.
             var opml = Opml(Feed("I&apos;d Rather Be Writing Podcast", "https://idratherbewriting.com/itunes.rss", "277365275"));
 
-            var result = await _service.ImportFromOpmlAsync(Stream(opml));
+            var result = (await _service.ImportFromOpmlAsync(Stream(opml))).Report;
 
             result.CreatedCount.Should().Be(1);
             _created.Single().Title.Should().Be("I'd Rather Be Writing Podcast");
@@ -109,7 +109,7 @@ namespace MyMediaVerse.UnitTests.Application
             // The outer <outline text="feeds"> wrapper has no type="rss" and must not be treated as a feed.
             var opml = Opml(Feed("Only Real Feed", "https://feeds.example.com/only"));
 
-            var result = await _service.ImportFromOpmlAsync(Stream(opml));
+            var result = (await _service.ImportFromOpmlAsync(Stream(opml))).Report;
 
             result.TotalProcessed.Should().Be(1);
             result.CreatedCount.Should().Be(1);
@@ -127,7 +127,7 @@ namespace MyMediaVerse.UnitTests.Application
                 Feed("Feed B", "https://feeds.example.com/b", "2"),
                 Feed("Feed C", "https://feeds.example.com/c", "3"));
 
-            var result = await _service.ImportFromOpmlAsync(Stream(opml));
+            var result = (await _service.ImportFromOpmlAsync(Stream(opml))).Report;
 
             result.TotalProcessed.Should().Be(3);
             result.CreatedCount.Should().Be(3);
@@ -142,7 +142,7 @@ namespace MyMediaVerse.UnitTests.Application
         {
             var opml = Opml(Feed("", "https://feeds.example.com/blank"));
 
-            var result = await _service.ImportFromOpmlAsync(Stream(opml));
+            var result = (await _service.ImportFromOpmlAsync(Stream(opml))).Report;
 
             result.TotalProcessed.Should().Be(1);
             result.SkippedCount.Should().Be(1);
@@ -165,7 +165,7 @@ namespace MyMediaVerse.UnitTests.Application
 
             var opml = Opml(Feed("Some Podcast", "https://feeds.example.com/dup", "999"));
 
-            var result = await _service.ImportFromOpmlAsync(Stream(opml));
+            var result = (await _service.ImportFromOpmlAsync(Stream(opml))).Report;
 
             result.SkippedCount.Should().Be(1);
             result.CreatedCount.Should().Be(0);
@@ -181,7 +181,7 @@ namespace MyMediaVerse.UnitTests.Application
 
             var opml = Opml(Feed("Hello Internet", "https://feeds.example.com/hi", "811377230"));
 
-            var result = await _service.ImportFromOpmlAsync(Stream(opml));
+            var result = (await _service.ImportFromOpmlAsync(Stream(opml))).Report;
 
             result.SkippedCount.Should().Be(1);
             result.CreatedCount.Should().Be(0);
@@ -194,7 +194,7 @@ namespace MyMediaVerse.UnitTests.Application
                 Feed("Repeated Show", "https://feeds.example.com/rep", "5"),
                 Feed("Repeated Show", "https://feeds.example.com/rep", "5"));
 
-            var result = await _service.ImportFromOpmlAsync(Stream(opml));
+            var result = (await _service.ImportFromOpmlAsync(Stream(opml))).Report;
 
             result.TotalProcessed.Should().Be(2);
             result.CreatedCount.Should().Be(1);
@@ -209,7 +209,7 @@ namespace MyMediaVerse.UnitTests.Application
 
             var opml = Opml(Feed("Some Podcast", "http://www.feeds.example.com/dup/", "999"));
 
-            var result = await _service.ImportFromOpmlAsync(Stream(opml));
+            var result = (await _service.ImportFromOpmlAsync(Stream(opml))).Report;
 
             result.SkippedCount.Should().Be(1);
             result.CreatedCount.Should().Be(0);
@@ -222,7 +222,7 @@ namespace MyMediaVerse.UnitTests.Application
 
             var opml = Opml(Feed("Some Podcast", "https://feeds.example.com/new", "1504494402"));
 
-            var result = await _service.ImportFromOpmlAsync(Stream(opml));
+            var result = (await _service.ImportFromOpmlAsync(Stream(opml))).Report;
 
             result.SkippedCount.Should().Be(1);
             result.CreatedCount.Should().Be(0);
@@ -238,7 +238,7 @@ namespace MyMediaVerse.UnitTests.Application
 
             var opml = Opml(Feed("Known Elsewhere", "https://feeds.example.com/known", "42"));
 
-            var result = await _service.ImportFromOpmlAsync(Stream(opml));
+            var result = (await _service.ImportFromOpmlAsync(Stream(opml))).Report;
 
             result.CreatedCount.Should().Be(0);
             result.SkippedCount.Should().Be(1);
@@ -260,7 +260,7 @@ namespace MyMediaVerse.UnitTests.Application
                 Feed("Bad Feed", "https://feeds.example.com/bad", "2"),
                 Feed("Good Feed 2", "https://feeds.example.com/g2", "3"));
 
-            var result = await _service.ImportFromOpmlAsync(Stream(opml));
+            var result = (await _service.ImportFromOpmlAsync(Stream(opml))).Report;
 
             result.TotalProcessed.Should().Be(3);
             result.CreatedCount.Should().Be(2);
@@ -278,7 +278,7 @@ namespace MyMediaVerse.UnitTests.Application
         [Fact]
         public async Task ImportFromOpmlAsync_MalformedXml_ReportsAFailedRun()
         {
-            var result = await _service.ImportFromOpmlAsync(Stream("this is not xml <<<"));
+            var result = (await _service.ImportFromOpmlAsync(Stream("this is not xml <<<"))).Report;
 
             result.Success.Should().BeFalse();
             result.ErrorMessage.Should().Be("The file could not be read as OPML.");
@@ -294,7 +294,7 @@ namespace MyMediaVerse.UnitTests.Application
             var opml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>" +
                        "<opml version=\"1.0\"><head><title>Empty</title></head><body></body></opml>";
 
-            var result = await _service.ImportFromOpmlAsync(Stream(opml));
+            var result = (await _service.ImportFromOpmlAsync(Stream(opml))).Report;
 
             result.TotalProcessed.Should().Be(0);
             result.CreatedCount.Should().Be(0);

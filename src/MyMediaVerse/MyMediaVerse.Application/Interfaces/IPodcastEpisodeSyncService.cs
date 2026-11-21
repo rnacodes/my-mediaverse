@@ -1,4 +1,5 @@
 using MyMediaVerse.DTOs;
+using MyMediaVerse.Shared.Interfaces;
 
 namespace MyMediaVerse.Application.Interfaces
 {
@@ -13,8 +14,9 @@ namespace MyMediaVerse.Application.Interfaces
         /// Syncs one series. Returns a failed result (not an exception) when the feed cannot be read or
         /// the new episodes cannot be saved. Throws <see cref="KeyNotFoundException"/> when the series
         /// does not exist and <see cref="InvalidOperationException"/> when it has no feed URL.
+        /// The changed ids are the episodes this sync created; nothing else it touches is searchable.
         /// </summary>
-        Task<PodcastEpisodeSyncResultDto> SyncSeriesAsync(Guid seriesId, CancellationToken cancellationToken = default);
+        Task<ChangedItemsResult<PodcastEpisodeSyncResultDto>> SyncSeriesAsync(Guid seriesId, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Syncs every subscribed series that has a feed, least recently synced first. One series failing

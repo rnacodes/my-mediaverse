@@ -55,10 +55,21 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
         }
 
         /// <inheritdoc />
-        public async Task<BookDescriptionEnrichmentResult> EnrichBooksWithoutDescriptionsAsync(
+        public async Task<ChangedItemsResult<BookDescriptionEnrichmentResult>> EnrichBooksWithoutDescriptionsAsync(
             int batchSize = 50,
             int delayBetweenCallsMs = 1000,
             CancellationToken cancellationToken = default)
+        {
+            var enrichedIds = new List<Guid>();
+            var report = await EnrichBatchAsync(batchSize, delayBetweenCallsMs, enrichedIds, cancellationToken);
+            return new ChangedItemsResult<BookDescriptionEnrichmentResult>(report, enrichedIds);
+        }
+
+        private async Task<BookDescriptionEnrichmentResult> EnrichBatchAsync(
+            int batchSize,
+            int delayBetweenCallsMs,
+            List<Guid> enrichedIds,
+            CancellationToken cancellationToken)
         {
             var result = new BookDescriptionEnrichmentResult { StartedAt = DateTime.UtcNow };
 
@@ -98,11 +109,13 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                         {
                             case EnrichStatus.Enriched:
                                 result.EnrichedCount++;
+                                enrichedIds.Add(book.Id);
                                 _logger.LogDebug("Enriched {Title}: filled {Fields}", book.Title, string.Join(", ", outcome.FilledFields));
                                 break;
                             case EnrichStatus.NotFound:
                                 // Left null on purpose so the book is retried if Google Books gains the data later.
                                 result.NotFoundCount++;
+                                if (outcome.FilledFields.Count > 0) enrichedIds.Add(book.Id);
                                 _logger.LogDebug("No description found for: {Title}", book.Title);
                                 break;
                             case EnrichStatus.NoLookupKey:

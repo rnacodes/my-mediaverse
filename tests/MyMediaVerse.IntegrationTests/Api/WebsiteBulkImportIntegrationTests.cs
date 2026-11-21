@@ -102,10 +102,12 @@ namespace MyMediaVerse.IntegrationTests.Api
             result.PendingEnrichmentCount.Should().Be(3);
             result.ReindexTriggered.Should().BeTrue();
             result.CompletedAt.Should().NotBeNull();
-            await reindex.Received(1).ReindexAfterImportAsync(3, "bookmark import");
-
             var websites = await GetAllWebsites(client);
             websites.Should().HaveCount(3);
+            var createdIds = websites.Select(w => w.Id).ToList();
+            await reindex.Received(1).ReindexItemsAfterImportAsync(
+                Arg.Is<IReadOnlyCollection<Guid>>(ids => ids.Count == 3 && createdIds.All(ids.Contains)), "bookmark import");
+            await reindex.DidNotReceive().ReindexAfterImportAsync(Arg.Any<int>(), Arg.Any<string>());
             var dev = websites.Single(w => w.Link == "https://example.com/dev");
             dev.Title.Should().Be("Dev & Tools");
             dev.Domain.Should().Be("example.com");
@@ -127,7 +129,7 @@ namespace MyMediaVerse.IntegrationTests.Api
             result.UpdatedCount.Should().Be(0);
             result.SkippedCount.Should().Be(4);
             result.ReindexTriggered.Should().BeFalse();
-            await reindex.Received(1).ReindexAfterImportAsync(Arg.Any<int>(), Arg.Any<string>());
+            await reindex.Received(1).ReindexItemsAfterImportAsync(Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<string>());
             (await GetAllWebsites(client)).Should().HaveCount(3);
         }
 

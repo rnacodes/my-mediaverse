@@ -119,7 +119,7 @@ namespace MyMediaVerse.Web.API.Controllers
                     "Starting on-demand book description enrichment. BatchSize: {BatchSize}, Delay: {Delay}ms",
                     batchSize, delayMs);
 
-                var result = await _enrichmentService.EnrichBooksWithoutDescriptionsAsync(
+                var (result, enrichedIds) = await _enrichmentService.EnrichBooksWithoutDescriptionsAsync(
                     batchSize: batchSize,
                     delayBetweenCallsMs: delayMs,
                     cancellationToken: HttpContext.RequestAborted);
@@ -133,7 +133,7 @@ namespace MyMediaVerse.Web.API.Controllers
                     return StatusCode(500, result);
                 }
 
-                await _importReindexService.ReindexAfterImportAsync(result.EnrichedCount, "book enrichment");
+                await _importReindexService.ReindexItemsAfterImportAsync(enrichedIds, "book enrichment");
 
                 return Ok(result);
             }
@@ -187,10 +187,10 @@ namespace MyMediaVerse.Web.API.Controllers
 
                 while (pendingCount > 0 && summary.TotalProcessed < maxBooks && !cancellationToken.IsCancellationRequested)
                 {
-                    var result = await _enrichmentService.EnrichBooksWithoutDescriptionsAsync(
+                    var result = (await _enrichmentService.EnrichBooksWithoutDescriptionsAsync(
                         batchSize: Math.Min(batchSize, maxBooks - summary.TotalProcessed),
                         delayBetweenCallsMs: delayMs,
-                        cancellationToken: cancellationToken);
+                        cancellationToken: cancellationToken)).Report;
 
                     summary.TotalEnriched += result.EnrichedCount;
                     summary.TotalNotFound += result.NotFoundCount;
@@ -318,7 +318,7 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 _logger.LogInformation("Starting Goodreads rating conversion run");
 
-                var result = await _ratingEnrichmentService.ConvertGoodreadsRatingsAsync(HttpContext.RequestAborted);
+                var result = (await _ratingEnrichmentService.ConvertGoodreadsRatingsAsync(HttpContext.RequestAborted)).Report;
 
                 _logger.LogInformation(
                     "Goodreads rating conversion completed. Success: {Success}, Candidates: {Candidates}, Converted: {Converted}",

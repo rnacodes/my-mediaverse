@@ -73,23 +73,16 @@ namespace MyMediaVerse.Web.API.Controllers
 
             try
             {
-                var result = await _enrichmentService.EnrichPendingAsync(pageSize, HttpContext.RequestAborted);
+                var (result, changedIds) = await _enrichmentService.EnrichPendingAsync(pageSize, HttpContext.RequestAborted);
 
                 if (!result.Success)
                 {
                     return StatusCode(500, result);
                 }
 
-                if (result.TimeBudgetReached && result.PendingCount > 0)
-                {
-                    _logger.LogInformation(
-                        "Website enrichment: reindex deferred, {Pending} still pending after a time-budgeted page",
-                        result.PendingCount);
-                }
-                else
-                {
-                    await _importReindexService.ReindexAfterImportAsync(result.EnrichedCount, "website enrichment");
-                }
+                // Every page reindexes just the websites it changed, so a time-budgeted page no
+                // longer has to defer its reindex to a later, larger one.
+                await _importReindexService.ReindexItemsAfterImportAsync(changedIds, "website enrichment");
 
                 return Ok(result);
             }

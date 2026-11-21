@@ -37,12 +37,25 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
         }
 
         /// <inheritdoc />
-        public async Task<TvEpisodeImportResultDto> ImportFromTmdbAsync(
+        public async Task<ChangedItemsResult<TvEpisodeImportResultDto>> ImportFromTmdbAsync(
             Guid showId,
             IReadOnlyCollection<int>? seasonNumbers = null,
             int delayBetweenCallsMs = 250,
             CancellationToken cancellationToken = default)
         {
+            var changedIds = new List<Guid>();
+            var report = await ImportCoreAsync(showId, seasonNumbers, delayBetweenCallsMs, changedIds, cancellationToken);
+            return new ChangedItemsResult<TvEpisodeImportResultDto>(report, changedIds);
+        }
+
+        private async Task<TvEpisodeImportResultDto> ImportCoreAsync(
+            Guid showId,
+            IReadOnlyCollection<int>? seasonNumbers,
+            int delayBetweenCallsMs,
+            List<Guid> changedIds,
+            CancellationToken cancellationToken)
+        {
+            var changedEpisodes = new List<TvShowEpisode>();
             var result = new TvEpisodeImportResultDto { ShowId = showId, StartedAt = DateTime.UtcNow };
 
             try
@@ -138,7 +151,11 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                             var key = (tmdbEpisode.SeasonNumber, tmdbEpisode.EpisodeNumber);
                             if (byNumber.TryGetValue(key, out var stored))
                             {
-                                if (FillEpisode(stored, tmdbEpisode)) result.UpdatedCount++;
+                                if (FillEpisode(stored, tmdbEpisode))
+                                {
+                                    result.UpdatedCount++;
+                                    changedEpisodes.Add(stored);
+                                }
                                 else result.SkippedCount++;
                             }
                             else
@@ -147,6 +164,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                                 _context.Add(created);
                                 byNumber[key] = created;
                                 result.CreatedCount++;
+                                changedEpisodes.Add(created);
                             }
                         }
 
@@ -169,6 +187,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                 }
 
                 await _context.SaveChangesAsync(CancellationToken.None);
+                changedIds.AddRange(changedEpisodes.Select(e => e.Id).Distinct());
                 result.CompletedAt = DateTime.UtcNow;
 
                 _logger.LogInformation(
