@@ -8,6 +8,7 @@ import { PROFILE_WIDTH_SX } from '@/shared/pageLayout';
 import DemoDisabledArea from '@/features/demo/DemoDisabledArea';
 import CsvUploadSection from './CsvUploadSection';
 import PodcastOpmlImportSection from './PodcastOpmlImportSection';
+import PodcastDatasetImportSection from './PodcastDatasetImportSection';
 
 function UploadMediaPage() {
     const navigate = useNavigate();
@@ -47,6 +48,7 @@ function UploadMediaPage() {
             </Paper>
 
             <PodcastOpmlImportSection />
+            <PodcastDatasetImportSection />
 
             <Paper elevation={3} sx={{ p: 4, mb: 4 }}>
                 <Box sx={{ textAlign: 'center', mb: 3 }}>

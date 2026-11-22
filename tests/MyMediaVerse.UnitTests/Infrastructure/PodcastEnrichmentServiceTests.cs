@@ -227,6 +227,46 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         }
 
         [Fact]
+        public async Task EnrichPendingPodcastsAsync_DatasetSeries_FeedReplacesTheDatasetDetails()
+        {
+            var series = Series("The Daily", publisher: "Dataset Publisher",
+                metadataSource: PodcastMetadataSources.ListenNotesDataset);
+            series.Description = "Dataset description.";
+            series.Thumbnail = "https://cdn-images.listennotes.example/daily.jpg";
+            await Seed(series);
+            _directory.SearchAsync("The Daily", Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .Returns(new[] { Hit() });
+            ReaderReturns(Feed());
+
+            await _service.EnrichPendingPodcastsAsync(delayBetweenCallsMs: 0);
+
+            var stored = await Reload(series.Id);
+            stored.RssFeedUrl.Should().Be(FeedUrl);
+            stored.Description.Should().Be("The biggest stories of our time.");
+            stored.Publisher.Should().Be("The New York Times");
+            stored.Thumbnail.Should().Be("https://feeds.example.com/art.jpg");
+            stored.MetadataSource.Should().Be(PodcastMetadataSources.Rss);
+        }
+
+        [Fact]
+        public async Task EnrichPendingPodcastsAsync_DatasetSeriesNotFound_KeepsTheDatasetDetailsAndSource()
+        {
+            var series = Series("Obscure Show", metadataSource: PodcastMetadataSources.ListenNotesDataset);
+            series.Description = "Dataset description.";
+            await Seed(series);
+            _directory.SearchAsync("Obscure Show", Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .Returns(Array.Empty<DirectoryPodcast>());
+
+            var result = (await _service.EnrichPendingPodcastsAsync(delayBetweenCallsMs: 0)).Report;
+
+            result.NotFoundCount.Should().Be(1);
+            var stored = await Reload(series.Id);
+            stored.Description.Should().Be("Dataset description.");
+            // Still dataset data, so it still carries the Listen Notes attribution.
+            stored.MetadataSource.Should().Be(PodcastMetadataSources.ListenNotesDataset);
+        }
+
+        [Fact]
         public async Task EnrichPendingPodcastsAsync_ReplacesAPlaceholderTitle()
         {
             var series = await Seed(Series("Podcast at feeds.example.com", feedUrl: FeedUrl));

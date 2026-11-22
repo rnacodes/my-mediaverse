@@ -40,6 +40,7 @@ const METADATA_SOURCE_LABELS = {
     rss: "Details from the show's RSS feed",
     apple: 'Details from Apple Podcasts',
     podcastindex: 'Details from Podcast Index',
+    'listennotes-dataset': 'Details from a Listen Notes dataset. They are replaced once the show\'s feed is found.',
 };
 
 // Matches the API's first-sync episode count; only the first sync takes a batch of older episodes.

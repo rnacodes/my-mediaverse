@@ -5,7 +5,7 @@ import {
   uploadThumbnailFromUrl,
   uploadGoodreadsCsv,
 } from '../api/uploadService';
-import { importPodcastsFromOpml } from '../api/podcastService';
+import { importPodcastsFromOpml, importPodcastsFromDataset } from '../api/podcastService';
 import { mediaKeys, bookKeys, podcastKeys } from '../api/queryKeys';
 
 export function useUploadCsv() {
@@ -37,6 +37,17 @@ export function useUploadGoodreadsCsv() {
       uploadGoodreadsCsv(file, updateExisting, chunkIndex, totalChunks).then((r) => r.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: bookKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
+    },
+  });
+}
+
+export function useImportPodcastDataset() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (file) => importPodcastsFromDataset(file).then((r) => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: podcastKeys.series.lists() });
       queryClient.invalidateQueries({ queryKey: mediaKeys.lists() });
     },
   });

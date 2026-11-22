@@ -6,6 +6,7 @@ import {
 import { ExpandMore, OpenInNew, Star, RssFeed, ContentCopy, Language, Schedule, Article, AutoFixHigh, Download, LinkOff, CheckCircle, History, PhotoCamera } from '@mui/icons-material';
 import { useWebsiteRssFeedItems, useWebsitesByDomain, useEnrichWebsite, useRegenerateWebsiteScreenshot } from '@/hooks/useWebsite';
 import DemoWriteGuard from '@/features/demo/DemoWriteGuard';
+import AttributionBadge from '@/shared/AttributionBadge';
 import { describeLinkStatus, isBrokenLink } from '@/features/media/websiteStatus';
 import { useEnrichBookById } from '@/hooks/useBackgroundJobs';
 import { useAllYouTubeChannels } from '@/hooks/useYoutube';
@@ -72,6 +73,9 @@ const formatCount = (value) => (value == null ? null : Number(value).toLocaleStr
 const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : null);
 
 const externalLinkSx = { fontSize: '0.875rem', color: '#ffffff', '&:hover': { color: '#e3f2fd' } };
+
+const showsListenNotesData = (item) =>
+  item.metadataSource === 'listennotes-dataset' || (!item.metadataSource && !!item.externalId);
 
 function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBookEnriched, onWebsiteUpdated, onVideoLinked, onFetchContent, fetchingContent }) {
   const [enrichResult, setEnrichResult] = useState(null);
@@ -340,6 +344,10 @@ function MediaDetailAccordion({ mediaItem, navigate, videoPlaylists = [], onBook
                   Click to Download Audio
                 </Button>
               </Box>
+            )}
+
+            {showsListenNotesData(mediaItem) && (
+              <AttributionBadge provider="listennotes" sx={{ mt: 1 }} />
             )}
             
             {mediaItem.releaseDate && (
