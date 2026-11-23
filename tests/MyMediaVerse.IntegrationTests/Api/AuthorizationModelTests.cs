@@ -195,6 +195,7 @@ namespace MyMediaVerse.IntegrationTests.Api
                 ["Podcast.GetSubscribedPodcastSeries"] = Unclassified,
                 ["Podcast.ImportEpisodeFromFeed"] = Authorized,
                 ["Podcast.ImportPodcastsFromOpml"] = Authorized,
+                ["Podcast.ImportPodcastsFromDataset"] = Authorized,
                 ["Podcast.ImportSeriesFromFeed"] = Authorized,
                 ["Podcast.SearchDirectory"] = Unclassified,
                 ["Podcast.SearchPodcastSeries"] = Unclassified,
