@@ -101,6 +101,23 @@ export const importPodcastsFromOpml = (file) => {
     });
 };
 
+/**
+ * Import a purchased Listen Notes dataset export (the podcasts CSV or the episodes CSV).
+ * Single multipart request; shows land as unsubscribed stubs and fill in on the next enrichment run.
+ * @param {File} file - The .csv file to upload
+ * @returns {Promise} API response with a PodcastDatasetImportResultDto payload
+ */
+export const importPodcastsFromDataset = (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    return apiClient.post('/podcast/series/from-dataset', formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data',
+        },
+    });
+};
+
 // ============================================
 // Podcast Episode API calls
 // ============================================

@@ -223,8 +223,10 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                 }
 
                 var feed = await _feedReader.ReadAsync(series.RssFeedUrl!, maxItems: 0, cancellationToken);
-
-                var genres = PodcastFeedMapper.ApplyToSeries(series, feed, directoryHit, fillOnly: !force);
+                
+                var replaceDatasetDetails = series.MetadataSource == PodcastMetadataSources.ListenNotesDataset;
+                var genres = PodcastFeedMapper.ApplyToSeries(
+                    series, feed, directoryHit, fillOnly: !force && !replaceDatasetDetails);
                 var genresAdded = await AddGenresAsync(series, genres);
                 series.MetadataSource = PodcastMetadataSources.Rss;
 

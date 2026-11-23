@@ -33,6 +33,7 @@ public static class ApplicationServicesExtensions
         services.AddScoped<IBookmarkFileParser, MyMediaVerse.Application.Services.Bookmarks.NetscapeBookmarkParser>();
         services.AddScoped<IGoodreadsImportService, GoodreadsImportService>();
         services.AddScoped<IPodcastOpmlImportService, PodcastOpmlImportService>();
+        services.AddScoped<IPodcastDatasetImportService, PodcastDatasetImportService>();
         services.AddScoped<IPodcastFeedImportService, PodcastFeedImportService>();
         services.AddScoped<IPodcastEpisodeSyncService, PodcastEpisodeSyncService>();
         services.AddScoped<IPodcastFeedBrowserService, PodcastFeedBrowserService>();

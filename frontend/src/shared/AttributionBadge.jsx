@@ -7,6 +7,7 @@ import { Box, Typography, Link } from '@mui/material';
  *   inline  — small logo beside a line of text (TMDB's required notice)
  *   stacked — linked logo above "Powered by <name>" (Trakt)
  *   text    — a caption, optionally ending in a link (no logo)
+ *   logo    — a linked logo that already carries its own "powered by" wording (Listen Notes)
  * Adding a provider is one entry here.
  */
 const PROVIDERS = {
@@ -39,6 +40,14 @@ const PROVIDERS = {
         name: 'Podcast Index',
         url: 'https://podcastindex.org',
         text: 'Found via',
+    },
+    listennotes: {
+        layout: 'logo',
+        name: 'Listen Notes',
+        url: 'https://www.listennotes.com',
+        logo: '/powered-by-listennotes-white.png',
+        logoAlt: 'Powered by Listen Notes',
+        logoHeight: 16,
     },
     youtube: {
         layout: 'text',
@@ -77,6 +86,14 @@ function AttributionBadge({ provider, size = 'medium', className, sx }) {
                 <Typography component="p" sx={{ fontSize, mt: 0 }}>
                     Powered by {link(config.name)}
                 </Typography>
+            </Box>
+        );
+    }
+
+    if (config.layout === 'logo') {
+        return (
+            <Box className={className} sx={sx}>
+                {link(<img src={config.logo} alt={config.logoAlt} style={{ height: `${config.logoHeight}px`, width: 'auto', display: 'block' }} />)}
             </Box>
         );
     }

@@ -17,6 +17,7 @@ namespace MyMediaVerse.Web.API.Controllers
     {
         private readonly IPodcastService _podcastService;
         private readonly IPodcastOpmlImportService _opmlImportService;
+        private readonly IPodcastDatasetImportService _datasetImportService;
         private readonly IPodcastFeedImportService _feedImportService;
         private readonly IPodcastEpisodeSyncService _episodeSyncService;
         private readonly IPodcastFeedBrowserService _feedBrowserService;
@@ -25,10 +26,12 @@ namespace MyMediaVerse.Web.API.Controllers
         private readonly ILogger<PodcastController> _logger;
 
         private const long MaxOpmlFileBytes = 10 * 1024 * 1024;
+        private const long MaxDatasetFileBytes = 10 * 1024 * 1024;
 
         public PodcastController(
             IPodcastService podcastService,
             IPodcastOpmlImportService opmlImportService,
+            IPodcastDatasetImportService datasetImportService,
             IPodcastFeedImportService feedImportService,
             IPodcastEpisodeSyncService episodeSyncService,
             IPodcastFeedBrowserService feedBrowserService,
@@ -38,6 +41,7 @@ namespace MyMediaVerse.Web.API.Controllers
         {
             _podcastService = podcastService;
             _opmlImportService = opmlImportService;
+            _datasetImportService = datasetImportService;
             _feedImportService = feedImportService;
             _episodeSyncService = episodeSyncService;
             _feedBrowserService = feedBrowserService;
@@ -576,6 +580,56 @@ namespace MyMediaVerse.Web.API.Controllers
             {
                 _logger.LogError(ex, "Error searching the podcast directory for {Term}", term);
                 return StatusCode(500, new { error = "Failed to search the podcast directory" });
+            }
+        }
+
+        // POST: api/podcast/series/from-dataset
+        // A purchased Listen Notes export (podcasts or episodes CSV). Shows land as unsubscribed
+        // stubs with no external calls; podcast enrichment then finds each show's feed.
+        [Authorize]
+        [HttpPost("series/from-dataset")]
+        public async Task<IActionResult> ImportPodcastsFromDataset(IFormFile file)
+        {
+            try
+            {
+                if (file == null || file.Length == 0)
+                {
+                    return BadRequest(new { error = "No file uploaded" });
+                }
+
+                if (file.Length > MaxDatasetFileBytes)
+                {
+                    return BadRequest(new { error = "The dataset file must be 10 MB or smaller." });
+                }
+
+                if (!file.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+                {
+                    return BadRequest(new { error = "File must be a Listen Notes CSV export (.csv)" });
+                }
+
+                _logger.LogInformation("Processing podcast dataset import: {FileName}", file.FileName);
+
+                using var stream = file.OpenReadStream();
+                var (result, createdIds) = await _datasetImportService.ImportFromCsvAsync(stream);
+
+                if (!result.Success)
+                {
+                    // The file itself was unusable (not a CSV, or not a Listen Notes export).
+                    return BadRequest(result);
+                }
+
+                if (createdIds.Count > 0)
+                {
+                    await _importReindexService.ReindexItemsAfterImportAsync(createdIds, "podcast dataset");
+                    result.ReindexTriggered = true;
+                }
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error importing podcast dataset");
+                return StatusCode(500, new { error = "Failed to import the podcast dataset." });
             }
         }
 
