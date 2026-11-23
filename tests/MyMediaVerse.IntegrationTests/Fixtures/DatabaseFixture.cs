@@ -8,9 +8,8 @@ namespace MyMediaVerse.IntegrationTests.Fixtures
 {
     /// <summary>
     /// Standalone Postgres fixture for non-HTTP infrastructure tests
-    /// (repositories, EF behaviour, jsonb queries). Uses the pgvector image only because
-    /// migration replay needs it: the initial migration runs CREATE EXTENSION vector
-    /// (later dropped), which fails on a plain postgres image.
+    /// (repositories, EF behavior, jsonb queries). Uses plain postgres:18, the same major
+    /// version as production.
     ///
     /// Use via <c>[Collection("Database")]</c> + constructor injection so the same container
     /// is shared across the run. Reset between tests with <see cref="ResetAsync"/>.
@@ -18,7 +17,7 @@ namespace MyMediaVerse.IntegrationTests.Fixtures
     public class DatabaseFixture : IAsyncLifetime
     {
         private readonly PostgreSqlContainer _container = new PostgreSqlBuilder()
-            .WithImage("pgvector/pgvector:pg16")
+            .WithImage("postgres:18")
             .Build();
 
         private Respawner? _respawner;

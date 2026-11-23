@@ -8,7 +8,7 @@ name: mmv
 
 services:
   postgres:                 # demo DB
-    image: pgvector/pgvector:pg18@sha256:c8a919765f2ef63681329fa21021b830cd4d79d1165bdca730dd016014e4da84
+    image: postgres:18-bookworm@sha256:194e55feb2597b1465dbee81cc9fd8d204566cd2eb42c8d22fd6c931a38781b1
     container_name: postgres
     restart: unless-stopped
     environment:
