@@ -1,5 +1,4 @@
-using System;
-using System.Collections.Generic;
+﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -8,30 +7,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MyMediaVerse.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class Baseline : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AlterDatabase()
-                .Annotation("Npgsql:PostgresExtension:vector", ",,");
-
-            migrationBuilder.CreateTable(
-                name: "FeatureFlags",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    Key = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    IsEnabled = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
-                    Description = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_FeatureFlags", x => x.Id);
-                });
-
             migrationBuilder.CreateTable(
                 name: "Genres",
                 columns: table => new
@@ -60,10 +40,7 @@ namespace MyMediaVerse.Infrastructure.Migrations
                     OwnershipStatus = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     Description = table.Column<string>(type: "text", nullable: true),
                     RelatedNotes = table.Column<string>(type: "text", nullable: true),
-                    Thumbnail = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
-                    Embedding = table.Column<string>(type: "vector(1024)", nullable: true),
-                    EmbeddingGeneratedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    EmbeddingModel = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true)
+                    Thumbnail = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -96,17 +73,14 @@ namespace MyMediaVerse.Infrastructure.Migrations
                     Description = table.Column<string>(type: "text", nullable: true),
                     VaultName = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
                     SourceUrl = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
-                    Tags = table.Column<List<string>>(type: "jsonb", nullable: false),
+                    Tags = table.Column<string>(type: "jsonb", nullable: false),
                     NoteDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     DateImported = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     LastSyncedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     ContentHash = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true),
                     AiDescription = table.Column<string>(type: "text", nullable: true),
                     AiDescriptionGeneratedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    IsDescriptionManual = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
-                    Embedding = table.Column<string>(type: "vector(1024)", nullable: true),
-                    EmbeddingGeneratedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    EmbeddingModel = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true)
+                    IsDescriptionManual = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false)
                 },
                 constraints: table =>
                 {
@@ -133,6 +107,20 @@ namespace MyMediaVerse.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "SyncStates",
+                columns: table => new
+                {
+                    Key = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    LastSuccessfulSyncAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    Value = table.Column<string>(type: "character varying(4000)", maxLength: 4000, nullable: true),
+                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_SyncStates", x => x.Key);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Topics",
                 columns: table => new
                 {
@@ -142,6 +130,23 @@ namespace MyMediaVerse.Infrastructure.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Topics", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "TraktTokens",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    AccessToken = table.Column<string>(type: "text", nullable: false),
+                    RefreshToken = table.Column<string>(type: "text", nullable: false),
+                    ExpiresAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    TraktUsername = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_TraktTokens", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -183,6 +188,10 @@ namespace MyMediaVerse.Infrastructure.Migrations
                     Author = table.Column<string>(type: "character varying(300)", maxLength: 300, nullable: false),
                     ISBN = table.Column<string>(type: "character varying(17)", maxLength: 17, nullable: true),
                     ASIN = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: true),
+                    ReadwiseBookId = table.Column<int>(type: "integer", nullable: true),
+                    GoodreadsBookId = table.Column<long>(type: "bigint", nullable: true),
+                    GoogleVolumeId = table.Column<string>(type: "character varying(40)", maxLength: 40, nullable: true),
+                    OpenLibraryKey = table.Column<string>(type: "character varying(40)", maxLength: 40, nullable: true),
                     Format = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
                     PartOfSeries = table.Column<bool>(type: "boolean", nullable: false),
                     GoodreadsRating = table.Column<decimal>(type: "numeric", nullable: true),
@@ -192,9 +201,9 @@ namespace MyMediaVerse.Infrastructure.Migrations
                     DateRead = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     MyReview = table.Column<string>(type: "character varying(10000)", maxLength: 10000, nullable: true),
                     Publisher = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
-                    GoodreadsTags = table.Column<List<string>>(type: "jsonb", nullable: false),
-                    ReadwiseBookId = table.Column<int>(type: "integer", nullable: true),
-                    LastReadwiseSync = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                    GoodreadsTags = table.Column<string>(type: "jsonb", nullable: false),
+                    EnrichedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    LastEnrichmentAttemptAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -264,6 +273,34 @@ namespace MyMediaVerse.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "MediaItemRelations",
+                columns: table => new
+                {
+                    SourceMediaItemId = table.Column<Guid>(type: "uuid", nullable: false),
+                    RelatedMediaItemId = table.Column<Guid>(type: "uuid", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    Source = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
+                    SimilarityScore = table.Column<double>(type: "double precision", nullable: true),
+                    Note = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_MediaItemRelations", x => new { x.SourceMediaItemId, x.RelatedMediaItemId });
+                    table.ForeignKey(
+                        name: "FK_MediaItemRelations_MediaItems_RelatedMediaItemId",
+                        column: x => x.RelatedMediaItemId,
+                        principalTable: "MediaItems",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_MediaItemRelations_MediaItems_SourceMediaItemId",
+                        column: x => x.SourceMediaItemId,
+                        principalTable: "MediaItems",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Movies",
                 columns: table => new
                 {
@@ -280,7 +317,14 @@ namespace MyMediaVerse.Infrastructure.Migrations
                     Tagline = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true),
                     Homepage = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
                     OriginalLanguage = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: true),
-                    OriginalTitle = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true)
+                    OriginalTitle = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    TraktId = table.Column<int>(type: "integer", nullable: true),
+                    TraktSlug = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
+                    TraktPlays = table.Column<int>(type: "integer", nullable: true),
+                    TraktLastWatchedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    TraktRating = table.Column<int>(type: "integer", nullable: true),
+                    EnrichedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    TmdbRefreshedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -300,8 +344,17 @@ namespace MyMediaVerse.Infrastructure.Migrations
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     Publisher = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
                     ExternalId = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
+                    RssFeedUrl = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
+                    FeedUrlKey = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
+                    FeedGuid = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    ApplePodcastsId = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
+                    PodcastIndexId = table.Column<long>(type: "bigint", nullable: true),
+                    MetadataSource = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false, defaultValue: "manual"),
+                    Language = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: true),
                     IsSubscribed = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
                     LastSyncDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    EnrichedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    LastEnrichmentAttemptAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     TotalEpisodes = table.Column<int>(type: "integer", nullable: false, defaultValue: 0)
                 },
                 constraints: table =>
@@ -333,7 +386,14 @@ namespace MyMediaVerse.Infrastructure.Migrations
                     Tagline = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true),
                     Homepage = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
                     OriginalLanguage = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: true),
-                    OriginalName = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true)
+                    OriginalName = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    TraktId = table.Column<int>(type: "integer", nullable: true),
+                    TraktSlug = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
+                    TraktPlays = table.Column<int>(type: "integer", nullable: true),
+                    TraktLastWatchedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    TraktRating = table.Column<int>(type: "integer", nullable: true),
+                    EnrichedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    TmdbRefreshedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -351,6 +411,9 @@ namespace MyMediaVerse.Infrastructure.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    UrlKey = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
+                    EnrichedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    LastHttpStatus = table.Column<int>(type: "integer", nullable: true),
                     RssFeedUrl = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
                     LastCheckedDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     Domain = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
@@ -394,6 +457,52 @@ namespace MyMediaVerse.Infrastructure.Migrations
                         name: "FK_YouTubeChannels_MediaItems_Id",
                         column: x => x.Id,
                         principalTable: "MediaItems",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "YouTubePlaylists",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    PlaylistExternalId = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    VideoCount = table.Column<int>(type: "integer", nullable: true),
+                    PublishedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    LastSyncedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    PrivacyStatus = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_YouTubePlaylists", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_YouTubePlaylists_MediaItems_Id",
+                        column: x => x.Id,
+                        principalTable: "MediaItems",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "MixlistGenres",
+                columns: table => new
+                {
+                    MixlistId = table.Column<Guid>(type: "uuid", nullable: false),
+                    GenreId = table.Column<Guid>(type: "uuid", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_MixlistGenres", x => new { x.MixlistId, x.GenreId });
+                    table.ForeignKey(
+                        name: "FK_MixlistGenres_Genres_GenreId",
+                        column: x => x.GenreId,
+                        principalTable: "Genres",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_MixlistGenres_Mixlists_MixlistId",
+                        column: x => x.MixlistId,
+                        principalTable: "Mixlists",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -449,6 +558,32 @@ namespace MyMediaVerse.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "MixlistNotes",
+                columns: table => new
+                {
+                    MixlistId = table.Column<Guid>(type: "uuid", nullable: false),
+                    NoteId = table.Column<Guid>(type: "uuid", nullable: false),
+                    LinkedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    LinkDescription = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_MixlistNotes", x => new { x.MixlistId, x.NoteId });
+                    table.ForeignKey(
+                        name: "FK_MixlistNotes_Mixlists_MixlistId",
+                        column: x => x.MixlistId,
+                        principalTable: "Mixlists",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_MixlistNotes_Notes_NoteId",
+                        column: x => x.NoteId,
+                        principalTable: "Notes",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "MediaItemTopics",
                 columns: table => new
                 {
@@ -473,11 +608,59 @@ namespace MyMediaVerse.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "MixlistTopics",
+                columns: table => new
+                {
+                    MixlistId = table.Column<Guid>(type: "uuid", nullable: false),
+                    TopicId = table.Column<Guid>(type: "uuid", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_MixlistTopics", x => new { x.MixlistId, x.TopicId });
+                    table.ForeignKey(
+                        name: "FK_MixlistTopics_Mixlists_MixlistId",
+                        column: x => x.MixlistId,
+                        principalTable: "Mixlists",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_MixlistTopics_Topics_TopicId",
+                        column: x => x.TopicId,
+                        principalTable: "Topics",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "NoteTopics",
+                columns: table => new
+                {
+                    NoteId = table.Column<Guid>(type: "uuid", nullable: false),
+                    TopicId = table.Column<Guid>(type: "uuid", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_NoteTopics", x => new { x.NoteId, x.TopicId });
+                    table.ForeignKey(
+                        name: "FK_NoteTopics_Notes_NoteId",
+                        column: x => x.NoteId,
+                        principalTable: "Notes",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_NoteTopics_Topics_TopicId",
+                        column: x => x.TopicId,
+                        principalTable: "Topics",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Highlights",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    ReadwiseId = table.Column<int>(type: "integer", nullable: false),
+                    ReadwiseId = table.Column<int>(type: "integer", nullable: true),
                     Text = table.Column<string>(type: "character varying(8191)", maxLength: 8191, nullable: false),
                     Note = table.Column<string>(type: "character varying(8191)", maxLength: 8191, nullable: true),
                     Title = table.Column<string>(type: "character varying(511)", maxLength: 511, nullable: true),
@@ -497,8 +680,7 @@ namespace MyMediaVerse.Infrastructure.Migrations
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     SourceType = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true),
                     IsFavorite = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
-                    Color = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
-                    Metadata = table.Column<string>(type: "jsonb", nullable: true)
+                    Color = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true)
                 },
                 constraints: table =>
                 {
@@ -529,6 +711,7 @@ namespace MyMediaVerse.Infrastructure.Migrations
                     EpisodeNumber = table.Column<int>(type: "integer", nullable: true),
                     SeasonNumber = table.Column<int>(type: "integer", nullable: true),
                     ExternalId = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
+                    RssGuid = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
                     Publisher = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true)
                 },
                 constraints: table =>
@@ -549,16 +732,49 @@ namespace MyMediaVerse.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "TvShowEpisodes",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    ShowId = table.Column<Guid>(type: "uuid", nullable: false),
+                    SeasonNumber = table.Column<int>(type: "integer", nullable: true),
+                    EpisodeNumber = table.Column<int>(type: "integer", nullable: true),
+                    AirDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    DurationInMinutes = table.Column<int>(type: "integer", nullable: true),
+                    TmdbEpisodeId = table.Column<int>(type: "integer", nullable: true),
+                    TraktEpisodeId = table.Column<int>(type: "integer", nullable: true),
+                    StillPath = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
+                    TraktPlays = table.Column<int>(type: "integer", nullable: true),
+                    TraktLastWatchedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_TvShowEpisodes", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_TvShowEpisodes_MediaItems_Id",
+                        column: x => x.Id,
+                        principalTable: "MediaItems",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_TvShowEpisodes_TvShows_ShowId",
+                        column: x => x.ShowId,
+                        principalTable: "TvShows",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Videos",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    VideoType = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
-                    ParentVideoId = table.Column<Guid>(type: "uuid", nullable: true),
                     Platform = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
                     ChannelId = table.Column<Guid>(type: "uuid", nullable: true),
                     LengthInSeconds = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
-                    ExternalId = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true)
+                    ExternalId = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
+                    PublishedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    YouTubeRefreshedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -570,12 +786,6 @@ namespace MyMediaVerse.Infrastructure.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_Videos_Videos_ParentVideoId",
-                        column: x => x.ParentVideoId,
-                        principalTable: "Videos",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
                         name: "FK_Videos_YouTubeChannels_ChannelId",
                         column: x => x.ChannelId,
                         principalTable: "YouTubeChannels",
@@ -584,33 +794,27 @@ namespace MyMediaVerse.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "YouTubePlaylists",
+                name: "HighlightTopics",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    PlaylistExternalId = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    ChannelExternalId = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    LinkedYouTubeChannelId = table.Column<Guid>(type: "uuid", nullable: true),
-                    VideoCount = table.Column<int>(type: "integer", nullable: true),
-                    PublishedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    LastSyncedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    PrivacyStatus = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true)
+                    HighlightId = table.Column<Guid>(type: "uuid", nullable: false),
+                    TopicId = table.Column<Guid>(type: "uuid", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_YouTubePlaylists", x => x.Id);
+                    table.PrimaryKey("PK_HighlightTopics", x => new { x.HighlightId, x.TopicId });
                     table.ForeignKey(
-                        name: "FK_YouTubePlaylists_MediaItems_Id",
-                        column: x => x.Id,
-                        principalTable: "MediaItems",
+                        name: "FK_HighlightTopics_Highlights_HighlightId",
+                        column: x => x.HighlightId,
+                        principalTable: "Highlights",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_YouTubePlaylists_YouTubeChannels_LinkedYouTubeChannelId",
-                        column: x => x.LinkedYouTubeChannelId,
-                        principalTable: "YouTubeChannels",
+                        name: "FK_HighlightTopics_Topics_TopicId",
+                        column: x => x.TopicId,
+                        principalTable: "Topics",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.SetNull);
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -691,14 +895,42 @@ namespace MyMediaVerse.Infrastructure.Migrations
                 column: "DateRead");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Books_GoodreadsBookId",
+                table: "Books",
+                column: "GoodreadsBookId",
+                unique: true,
+                filter: "\"GoodreadsBookId\" IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Books_GoogleVolumeId",
+                table: "Books",
+                column: "GoogleVolumeId",
+                unique: true,
+                filter: "\"GoogleVolumeId\" IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Books_ISBN",
                 table: "Books",
                 column: "ISBN");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Books_OpenLibraryKey",
+                table: "Books",
+                column: "OpenLibraryKey",
+                unique: true,
+                filter: "\"OpenLibraryKey\" IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Books_OriginalPublicationYear",
                 table: "Books",
                 column: "OriginalPublicationYear");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Books_ReadwiseBookId",
+                table: "Books",
+                column: "ReadwiseBookId",
+                unique: true,
+                filter: "\"ReadwiseBookId\" IS NOT NULL");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Books_YearPublished",
@@ -734,12 +966,6 @@ namespace MyMediaVerse.Infrastructure.Migrations
                 name: "IX_Documents_PaperlessId",
                 table: "Documents",
                 column: "PaperlessId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_FeatureFlags_Key",
-                table: "FeatureFlags",
-                column: "Key",
-                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Genres_Name",
@@ -781,7 +1007,13 @@ namespace MyMediaVerse.Infrastructure.Migrations
                 name: "IX_Highlights_ReadwiseId",
                 table: "Highlights",
                 column: "ReadwiseId",
-                unique: true);
+                unique: true,
+                filter: "\"ReadwiseId\" IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_HighlightTopics_TopicId",
+                table: "HighlightTopics",
+                column: "TopicId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_MediaItemGenres_GenreId",
@@ -799,14 +1031,54 @@ namespace MyMediaVerse.Infrastructure.Migrations
                 column: "NoteId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_MediaItemRelations_CreatedAt",
+                table: "MediaItemRelations",
+                column: "CreatedAt");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_MediaItemRelations_RelatedMediaItemId",
+                table: "MediaItemRelations",
+                column: "RelatedMediaItemId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_MediaItemRelations_Source",
+                table: "MediaItemRelations",
+                column: "Source");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_MediaItemRelations_SourceMediaItemId",
+                table: "MediaItemRelations",
+                column: "SourceMediaItemId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_MediaItemTopics_TopicId",
                 table: "MediaItemTopics",
                 column: "TopicId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_MixlistGenres_GenreId",
+                table: "MixlistGenres",
+                column: "GenreId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_MixlistMediaItems_MediaItemId",
                 table: "MixlistMediaItems",
                 column: "MediaItemId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_MixlistNotes_LinkedAt",
+                table: "MixlistNotes",
+                column: "LinkedAt");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_MixlistNotes_NoteId",
+                table: "MixlistNotes",
+                column: "NoteId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_MixlistTopics_TopicId",
+                table: "MixlistTopics",
+                column: "TopicId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Movies_Director",
@@ -826,7 +1098,14 @@ namespace MyMediaVerse.Infrastructure.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_Movies_TmdbId",
                 table: "Movies",
-                column: "TmdbId");
+                column: "TmdbId",
+                unique: true,
+                filter: "\"TmdbId\" IS NOT NULL AND \"TmdbId\" <> ''");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Movies_TmdbRefreshedAt",
+                table: "Movies",
+                column: "TmdbRefreshedAt");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Notes_DateImported",
@@ -855,9 +1134,9 @@ namespace MyMediaVerse.Infrastructure.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_PodcastEpisodes_ExternalId",
-                table: "PodcastEpisodes",
-                column: "ExternalId");
+                name: "IX_NoteTopics_TopicId",
+                table: "NoteTopics",
+                column: "TopicId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_PodcastEpisodes_ReleaseDate",
@@ -870,14 +1149,58 @@ namespace MyMediaVerse.Infrastructure.Migrations
                 column: "SeriesId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_PodcastEpisodes_SeriesId_ExternalId",
+                table: "PodcastEpisodes",
+                columns: new[] { "SeriesId", "ExternalId" },
+                unique: true,
+                filter: "\"ExternalId\" IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PodcastEpisodes_SeriesId_RssGuid",
+                table: "PodcastEpisodes",
+                columns: new[] { "SeriesId", "RssGuid" },
+                unique: true,
+                filter: "\"RssGuid\" IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PodcastSeries_ApplePodcastsId",
+                table: "PodcastSeries",
+                column: "ApplePodcastsId",
+                unique: true,
+                filter: "\"ApplePodcastsId\" IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_PodcastSeries_ExternalId",
                 table: "PodcastSeries",
-                column: "ExternalId");
+                column: "ExternalId",
+                unique: true,
+                filter: "\"ExternalId\" IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PodcastSeries_FeedGuid",
+                table: "PodcastSeries",
+                column: "FeedGuid",
+                unique: true,
+                filter: "\"FeedGuid\" IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PodcastSeries_FeedUrlKey",
+                table: "PodcastSeries",
+                column: "FeedUrlKey",
+                unique: true,
+                filter: "\"FeedUrlKey\" IS NOT NULL");
 
             migrationBuilder.CreateIndex(
                 name: "IX_PodcastSeries_IsSubscribed",
                 table: "PodcastSeries",
                 column: "IsSubscribed");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PodcastSeries_PodcastIndexId",
+                table: "PodcastSeries",
+                column: "PodcastIndexId",
+                unique: true,
+                filter: "\"PodcastIndexId\" IS NOT NULL");
 
             migrationBuilder.CreateIndex(
                 name: "IX_RefreshTokens_ExpiresAt",
@@ -907,6 +1230,27 @@ namespace MyMediaVerse.Infrastructure.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_TvShowEpisodes_AirDate",
+                table: "TvShowEpisodes",
+                column: "AirDate");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TvShowEpisodes_ShowId",
+                table: "TvShowEpisodes",
+                column: "ShowId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TvShowEpisodes_ShowId_SeasonNumber_EpisodeNumber",
+                table: "TvShowEpisodes",
+                columns: new[] { "ShowId", "SeasonNumber", "EpisodeNumber" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TvShowEpisodes_TmdbEpisodeId",
+                table: "TvShowEpisodes",
+                column: "TmdbEpisodeId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_TvShows_Creator",
                 table: "TvShows",
                 column: "Creator");
@@ -924,7 +1268,14 @@ namespace MyMediaVerse.Infrastructure.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_TvShows_TmdbId",
                 table: "TvShows",
-                column: "TmdbId");
+                column: "TmdbId",
+                unique: true,
+                filter: "\"TmdbId\" IS NOT NULL AND \"TmdbId\" <> ''");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TvShows_TmdbRefreshedAt",
+                table: "TvShows",
+                column: "TmdbRefreshedAt");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Videos_ChannelId",
@@ -932,24 +1283,21 @@ namespace MyMediaVerse.Infrastructure.Migrations
                 column: "ChannelId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Videos_ExternalId",
-                table: "Videos",
-                column: "ExternalId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Videos_ParentVideoId",
-                table: "Videos",
-                column: "ParentVideoId");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_Videos_Platform",
                 table: "Videos",
                 column: "Platform");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Videos_VideoType",
+                name: "IX_Videos_Platform_ExternalId",
                 table: "Videos",
-                column: "VideoType");
+                columns: new[] { "Platform", "ExternalId" },
+                unique: true,
+                filter: "\"ExternalId\" IS NOT NULL AND \"ExternalId\" <> ''");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Videos_YouTubeRefreshedAt",
+                table: "Videos",
+                column: "YouTubeRefreshedAt");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Websites_Domain",
@@ -960,6 +1308,13 @@ namespace MyMediaVerse.Infrastructure.Migrations
                 name: "IX_Websites_LastCheckedDate",
                 table: "Websites",
                 column: "LastCheckedDate");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Websites_UrlKey",
+                table: "Websites",
+                column: "UrlKey",
+                unique: true,
+                filter: "\"UrlKey\" IS NOT NULL");
 
             migrationBuilder.CreateIndex(
                 name: "IX_YouTubeChannels_ChannelExternalId",
@@ -986,11 +1341,6 @@ namespace MyMediaVerse.Infrastructure.Migrations
                 name: "IX_YouTubePlaylists_LastSyncedAt",
                 table: "YouTubePlaylists",
                 column: "LastSyncedAt");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_YouTubePlaylists_LinkedYouTubeChannelId",
-                table: "YouTubePlaylists",
-                column: "LinkedYouTubeChannelId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_YouTubePlaylists_PlaylistExternalId",
@@ -1026,10 +1376,7 @@ namespace MyMediaVerse.Infrastructure.Migrations
                 name: "Documents");
 
             migrationBuilder.DropTable(
-                name: "FeatureFlags");
-
-            migrationBuilder.DropTable(
-                name: "Highlights");
+                name: "HighlightTopics");
 
             migrationBuilder.DropTable(
                 name: "MediaItemGenres");
@@ -1038,13 +1385,28 @@ namespace MyMediaVerse.Infrastructure.Migrations
                 name: "MediaItemNotes");
 
             migrationBuilder.DropTable(
+                name: "MediaItemRelations");
+
+            migrationBuilder.DropTable(
                 name: "MediaItemTopics");
+
+            migrationBuilder.DropTable(
+                name: "MixlistGenres");
 
             migrationBuilder.DropTable(
                 name: "MixlistMediaItems");
 
             migrationBuilder.DropTable(
+                name: "MixlistNotes");
+
+            migrationBuilder.DropTable(
+                name: "MixlistTopics");
+
+            migrationBuilder.DropTable(
                 name: "Movies");
+
+            migrationBuilder.DropTable(
+                name: "NoteTopics");
 
             migrationBuilder.DropTable(
                 name: "PodcastEpisodes");
@@ -1053,7 +1415,13 @@ namespace MyMediaVerse.Infrastructure.Migrations
                 name: "RefreshTokens");
 
             migrationBuilder.DropTable(
-                name: "TvShows");
+                name: "SyncStates");
+
+            migrationBuilder.DropTable(
+                name: "TraktTokens");
+
+            migrationBuilder.DropTable(
+                name: "TvShowEpisodes");
 
             migrationBuilder.DropTable(
                 name: "Websites");
@@ -1062,13 +1430,13 @@ namespace MyMediaVerse.Infrastructure.Migrations
                 name: "YouTubePlaylistVideo");
 
             migrationBuilder.DropTable(
-                name: "Articles");
-
-            migrationBuilder.DropTable(
-                name: "Books");
+                name: "Highlights");
 
             migrationBuilder.DropTable(
                 name: "Genres");
+
+            migrationBuilder.DropTable(
+                name: "Mixlists");
 
             migrationBuilder.DropTable(
                 name: "Notes");
@@ -1077,16 +1445,22 @@ namespace MyMediaVerse.Infrastructure.Migrations
                 name: "Topics");
 
             migrationBuilder.DropTable(
-                name: "Mixlists");
+                name: "PodcastSeries");
 
             migrationBuilder.DropTable(
-                name: "PodcastSeries");
+                name: "TvShows");
 
             migrationBuilder.DropTable(
                 name: "Videos");
 
             migrationBuilder.DropTable(
                 name: "YouTubePlaylists");
+
+            migrationBuilder.DropTable(
+                name: "Articles");
+
+            migrationBuilder.DropTable(
+                name: "Books");
 
             migrationBuilder.DropTable(
                 name: "YouTubeChannels");

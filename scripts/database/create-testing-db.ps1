@@ -1,9 +1,9 @@
 <#
 .SYNOPSIS
-    Spin up a local Docker Postgres (pgvector) container to use as a MyMediaVerse testing database.
+    Spin up a local Docker Postgres container to use as a MyMediaVerse testing database.
 
 .DESCRIPTION
-    Creates a disposable/persistent pgvector container with a named volume (so data survives
+    Creates a disposable/persistent Postgres container with a named volume (so data survives
     stop/start), waits until Postgres is accepting connections, and ensures an empty target
     database exists, ready to be seeded by seed-testing-db.ps1.
 
@@ -16,9 +16,10 @@
 
 .NOTES
     Requires Docker Desktop to be running.
-    Default image is pg18 because the demo backups (.dump, custom-format v1.16) are produced by
-    pg_dump 18.x; a pg17 pg_restore can reject them. Switch -PgImage to 'pgvector/pgvector:pg17'
-    if you specifically need to mirror the current production major version.
+    Default image is postgres:18-bookworm (same Debian release as the old pgvector image, so an
+    existing data volume keeps its collations), the same major version as production and the demo DB. The demo
+    backups (.dump, custom-format v1.16) are produced by pg_dump 18.x; a pg17 pg_restore can
+    reject them.
 #>
 [CmdletBinding()]
 param(
@@ -28,7 +29,7 @@ param(
     [string]$DbUser        = "postgres",
     [string]$DbPassword    = "test",
     [int]   $Port          = 5433,
-    [string]$PgImage       = "pgvector/pgvector:pg18"
+    [string]$PgImage       = "postgres:18-bookworm"
 )
 
 # If a container with this name already exists (running or stopped), don't clobber it.

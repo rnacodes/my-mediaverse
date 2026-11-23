@@ -17,9 +17,8 @@ using Testcontainers.PostgreSql;
 namespace MyMediaVerse.IntegrationTests.Fixtures
 {
     /// <summary>
-    /// HTTP integration test factory backed by a real PostgreSQL container. The pgvector image
-    /// is required not by the current schema but by migration replay: the initial migration
-    /// runs CREATE EXTENSION vector (later dropped), which fails on a plain postgres image.
+    /// HTTP integration test factory backed by a real PostgreSQL container (plain postgres:18,
+    /// the same major version as production).
     ///
     /// Lifecycle:
     /// - <c>InitializeAsync</c> starts the container, builds the host, runs EF migrations,
@@ -50,7 +49,7 @@ namespace MyMediaVerse.IntegrationTests.Fixtures
         }
 
         private readonly PostgreSqlContainer _container = new PostgreSqlBuilder()
-            .WithImage("pgvector/pgvector:pg16")
+            .WithImage("postgres:18")
             .Build();
 
         private Respawner? _respawner;

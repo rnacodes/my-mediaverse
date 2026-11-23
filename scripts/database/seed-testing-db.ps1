@@ -5,8 +5,10 @@
 .DESCRIPTION
     Restores a MyMediaVerse demo backup (.dump, custom format) into the running testing container.
     This recreates EXACTLY what is in the dump: the schema, the EF Core migration history
-    (__EFMigrationsHistory), and all table data -- including pre-computed pgvector embeddings, so
-    NO AI / embedding API calls are made and the result is fully deterministic.
+    (__EFMigrationsHistory), and all table data, so NO external API calls are made and the result
+    is fully deterministic. Dumps taken before the migration squash (Nov. 2026) still contain
+    CREATE EXTENSION vector; on a plain postgres image that one statement errors and is skipped,
+    and the rest of the restore is unaffected.
 
     By default it uses the newest *.dump file in the repo's for-claude folder. Re-runnable: it
     drops and recreates the target database each time for a clean reseed.

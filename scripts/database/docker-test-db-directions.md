@@ -25,7 +25,7 @@ auth, same as normal demo dev.
 
 | Script | What it does |
 | --- | --- |
-| `create-testing-db.ps1` | Spins up the `mmv-testing-db` container (pgvector, port 5433, named volume) and waits until it's ready. |
+| `create-testing-db.ps1` | Spins up the `mmv-testing-db` container (postgres:18-bookworm, port 5433, named volume) and waits until it's ready. |
 | `seed-testing-db.ps1` | Restores the demo backup dump into the container — schema, EF migration history, and all data. Re-runnable (clean reseed each time). |
 | `delete-testing-db.ps1` | Removes the container; `-RemoveVolume` also deletes the data volume for a full wipe. |
 | `create-testing-typesense.ps1` | Spins up the `mmv-testing-typesense` container (typesense 30.2, port 8108, named volume) for isolated local **search** and waits until it's healthy. |
@@ -106,10 +106,10 @@ docker start mmv-testing-db    # back to it, data intact
 
 - The demo backups are **custom-format** dumps (`pg_restore`, **not** `psql < file.sql`).
 - They are produced by `pg_dump 18.x` (archive format v1.16). A **pg18** `pg_restore` reads them
-  cleanly; an older **pg17** one can reject them. The container defaults to `pgvector/pgvector:pg18`
-  for this reason. To mirror the current production major version instead, pass
-  `-PgImage "pgvector/pgvector:pg17"` to `create-testing-db.ps1` (be aware of the restore caveat above).
-- The image is `pgvector/...` (not plain `postgres`) because the demo DB uses the `vector` extension.
+  cleanly; an older **pg17** one can reject them. The container defaults to `postgres:18-bookworm`
+  (the same major version as production and demo).
+- The image is plain `postgres`. pgvector is no longer used; dumps taken before the Nov. 2026
+  migration squash still contain `CREATE EXTENSION vector`, which errors and is skipped on restore.
 
 ## Rehearsing a migration before touching demo
 

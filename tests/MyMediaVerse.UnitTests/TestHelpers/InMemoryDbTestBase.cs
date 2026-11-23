@@ -18,7 +18,7 @@ namespace MyMediaVerse.UnitTests.TestHelpers
     /// </list>
     /// <para>
     /// For any of the above, use <c>ApiFactory</c> (HTTP) or <c>DatabaseFixture</c> (non-HTTP)
-    /// in <c>MyMediaVerse.IntegrationTests</c> — they boot a pgvector/pgvector:pg16 container.
+    /// in <c>MyMediaVerse.IntegrationTests</c> — they boot a postgres:18 container.
     /// </para>
     /// </summary>
     public class InMemoryDbTestBase : IDisposable
