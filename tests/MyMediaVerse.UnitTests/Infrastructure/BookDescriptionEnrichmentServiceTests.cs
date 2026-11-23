@@ -497,5 +497,70 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         }
 
         #endregion
+
+        #region Retry window for books Google has no description for
+
+        [Fact]
+        public async Task EnrichBooksWithoutDescriptionsAsync_Miss_IsStampedAndSkippedUntilTheRetryWindowPasses()
+        {
+            var book = await SeedBook(isbn: "9780123456789");
+            IsbnLookupReturns("9780123456789");
+
+            await _service.EnrichBooksWithoutDescriptionsAsync(batchSize: 10, delayBetweenCallsMs: 0);
+
+            Context.Books.First(b => b.Id == book.Id).LastEnrichmentAttemptAt.Should().NotBeNull();
+            (await _service.GetBooksNeedingEnrichmentCountAsync()).Should().Be(0, "a fresh miss waits out the retry window");
+            (await _service.EnrichBooksWithoutDescriptionsAsync(batchSize: 10, delayBetweenCallsMs: 0)).Report
+                .TotalProcessed.Should().Be(0);
+
+            book.LastEnrichmentAttemptAt = DateTime.UtcNow.AddDays(-(BookDescriptionEnrichmentService.RetryAfterDays + 1));
+            await Context.SaveChangesAsync();
+
+            (await _service.GetBooksNeedingEnrichmentCountAsync()).Should().Be(1, "after the window the book is retried");
+        }
+
+        [Fact]
+        public async Task EnrichBooksWithoutDescriptionsAsync_NeverTriedBooksGoBeforeRetries()
+        {
+            var retry = await SeedBook("Retry", isbn: "9780000000001");
+            retry.LastEnrichmentAttemptAt = DateTime.UtcNow.AddDays(-30);
+            retry.DateAdded = DateTime.UtcNow.AddYears(-1);
+            var fresh = await SeedBook("Fresh", isbn: "9780000000002");
+            await Context.SaveChangesAsync();
+            _mockGoogleBooksClient.SearchBooksByISBNAsync(Arg.Any<string>()).Returns(Results(Volume()));
+
+            var (_, changedIds) = await _service.EnrichBooksWithoutDescriptionsAsync(batchSize: 1, delayBetweenCallsMs: 0);
+
+            changedIds.Should().BeEquivalentTo(new[] { fresh.Id });
+        }
+
+        [Fact]
+        public async Task EnrichBooksWithoutDescriptionsAsync_LookupError_LeavesTheBookDueForTheNextRun()
+        {
+            // A spent daily quota surfaces as an error per book; those books must not be parked for a week.
+            var book = await SeedBook(isbn: "9780123456789");
+            _mockGoogleBooksClient.SearchBooksByISBNAsync("9780123456789").Throws(new Exception("quota"));
+
+            await _service.EnrichBooksWithoutDescriptionsAsync(batchSize: 10, delayBetweenCallsMs: 0);
+
+            Context.Books.First(b => b.Id == book.Id).LastEnrichmentAttemptAt.Should().BeNull();
+            (await _service.GetBooksNeedingEnrichmentCountAsync()).Should().Be(1);
+        }
+
+        [Fact]
+        public async Task EnrichBookByIdAsync_IgnoresTheRetryWindowAndStampsTheAttempt()
+        {
+            var book = await SeedBook(isbn: "9780123456789");
+            book.LastEnrichmentAttemptAt = DateTime.UtcNow.AddHours(-1);
+            await Context.SaveChangesAsync();
+            IsbnLookupReturns("9780123456789", Volume());
+
+            var result = await _service.EnrichBookByIdAsync(book.Id);
+
+            result.Success.Should().BeTrue("a single-book request always looks the book up");
+            Context.Books.First(b => b.Id == book.Id).LastEnrichmentAttemptAt.Should().BeAfter(DateTime.UtcNow.AddMinutes(-1));
+        }
+
+        #endregion
     }
 }

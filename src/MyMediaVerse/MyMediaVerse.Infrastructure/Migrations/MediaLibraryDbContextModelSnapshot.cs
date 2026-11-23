@@ -760,6 +760,9 @@ namespace MyMediaVerse.Infrastructure.Migrations
                         .HasMaxLength(17)
                         .HasColumnType("character varying(17)");
 
+                    b.Property<DateTime?>("LastEnrichmentAttemptAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("MyReview")
                         .HasMaxLength(10000)
                         .HasColumnType("character varying(10000)");

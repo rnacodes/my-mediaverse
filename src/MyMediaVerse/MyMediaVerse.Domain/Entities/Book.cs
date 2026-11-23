@@ -100,6 +100,13 @@ namespace MyMediaVerse.Domain.Entities
         public DateTime? EnrichedAt { get; set; }
 
         /// <summary>
+        /// UTC timestamp of the last Google Books lookup that got an answer (a match or a miss).
+        /// Used to space out retries for books Google has no description for, so they don't hold
+        /// the front of the enrichment queue. Lookups that error out leave it unchanged.
+        /// </summary>
+        public DateTime? LastEnrichmentAttemptAt { get; set; }
+
+        /// <summary>
         /// Navigation property: Highlights associated with this book
         /// </summary>
         public ICollection<Highlight> Highlights { get; set; } = new List<Highlight>();
