@@ -34,6 +34,23 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
             && ((b.ISBN != null && b.ISBN != "")
                 || (b.Title != "" && b.Author != "" && b.Author != UnknownAuthor));
 
+        /// <summary>
+        /// Days a book Google Books had no description for waits before it is looked up again.
+        /// </summary>
+        public const int RetryAfterDays = 7;
+
+        /// <summary>
+        /// Needs enrichment, and either never looked up or last looked up long enough ago to be
+        /// worth another try. Without the retry window, books Google has no description for would
+        /// be retried first on every run and stall the queue.
+        /// </summary>
+        private static IQueryable<Book> Eligible(IQueryable<Book> books, DateTime now)
+        {
+            var retryCutoff = now.AddDays(-RetryAfterDays);
+            return books.Where(NeedsEnrichment)
+                .Where(b => b.LastEnrichmentAttemptAt == null || b.LastEnrichmentAttemptAt < retryCutoff);
+        }
+
         private readonly IApplicationDbContext _context;
         private readonly IGoogleBooksApiClient _googleBooksClient;
         private readonly ILogger<BookDescriptionEnrichmentService> _logger;
@@ -51,7 +68,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
         /// <inheritdoc />
         public async Task<int> GetBooksNeedingEnrichmentCountAsync()
         {
-            return await _context.Books.Where(NeedsEnrichment).CountAsync();
+            return await Eligible(_context.Books, DateTime.UtcNow).CountAsync();
         }
 
         /// <inheritdoc />
@@ -75,9 +92,11 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
 
             try
             {
-                var booksToEnrich = await _context.Books
-                    .Where(NeedsEnrichment)
-                    .OrderBy(b => b.DateAdded) // Process oldest first
+                // Never-looked-up books first, then the longest-waiting retries, oldest added first.
+                var booksToEnrich = await Eligible(_context.Books, result.StartedAt)
+                    .OrderBy(b => b.LastEnrichmentAttemptAt.HasValue)
+                    .ThenBy(b => b.LastEnrichmentAttemptAt)
+                    .ThenBy(b => b.DateAdded)
                     .Take(batchSize)
                     .ToListAsync(cancellationToken);
 
@@ -104,6 +123,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                     try
                     {
                         var outcome = await TryEnrichAsync(book, cancellationToken);
+                        book.LastEnrichmentAttemptAt = DateTime.UtcNow;
 
                         switch (outcome.Status)
                         {
@@ -113,7 +133,7 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                                 _logger.LogDebug("Enriched {Title}: filled {Fields}", book.Title, string.Join(", ", outcome.FilledFields));
                                 break;
                             case EnrichStatus.NotFound:
-                                // Left null on purpose so the book is retried if Google Books gains the data later.
+                                // Left null on purpose so the book is retried (after RetryAfterDays) if Google Books gains the data later.
                                 result.NotFoundCount++;
                                 if (outcome.FilledFields.Count > 0) enrichedIds.Add(book.Id);
                                 _logger.LogDebug("No description found for: {Title}", book.Title);
@@ -208,16 +228,15 @@ namespace MyMediaVerse.Infrastructure.Services.Enrichment
                         return result;
 
                     case EnrichStatus.NotFound:
-                        // Ids may still have been filled from a volume without a description.
-                        if (outcome.FilledFields.Count > 0)
-                        {
-                            await _context.SaveChangesAsync(cancellationToken);
-                        }
+                        // Saves the attempt stamp, plus any ids filled from a volume without a description.
+                        book.LastEnrichmentAttemptAt = DateTime.UtcNow;
+                        await _context.SaveChangesAsync(cancellationToken);
                         result.ErrorMessage = "No description found in Google Books for this book";
                         _logger.LogInformation("No description found for: {Title}", book.Title);
                         return result;
 
                     case EnrichStatus.Enriched:
+                        book.LastEnrichmentAttemptAt = DateTime.UtcNow;
                         await _context.SaveChangesAsync(cancellationToken);
                         result.Success = true;
                         result.Description = book.Description;
