@@ -212,6 +212,36 @@ namespace MyMediaVerse.UnitTests.Infrastructure
         }
 
         [Fact]
+        public void Note_EmbeddingSource_CapsLongContentButKeepsFullContentField()
+        {
+            var longContent = new string('a', ObsidianNoteDocument.MaxEmbeddingContentLength + 5_000);
+            var doc = new ObsidianNoteDocument
+            {
+                Id = "1", Slug = "s", Title = "T", VaultName = "general",
+                Content = longContent
+            };
+
+            doc.EmbeddingSource.Should().Be(
+                "T\n" + new string('a', ObsidianNoteDocument.MaxEmbeddingContentLength) + "\ngeneral");
+            doc.Content.Should().HaveLength(longContent.Length);
+        }
+
+        [Fact]
+        public void Note_EmbeddingSource_DoesNotSplitSurrogatePairAtCap()
+        {
+            // Emoji straddles the cap: its high surrogate would be the last kept char.
+            var content = new string('a', ObsidianNoteDocument.MaxEmbeddingContentLength - 1) + "😀" + "tail";
+            var doc = new ObsidianNoteDocument
+            {
+                Id = "1", Slug = "s", Title = "T", VaultName = "general",
+                Content = content
+            };
+
+            doc.EmbeddingSource.Should().Be(
+                "T\n" + new string('a', ObsidianNoteDocument.MaxEmbeddingContentLength - 1) + "\ngeneral");
+        }
+
+        [Fact]
         public void Highlight_EmbeddingSource_IsIndependentOfTagOrder()
         {
             var a = new HighlightDocument

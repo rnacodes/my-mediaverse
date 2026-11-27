@@ -83,15 +83,37 @@ namespace MyMediaVerse.Infrastructure.Models
         /// on write; ignored when search hits are deserialized back (no setter).
         /// Tags are sorted so an unchanged note always produces a byte-identical string; that lets
         /// Typesense skip re-embedding (and the paid embedding call) when nothing changed.
+        /// Long notes have their content cut to <see cref="MaxEmbeddingContentLength"/> characters:
+        /// the embedding model rejects inputs over its token limit, and one oversized note fails
+        /// its whole embedding batch. The cut is deterministic, so the string stays byte-stable.
+        /// Keyword search still uses the full <see cref="Content"/>.
         /// </summary>
         [JsonPropertyName("embedding_source")]
         public string EmbeddingSource => string.Join("\n", new[]
         {
             Title,
             Description,
-            Content,
+            TruncateForEmbedding(Content),
             Tags.Count > 0 ? string.Join(", ", Tags.OrderBy(t => t, StringComparer.Ordinal)) : null,
             VaultName,
         }.Where(s => !string.IsNullOrWhiteSpace(s)));
+
+        /// <summary>
+        /// Maximum number of content characters fed to the embedding model (about 4k tokens of
+        /// English text, well under the model's 8,192-token input limit).
+        /// </summary>
+        public const int MaxEmbeddingContentLength = 16_000;
+
+        private static string? TruncateForEmbedding(string? content)
+        {
+            if (content is null || content.Length <= MaxEmbeddingContentLength)
+                return content;
+
+            var length = MaxEmbeddingContentLength;
+            // Never split a surrogate pair (e.g. an emoji) in half.
+            if (char.IsHighSurrogate(content[length - 1]))
+                length--;
+            return content[..length];
+        }
     }
 }
