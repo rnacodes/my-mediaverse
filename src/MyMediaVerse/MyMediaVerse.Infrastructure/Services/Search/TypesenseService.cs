@@ -666,8 +666,10 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                         _mediaCollectionName,
                         documents,
                         40, // Batch size
-                        ImportType.Upsert
+                        ImportType.Upsert,
+                        returnId: true // so a rejected document can be named in the log
                     );
+                    LogImportFailures(_mediaCollectionName, importResults);
 
                     successCount = importResults.Count(r => r.Success);
                     var failureCount = importResults.Count(r => !r.Success);
@@ -677,11 +679,6 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                         successCount,
                         failureCount
                     );
-
-                    if (failureCount > 0)
-                    {
-                        _logger.LogWarning("Some documents failed to index. Check Typesense logs for details.");
-                    }
                 }
 
                 // Remove any indexed documents whose source rows no longer exist in Postgres so
@@ -748,8 +745,11 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     _mediaCollectionName,
                     documents,
                     40, // Batch size
-                    ImportType.Upsert
+                    ImportType.Upsert,
+                    returnId: true // so a rejected document can be named in the log
                 );
+
+                LogImportFailures(_mediaCollectionName, importResults);
 
                 var successCount = importResults.Count(r => r.Success);
                 var failureCount = importResults.Count(r => !r.Success);
@@ -759,11 +759,6 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                     successCount,
                     failureCount
                 );
-
-                if (failureCount > 0)
-                {
-                    _logger.LogWarning("Some documents failed to index. Check Typesense logs for details.");
-                }
 
                 return successCount;
             }
@@ -1291,8 +1286,10 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                         _mixlistCollectionName,
                         documents,
                         40, // Batch size
-                        ImportType.Upsert
+                        ImportType.Upsert,
+                        returnId: true // so a rejected document can be named in the log
                     );
+                    LogImportFailures(_mixlistCollectionName, importResults);
 
                     successCount = importResults.Count(r => r.Success);
                     var failureCount = importResults.Count(r => !r.Success);
@@ -1302,11 +1299,6 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                         successCount,
                         failureCount
                     );
-
-                    if (failureCount > 0)
-                    {
-                        _logger.LogWarning("Some mixlist documents failed to index. Check Typesense logs for details.");
-                    }
                 }
 
                 // Remove any indexed documents whose source rows no longer exist in Postgres so
@@ -1431,6 +1423,42 @@ namespace MyMediaVerse.Infrastructure.Services.Search
         // ============================================
         // Obsidian Notes collection methods
         // ============================================
+
+        /// <summary>
+        /// Logs each document a bulk import rejected, with Typesense's reason, so a failure count
+        /// in the summary line can be traced to specific documents. Only the document id is logged,
+        /// never the document body (notes can be very large).
+        /// </summary>
+        private void LogImportFailures(string collectionName, IEnumerable<ImportResponse> importResults)
+        {
+            const int maxLogged = 25;
+            const int maxErrorLength = 500;
+
+            var failures = importResults.Where(r => !r.Success).ToList();
+            foreach (var failure in failures.Take(maxLogged))
+            {
+                var error = failure.Error ?? "(no error message)";
+                if (error.Length > maxErrorLength)
+                {
+                    error = error[..maxErrorLength] + "…";
+                }
+
+                _logger.LogWarning(
+                    "Typesense rejected document {DocumentId} in '{CollectionName}': {Error}",
+                    failure.Id ?? "(unknown id)",
+                    collectionName,
+                    error);
+            }
+
+            if (failures.Count > maxLogged)
+            {
+                _logger.LogWarning(
+                    "{MoreCount} more documents were rejected in '{CollectionName}' (only the first {MaxLogged} are logged per batch).",
+                    failures.Count - maxLogged,
+                    collectionName,
+                    maxLogged);
+            }
+        }
 
         /// <summary>
         /// Ensures the obsidian_notes collection exists with proper schema.
@@ -1635,8 +1663,10 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                         _notesCollectionName,
                         documents,
                         40,
-                        ImportType.Upsert
+                        ImportType.Upsert,
+                        returnId: true // so a rejected document can be named in the log
                     );
+                    LogImportFailures(_notesCollectionName, importResults);
 
                     successCount += importResults.Count(r => r.Success);
                     failureCount += importResults.Count(r => !r.Success);
@@ -2450,8 +2480,10 @@ namespace MyMediaVerse.Infrastructure.Services.Search
                         _highlightsCollectionName,
                         documents,
                         40,
-                        ImportType.Upsert
+                        ImportType.Upsert,
+                        returnId: true // so a rejected document can be named in the log
                     );
+                    LogImportFailures(_highlightsCollectionName, importResults);
 
                     successCount += importResults.Count(r => r.Success);
                     failureCount += importResults.Count(r => !r.Success);
